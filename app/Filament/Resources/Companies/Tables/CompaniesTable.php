@@ -21,7 +21,7 @@ class CompaniesTable
                 ImageColumn::make('logo')
                     ->label(__('organization.companies.fields.logo'))
                     ->circular()
-                    ->state(fn ($record) => $record->logo ? asset('storage/' . $record->logo) : null)
+                    ->disk('public')
                     ->defaultImageUrl(fn ($record) => 'https://ui-avatars.com/api/?name=' . urlencode(mb_substr($record->trade_name ?? 'C', 0, 2)) . '&background=1a4478&color=ffffff'),
 
                 TextColumn::make('company_number')

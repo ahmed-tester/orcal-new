@@ -246,6 +246,25 @@ class OfferForm
 
                         Toggle::make('show_stamp')
                             ->label(__('offers.fields.show_stamp'))
+                            ->helperText(function (callable $get) {
+                                $companyId = $get('company_id') ?? \App\Services\CompanyFormService::getDefaultCompanyId();
+                                if ($companyId && ($company = \App\Models\Company::find($companyId))) {
+                                    if ($company->stamp) {
+                                        $stampUrl = asset('storage/' . $company->stamp);
+                                        return new \Illuminate\Support\HtmlString(
+                                            '<div style="margin-top: 6px; display: flex; align-items: center; gap: 8px;">' .
+                                            '<img src="' . e($stampUrl) . '" style="max-height: 48px; max-width: 90px; border: 1px dashed #2377c3; border-radius: 6px; padding: 2px; background: #fff;" />' .
+                                            '<span style="color: #16a34a; font-weight: 500; font-size: 11px;">✓ سيتم إدراج الختم المرفوع أعلاه في ملف الطباعة</span>' .
+                                            '</div>'
+                                        );
+                                    }
+                                    return new \Illuminate\Support\HtmlString(
+                                        '<span style="color: #d97706; font-size: 11px;">⚠️ لا يوجد ختم رسمي مرفوع لهذه المنشأة (سيظهر ختم إلكتروني بديل)</span>'
+                                    );
+                                }
+                                return 'إظهار الختم الرسمي في ملف الطباعة والـ PDF';
+                            })
+                            ->live()
                             ->default(true)
                             ->inline(false),
                     ]),
