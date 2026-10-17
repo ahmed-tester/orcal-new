@@ -302,6 +302,14 @@
                         $logoFile = $possiblePath;
                     }
                 }
+
+                $stampFile = null;
+                if ($offer->company?->stamp) {
+                    $possibleStamp = storage_path('app/public/' . $offer->company->stamp);
+                    if (file_exists($possibleStamp)) {
+                        $stampFile = $possibleStamp;
+                    }
+                }
             @endphp
 
             @if($logoFile)
@@ -493,13 +501,17 @@
 
                 @if($offer->show_stamp)
                 <div style="margin-top: 6px;">
-                    <table style="margin: 0 auto; border: 2px solid #2377c3; border-radius: 28px; border-collapse: separate; padding: 4px 12px; text-align: center; color: #2377c3; font-weight: bold;">
-                        <tr><td style="font-size: 8.5pt; text-align: center; color: #2377c3; padding: 1px 4px; border-bottom: 1px dashed #2377c3;">★ {{ $offer->company?->trade_name }} ★</td></tr>
-                        @if($offer->company?->commercial_registration_number)
-                        <tr><td style="font-size: 8pt; text-align: center; color: #2377c3; padding: 2px 4px;">س . ت {{ $offer->company->commercial_registration_number }}</td></tr>
-                        @endif
-                        <tr><td style="font-size: 7.5pt; text-align: center; color: #2377c3; padding: 1px 4px; border-top: 1px dashed #2377c3;">{{ $offer->company?->address ?? 'المملكة العربية السعودية' }}</td></tr>
-                    </table>
+                    @if($stampFile)
+                        <img src="{{ $stampFile }}" style="max-height: 85px; max-width: 150px; margin: 0 auto; display: block;">
+                    @else
+                        <table style="margin: 0 auto; border: 2px solid #2377c3; border-radius: 28px; border-collapse: separate; padding: 4px 12px; text-align: center; color: #2377c3; font-weight: bold;">
+                            <tr><td style="font-size: 8.5pt; text-align: center; color: #2377c3; padding: 1px 4px; border-bottom: 1px dashed #2377c3;">{{ $offer->company?->trade_name }}</td></tr>
+                            @if($offer->company?->commercial_registration_number)
+                            <tr><td style="font-size: 8pt; text-align: center; color: #2377c3; padding: 2px 4px;">س . ت {{ $offer->company->commercial_registration_number }}</td></tr>
+                            @endif
+                            <tr><td style="font-size: 7.5pt; text-align: center; color: #2377c3; padding: 1px 4px; border-top: 1px dashed #2377c3;">{{ $offer->company?->address ?? 'المملكة العربية السعودية' }}</td></tr>
+                        </table>
+                    @endif
                 </div>
                 @endif
             </td>
@@ -516,56 +528,61 @@
         </tr>
     </table>
     @else
-    <!-- Single Signature Block for Quotations (توقيع المؤسسة للعروض) -->
-    <table style="width: 100%; border-collapse: collapse;">
+    <!-- Single Signature Block for Quotations: البيانات على اليمين وصورة الختم/التوقيع على الشمال -->
+    <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
         <tr>
-            <td style="width: 55%; vertical-align: top; text-align: right; padding-top: 4px;">
-                <div style="font-size: 11.5pt; font-weight: bold; margin-bottom: 4px; color: #1a4478;">
+            <!-- 1. بيانات المنشأة والتوقيع والمسؤولين (على اليمين في RTL) -->
+            <td style="width: 58%; vertical-align: top; text-align: right; padding-top: 4px;">
+                <div style="font-size: 11.5pt; font-weight: bold; margin-bottom: 22px; padding-bottom: 4px; color: #1a4478;">
                     {{ $offer->company?->trade_name }}
                 </div>
                 
                 @if($offer->manager)
-                <div style="font-size: 10pt; font-weight: bold; margin-bottom: 3px; color: #222;">
+                <div style="font-size: 10pt; font-weight: bold; margin-bottom: 22px; padding-bottom: 4px; color: #222;">
                     {{ $offer->manager->jobTitle?->name ?? 'المدير التنفيذي' }}: {{ $offer->manager->user?->name }}
                 </div>
                 @endif
                 
-                <div style="font-size: 10pt; font-weight: bold; margin-bottom: 5px; color: #111;">
+                <div style="font-size: 10pt; font-weight: bold; margin-bottom: 22px; padding-bottom: 4px; color: #111;">
                     التوقيع: ....................................
                 </div>
                 
                 @if($offer->manager?->user?->phone)
-                <div style="font-size: 9.5pt; font-weight: bold; margin-bottom: 8px; color: #333;">
+                <div style="font-size: 9.5pt; font-weight: bold; margin-bottom: 22px; padding-bottom: 4px; color: #333;">
                     الجوال: {{ $offer->manager->user->phone }}
                 </div>
                 @endif
 
                 @if($offer->supervisor)
-                <div style="margin-top: 6px; margin-bottom: 10px;">
-                    <div style="font-size: 10pt; font-weight: bold; margin-bottom: 3px; color: #222;">
+                <div style="margin-top: 4px;">
+                    <div style="font-size: 10pt; font-weight: bold; margin-bottom: 22px; padding-bottom: 4px; color: #222;">
                         {{ $offer->supervisor->jobTitle?->name ?? 'مشرف المواقع' }}: {{ $offer->supervisor->user?->name }}
                     </div>
                     @if($offer->supervisor->user?->phone)
-                    <div style="font-size: 9pt; color: #444;">
+                    <div style="font-size: 9pt; color: #444; margin-bottom: 6px;">
                         جوال: {{ $offer->supervisor->user->phone }}
                     </div>
                     @endif
                 </div>
                 @endif
+            </td>
 
+            <!-- 2. صورة الختم / التوقيع الرسمي (على الشمال في RTL) -->
+            <td style="width: 42%; vertical-align: middle; text-align: center; padding-top: 4px;">
                 @if($offer->show_stamp)
-                <div style="margin-top: 8px;">
-                    <table style="border: 2px solid #2377c3; border-radius: 28px; border-collapse: separate; padding: 4px 14px; text-align: center; color: #2377c3; font-weight: bold;">
-                        <tr><td style="font-size: 8.5pt; text-align: center; color: #2377c3; font-weight: bold; padding: 1px 4px; border-bottom: 1px dashed #2377c3;">★ {{ $offer->company?->trade_name }} ★</td></tr>
-                        @if($offer->company?->commercial_registration_number)
-                        <tr><td style="font-size: 8pt; text-align: center; color: #2377c3; font-weight: bold; padding: 2px 4px;">س . ت {{ $offer->company->commercial_registration_number }}</td></tr>
-                        @endif
-                        <tr><td style="font-size: 7.5pt; text-align: center; color: #2377c3; font-weight: bold; padding: 1px 4px; border-top: 1px dashed #2377c3;">{{ $offer->company?->address ?? 'المملكة العربية السعودية' }}</td></tr>
-                    </table>
-                </div>
+                    @if($stampFile)
+                        <img src="{{ $stampFile }}" style="max-height: 105px; max-width: 170px; margin: 0 auto; display: block;">
+                    @else
+                        <table style="margin: 0 auto; border: 2px solid #2377c3; border-collapse: collapse; padding: 4px 10px; text-align: center; color: #2377c3; font-weight: bold; width: 150px;">
+                            <tr><td style="font-size: 8.5pt; text-align: center; color: #2377c3; font-weight: bold; padding: 2px 4px; border-bottom: 1px dashed #2377c3;">{{ $offer->company?->trade_name }}</td></tr>
+                            @if($offer->company?->commercial_registration_number)
+                            <tr><td style="font-size: 8pt; text-align: center; color: #2377c3; font-weight: bold; padding: 2px 4px;">س . ت {{ $offer->company->commercial_registration_number }}</td></tr>
+                            @endif
+                            <tr><td style="font-size: 7.5pt; text-align: center; color: #2377c3; font-weight: bold; padding: 2px 4px; border-top: 1px dashed #2377c3;">{{ $offer->company?->address ?? 'المملكة العربية السعودية' }}</td></tr>
+                        </table>
+                    @endif
                 @endif
             </td>
-            <td style="width: 45%;"></td>
         </tr>
     </table>
     @endif

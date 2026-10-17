@@ -187,4 +187,15 @@ class Company extends Model
     {
         return $this->hasMany(ViolationTransaction::class);
     }
+
+    public function getStampAttribute(): ?string
+    {
+        return $this->metadata['stamp'] ?? null;
+    }
+
+    public function getStampUrlAttribute(): ?string
+    {
+        $stamp = $this->stamp;
+        return $stamp ? \Illuminate\Support\Facades\Storage::disk('public')->url($stamp) : null;
+    }
 }

@@ -46,6 +46,7 @@ return [
             'trade_name' => 'Trade Name (Arabic)',
             'trade_name_en' => 'Trade Name (English / Letterhead)',
             'logo' => 'Company Logo (For Letterhead & Contracts)',
+            'stamp' => 'Official Company Stamp (For Contracts & Vouchers)',
             'phone' => 'Phone Number',
             'email' => 'Email Address',
             'address' => 'Headquarters Address (Arabic)',

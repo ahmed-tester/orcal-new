@@ -24,6 +24,11 @@ class ForeignEmployeeResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-globe-alt';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getModelLabel(): string
     {
         return __('employees.foreign_single');

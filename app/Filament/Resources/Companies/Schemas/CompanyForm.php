@@ -28,17 +28,31 @@ class CompanyForm
                     ->icon('heroicon-o-building-office')
                     ->columns(3)
                     ->schema([
-                        FileUpload::make('logo')
-                            ->label(__('organization.companies.fields.logo'))
-                            ->image()
-                            ->directory('companies/logos')
-                            ->disk('public')
-                            ->imageEditor()
-                            ->imagePreviewHeight('160')
-                            ->openable()
-                            ->downloadable()
-                            ->maxSize(\App\Models\Setting::getMaxUploadSizeKb())
-                            ->columnSpanFull(),
+                        Grid::make(2)
+                            ->columnSpanFull()
+                            ->schema([
+                                FileUpload::make('logo')
+                                    ->label(__('organization.companies.fields.logo'))
+                                    ->image()
+                                    ->directory('companies/logos')
+                                    ->disk('public')
+                                    ->imageEditor()
+                                    ->imagePreviewHeight('160')
+                                    ->openable()
+                                    ->downloadable()
+                                    ->maxSize(\App\Models\Setting::getMaxUploadSizeKb()),
+
+                                FileUpload::make('metadata.stamp')
+                                    ->label(__('organization.companies.fields.stamp'))
+                                    ->image()
+                                    ->directory('companies/stamps')
+                                    ->disk('public')
+                                    ->imageEditor()
+                                    ->imagePreviewHeight('160')
+                                    ->openable()
+                                    ->downloadable()
+                                    ->maxSize(\App\Models\Setting::getMaxUploadSizeKb()),
+                            ]),
 
                         TextInput::make('trade_name')
                             ->label(__('organization.companies.fields.trade_name'))

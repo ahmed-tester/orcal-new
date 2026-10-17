@@ -8,7 +8,7 @@ use App\Filament\Resources\SaudiEmployees\Pages\ListSaudiEmployees;
 use App\Filament\Resources\SaudiEmployees\Schemas\SaudiEmployeeForm;
 use App\Filament\Resources\SaudiEmployees\Tables\SaudiEmployeesTable;
 use App\Filament\Traits\HasCompanyScope;
-use App\Models\SaudiEmployee;
+use App\Models\Employee;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -18,7 +18,7 @@ class SaudiEmployeeResource extends Resource
 {
     use HasCompanyScope;
 
-    protected static ?string $model = SaudiEmployee::class;
+    protected static ?string $model = Employee::class;
 
     protected static ?int $navigationSort = 2;
 
@@ -26,17 +26,17 @@ class SaudiEmployeeResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return __('employees.saudi_single');
+        return __('employees.single');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return __('employees.saudi_plural');
+        return __('employees.plural');
     }
 
     public static function getNavigationLabel(): string
     {
-        return __('navigation.saudi_employees');
+        return __('navigation.employees');
     }
 
     public static function getNavigationGroup(): ?string
