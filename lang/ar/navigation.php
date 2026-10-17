@@ -25,6 +25,7 @@ return [
 
     // Group 2: HR
     'job_titles' => 'الإدارة والموظفين',
+    'employees' => 'الموظفون',
     'saudi_employees' => 'الموظفون السعوديون',
     'foreign_employees' => 'الموظفون غير السعوديين',
     'attendance' => 'الحضور والانصراف',
