@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\Resources\OfficialLetters\OfficialLetterResource;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Navigation\NavigationItem;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
@@ -16,6 +17,13 @@ class SystemDocumentationPage extends Page
     protected static ?int $navigationSort = 2;
 
     protected string $view = 'filament.pages.system-documentation';
+
+    public static function getNavigationItems(): array
+    {
+        return collect(parent::getNavigationItems())
+            ->map(fn (NavigationItem $item) => $item->openUrlInNewTab(true))
+            ->all();
+    }
 
     public string $activeGroup = 'letters';
 
