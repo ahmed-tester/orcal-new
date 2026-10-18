@@ -6,6 +6,7 @@ use App\Models\Setting;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -65,47 +66,7 @@ class ManageSettings extends Page implements HasForms
 
     protected function getHeaderActions(): array
     {
-        return [
-            Action::make('reset_database')
-                ->label(__('settings.manage.database_reset.button_label'))
-                ->icon('heroicon-o-trash')
-                ->color('danger')
-                ->visible(fn () => (auth()->user()?->isSuperAdmin() ?? false) || (auth()->user()?->can('reset_database') ?? false))
-                ->requiresConfirmation()
-                ->modalHeading(__('settings.manage.database_reset.modal_heading'))
-                ->modalDescription(__('settings.manage.database_reset.modal_description'))
-                ->modalSubmitActionLabel(__('settings.manage.database_reset.submit_label'))
-                ->form([
-                    Checkbox::make('confirm_reset')
-                        ->label(__('settings.manage.database_reset.checkbox_label'))
-                        ->required()
-                        ->accepted(),
-                ])
-                ->action(function () {
-                    try {
-                        $result = \App\Services\DatabaseResetService::resetDatabase();
-
-                        Notification::make()
-                            ->title(__('settings.manage.database_reset.success_title'))
-                            ->body(__('settings.manage.database_reset.success_body', [
-                                'tables' => $result['truncated_tables_count'],
-                                'admins' => $result['preserved_admins'],
-                            ]))
-                            ->success()
-                            ->duration(10000)
-                            ->send();
-
-                        $this->redirect(static::getUrl());
-                    } catch (\Throwable $e) {
-                        Notification::make()
-                            ->title(__('settings.manage.database_reset.failed_title'))
-                            ->body($e->getMessage())
-                            ->danger()
-                            ->duration(12000)
-                            ->send();
-                    }
-                }),
-        ];
+        return [];
     }
 
     public function mount(): void
@@ -267,6 +228,174 @@ class ManageSettings extends Page implements HasForms
                                         ])->columnSpanFull(),
                                     ]),
                             ]),
+
+                        // 5. Database Reset Tab
+                        Tab::make('database_reset')
+                            ->label(__('settings.manage.database_reset.tab_label'))
+                            ->icon('heroicon-m-trash')
+                            ->visible(fn () => (auth()->user()?->isSuperAdmin() ?? false) || (auth()->user()?->can('reset_database') ?? false))
+                            ->schema([
+                                Section::make(__('settings.manage.database_reset.modular_section_title'))
+                                    ->description(__('settings.manage.database_reset.modular_section_desc'))
+                                    ->icon('heroicon-o-squares-2x2')
+                                    ->schema([
+                                        Grid::make([
+                                            'default' => 1,
+                                            'md' => 2,
+                                            'xl' => 3,
+                                        ])->schema([
+                                            // 1. Finance Module
+                                            Section::make(__('settings.manage.database_reset.modules.finance.title'))
+                                                ->description(__('settings.manage.database_reset.modules.finance.desc'))
+                                                ->icon('heroicon-o-banknotes')
+                                                ->schema([
+                                                    \Filament\Schemas\Components\Actions::make([
+                                                        Action::make('reset_finance')
+                                                            ->label(__('settings.manage.database_reset.modules.finance.button'))
+                                                            ->icon('heroicon-o-trash')
+                                                            ->color('danger')
+                                                            ->requiresConfirmation()
+                                                            ->modalIcon('heroicon-o-exclamation-triangle')
+                                                            ->modalHeading(__('settings.manage.database_reset.modules.finance.modal_heading'))
+                                                            ->modalDescription(__('settings.manage.database_reset.modules.finance.modal_desc'))
+                                                            ->modalSubmitActionLabel(__('settings.manage.database_reset.submit_label'))
+                                                            ->form([
+                                                                Checkbox::make('confirm_finance_reset')
+                                                                    ->label(__('settings.manage.database_reset.modules.finance.checkbox'))
+                                                                    ->required()
+                                                                    ->accepted(),
+                                                            ])
+                                                            ->action(fn () => $this->performModuleReset('finance')),
+                                                    ]),
+                                                ]),
+
+                                            // 2. HR & Employees Module
+                                            Section::make(__('settings.manage.database_reset.modules.hr.title'))
+                                                ->description(__('settings.manage.database_reset.modules.hr.desc'))
+                                                ->icon('heroicon-o-user-group')
+                                                ->schema([
+                                                    \Filament\Schemas\Components\Actions::make([
+                                                        Action::make('reset_hr')
+                                                            ->label(__('settings.manage.database_reset.modules.hr.button'))
+                                                            ->icon('heroicon-o-trash')
+                                                            ->color('danger')
+                                                            ->requiresConfirmation()
+                                                            ->modalIcon('heroicon-o-exclamation-triangle')
+                                                            ->modalHeading(__('settings.manage.database_reset.modules.hr.modal_heading'))
+                                                            ->modalDescription(__('settings.manage.database_reset.modules.hr.modal_desc'))
+                                                            ->modalSubmitActionLabel(__('settings.manage.database_reset.submit_label'))
+                                                            ->form([
+                                                                Checkbox::make('confirm_hr_reset')
+                                                                    ->label(__('settings.manage.database_reset.modules.hr.checkbox'))
+                                                                    ->required()
+                                                                    ->accepted(),
+                                                            ])
+                                                            ->action(fn () => $this->performModuleReset('hr')),
+                                                    ]),
+                                                ]),
+
+                                            // 3. Contracts & Offers Module
+                                            Section::make(__('settings.manage.database_reset.modules.contracts_offers.title'))
+                                                ->description(__('settings.manage.database_reset.modules.contracts_offers.desc'))
+                                                ->icon('heroicon-o-document-text')
+                                                ->schema([
+                                                    \Filament\Schemas\Components\Actions::make([
+                                                        Action::make('reset_contracts_offers')
+                                                            ->label(__('settings.manage.database_reset.modules.contracts_offers.button'))
+                                                            ->icon('heroicon-o-trash')
+                                                            ->color('danger')
+                                                            ->requiresConfirmation()
+                                                            ->modalIcon('heroicon-o-exclamation-triangle')
+                                                            ->modalHeading(__('settings.manage.database_reset.modules.contracts_offers.modal_heading'))
+                                                            ->modalDescription(__('settings.manage.database_reset.modules.contracts_offers.modal_desc'))
+                                                            ->modalSubmitActionLabel(__('settings.manage.database_reset.submit_label'))
+                                                            ->form([
+                                                                Checkbox::make('confirm_contracts_reset')
+                                                                    ->label(__('settings.manage.database_reset.modules.contracts_offers.checkbox'))
+                                                                    ->required()
+                                                                    ->accepted(),
+                                                            ])
+                                                            ->action(fn () => $this->performModuleReset('contracts_offers')),
+                                                    ]),
+                                                ]),
+
+                                            // 4. Tasks & Violations Module
+                                            Section::make(__('settings.manage.database_reset.modules.tasks_violations.title'))
+                                                ->description(__('settings.manage.database_reset.modules.tasks_violations.desc'))
+                                                ->icon('heroicon-o-clipboard-document-check')
+                                                ->schema([
+                                                    \Filament\Schemas\Components\Actions::make([
+                                                        Action::make('reset_tasks_violations')
+                                                            ->label(__('settings.manage.database_reset.modules.tasks_violations.button'))
+                                                            ->icon('heroicon-o-trash')
+                                                            ->color('danger')
+                                                            ->requiresConfirmation()
+                                                            ->modalIcon('heroicon-o-exclamation-triangle')
+                                                            ->modalHeading(__('settings.manage.database_reset.modules.tasks_violations.modal_heading'))
+                                                            ->modalDescription(__('settings.manage.database_reset.modules.tasks_violations.modal_desc'))
+                                                            ->modalSubmitActionLabel(__('settings.manage.database_reset.submit_label'))
+                                                            ->form([
+                                                                Checkbox::make('confirm_tasks_reset')
+                                                                    ->label(__('settings.manage.database_reset.modules.tasks_violations.checkbox'))
+                                                                    ->required()
+                                                                    ->accepted(),
+                                                            ])
+                                                            ->action(fn () => $this->performModuleReset('tasks_violations')),
+                                                    ]),
+                                                ]),
+
+                                            // 5. Loan Funds & ROSCA Module
+                                            Section::make(__('settings.manage.database_reset.modules.funds_rosca.title'))
+                                                ->description(__('settings.manage.database_reset.modules.funds_rosca.desc'))
+                                                ->icon('heroicon-o-arrows-right-left')
+                                                ->schema([
+                                                    \Filament\Schemas\Components\Actions::make([
+                                                        Action::make('reset_funds_rosca')
+                                                            ->label(__('settings.manage.database_reset.modules.funds_rosca.button'))
+                                                            ->icon('heroicon-o-trash')
+                                                            ->color('danger')
+                                                            ->requiresConfirmation()
+                                                            ->modalIcon('heroicon-o-exclamation-triangle')
+                                                            ->modalHeading(__('settings.manage.database_reset.modules.funds_rosca.modal_heading'))
+                                                            ->modalDescription(__('settings.manage.database_reset.modules.funds_rosca.modal_desc'))
+                                                            ->modalSubmitActionLabel(__('settings.manage.database_reset.submit_label'))
+                                                            ->form([
+                                                                Checkbox::make('confirm_funds_reset')
+                                                                    ->label(__('settings.manage.database_reset.modules.funds_rosca.checkbox'))
+                                                                    ->required()
+                                                                    ->accepted(),
+                                                            ])
+                                                            ->action(fn () => $this->performModuleReset('funds_rosca')),
+                                                    ]),
+                                                ]),
+
+                                            // 6. Companies & Clients Module
+                                            Section::make(__('settings.manage.database_reset.modules.companies_clients.title'))
+                                                ->description(__('settings.manage.database_reset.modules.companies_clients.desc'))
+                                                ->icon('heroicon-o-building-office-2')
+                                                ->schema([
+                                                    \Filament\Schemas\Components\Actions::make([
+                                                        Action::make('reset_companies_clients')
+                                                            ->label(__('settings.manage.database_reset.modules.companies_clients.button'))
+                                                            ->icon('heroicon-o-trash')
+                                                            ->color('danger')
+                                                            ->requiresConfirmation()
+                                                            ->modalIcon('heroicon-o-exclamation-triangle')
+                                                            ->modalHeading(__('settings.manage.database_reset.modules.companies_clients.modal_heading'))
+                                                            ->modalDescription(__('settings.manage.database_reset.modules.companies_clients.modal_desc'))
+                                                            ->modalSubmitActionLabel(__('settings.manage.database_reset.submit_label'))
+                                                            ->form([
+                                                                Checkbox::make('confirm_companies_reset')
+                                                                    ->label(__('settings.manage.database_reset.modules.companies_clients.checkbox'))
+                                                                    ->required()
+                                                                    ->accepted(),
+                                                            ])
+                                                            ->action(fn () => $this->performModuleReset('companies_clients')),
+                                                    ]),
+                                                ]),
+                                        ]),
+                                    ]),
+                            ]),
                     ])
                     ->persistTab()
                     ->columnSpanFull(),
@@ -402,6 +531,74 @@ class ManageSettings extends Page implements HasForms
         }
 
         return $rawError;
+    }
+
+    /**
+     * Wipe all operational database records while preserving admin users and settings.
+     */
+    public function performDatabaseReset(): void
+    {
+        if (!((auth()->user()?->isSuperAdmin() ?? false) || (auth()->user()?->can('reset_database') ?? false))) {
+            abort(403);
+        }
+
+        try {
+            $result = \App\Services\DatabaseResetService::resetDatabase();
+
+            Notification::make()
+                ->title(__('settings.manage.database_reset.success_title'))
+                ->body(__('settings.manage.database_reset.success_body', [
+                    'tables' => $result['truncated_tables_count'],
+                    'admins' => $result['preserved_admins'],
+                ]))
+                ->success()
+                ->duration(10000)
+                ->send();
+
+            $this->redirect(static::getUrl());
+        } catch (\Throwable $e) {
+            Notification::make()
+                ->title(__('settings.manage.database_reset.failed_title'))
+                ->body($e->getMessage())
+                ->danger()
+                ->duration(12000)
+                ->send();
+        }
+    }
+
+    /**
+     * Wipe specific module operational records while preserving other data.
+     */
+    public function performModuleReset(string $moduleKey): void
+    {
+        if (!((auth()->user()?->isSuperAdmin() ?? false) || (auth()->user()?->can('reset_database') ?? false))) {
+            abort(403);
+        }
+
+        try {
+            $result = \App\Services\DatabaseResetService::resetModule($moduleKey);
+
+            $moduleName = __('settings.manage.database_reset.modules.' . $moduleKey . '.title');
+
+            Notification::make()
+                ->title(__('settings.manage.database_reset.module_success_title', ['module' => $moduleName]))
+                ->body(__('settings.manage.database_reset.module_success_body', [
+                    'module' => $moduleName,
+                    'tables' => $result['truncated_tables_count'],
+                ]))
+                ->success()
+                ->duration(8000)
+                ->send();
+
+            $this->redirect(static::getUrl());
+        } catch (\Throwable $e) {
+            Notification::make()
+                ->title(__('settings.manage.database_reset.failed_title'))
+                ->body($e->getMessage())
+                ->danger()
+                ->duration(12000)
+                ->send();
+        }
     }
 }
 
