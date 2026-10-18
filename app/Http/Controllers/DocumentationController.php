@@ -8,7 +8,19 @@ class DocumentationController extends Controller
 {
     public function index()
     {
-        $modules = [
+        $modules = self::getModules();
+        $totalModules = count($modules);
+        $totalResources = 0;
+        foreach ($modules as $mod) {
+            $totalResources += count($mod['resources']);
+        }
+
+        return view('documentation.index', compact('modules', 'totalModules', 'totalResources'));
+    }
+
+    public static function getModules(): array
+    {
+        return [
             'structure' => [
                 'title' => 'الهيكل المؤسسي والصلاحيات',
                 'description' => 'إدارة الكيانات والشركات، الفروع، الملاك، وحسابات وصلاحيات مستخدمي النظام.',
@@ -613,15 +625,31 @@ class DocumentationController extends Controller
                     ],
                 ],
             ],
+            'official_letters' => [
+                'title' => 'الخطابات والمراسلات الرسمية',
+                'description' => 'إصدار وطباعة الخطابات والمراسلات الإدارية الرسمية بمحرر نصوص متطور وتصميم مطابق لهوية العقود.',
+                'icon' => 'envelope-open',
+                'resources' => [
+                    [
+                        'id' => 'official-letters',
+                        'name' => 'الخطابات الرسمية (Official Letters)',
+                        'filament_url' => '/official-letters',
+                        'badge' => 'المراسلات الإدارية',
+                        'badge_color' => 'sky',
+                        'purpose' => 'إنشاء وإدارة وطباعة الخطابات والتعاميم والمراسلات الرسمية الموجهة للجهات الحكومية والخاصة.',
+                        'features' => [
+                            'سحب بيانات وهوية المنشأة تلقائياً (الشعار، الختم، السجل التجاري، والرقم الضريبي).',
+                            'توليد رقم مرجعي تسلسلي تلقائي (LTR-XXXX).',
+                            'محرر نصوص غني ومتطور يتيح تنسيق الخطاب وإدراج الجداول والقوائم بحرية تامة.',
+                            'معاينة وطباعة الخطاب بصيغة PDF مدمجة ومطابقة لتصميم وهوية عروض الأسعار والعقود.',
+                            'إخفاء الأرقام الداخلية والحالة من الخطاب المطبوع ليكون جاهزاً للإرسال الخارجي.',
+                            'تحميل الخطاب كملف PDF بضغطة زر واحدة.',
+                        ],
+                        'relationships' => 'ترتبط بالمنشأة (Company) لسحب الشعار، الختم، والبيانات الرسمية.',
+                        'scope' => 'معزولة حسب صلاحيات المنشأة للمستخدم.',
+                    ],
+                ],
+            ],
         ];
-
-        // Summary statistics
-        $totalModules = count($modules);
-        $totalResources = 0;
-        foreach ($modules as $mod) {
-            $totalResources += count($mod['resources']);
-        }
-
-        return view('documentation.index', compact('modules', 'totalModules', 'totalResources'));
     }
 }

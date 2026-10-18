@@ -97,7 +97,8 @@ return [
     'rosca_fund_policy' => 'شروط ولوائح الجمعية',
 
     // Group 10: Support
-    'tickets' => 'تذاكر الدعم الفني',
+    'tickets'              => 'تذاكر الدعم الفني',
+    'system_documentation' => 'دليل وشرح أقسام النظام',
 
     // Group 11: Official Letters
     'official_letters' => 'الخطابات الرسمية',
