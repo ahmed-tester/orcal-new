@@ -21,10 +21,10 @@ class ServiceForm
                     ->columns(2)
                     ->schema([
                         \Filament\Forms\Components\ToggleButtons::make('scope_type')
-                            ->label('نوع نطاق الخدمة')
+                            ->label(__('services.scope_type'))
                             ->options([
-                                'general' => 'خدمة عامة لكافة المنشآت (تسجيل حر / غير مربوطة بمنشأة وتظهر للكل)',
-                                'company' => 'خدمة مخصصة لمنشأة محددة (ربط بالمنشأة)',
+                                'general' => __('services.scope_general'),
+                                'company' => __('services.scope_company'),
                             ])
                             ->icons([
                                 'general' => 'heroicon-m-globe-alt',
@@ -58,15 +58,19 @@ class ServiceForm
                             ->dehydrateStateUsing(fn ($state, callable $get) => ($get('scope_type') ?? 'general') === 'general' ? null : $state),
 
                         TextInput::make('beneficiary_name')
-                            ->label('اسم المستفيد / العميل (اختياري - تسجيل حر)')
-                            ->placeholder('أدخل اسم المستفيد إن وجد أو اتركه فارغاً...')
+                            ->label(__('services.beneficiary_name'))
+                            ->placeholder(__('services.beneficiary_placeholder'))
                             ->maxLength(255)
                             ->visible(fn (callable $get) => ($get('scope_type') ?? 'general') === 'general'),
 
                         TextInput::make('name')
                             ->label(__('services.fields.name'))
-                            ->placeholder('مثال: تجديد إقامة، استخراج تأشيرة، رخصة عمل...')
+                            ->placeholder(__('services.name_placeholder'))
                             ->required()
+                            ->unique(\App\Models\Service::class, 'name', ignoreRecord: true, modifyRuleUsing: function ($rule, callable $get) {
+                                $cid = $get('company_id');
+                                return $cid ? $rule->where('company_id', $cid) : $rule;
+                            })
                             ->maxLength(255),
 
                         Select::make('target_type')
@@ -74,7 +78,7 @@ class ServiceForm
                             ->options([
                                 'company'  => __('services_tracking.toggle_options.target_company'),
                                 'employee' => __('services_tracking.toggle_options.target_employee'),
-                                'general'  => 'عام',
+                                'general'  => __('services.general'),
                             ])
                             ->default('general')
                             ->required(),

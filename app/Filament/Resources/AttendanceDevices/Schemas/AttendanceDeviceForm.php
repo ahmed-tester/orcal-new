@@ -43,6 +43,10 @@ class AttendanceDeviceForm
                             ->placeholder(__('attendance_devices.placeholders.code'))
                             ->helperText(__('attendance_devices.fields.code_helper'))
                             ->required()
+                            ->unique(\App\Models\AttendanceDevice::class, 'code', ignoreRecord: true, modifyRuleUsing: function ($rule, callable $get) {
+                                $cid = $get('company_id');
+                                return $cid ? $rule->where('company_id', $cid) : $rule;
+                            })
                             ->maxLength(255),
 
                         TextInput::make('model')

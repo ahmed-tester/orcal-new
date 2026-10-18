@@ -21,7 +21,6 @@ class UserForm
             ->components([
                 Grid::make(['default' => 1, 'lg' => 2])
                     ->schema([
-                        // 1. Basic Account Information
                         Section::make(__('admin.account_information'))
                             ->schema([
                                 TextInput::make('name')
@@ -59,7 +58,6 @@ class UserForm
                                     ->default(true),
                             ]),
 
-                        // 2. Security & Password
                         Section::make(__('admin.security_and_password'))
                             ->schema([
                                 TextInput::make('password')
@@ -83,7 +81,6 @@ class UserForm
                             ]),
                     ]),
 
-                // 3. Roles & Permissions Assignment
                 Section::make(__('admin.roles_and_permissions_assignment'))
                     ->schema([
                         Select::make('roles')

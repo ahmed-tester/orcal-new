@@ -28,4 +28,6 @@ return [
         'active' => 'نشط',
         'inactive' => 'غير نشط',
     ],
+    'edit_title' => 'تعديل بيانات المالك',
+    'deleted_successfully' => 'تم حذف المالك بنجاح',
 ];

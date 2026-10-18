@@ -5,6 +5,7 @@ namespace App\Filament\Resources\LoanFundMembers\Schemas;
 use App\Enums\FundPaymentStatus;
 use App\Models\Employee;
 use App\Models\LoanFund;
+use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -75,9 +76,7 @@ class LoanFundMemberForm
                         TextInput::make('national_id')
                             ->label(__('funds.loan_fund_members.fields.national_id')),
 
-                        TextInput::make('phone')
-                            ->label(__('funds.loan_fund_members.fields.phone'))
-                            ->tel(),
+                        PhoneService::makeFormField('phone', __('funds.loan_fund_members.fields.phone')),
 
                         DatePicker::make('joined_date')
                             ->label(__('funds.loan_fund_members.fields.joined_date'))

@@ -109,4 +109,10 @@ return [
         'specifications'      => 'Detailed technical specifications for the item...',
         'terms'               => "1- First Party Obligations: ...\n2- Second Party Obligations: ...\n3- Payment Schedule: ...",
     ],
+
+    'stamp' => [
+        'uploaded_notice' => '✓ The uploaded official stamp above will be included in the print file',
+        'no_stamp_notice' => '⚠️ No official stamp uploaded for this company (an electronic placeholder will be shown)',
+        'default_helper'  => 'Show official stamp in print and PDF documents',
+    ],
 ];

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\SupervisionShifts\Schemas;
 
 use App\Filament\Components\OrgSelect;
 use App\Models\SaudiEmployee;
+use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
@@ -40,7 +41,7 @@ class SupervisionShiftForm
                             ->label(fn (callable $get) => $get('type') === 'shift' ? __('tasks.supervision_shifts.form.supervisor_shift_label') : __('tasks.supervision_shifts.form.supervisor_supervision_label'))
                             ->placeholder(__('tasks.supervision_shifts.placeholders.supervisor_select'))
                             ->options(fn () => SaudiEmployee::with(['user', 'jobTitle'])->get()->mapWithKeys(function ($emp) {
-                                $name = $emp->user?->name ?? "موظف #{$emp->id}";
+                                $name = $emp->user?->name ?? (__('employees.single') . " #{$emp->id}");
                                 $job = $emp->jobTitle?->name ? " [{$emp->jobTitle->name}]" : '';
                                 $code = $emp->employee_number ? " ({$emp->employee_number})" : '';
                                 return [$emp->id => "{$name}{$job}{$code}"];
@@ -101,8 +102,7 @@ class SupervisionShiftForm
                             ->disabled()
                             ->dehydrated(false),
 
-                        TextInput::make('supervisor_phone')
-                            ->label(__('tasks.supervision_shifts.fields.supervisor_phone'))
+                        PhoneService::makeFormField('supervisor_phone', __('tasks.supervision_shifts.fields.supervisor_phone'))
                             ->placeholder(__('tasks.supervision_shifts.form.auto_fetched'))
                             ->disabled()
                             ->dehydrated(false),
@@ -117,7 +117,7 @@ class SupervisionShiftForm
                             ->label(fn (callable $get) => $get('type') === 'shift' ? __('tasks.supervision_shifts.form.assigned_shift_label') : __('tasks.supervision_shifts.form.assigned_supervision_label'))
                             ->placeholder(__('tasks.supervision_shifts.placeholders.assigned_select'))
                             ->options(fn () => SaudiEmployee::with(['user', 'jobTitle'])->get()->mapWithKeys(function ($emp) {
-                                $name = $emp->user?->name ?? "موظف #{$emp->id}";
+                                $name = $emp->user?->name ?? (__('employees.single') . " #{$emp->id}");
                                 $job = $emp->jobTitle?->name ? " [{$emp->jobTitle->name}]" : '';
                                 $code = $emp->employee_number ? " ({$emp->employee_number})" : '';
                                 return [$emp->id => "{$name}{$job}{$code}"];

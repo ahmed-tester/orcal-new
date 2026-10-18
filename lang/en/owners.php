@@ -31,4 +31,6 @@ return [
         'active' => 'Active',
         'inactive' => 'Inactive',
     ],
+    'edit_title' => 'Edit Owner Information',
+    'deleted_successfully' => 'Owner deleted successfully',
 ];

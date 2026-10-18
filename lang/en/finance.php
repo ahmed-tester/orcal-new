@@ -354,6 +354,9 @@ return [
             'executed_by'        => 'Executed By',
             'status'             => 'Installment Status',
         ],
+        'placeholders' => [
+            'monthly_amount_helper' => 'Automatically calculated: (Total − Down Payment) ÷ Months',
+        ],
         'table_heading' => 'Active Installments — :count installments',
     ],
 

@@ -8,6 +8,7 @@ use App\Enums\OfferType;
 use App\Models\ContractCategory;
 use App\Models\Employee;
 use App\Services\ContractTemplateService;
+use App\Services\PhoneService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
@@ -27,15 +28,13 @@ class OfferForm
         return $schema
             ->columns(1)
             ->components([
-
-                // ─── 1. بيانات المستند الأساسية ─────────────────────────────
                 Section::make(__('offers.sections.offer_info'))
                     ->description(__('offers.sections.offer_info_desc'))
                     ->icon('heroicon-o-document-text')
                     ->columns(3)
                     ->schema([
                         Select::make('contract_category_id')
-                            ->label(__('offers.fields.offer_type'))
+                             ->label(__('offers.fields.offer_type'))
                             ->relationship('contractCategory', 'name')
                             ->searchable()
                             ->preload()
@@ -92,9 +91,7 @@ class OfferForm
                                 TextInput::make('commercial_registration_number')
                                     ->label(__('customers.fields.commercial_registration_number') ?? 'C.R. / National ID')
                                     ->maxLength(50),
-                                TextInput::make('phone')
-                                    ->label(__('customers.fields.phone') ?? 'Phone')
-                                    ->tel(),
+                                PhoneService::makeFormField('phone', __('customers.fields.phone') ?? 'Phone'),
                                 TextInput::make('address')
                                     ->label(__('customers.fields.address') ?? 'Address'),
                             ])
@@ -137,7 +134,6 @@ class OfferForm
                             ->columnSpanFull(),
                     ]),
 
-                // ─── 2. جدول البنود والمواصفات والأسعار التفاعلي ───────────────
                 Section::make(__('offers.sections.items'))
                     ->description(__('offers.sections.items_desc'))
                     ->icon('heroicon-o-table-cells')
@@ -202,7 +198,6 @@ class OfferForm
                             ->columnSpanFull(),
                     ]),
 
-                // ─── 3. محرر بنود وشروط العقد والالتزامات ─────────────────────
                 Section::make(__('offers.sections.terms_section'))
                     ->description(__('offers.sections.terms_desc'))
                     ->icon('heroicon-o-shield-check')
@@ -226,7 +221,6 @@ class OfferForm
                             ->columnSpanFull(),
                     ]),
 
-                // ─── 3. المسؤولون والتواقيع والختم ────────────────────────────
                 Section::make(__('offers.sections.responsible'))
                     ->description(__('offers.sections.responsible_desc'))
                     ->icon('heroicon-o-user-group')
@@ -254,22 +248,21 @@ class OfferForm
                                         return new \Illuminate\Support\HtmlString(
                                             '<div style="margin-top: 6px; display: flex; align-items: center; gap: 8px;">' .
                                             '<img src="' . e($stampUrl) . '" style="max-height: 48px; max-width: 90px; border: 1px dashed #2377c3; border-radius: 6px; padding: 2px; background: #fff;" />' .
-                                            '<span style="color: #16a34a; font-weight: 500; font-size: 11px;">✓ سيتم إدراج الختم المرفوع أعلاه في ملف الطباعة</span>' .
+                                            '<span style="color: #16a34a; font-weight: 500; font-size: 11px;">' . e(__('offers.stamp.uploaded_notice')) . '</span>' .
                                             '</div>'
                                         );
                                     }
                                     return new \Illuminate\Support\HtmlString(
-                                        '<span style="color: #d97706; font-size: 11px;">⚠️ لا يوجد ختم رسمي مرفوع لهذه المنشأة (سيظهر ختم إلكتروني بديل)</span>'
+                                        '<span style="color: #d97706; font-size: 11px;">' . e(__('offers.stamp.no_stamp_notice')) . '</span>'
                                     );
                                 }
-                                return 'إظهار الختم الرسمي في ملف الطباعة والـ PDF';
+                                return __('offers.stamp.default_helper');
                             })
                             ->live()
                             ->default(true)
                             ->inline(false),
                     ]),
 
-                // ─── 4. ملاحظات إضافية ─────────────────────────────────────────
                 Section::make(__('offers.sections.notes_section'))
                     ->icon('heroicon-o-chat-bubble-bottom-center-text')
                     ->collapsed()
@@ -282,9 +275,6 @@ class OfferForm
             ]);
     }
 
-    /**
-     * قائمة خيارات الموظفين: اسم الموظف والوظيفة فقط
-     */
     protected static function getEmployeeOptions(mixed $companyId): array
     {
         return Employee::with(['user', 'jobTitle'])

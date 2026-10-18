@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\SaudiEmployees\Pages;
 
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
+use App\Models\User;
 use App\Services\PhoneService;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -37,6 +38,32 @@ class EditSaudiEmployee extends EditRecord
             $data['address'] = $details->address;
             $data['birth_date'] = $details->birth_date?->format('Y-m-d');
             $data['age'] = \App\Services\EmployeeAgeService::calculateAge($details->birth_date);
+        }
+
+        return $data;
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $employee = $this->record;
+        $userId = $employee->user_id;
+
+        if (!empty($data['user_email'])) {
+            $email = trim($data['user_email']);
+            if (User::where('email', $email)->where('id', '!=', $userId)->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'user_email' => __('employees.fields.errors.email_exists'),
+                ]);
+            }
+        }
+
+        if (!empty($data['user_phone'])) {
+            $normalizedPhone = PhoneService::normalize($data['user_phone']);
+            if ($normalizedPhone && User::where('phone', $normalizedPhone)->where('id', '!=', $userId)->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'user_phone' => __('validation.unique', ['attribute' => __('employees.fields.phone')]),
+                ]);
+            }
         }
 
         return $data;

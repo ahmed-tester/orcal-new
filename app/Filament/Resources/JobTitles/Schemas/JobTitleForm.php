@@ -26,7 +26,12 @@ class JobTitleForm
                             ->required(),
 
                         TextInput::make('job_code')
-                            ->label(__('organization.job_titles.fields.job_code')),
+                            ->label(__('organization.job_titles.fields.job_code'))
+                            ->nullable()
+                            ->dehydrateStateUsing(fn ($state) => filled($state) ? trim($state) : null)
+                            ->unique(\App\Models\JobTitle::class, 'job_code', ignoreRecord: true, modifyRuleUsing: function ($rule, callable $get) {
+                                return $rule->where('company_id', $get('company_id'));
+                            }),
 
                         Select::make('parent_id')
                             ->label(__('organization.job_titles.fields.parent'))

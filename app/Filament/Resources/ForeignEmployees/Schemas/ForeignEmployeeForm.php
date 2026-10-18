@@ -32,9 +32,18 @@ class ForeignEmployeeForm
                         TextInput::make('user_email')
                             ->label(__('employees.fields.email'))
                             ->email()
-                            ->required(),
+                            ->required()
+                            ->unique(\App\Models\User::class, 'email', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
+                                return $record?->user_id ? $rule->ignore($record->user_id) : $rule;
+                            }),
 
-                        PhoneService::makeFormField('user_phone', __('employees.fields.phone')),
+                        PhoneService::makeFormField('user_phone', __('employees.fields.phone'))
+                            ->nullable()
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, callable $set) => $set('user_phone', PhoneService::normalize($state) ?? $state))
+                            ->unique(\App\Models\User::class, 'phone', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
+                                return $record?->user_id ? $rule->ignore($record->user_id) : $rule;
+                            }),
 
                         Select::make('nationality')
                             ->label(__('employees.fields.nationality'))
@@ -101,9 +110,6 @@ class ForeignEmployeeForm
                         DatePicker::make('work_permit_expiry')
                             ->label(__('employees.fields.work_permit_expiry'))
                             ->native(false),
-
-                        // TextInput::make('sponsor_name')
-                        //     ->label(__('employees.fields.sponsor_name')),
 
                         DatePicker::make('last_leave_return_date')
                             ->label(__('employees.fields.last_leave_return_date'))

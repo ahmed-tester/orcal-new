@@ -74,13 +74,16 @@ class SaudiEmployeeForm
 
                         TextInput::make('user_name')
                             ->label(__('employees.fields.name'))
-                            ->placeholder('أ. عبدالعزيز بن سالم المطيري')
+                            ->placeholder(__('employees.placeholders.name'))
                             ->required(),
 
                         TextInput::make('user_email')
                             ->label(__('employees.fields.email'))
                             ->email()
-                            ->placeholder('example@orcal.sa'),
+                            ->placeholder('example@orcal.sa')
+                            ->unique(\App\Models\User::class, 'email', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
+                                return $record?->user_id ? $rule->ignore($record->user_id) : $rule;
+                            }),
 
                         TextInput::make('national_id')
                             ->label(__('employees.fields.national_id'))
@@ -88,13 +91,18 @@ class SaudiEmployeeForm
                             ->length(10)
                             ->required(),
 
-                        PhoneService::makeFormField('user_phone', __('employees.fields.phone'), required: true),
+                        PhoneService::makeFormField('user_phone', __('employees.fields.phone'), required: true)
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn ($state, callable $set) => $set('user_phone', PhoneService::normalize($state) ?? $state))
+                            ->unique(\App\Models\User::class, 'phone', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
+                                return $record?->user_id ? $rule->ignore($record->user_id) : $rule;
+                            }),
 
                         ...EmployeeAgeService::makeFormFields(),
 
                         TextInput::make('address')
                             ->label(__('employees.fields.address'))
-                            ->placeholder('الرياض — حي الياسمين'),
+                            ->placeholder(__('employees.placeholders.address')),
 
                         TextInput::make('basic_salary')
                             ->label(__('employees.fields.basic_salary'))
