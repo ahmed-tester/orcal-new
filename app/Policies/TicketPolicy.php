@@ -11,41 +11,36 @@ class TicketPolicy
 
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->isSuperAdmin();
     }
 
     public function view(User $user, Ticket $ticket): bool
     {
-        return $user->can('manage_tickets')
-            || $user->can('view_any_ticket')
-            || $user->id === $ticket->user_id
-            || $user->id === $ticket->assigned_to;
+        return $user->isSuperAdmin();
     }
 
     public function create(User $user): bool
     {
-        return true;
+        return $user->isSuperAdmin();
     }
 
     public function update(User $user, Ticket $ticket): bool
     {
-        return $user->can('manage_tickets')
-            || $user->can('update_ticket')
-            || $user->id === $ticket->user_id;
+        return $user->isSuperAdmin();
     }
 
     public function delete(User $user, Ticket $ticket): bool
     {
-        return $user->can('delete_ticket') || $user->can('manage_tickets');
+        return $user->isSuperAdmin();
     }
 
     public function reply(User $user, Ticket $ticket): bool
     {
-        return $this->view($user, $ticket);
+        return $user->isSuperAdmin();
     }
 
     public function assign(User $user, Ticket $ticket): bool
     {
-        return $user->can('manage_tickets') || $user->can('update_ticket');
+        return $user->isSuperAdmin();
     }
 }

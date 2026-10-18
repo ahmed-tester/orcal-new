@@ -43,6 +43,11 @@ class SystemDocumentationPage extends Page
         return __('navigation.system_documentation');
     }
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->isSuperAdmin() ?? false;
+    }
+
     public function getTitle(): string|Htmlable
     {
         return __('navigation.system_documentation');

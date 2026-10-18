@@ -278,4 +278,40 @@ return [
     'create_faq' => 'إضافة سؤال شائع جديد',
     'update_faq' => 'تعديل سؤال شائع',
     'delete_faq' => 'حذف سؤال شائع',
+
+    // Debts & Collections
+    'view_any_debt' => 'استعراض قائمة الديون العامة',
+    'create_debt' => 'تسجيل دين عام جديد',
+    'update_debt' => 'تعديل بيانات الدين العام',
+    'delete_debt' => 'حذف سجل دين عام',
+
+    'view_any_debt_collection' => 'استعراض تحصيل وسداد الديون',
+    'create_debt_collection' => 'تسجيل سند تحصيل دين',
+    'update_debt_collection' => 'تعديل سند تحصيل دين',
+    'delete_debt_collection' => 'حذف سند تحصيل دين',
+
+    // Service Transactions
+    'view_any_service_transaction' => 'استعراض سجل وسندات الخدمات والمتابعة',
+    'create_service_transaction' => 'إنشاء حركة / معاملة خدمة',
+    'update_service_transaction' => 'تعديل حركة / معاملة خدمة',
+    'delete_service_transaction' => 'حذف حركة / معاملة خدمة',
+
+    // Supervision Shifts
+    'view_any_supervision_shift' => 'استعراض سجل الإشراف والمناوبة',
+    'create_supervision_shift' => 'إضافة مناوبة إشراف جديدة',
+    'update_supervision_shift' => 'تعديل مناوبة إشراف',
+    'delete_supervision_shift' => 'حذف مناوبة إشراف',
+
+    // Official Letters
+    'letters_group' => 'الخطابات والمراسلات الرسمية',
+    'view_any_official_letter' => 'استعراض الخطابات والمراسلات الرسمية',
+    'create_official_letter' => 'إنشاء خطاب رسمي جديد',
+    'update_official_letter' => 'تعديل خطاب رسمي',
+    'delete_official_letter' => 'حذف خطاب رسمي',
+
+    // Loan Fund Member Payments
+    'view_any_loan_fund_member_payment' => 'استعراض كشف اشتراكات سلفني',
+    'create_loan_fund_member_payment' => 'تسجيل اشتراك في سلفني',
+    'update_loan_fund_member_payment' => 'تعديل اشتراك سلفني',
+    'delete_loan_fund_member_payment' => 'حذف اشتراك سلفني',
 ];
