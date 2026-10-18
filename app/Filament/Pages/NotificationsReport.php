@@ -50,7 +50,7 @@ class NotificationsReport extends Page
     public string $category = 'all'; // all, documents, tasks, invoices
     public string $urgency = 'all';   // all, urgent, overdue, upcoming
     public string $search = '';
-    public int $perPage = 15;
+    public int|string $perPage = 20;
 
     // Comprehensive Matrix Filters
     public string $entityFilter = 'all'; // all, companies, employees, or specific id
@@ -70,9 +70,15 @@ class NotificationsReport extends Page
 
     public function updated($propertyName)
     {
-        if (in_array($propertyName, ['category', 'urgency', 'search', 'perPage'])) {
+        if (in_array($propertyName, ['category', 'urgency', 'search', 'perPage', 'entityFilter', 'dateFrom', 'dateTo', 'viewMode'])) {
             $this->resetPage();
         }
+    }
+
+    public function switchViewMode(string $mode)
+    {
+        $this->viewMode = $mode;
+        $this->resetPage();
     }
 
     public function setCategory(string $category)
@@ -92,6 +98,9 @@ class NotificationsReport extends Page
         $this->category = 'all';
         $this->urgency = 'all';
         $this->search = '';
+        $this->entityFilter = 'all';
+        $this->dateFrom = null;
+        $this->dateTo = null;
         $this->resetPage();
     }
 
@@ -293,15 +302,32 @@ class NotificationsReport extends Page
         );
     }
 
+    public function getPaginatedDocumentsMatrixProperty()
+    {
+        $matrix = $this->documentsMatrix;
+        $total = $matrix->count();
+        $perPage = $this->perPage === 'all' ? ($total ?: 20) : (int) $this->perPage;
+        $page = $this->getPage();
+
+        return new \Illuminate\Pagination\LengthAwarePaginator(
+            $this->perPage === 'all' ? $matrix : $matrix->forPage($page, $perPage),
+            $total,
+            $perPage,
+            $page,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
+    }
+
     public function getPaginatedAlertsProperty()
     {
         $alerts = $this->alerts;
+        $total = $alerts->count();
+        $perPage = $this->perPage === 'all' ? ($total ?: 20) : (int) $this->perPage;
         $page = $this->getPage();
-        $perPage = $this->perPage;
 
         return new \Illuminate\Pagination\LengthAwarePaginator(
-            $alerts->forPage($page, $perPage),
-            $alerts->count(),
+            $this->perPage === 'all' ? $alerts : $alerts->forPage($page, $perPage),
+            $total,
             $perPage,
             $page,
             ['path' => request()->url(), 'query' => request()->query()]

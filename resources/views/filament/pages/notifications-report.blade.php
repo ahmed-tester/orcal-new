@@ -396,7 +396,7 @@
 
     @php
         $counts = $this->summaryCounts;
-        $matrixData = $this->documentsMatrix;
+        $matrixData = $this->paginatedDocumentsMatrix;
         $paginatedAlerts = $this->paginatedAlerts;
     @endphp
 
@@ -415,11 +415,11 @@
 
             <!-- View Switcher -->
             <div class="fi-tabs-segmented">
-                <button wire:click="$set('viewMode', 'matrix')" class="fi-tab-item {{ $viewMode === 'matrix' ? 'active' : '' }}">
+                <button wire:click="switchViewMode('matrix')" class="fi-tab-item {{ $viewMode === 'matrix' ? 'active' : '' }}">
                     <span>📊</span>
                     <span>مصفوفة الوثائق</span>
                 </button>
-                <button wire:click="$set('viewMode', 'list')" class="fi-tab-item {{ $viewMode === 'list' ? 'active' : '' }}">
+                <button wire:click="switchViewMode('list')" class="fi-tab-item {{ $viewMode === 'list' ? 'active' : '' }}">
                     <span>🔔</span>
                     <span>سجل التنبيهات ({{ $counts['total'] }})</span>
                 </button>
@@ -570,7 +570,7 @@
                             @if (!$row['is_company'])
                                 <!-- Employee Row -->
                                 <tr>
-                                    <td style="font-weight: 600; color: #94a3b8;">{{ $index + 1 }}</td>
+                                    <td style="font-weight: 600; color: #94a3b8;">{{ ($matrixData->currentPage() - 1) * $matrixData->perPage() + $loop->iteration }}</td>
                                     
                                     <!-- Name & Company -->
                                     <td style="text-align: right; padding-right: 1.1rem;">
@@ -646,7 +646,7 @@
                             @else
                                 <!-- Company Licenses Row (Structured in the exact 4 columns) -->
                                 <tr class="fi-tr-company">
-                                    <td style="font-weight: 700; color: #2563eb;">{{ $index + 1 }}</td>
+                                    <td style="font-weight: 700; color: #2563eb;">{{ ($matrixData->currentPage() - 1) * $matrixData->perPage() + $loop->iteration }}</td>
                                     <td style="text-align: right; padding-right: 1.1rem;">
                                         <div style="font-weight: 700; color: #0f172a; font-size: 0.85rem; display: flex; align-items: center; gap: 0.35rem;" class="dark:text-white">
                                             <span>🏢</span>
@@ -715,6 +715,12 @@
                         @endforelse
                     </tbody>
                 </table>
+
+                @if ($matrixData->total() > 0)
+                    <div style="padding: 0.65rem 1rem; border-top: 1px solid #e2e8f0;" class="dark:border-white/10">
+                        <x-filament::pagination :paginator="$matrixData" :page-options="[10, 20, 50, 100]" current-page-option-property="perPage" />
+                    </div>
+                @endif
             </div>
         @endif
 
@@ -797,9 +803,9 @@
                     </tbody>
                 </table>
 
-                @if ($paginatedAlerts->hasPages())
+                @if ($paginatedAlerts->total() > 0)
                     <div style="padding: 0.65rem 1rem; border-top: 1px solid #e2e8f0;" class="dark:border-white/10">
-                        <x-filament::pagination :paginator="$paginatedAlerts" :page-options="[15, 25, 50, 100]" current-page-option-property="perPage" />
+                        <x-filament::pagination :paginator="$paginatedAlerts" :page-options="[10, 20, 50, 100]" current-page-option-property="perPage" />
                     </div>
                 @endif
             </div>
