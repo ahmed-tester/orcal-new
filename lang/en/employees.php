@@ -84,6 +84,8 @@ return [
         'role_placeholder' => 'Select an administrative role (or leave empty)',
         'password_login' => 'Login Password',
         'password_login_placeholder' => 'Leave empty to keep existing password',
+        'accessible_companies' => 'Accessible Companies',
+        'accessible_companies_helper' => 'Specify assigned companies for this user (e.g. 10 companies for a specific accountant). If left empty and department is global, access to all companies is granted.',
         'errors' => [
             'iqama_exists' => 'This residence (Iqama) number is already registered for another employee.',
             'national_id_exists' => 'This national ID is already registered for another employee.',

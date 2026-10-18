@@ -45,8 +45,9 @@ trait HasCompanyScope
             return static::scopeForBranchUser($query, $user, $instance, $tableName, $modelClass);
         }
 
-        // 5. Staff with general company assignment (including managers with access to all branches)
-        if ($user->company_id) {
+        // 5. Staff with general company assignment (including managers and staff with multi-company access)
+        $accessibleIds = $user->getAccessibleCompanyIds();
+        if (!empty($accessibleIds)) {
             return static::scopeForCompanyStaff($query, $user, $tableName);
         }
 
@@ -62,8 +63,9 @@ trait HasCompanyScope
             return $query->whereIn("{$tableName}.id", $user->getOwnedCompanyIds());
         }
 
-        if ($user->company_id) {
-            return $query->where("{$tableName}.id", $user->company_id);
+        $accessibleIds = $user->getAccessibleCompanyIds();
+        if (!empty($accessibleIds)) {
+            return $query->whereIn("{$tableName}.id", $accessibleIds);
         }
 
         return $query->whereRaw('1 = 0');
@@ -77,6 +79,13 @@ trait HasCompanyScope
         $ownedCompanyIds = $user->getOwnedCompanyIds();
 
         if (static::modelHasColumn($tableName, 'company_id')) {
+            if ($tableName === 'departments') {
+                return $query->where(function ($q) use ($tableName, $ownedCompanyIds) {
+                    $q->whereIn("{$tableName}.company_id", $ownedCompanyIds)
+                      ->orWhereHas('companies', fn ($sub) => $sub->whereIn('companies.id', $ownedCompanyIds))
+                      ->orWhere("{$tableName}.is_global", true);
+                });
+            }
             return $query->whereIn("{$tableName}.company_id", $ownedCompanyIds);
         }
 
@@ -108,12 +117,21 @@ trait HasCompanyScope
     }
 
     /**
-     * Scope records for general staff by company ID.
+     * Scope records for general staff by company IDs.
      */
     protected static function scopeForCompanyStaff(Builder $query, User $user, string $tableName): Builder
     {
+        $allowedIds = $user->getAccessibleCompanyIds();
+
         if (static::modelHasColumn($tableName, 'company_id')) {
-            return $query->where("{$tableName}.company_id", $user->company_id);
+            if ($tableName === 'departments') {
+                return $query->where(function ($q) use ($tableName, $allowedIds) {
+                    $q->whereIn("{$tableName}.company_id", $allowedIds)
+                      ->orWhereHas('companies', fn ($sub) => $sub->whereIn('companies.id', $allowedIds))
+                      ->orWhere("{$tableName}.is_global", true);
+                });
+            }
+            return $query->whereIn("{$tableName}.company_id", $allowedIds);
         }
 
         return $query;

@@ -25,19 +25,7 @@ class CompanyFormService
             return [];
         }
 
-        if ($user->isSuperAdmin()) {
-            return Company::pluck('id')->toArray();
-        }
-
-        if ($user->isOwner()) {
-            return $user->getOwnedCompanyIds();
-        }
-
-        if ($user->company_id) {
-            return [$user->company_id];
-        }
-
-        return [];
+        return $user->getAccessibleCompanyIds();
     }
 
     /**
@@ -191,12 +179,18 @@ class CompanyFormService
 
                 $query = Department::query()->where('status', 'active');
 
-                if ($companyId) {
-                    $query->where('company_id', $companyId);
-                } elseif ($user && !$user->isSuperAdmin()) {
-                    $companyIds = static::getAuthorizedCompanyIds($user);
-                    $query->whereIn('company_id', !empty($companyIds) ? $companyIds : [0]);
-                }
+                $query->where(function ($q) use ($companyId, $user) {
+                    $q->where('is_global', true);
+
+                    if ($companyId) {
+                        $q->orWhere('company_id', $companyId)
+                          ->orWhereHas('companies', fn ($sub) => $sub->where('companies.id', $companyId));
+                    } elseif ($user && !$user->isSuperAdmin()) {
+                        $companyIds = static::getAuthorizedCompanyIds($user);
+                        $q->orWhereIn('company_id', !empty($companyIds) ? $companyIds : [0])
+                          ->orWhereHas('companies', fn ($sub) => $sub->whereIn('companies.id', !empty($companyIds) ? $companyIds : [0]));
+                    }
+                });
 
                 return $query->pluck('name', 'id');
             })

@@ -113,7 +113,12 @@ return [
             'info' => 'Department Information',
         ],
         'fields' => [
-            'company' => 'Company',
+            'company' => 'Assigned Company',
+            'companies' => 'Shared Companies for this Department',
+            'companies_helper' => 'Select the companies covered by this shared department; employees will automatically gain access to them',
+            'is_global' => 'Shared / General Department (Multiple Companies)',
+            'is_global_helper' => 'Enable this option if the department is shared across multiple companies (e.g., Accounting or General Administration)',
+            'global_badge' => 'General / Shared Department',
             'parent' => 'Parent Department',
             'name' => 'Department Name',
             'department_code' => 'Department Code',
