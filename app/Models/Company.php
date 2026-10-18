@@ -143,9 +143,9 @@ class Company extends Model
         return $this->hasMany(Branch::class);
     }
 
-    public function departments(): HasMany
+    public function departments(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
-        return $this->hasMany(Department::class);
+        return $this->belongsToMany(Department::class, 'company_department');
     }
 
     public function jobTitles(): HasMany

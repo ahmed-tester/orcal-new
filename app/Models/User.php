@@ -114,6 +114,27 @@ class User extends Authenticatable implements FilamentUser
         return $this->isSuperAdmin() || $this->isOwner();
     }
 
+    public function getAccessibleCompanyIds(): array
+    {
+        if ($this->isSuperAdmin()) {
+            return Company::pluck('id')->toArray();
+        }
+
+        if ($this->isOwner()) {
+            return $this->getOwnedCompanyIds();
+        }
+
+        // الموظف يرث صلاحية الوصول لكافة منشآت قسمه تلقائياً
+        if ($this->employee?->department) {
+            $departmentCompanyIds = $this->employee->department->getAssignedCompanyIds();
+            if (!empty($departmentCompanyIds)) {
+                return $departmentCompanyIds;
+            }
+        }
+
+        return $this->company_id ? [$this->company_id] : [];
+    }
+
     public function hasMultipleCompanies(): bool
     {
         if ($this->isSuperAdmin()) {
@@ -124,7 +145,7 @@ class User extends Authenticatable implements FilamentUser
             return count($this->getOwnedCompanyIds()) > 1;
         }
 
-        return false;
+        return count($this->getAccessibleCompanyIds()) > 1;
     }
 
     public function canAccessAllBranches(): bool
