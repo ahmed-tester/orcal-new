@@ -32,7 +32,11 @@ return [
         'work_permit' => 'رخصة العمل',
         'health_insurance' => 'التأمين الطبي',
         'contract' => 'عقد العمل',
+        'company_documents' => 'وثائق المؤسسة',
     ],
+
+    'report_label' => 'تقرير الإشعارات والتنبيهات',
+    'report_title' => '🔔 تقرير الإشعارات والتنبيهات النشطة',
 
     'leaves' => [
         'overdue_title' => 'تنبيه تأخر عودة موظف من الإجازة',

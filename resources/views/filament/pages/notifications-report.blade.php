@@ -382,6 +382,16 @@
         .dark .fi-tr-company {
             background-color: rgba(255, 255, 255, 0.02);
         }
+
+        /* Constrain pagination SVGs */
+        nav svg, .pagination svg, [role="navigation"] svg {
+            width: 1.25rem !important;
+            height: 1.25rem !important;
+            max-width: 1.25rem !important;
+            max-height: 1.25rem !important;
+            flex-shrink: 0 !important;
+            display: inline-block !important;
+        }
     </style>
 
     @php
@@ -748,7 +758,6 @@
                             <th style="text-align: right; min-width: 160px;">التفاصيل / الجهة</th>
                             <th style="min-width: 95px;">تاريخ الاستحقاق</th>
                             <th style="min-width: 110px;">الحالة والمتبقي</th>
-                            <th style="width: 110px;">إجراء الإرسال</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -776,16 +785,10 @@
                                         {{ $item['status_text'] }}
                                     </span>
                                 </td>
-                                <td>
-                                    <button wire:click="openSendModal('{{ $item['id'] }}')" class="fi-btn-custom fi-btn-secondary-custom" style="height: 28px; padding: 0 0.65rem; font-size: 0.73rem;">
-                                        <span>💬</span>
-                                        <span>إرسال تنبيه</span>
-                                    </button>
-                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" style="padding: 3rem 1rem; text-align: center; color: #94a3b8;">
+                                <td colspan="5" style="padding: 3rem 1rem; text-align: center; color: #94a3b8;">
                                     <div style="font-size: 2rem; margin-bottom: 0.35rem;">🎉</div>
                                     <div style="font-size: 0.9rem; font-weight: 600; color: #475569;" class="dark:text-gray-300">لا توجد تنبيهات نشطة حالياً</div>
                                 </td>
@@ -796,71 +799,11 @@
 
                 @if ($paginatedAlerts->hasPages())
                     <div style="padding: 0.65rem 1rem; border-top: 1px solid #e2e8f0;" class="dark:border-white/10">
-                        {{ $paginatedAlerts->links() }}
+                        <x-filament::pagination :paginator="$paginatedAlerts" :page-options="[15, 25, 50, 100]" current-page-option-property="perPage" />
                     </div>
                 @endif
             </div>
         @endif
     </div>
 
-    <!-- 5. Modal Dialog -->
-    @if ($showSendModal)
-        <div style="position: fixed; inset: 0; z-index: 9999; background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; padding: 1rem;" dir="rtl">
-            <div style="background-color: #ffffff; border-radius: 0.75rem; width: 100%; max-width: 480px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); display: flex; flex-direction: column; text-align: right; border: 1px solid #e2e8f0;" class="dark:bg-gray-900 dark:border-white/10">
-                <div style="padding: 0.85rem 1.15rem; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between;" class="dark:border-white/10">
-                    <div style="display: flex; align-items: center; gap: 0.45rem; font-weight: 700; font-size: 0.9rem; color: #0f172a;" class="dark:text-white">
-                        <span>💬</span>
-                        <span>إرسال تنبيه: {{ $modalRecipientName }}</span>
-                    </div>
-                    <button wire:click="closeSendModal" style="background: none; border: none; font-size: 1.15rem; cursor: pointer; color: #94a3b8;">✕</button>
-                </div>
-
-                <div style="padding: 1.1rem; display: flex; flex-direction: column; gap: 0.85rem;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; background-color: #f8fafc; padding: 0.65rem 0.85rem; border-radius: 0.45rem; font-size: 0.78rem; border: 1px solid #e2e8f0;" class="dark:bg-gray-800 dark:border-white/10">
-                        <div>
-                            <span style="color: #64748b;">نوع التنبيه:</span>
-                            <strong style="color: #0f172a; margin-right: 0.2rem;" class="dark:text-white">{{ $modalDocumentType }}</strong>
-                        </div>
-                        <div>
-                            <span style="color: #64748b;">رقم التواصل:</span>
-                            <strong style="color: #0f172a; margin-right: 0.2rem;" class="dark:text-white">{{ $modalRecipientPhone ?: 'غير مسجل' }}</strong>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 0.25rem; color: #334155;" class="dark:text-gray-300">
-                            قناة الإرسال
-                        </label>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem;">
-                            <label style="display: flex; align-items: center; justify-content: center; gap: 0.35rem; border-radius: 0.45rem; border: 1px solid {{ $modalChannel === 'sms' ? '#2563eb' : '#d1d5db' }}; padding: 0.45rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; {{ $modalChannel === 'sms' ? 'background-color: #eff6ff; color: #1d4ed8;' : 'background-color: #ffffff; color: #334155;' }}" class="dark:bg-gray-800 dark:border-white/10">
-                                <input type="radio" wire:model.live="modalChannel" value="sms" style="display: none;" />
-                                <span>📱 رسالة SMS</span>
-                            </label>
-                            <label style="display: flex; align-items: center; justify-content: center; gap: 0.35rem; border-radius: 0.45rem; border: 1px solid {{ $modalChannel === 'database' ? '#2563eb' : '#d1d5db' }}; padding: 0.45rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; {{ $modalChannel === 'database' ? 'background-color: #eff6ff; color: #1d4ed8;' : 'background-color: #ffffff; color: #334155;' }}" class="dark:bg-gray-800 dark:border-white/10">
-                                <input type="radio" wire:model.live="modalChannel" value="database" style="display: none;" />
-                                <span>🔔 إشعار بالنظام</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 0.25rem; color: #334155;" class="dark:text-gray-300">
-                            نص الرسالة والتنبيه
-                        </label>
-                        <textarea wire:model="modalCustomMessage" rows="3" style="width: 100%; border-radius: 0.45rem; border: 1px solid #d1d5db; padding: 0.55rem; font-size: 0.78rem; line-height: 1.45; color: #0f172a; outline: none; box-sizing: border-box;" class="dark:bg-gray-800 dark:text-white dark:border-white/10"></textarea>
-                    </div>
-                </div>
-
-                <div style="padding: 0.75rem 1.15rem; border-top: 1px solid #e2e8f0; background-color: #f8fafc; display: flex; align-items: center; justify-content: flex-end; gap: 0.45rem;" class="dark:bg-gray-800/50 dark:border-white/10">
-                    <button wire:click="closeSendModal" class="fi-btn-custom fi-btn-secondary-custom" style="height: 32px; padding: 0 0.85rem;">
-                        إلغاء
-                    </button>
-                    <button wire:click="sendNotification" class="fi-btn-custom fi-btn-primary-custom" style="height: 32px; padding: 0 1rem;">
-                        <span>🚀</span>
-                        <span>إرسال التنبيه الآن</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    @endif
 </x-filament-panels::page>
