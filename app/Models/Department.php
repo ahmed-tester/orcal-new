@@ -59,16 +59,20 @@ class Department extends Model
 
     public function getAssignedCompanyIds(): array
     {
+        $ids = $this->companies()->pluck('companies.id')->toArray();
+        if (!empty($ids)) {
+            return $ids;
+        }
+
         if ($this->isGlobal()) {
             return Company::pluck('id')->toArray();
         }
 
-        $ids = $this->companies()->pluck('companies.id')->toArray();
-        if (empty($ids) && $this->company_id) {
+        if ($this->company_id) {
             return [$this->company_id];
         }
 
-        return $ids;
+        return [];
     }
 
     public function company(): BelongsTo

@@ -33,16 +33,8 @@ class OrgSelect
                 if (! $user || $user->isSuperAdmin()) {
                     return;
                 }
-                if ($user->isOwner()) {
-                    $owned = $user->getOwnedCompanyIds();
-                    if (! empty($owned)) {
-                        $query->whereIn('id', $owned);
-                    }
-                    return;
-                }
-                if ($user->company_id) {
-                    $query->where('id', $user->company_id);
-                }
+                $accessibleIds = \App\Services\CompanyFormService::getAuthorizedCompanyIds($user);
+                $query->whereIn('id', ! empty($accessibleIds) ? $accessibleIds : [0]);
             })
             ->searchable()
             ->preload()

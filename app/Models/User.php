@@ -124,15 +124,22 @@ class User extends Authenticatable implements FilamentUser
             return $this->getOwnedCompanyIds();
         }
 
-        // الموظف يرث صلاحية الوصول لكافة منشآت قسمه تلقائياً
+        $accessibleIds = [];
+
+        // المنشأة الأساسية المسجل عليها الموظف
+        if ($this->company_id) {
+            $accessibleIds[] = (int) $this->company_id;
+        }
+
+        // دمج منشآت القسم العام/المشترك التابع له الموظف
         if ($this->employee?->department) {
             $departmentCompanyIds = $this->employee->department->getAssignedCompanyIds();
             if (!empty($departmentCompanyIds)) {
-                return $departmentCompanyIds;
+                $accessibleIds = array_merge($accessibleIds, array_map('intval', $departmentCompanyIds));
             }
         }
 
-        return $this->company_id ? [$this->company_id] : [];
+        return array_values(array_unique(array_filter($accessibleIds)));
     }
 
     public function hasMultipleCompanies(): bool
@@ -153,5 +160,24 @@ class User extends Authenticatable implements FilamentUser
         return $this->isSuperAdminOrOwner()
             || $this->can('view_any_branch')
             || $this->branch_id === null;
+    }
+
+    public function canAccessAllCompanies(): bool
+    {
+        if ($this->isSuperAdmin() || $this->isOwner()) {
+            return true;
+        }
+
+        if ($this->employee?->department?->isGlobal()) {
+            $totalCount = Company::count();
+            if ($totalCount === 0) {
+                return false;
+            }
+
+            $accessibleCount = count($this->getAccessibleCompanyIds());
+            return $accessibleCount >= $totalCount;
+        }
+
+        return false;
     }
 }
