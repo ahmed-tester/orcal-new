@@ -188,6 +188,11 @@ class Company extends Model
         return $this->hasMany(ViolationTransaction::class);
     }
 
+    public function officialLetters(): HasMany
+    {
+        return $this->hasMany(OfficialLetter::class);
+    }
+
     public function getStampAttribute(): ?string
     {
         return $this->metadata['stamp'] ?? null;

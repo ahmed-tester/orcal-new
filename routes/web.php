@@ -26,6 +26,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/contract-vouchers/{voucher}/print', [\App\Http\Controllers\ContractVoucherPrintController::class, 'print'])->name('contract_vouchers.print');
     Route::get('/contract-vouchers/{voucher}/pdf',   [\App\Http\Controllers\ContractVoucherPrintController::class, 'pdf'])->name('contract_vouchers.pdf');
 
+    // Official Letters Print & Preview Routes
+    Route::get('/official-letters/{letter}/print', [\App\Http\Controllers\OfficialLetterPrintController::class, 'print'])->name('official_letters.print');
+    Route::get('/official-letters/{letter}/pdf',   [\App\Http\Controllers\OfficialLetterPrintController::class, 'pdf'])->name('official_letters.pdf');
+
     // Debts PDF Export & Print Routes
     Route::get('/exports/debts-statement', [\App\Http\Controllers\ExportPdfController::class, 'exportDebtsStatement'])->name('exports.debts-statement');
     Route::get('/exports/debt-voucher/{debt}', [\App\Http\Controllers\ExportPdfController::class, 'printDebtVoucher'])->name('exports.debt-voucher');

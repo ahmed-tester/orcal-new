@@ -72,5 +72,9 @@ return [
     'rosca_fund_members' => 'ROSCA Members',
     'rosca_fund_payments' => 'ROSCA Payment Sheet',
     'rosca_fund_policy' => 'ROSCA Society Policy',
+
+    // Official Letters
+    'letters_group'    => 'Official Letters & Correspondence',
+    'official_letters' => 'Official Letters',
 ];
 

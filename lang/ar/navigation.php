@@ -13,9 +13,10 @@ return [
     'reports_group' => 'التقارير والإشعارات',
     'violations_group' => 'قسم المخالفات',
     'funds_group' => 'صناديق التكافل والادخار',
-    'support_group' => 'الدعم الفني والمساعدة',
-    'system_group' => 'الإدارة والصلاحيات',
-    'faq_group'    => 'الأسئلة الشائعة والدعم',
+    'support_group'  => 'الدعم الفني والمساعدة',
+    'system_group'   => 'الإدارة والصلاحيات',
+    'faq_group'      => 'الأسئلة الشائعة والدعم',
+    'letters_group'  => 'الخطابات والمراسلات الرسمية',
 
     // Group 1: Organization
     'companies' => 'المنشآت',
@@ -97,5 +98,8 @@ return [
 
     // Group 10: Support
     'tickets' => 'تذاكر الدعم الفني',
+
+    // Group 11: Official Letters
+    'official_letters' => 'الخطابات الرسمية',
 ];
 
