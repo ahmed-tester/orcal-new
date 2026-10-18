@@ -71,7 +71,8 @@ return [
     'rosca_funds' => 'ROSCA Funds',
     'rosca_fund_members' => 'ROSCA Members',
     'rosca_fund_payments' => 'ROSCA Payment Sheet',
-    'rosca_fund_policy' => 'ROSCA Society Policy',
+    // Support & Guide
+    'system_documentation' => 'System & Modules User Guide',
 
     // Official Letters
     'letters_group'    => 'Official Letters & Correspondence',
