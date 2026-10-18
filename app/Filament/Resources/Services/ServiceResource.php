@@ -27,17 +27,10 @@ class ServiceResource extends Resource
             return $query;
         }
 
-        if ($user->isOwner()) {
-            $ownedCompanyIds = $user->getOwnedCompanyIds();
-            return $query->where(function ($q) use ($ownedCompanyIds) {
-                $q->whereIn('services.company_id', !empty($ownedCompanyIds) ? $ownedCompanyIds : [0])
-                  ->orWhereNull('services.company_id');
-            });
-        }
-
-        if ($user->company_id) {
-            return $query->where(function ($q) use ($user) {
-                $q->where('services.company_id', $user->company_id)
+        $accessibleCompanyIds = $user->getAccessibleCompanyIds();
+        if (!empty($accessibleCompanyIds)) {
+            return $query->where(function ($q) use ($accessibleCompanyIds) {
+                $q->whereIn('services.company_id', $accessibleCompanyIds)
                   ->orWhereNull('services.company_id');
             });
         }

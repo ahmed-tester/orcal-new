@@ -5,7 +5,7 @@
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
         <div>
             <div style="font-size: 1rem; font-weight: 800; color: #1e293b;">طريقة جلب وتحديد نطاق الكشف</div>
-            <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.15rem;">حدد أحد الخيارات الأربعة لتوليد كشف موظفي الرواتب أو التحصيل</div>
+            <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.15rem;">حدد أحد الخيارات المتاحة لتوليد كشف موظفي الرواتب أو التحصيل</div>
         </div>
 
         {{-- Operation Type Switch (رواتب / تحصيل) --}}
@@ -56,7 +56,8 @@
             </div>
         </div>
 
-        {{-- Mode 3 --}}
+        {{-- Mode 3 (اختيار الكل - كافة المنشآت) --}}
+        @if(auth()->user()?->canAccessAllCompanies())
         <div
             wire:click="$set('filterMode', 'all_companies')"
             class="mode-box {{ $filterMode === 'all_companies' ? 'mode-box-active' : 'mode-box-inactive' }}"
@@ -67,6 +68,7 @@
                 <div style="font-size: 0.725rem; opacity: 0.85;">اختيار الكل (كافة المنشآت)</div>
             </div>
         </div>
+        @endif
 
         {{-- Mode 4 --}}
         <div

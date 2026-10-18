@@ -84,14 +84,17 @@ class ListPayrollRecords extends ListRecords
         }
 
         $requestedCompanyId = (int) request()->query('company_id');
-        if ($requestedCompanyId > 0 && Company::where('id', $requestedCompanyId)->exists()) {
+        $user = auth()->user();
+        $authorizedCompanyIds = $user ? \App\Services\CompanyFormService::getAuthorizedCompanyIds($user) : [];
+
+        if ($requestedCompanyId > 0 && (empty($authorizedCompanyIds) || in_array($requestedCompanyId, $authorizedCompanyIds))) {
             $this->selectedCompanyId = $requestedCompanyId;
             $this->selectedCompanyIds = [$requestedCompanyId];
         } else {
-            $firstCompany = Company::first();
-            if ($firstCompany) {
-                $this->selectedCompanyId = $firstCompany->id;
-                $this->selectedCompanyIds = [$firstCompany->id];
+            $firstCompanyId = !empty($authorizedCompanyIds) ? reset($authorizedCompanyIds) : Company::value('id');
+            if ($firstCompanyId) {
+                $this->selectedCompanyId = $firstCompanyId;
+                $this->selectedCompanyIds = [$firstCompanyId];
             }
         }
 
@@ -115,7 +118,15 @@ class ListPayrollRecords extends ListRecords
                 Select::make('selectedCompanyIds')
                     ->hiddenLabel()
                     ->placeholder('ابحث واختر المؤسسات...')
-                    ->options(fn () => Company::orderBy('trade_name')->pluck('trade_name', 'id'))
+                    ->options(function () {
+                        $user = auth()->user();
+                        $query = Company::orderBy('trade_name');
+                        if ($user && !$user->isSuperAdmin()) {
+                            $authorized = \App\Services\CompanyFormService::getAuthorizedCompanyIds($user);
+                            $query->whereIn('id', !empty($authorized) ? $authorized : [0]);
+                        }
+                        return $query->pluck('trade_name', 'id');
+                    })
                     ->multiple()
                     ->searchable()
                     ->preload()
@@ -130,6 +141,9 @@ class ListPayrollRecords extends ListRecords
     public function updatedFilterMode(): void
     {
         $this->sheetPage = 1;
+        if ($this->filterMode === 'all_companies' && ! (auth()->user()?->canAccessAllCompanies() ?? false)) {
+            $this->filterMode = 'single_company';
+        }
         if ($this->filterMode === 'by_guarantor' && empty($this->selectedGuarantorId)) {
             $firstGuar = $this->guarantors->first();
             $this->selectedGuarantorId = $firstGuar?->id;
@@ -315,7 +329,13 @@ class ListPayrollRecords extends ListRecords
 
     public function getCompaniesProperty(): Collection
     {
-        return Company::orderBy('trade_name')->get(['id', 'trade_name']);
+        $user = auth()->user();
+        $query = Company::orderBy('trade_name');
+        if ($user && !$user->isSuperAdmin()) {
+            $authorized = \App\Services\CompanyFormService::getAuthorizedCompanyIds($user);
+            $query->whereIn('id', !empty($authorized) ? $authorized : [0]);
+        }
+        return $query->get(['id', 'trade_name']);
     }
 
     public function getGuarantorsProperty(): Collection
@@ -346,6 +366,14 @@ class ListPayrollRecords extends ListRecords
             ->where('status', 'active')
             ->whereHas('company')
             ->with(['user', 'company', 'branch', 'details.guarantor']);
+
+        $user = auth()->user();
+        if ($user && !$user->isSuperAdmin()) {
+            $authorizedIds = \App\Services\CompanyFormService::getAuthorizedCompanyIds($user);
+            if (!empty($authorizedIds)) {
+                $query->whereIn('company_id', $authorizedIds);
+            }
+        }
 
         // 1. Filter by Mode
         if ($this->filterMode === 'single_company') {

@@ -63,7 +63,7 @@ class CompanyFormService
                     $user = auth()->user();
                     if ($user && !$user->isSuperAdmin()) {
                         $companyIds = static::getAuthorizedCompanyIds($user);
-                        $query->whereIn('id', !empty($companyIds) ? $companyIds : [0]);
+                        $query->whereIn('companies.id', !empty($companyIds) ? $companyIds : [0]);
                     }
                 }
             )
