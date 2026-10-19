@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Enums\GeneralStatus;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Department;
 use App\Models\JobTitle;
+use App\Models\Service;
 use App\Models\User;
 use Filament\Forms\Components\Select;
 use Illuminate\Database\Eloquent\Builder;
@@ -228,5 +230,45 @@ class CompanyFormService
             ->searchable()
             ->preload()
             ->required($required);
+    }
+
+    /**
+     * Get available service options (company-specific + general services).
+     */
+    public static function getAvailableServiceOptions(mixed $companyId = null, mixed $selectedId = null): array
+    {
+        $user = auth()->user();
+        $query = Service::query();
+
+        $scopeCondition = function (Builder $q) use ($companyId, $user) {
+            $q->where('status', GeneralStatus::ACTIVE->value);
+
+            if ($companyId) {
+                $q->where(function (Builder $c) use ($companyId) {
+                    $c->where('company_id', $companyId)
+                      ->orWhereNull('company_id');
+                });
+            } elseif ($user && !$user->isSuperAdmin()) {
+                $companyIds = static::getAuthorizedCompanyIds($user);
+                $q->where(function (Builder $c) use ($companyIds) {
+                    $c->whereIn('company_id', !empty($companyIds) ? $companyIds : [0])
+                      ->orWhereNull('company_id');
+                });
+            }
+        };
+
+        if ($selectedId) {
+            $query->where(function (Builder $q) use ($selectedId, $scopeCondition) {
+                $q->where('id', $selectedId)
+                  ->orWhere($scopeCondition);
+            });
+        } else {
+            $scopeCondition($query);
+        }
+
+        return $query->get()->mapWithKeys(function ($service) {
+            $suffix = $service->company_id ? '' : ' (عامة)';
+            return [$service->id => $service->name . $suffix];
+        })->toArray();
     }
 }
