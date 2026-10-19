@@ -8,6 +8,7 @@ use App\Models\Company;
 use App\Models\Employee;
 use App\Models\PayrollRecord;
 use App\Services\PayrollCalculationService;
+use App\Services\PayrollSheetService;
 use Carbon\Carbon;
 use Filament\Actions\CreateAction;
 use Filament\Forms\Components\Select;
@@ -57,9 +58,13 @@ class ListPayrollRecords extends ListRecords
     public array $employeeRows = [];
     public array $checkedEmployees = []; // [emp_id => bool] - Checkbox (تم التحصيل / الصرف)
     public array $notes = [];            // [emp_id => string]
+    public array $deletedEmployeeIds = []; // [emp_id] - Employees deleted from this sheet
 
     // Summary Statistics
     public int $totalEmployees = 0;
+    public float $totalBasicAmount = 0.0;
+    public float $totalAdditionalAmount = 0.0;
+    public float $totalDeductionAmount = 0.0;
     public float $totalNetAmount = 0.0;
     public float $totalPaidAmount = 0.0;
     public float $totalPendingAmount = 0.0;
@@ -117,7 +122,7 @@ class ListPayrollRecords extends ListRecords
             ->components([
                 Select::make('selectedCompanyIds')
                     ->hiddenLabel()
-                    ->placeholder('ابحث واختر المؤسسات...')
+                    ->placeholder(__('finance.payroll_records.sheet.search_companies_placeholder'))
                     ->options(function () {
                         $user = auth()->user();
                         $query = Company::orderBy('trade_name');
@@ -140,6 +145,7 @@ class ListPayrollRecords extends ListRecords
 
     public function updatedFilterMode(): void
     {
+        $this->deletedEmployeeIds = [];
         $this->sheetPage = 1;
         if ($this->filterMode === 'all_companies' && ! (auth()->user()?->canAccessAllCompanies() ?? false)) {
             $this->filterMode = 'single_company';
@@ -213,6 +219,7 @@ class ListPayrollRecords extends ListRecords
 
     public function updatedSelectedCompanyId(): void
     {
+        $this->deletedEmployeeIds = [];
         if ($this->selectedCompanyId !== null && $this->selectedCompanyId !== '') {
             $this->selectedCompanyId = (int) $this->selectedCompanyId;
         } else {
@@ -224,6 +231,7 @@ class ListPayrollRecords extends ListRecords
 
     public function updatedSelectedCompanyIds(): void
     {
+        $this->deletedEmployeeIds = [];
         $this->loadSheet();
     }
 
@@ -305,6 +313,7 @@ class ListPayrollRecords extends ListRecords
 
     public function updatedPayrollMonth(): void
     {
+        $this->deletedEmployeeIds = [];
         $this->sheetPage = 1;
         if ($this->payrollMonth) {
             try {
@@ -362,189 +371,35 @@ class ListPayrollRecords extends ListRecords
 
     public function loadSheet(): void
     {
-        $query = Employee::query()
-            ->where('status', 'active')
-            ->whereHas('company')
-            ->with(['user', 'company', 'branch', 'details.guarantor']);
+        $result = PayrollSheetService::buildSheetData(
+            filters: [
+                'filterMode'          => $this->filterMode,
+                'selectedCompanyId'   => $this->selectedCompanyId,
+                'selectedCompanyIds'  => $this->selectedCompanyIds,
+                'selectedGuarantorId' => $this->selectedGuarantorId,
+                'selectedGuarantor'   => $this->selectedGuarantor,
+                'operationType'       => $this->operationType,
+                'employeeScope'       => $this->employeeScope,
+                'selectedEmployeeId'  => $this->selectedEmployeeId,
+                'payrollMonth'        => $this->payrollMonth,
+                'searchQuery'         => $this->searchQuery,
+            ],
+            deletedEmployeeIds: $this->deletedEmployeeIds,
+            checkedEmployees: $this->checkedEmployees,
+            notes: $this->notes,
+        );
 
-        $user = auth()->user();
-        if ($user && !$user->isSuperAdmin()) {
-            $authorizedIds = \App\Services\CompanyFormService::getAuthorizedCompanyIds($user);
-            if (!empty($authorizedIds)) {
-                $query->whereIn('company_id', $authorizedIds);
-            }
-        }
+        $this->employeeRows          = $result['rows'];
+        $this->checkedEmployees      = $result['checkedEmployees'];
+        $this->notes                 = $result['notes'];
+        $this->totalEmployees        = $result['totals']['totalEmployees'];
+        $this->totalBasicAmount      = $result['totals']['totalBasicAmount'];
+        $this->totalAdditionalAmount = $result['totals']['totalAdditionalAmount'];
+        $this->totalDeductionAmount  = $result['totals']['totalDeductionAmount'];
+        $this->totalNetAmount        = $result['totals']['totalNetAmount'];
+        $this->totalPaidAmount       = $result['totals']['totalPaidAmount'];
+        $this->totalPendingAmount    = $result['totals']['totalPendingAmount'];
 
-        // 1. Filter by Mode
-        if ($this->filterMode === 'single_company') {
-            if ($this->selectedCompanyId) {
-                $query->where('company_id', $this->selectedCompanyId);
-            }
-            if ($this->employeeScope === 'specific' && $this->selectedEmployeeId) {
-                $query->where('id', $this->selectedEmployeeId);
-            }
-        } elseif ($this->filterMode === 'multiple_companies') {
-            if (!empty($this->selectedCompanyIds)) {
-                $query->whereIn('company_id', $this->selectedCompanyIds);
-            }
-        } elseif ($this->filterMode === 'all_companies') {
-            // All companies
-        } elseif ($this->filterMode === 'by_guarantor') {
-            if ($this->selectedGuarantorId) {
-                $guarId = (int) $this->selectedGuarantorId;
-                $guarObj = \App\Models\Guarantor::find($guarId);
-                $guarName = $guarObj?->name;
-
-                $query->whereHas('details', function ($q) use ($guarId, $guarName) {
-                    $q->where('guarantor_id', $guarId);
-                    if ($guarName) {
-                        $q->orWhere('sponsor_name', $guarName);
-                    }
-                });
-            } elseif ($this->selectedGuarantor) {
-                $query->whereHas('details', fn ($q) => $q->where('sponsor_name', $this->selectedGuarantor));
-            } else {
-                $query->whereHas('details', fn ($q) => $q->whereNotNull('guarantor_id')->orWhereNotNull('sponsor_name'));
-            }
-        }
-
-        // 2. Search Query
-        if (!empty($this->searchQuery)) {
-            $search = trim($this->searchQuery);
-            $query->where(function ($q) use ($search) {
-                $q->whereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"))
-                  ->orWhere('employee_number', 'like', "%{$search}%")
-                  ->orWhereHas('company', fn ($c) => $c->where('trade_name', 'like', "%{$search}%"))
-                  ->orWhereHas('details', fn ($d) => $d->where('sponsor_name', 'like', "%{$search}%"));
-            });
-        }
-
-        $employees = $query->get();
-
-        $monthDate = Carbon::parse($this->payrollMonth ?: now());
-        $year = $monthDate->year;
-        $month = $monthDate->month;
-
-        $rows = [];
-        $totalNet = 0.0;
-        $totalPaid = 0.0;
-        $totalPending = 0.0;
-
-        foreach ($employees as $emp) {
-            // Safely skip orphaned employees without existing company
-            if (empty($emp->company_id) || empty($emp->company)) {
-                continue;
-            }
-
-            // Check for existing saved record in database
-            $existing = PayrollRecord::where('employee_id', $emp->id)
-                ->where('operation_type', $this->operationType)
-                ->whereYear('payroll_month', $year)
-                ->whereMonth('payroll_month', $month)
-                ->first();
-
-            // في وضع التحصيل: لا نظهر إلا من له سجل تحصيل محفوظ بالفعل (أو تم تحديده بالاسم لإنشاء تحصيل له)
-            if ($this->operationType === 'collection') {
-                if (!$existing && !($this->employeeScope === 'specific' && $this->selectedEmployeeId == $emp->id)) {
-                    continue;
-                }
-            }
-
-            // في وضع الرواتب: إذا كان الموظف مسجل له تحصيل لهذا الشهر وليس له راتب، يُستبعد من كشف الرواتب
-            if ($this->operationType === 'payroll' && !$existing) {
-                $hasCollection = PayrollRecord::where('employee_id', $emp->id)
-                    ->where('operation_type', 'collection')
-                    ->whereYear('payroll_month', $year)
-                    ->whereMonth('payroll_month', $month)
-                    ->exists();
-
-                if ($hasCollection) {
-                    continue;
-                }
-            }
-
-            if ($existing) {
-                $basic = (float) $existing->basic_salary;
-                $additional = (float) $existing->additional_amount;
-                $deductions = (float) $existing->deduction_amount;
-                $net = (float) $existing->net_amount;
-                $isPaid = ($existing->payment_status === PaymentStatus::PAID || (float) $existing->remaining_amount <= 0);
-                $recordNumber = $existing->record_number;
-                $this->notes[$emp->id] = $existing->notes ?? '';
-            } else {
-                $financials = PayrollCalculationService::calculateEmployeeFinancials($emp->id, $this->payrollMonth);
-                $basic = (float) $emp->basic_salary;
-                $additional = (float) ($financials['additional_amount'] ?? 0);
-                $deductions = (float) ($financials['deduction_amount'] ?? 0);
-                $net = max(0.0, (float) ($financials['net_amount'] ?? ($basic + $additional - $deductions)));
-                $isPaid = $this->checkedEmployees[$emp->id] ?? false;
-                $recordNumber = null;
-                if (!isset($this->notes[$emp->id])) {
-                    $this->notes[$emp->id] = '';
-                }
-            }
-
-            // Keep checkbox state synchronized
-            if (!isset($this->checkedEmployees[$emp->id])) {
-                $this->checkedEmployees[$emp->id] = $isPaid;
-            } else {
-                if ($existing && $isPaid) {
-                    $this->checkedEmployees[$emp->id] = true;
-                }
-            }
-
-            $currentChecked = $this->checkedEmployees[$emp->id] ?? false;
-
-            if ($currentChecked) {
-                $totalPaid += $net;
-            } else {
-                $totalPending += $net;
-            }
-            $totalNet += $net;
-
-            $iqamaNumber = $emp->details?->iqama_number ?: $emp->details?->national_id ?: '—';
-            $iqamaExpiryGregorian = $emp->details?->iqama_expiry ? \Carbon\Carbon::parse($emp->details->iqama_expiry)->format('Y/m/d') : '—';
-            $iqamaExpiryHijri = $emp->details?->iqama_expiry ? \App\Services\HijriDateService::toHijriNumeric($emp->details->iqama_expiry) : '—';
-            $phone = $emp->user?->phone ?: ($emp->details?->emergency_contact_phone ?: '—');
-
-            $otherParts = [];
-            if ($additional > 0) {
-                $otherParts[] = '+' . number_format($additional, 2);
-            }
-            if ($deductions > 0) {
-                $otherParts[] = '-' . number_format($deductions, 2);
-            }
-            $otherAmount = !empty($otherParts) ? implode(' / ', $otherParts) : '—';
-
-            $rows[] = [
-                'employee_id'            => $emp->id,
-                'name'                   => $emp->user?->name ?? 'موظف #' . $emp->id,
-                'email'                  => $emp->user?->email,
-                'phone'                  => $phone,
-                'iqama_number'           => $iqamaNumber,
-                'iqama_expiry_gregorian' => $iqamaExpiryGregorian,
-                'iqama_expiry_hijri'     => $iqamaExpiryHijri,
-                'employee_number'        => $emp->employee_number ?? ('EMP-' . $emp->id),
-                'company_name'           => $emp->company?->trade_name ?? '—',
-                'branch_name'            => $emp->branch?->name ?? null,
-                'sponsor_name'           => $emp->details?->guarantor?->name ?? $emp->details?->sponsor_name ?? '—',
-                'basic_salary'           => $basic,
-                'additional_amount'      => $additional,
-                'deduction_amount'       => $deductions,
-                'other_amount'           => $otherAmount,
-                'net_amount'             => $net,
-                'record_number'          => $recordNumber,
-                'existing_id'            => $existing?->id,
-            ];
-        }
-
-        $this->employeeRows = $rows;
-        $this->totalEmployees = count($rows);
-        $this->totalNetAmount = round($totalNet, 2);
-        $this->totalPaidAmount = round($totalPaid, 2);
-        $this->totalPendingAmount = round($totalPending, 2);
-
-        // Recalculate pagination after data changes
         $this->recalculatePagination();
     }
 
@@ -560,7 +415,12 @@ class ListPayrollRecords extends ListRecords
     public function toggleEmployeeCheck(int $employeeId): void
     {
         $this->checkedEmployees[$employeeId] = !($this->checkedEmployees[$employeeId] ?? false);
-        $this->recomputeSummaryStats();
+
+        $totals = PayrollSheetService::applyEmployeeCheck($this->employeeRows, $this->checkedEmployees, $employeeId);
+        $this->totalPaidAmount = $totals['totalPaidAmount'];
+        $this->totalPendingAmount = $totals['totalPendingAmount'];
+
+        $this->recalculatePagination();
     }
 
     public function toggleCheckAll(bool $checkState): void
@@ -568,108 +428,79 @@ class ListPayrollRecords extends ListRecords
         foreach ($this->employeeRows as $row) {
             $this->checkedEmployees[$row['employee_id']] = $checkState;
         }
-        $this->recomputeSummaryStats();
-    }
 
-    protected function recomputeSummaryStats(): void
-    {
-        $totalPaid = 0.0;
-        $totalPending = 0.0;
+        $totals = PayrollSheetService::applyCheckAll($this->employeeRows, $checkState);
+        $this->totalPaidAmount = $totals['totalPaidAmount'];
+        $this->totalPendingAmount = $totals['totalPendingAmount'];
 
-        foreach ($this->employeeRows as $row) {
-            $empId = $row['employee_id'];
-            $isPaid = $this->checkedEmployees[$empId] ?? false;
-            if ($isPaid) {
-                $totalPaid += $row['net_amount'];
-            } else {
-                $totalPending += $row['net_amount'];
-            }
-        }
-
-        $this->totalPaidAmount = round($totalPaid, 2);
-        $this->totalPendingAmount = round($totalPending, 2);
+        $this->recalculatePagination();
     }
 
     public function savePayrollSheet(): void
     {
         if (empty($this->employeeRows)) {
             Notification::make()
-                ->title('لا يوجد موظفون في الكشف للحفظ')
+                ->title(__('finance.payroll_records.sheet.empty_save_warning'))
                 ->warning()
                 ->send();
             return;
         }
 
-        $savedCount = 0;
-        $monthDate = Carbon::parse($this->payrollMonth)->startOfMonth()->toDateString();
+        $savedCount = PayrollSheetService::saveSheet(
+            employeeRows: $this->employeeRows,
+            checkedEmployees: $this->checkedEmployees,
+            notes: $this->notes,
+            operationType: $this->operationType,
+            payrollMonth: $this->payrollMonth,
+        );
 
-        DB::transaction(function () use ($monthDate, &$savedCount) {
-            foreach ($this->employeeRows as $row) {
-                $empId = $row['employee_id'];
-                $emp = Employee::find($empId);
-                if (!$emp || empty($emp->company_id) || !Company::where('id', $emp->company_id)->exists()) {
-                    continue;
-                }
-
-                $isChecked = $this->checkedEmployees[$empId] ?? false;
-                $netAmount = (float) $row['net_amount'];
-
-                $record = PayrollRecord::firstOrNew([
-                    'company_id'     => $emp->company_id,
-                    'employee_id'    => $emp->id,
-                    'operation_type' => $this->operationType,
-                    'payroll_month'  => $monthDate,
-                ]);
-
-                $financials = PayrollCalculationService::calculateEmployeeFinancials($emp->id, $this->payrollMonth);
-
-                $record->record_date       = now()->toDateString();
-                $record->basic_salary      = (float) $row['basic_salary'];
-                $record->additional_amount = (float) $row['additional_amount'];
-                $record->deduction_amount  = (float) $row['deduction_amount'];
-                $record->overtime_amount   = (float) ($financials['overtime_amount'] ?? 0);
-                $record->rewards_amount    = (float) ($financials['rewards_amount'] ?? 0);
-                $record->advance_deduction = (float) ($financials['advance_deduction'] ?? 0);
-                $record->absence_deduction = (float) ($financials['absence_deduction'] ?? 0);
-                $record->net_amount        = $netAmount;
-                $record->notes             = $this->notes[$empId] ?? null;
-
-                if ($isChecked) {
-                    $record->paid_amount      = $netAmount;
-                    $record->remaining_amount = 0.0;
-                    $record->payment_status   = PaymentStatus::PAID;
-                    $record->save();
-
-                    // If not disbursed yet, create treasury transaction and payment
-                    if ($record->payments()->count() === 0 && $netAmount > 0) {
-                        try {
-                            PayrollCalculationService::disburseSalary(
-                                record: $record,
-                                amount: $netAmount,
-                                paymentDate: now()->toDateString(),
-                                paymentMethod: 'cash',
-                                notes: $record->notes
-                            );
-                        } catch (\Throwable $e) {}
-                    }
-                } else {
-                    if ($record->payments()->count() === 0) {
-                        $record->paid_amount      = 0.0;
-                        $record->remaining_amount = $netAmount;
-                        $record->payment_status   = PaymentStatus::UNPAID;
-                        $record->save();
-                    }
-                }
-
-                $savedCount++;
-            }
-        });
-
-        $opLabel = $this->operationType === 'payroll' ? 'الرواتب' : 'التحصيل';
+        $opLabel = $this->operationType === 'payroll'
+            ? __('finance.payroll_records.sheet.op_payroll')
+            : __('finance.payroll_records.sheet.op_collection');
 
         Notification::make()
-            ->title("تم حفظ وتحديث مسير {$opLabel} بنجاح")
-            ->body("تم تحديث وحفظ بيانات {$savedCount} موظف عن شهر {$this->payrollMonth}")
+            ->title(__('finance.payroll_records.sheet.save_success_title', ['op' => $opLabel]))
+            ->body(__('finance.payroll_records.sheet.save_success_body', ['count' => $savedCount, 'month' => $this->payrollMonth]))
+            ->success()
+            ->send();
+
+        $this->loadSheet();
+    }
+
+    public function openEmployeeRecord(int $employeeId)
+    {
+        $record = PayrollSheetService::findOrCreateEmployeeRecord(
+            employeeId: $employeeId,
+            operationType: $this->operationType,
+            payrollMonth: $this->payrollMonth,
+            note: $this->notes[$employeeId] ?? null
+        );
+
+        if (!$record) {
+            return null;
+        }
+
+        return redirect()->to(PayrollRecordResource::getUrl('edit', ['record' => $record]));
+    }
+
+    public function deleteRecord(int $employeeId, ?int $recordId = null): void
+    {
+        PayrollSheetService::deleteEmployeeRecord(
+            employeeId: $employeeId,
+            operationType: $this->operationType,
+            payrollMonth: $this->payrollMonth,
+            recordId: $recordId
+        );
+
+        if (!in_array($employeeId, $this->deletedEmployeeIds)) {
+            $this->deletedEmployeeIds[] = $employeeId;
+        }
+
+        unset($this->checkedEmployees[$employeeId]);
+        unset($this->notes[$employeeId]);
+
+        Notification::make()
+            ->title(__('finance.payroll_records.sheet.delete_success'))
             ->success()
             ->send();
 
@@ -679,7 +510,7 @@ class ListPayrollRecords extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label(__('finance.payroll_records.actions.create_single') ?? 'إضافة مسير منفرد'),
+            CreateAction::make()->label(__('finance.payroll_records.actions.create_single')),
         ];
     }
 }

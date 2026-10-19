@@ -8,7 +8,7 @@
             style="background: #ecfdf5; color: #047857; border-color: #a7f3d0;"
         >
             <x-heroicon-s-check-circle style="width: 1rem; height: 1rem;" />
-            <span>تحديد الكل كـ ({{ $operationType === 'payroll' ? 'تم الصرف' : 'تم التحصيل' }})</span>
+            <span>{{ $operationType === 'payroll' ? __('finance.payroll_records.sheet.check_all_disburse') : __('finance.payroll_records.sheet.check_all_collect') }}</span>
         </button>
 
         <button
@@ -17,7 +17,7 @@
             class="btn-action btn-secondary"
         >
             <x-heroicon-s-x-circle style="width: 1rem; height: 1rem;" />
-            <span>إلغاء تحديد الكل (تركه فارغاً)</span>
+            <span>{{ __('finance.payroll_records.sheet.uncheck_all') }}</span>
         </button>
     </div>
 
@@ -30,7 +30,7 @@
             style="font-size: 0.875rem; padding: 0.65rem 1.35rem;"
         >
             <x-heroicon-s-check-badge style="width: 1.15rem; height: 1.15rem;" />
-            <span>حفظ واعتماد المسير</span>
+            <span>{{ __('finance.payroll_records.sheet.save_btn') }}</span>
         </button>
     </div>
 </div>
