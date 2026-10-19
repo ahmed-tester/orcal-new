@@ -198,4 +198,42 @@ class LeaveBalanceService
             'summary_text' => $summary,
         ];
     }
+
+    /**
+     * Calculate leave end date given start date and duration in days (inclusive).
+     */
+    public static function calculateEndDate(Carbon|string|null $startDate, int|float|null $days): ?string
+    {
+        if (!$startDate || !$days || (int) $days < 1) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($startDate)->addDays((int) $days - 1)->format('Y-m-d');
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Calculate duration in days between start and end date (inclusive).
+     */
+    public static function calculateDays(Carbon|string|null $startDate, Carbon|string|null $endDate): ?int
+    {
+        if (!$startDate || !$endDate) {
+            return null;
+        }
+
+        try {
+            $start = Carbon::parse($startDate);
+            $end = Carbon::parse($endDate);
+
+            return $end->greaterThanOrEqualTo($start)
+                ? (int) ($start->diffInDays($end) + 1)
+                : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
 }
+
