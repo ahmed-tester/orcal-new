@@ -91,4 +91,9 @@ class CreateSaudiEmployee extends CreateRecord
             $this->record->user->syncRoles($data['roles']);
         }
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }

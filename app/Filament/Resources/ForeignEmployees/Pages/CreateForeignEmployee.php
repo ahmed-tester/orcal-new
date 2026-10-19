@@ -92,4 +92,9 @@ class CreateForeignEmployee extends CreateRecord
             $this->record->user->syncRoles($data['roles']);
         }
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return \App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource::getUrl('index');
+    }
 }

@@ -18,6 +18,7 @@ class ForeignEmployeesTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultSort('id', 'desc')
             ->modifyQueryUsing(fn ($query) => $query->with([
                 'user',
                 'details.guarantor',
