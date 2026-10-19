@@ -91,6 +91,12 @@ return [
             'national_id_exists' => 'This national ID is already registered for another employee.',
             'email_exists' => 'This email is already registered for another user.',
             'owner_data_unavailable' => 'The selected owner data is unavailable or the owner account does not exist.',
+            'owner_already_employee' => 'This owner is already registered as an employee in the system.',
+        ],
+        'expiry_status' => [
+            'expired' => 'Expired :days days ago',
+            'today' => 'Expires today',
+            'remaining' => ':days days remaining',
         ],
     ],
 

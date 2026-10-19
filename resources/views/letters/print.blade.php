@@ -223,6 +223,12 @@
         $eastern = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
         return str_replace($western, $eastern, (string)$str);
     };
+
+    // --- Print / Display Options ---
+    $printOptions  = $options ?? [];
+    $showLogo      = $printOptions['show_logo'] ?? true;
+    $showSignature = $printOptions['show_signature'] ?? true;
+    $showStamp     = $printOptions['show_stamp'] ?? true;
 @endphp
 
 <!-- --- Header --- -->
@@ -245,18 +251,20 @@
 
         <!-- 2nd Cell in RTL: Appears in the CENTER (Logo) -->
         <td class="header-center">
-            @if($logoFile)
-                <img src="{{ $logoFile }}" style="max-height: 65px; max-width: 140px;">
-            @else
-                <svg width="55" height="55" viewBox="0 0 100 100" fill="#1a4478" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M 10 85 A 45 45 0 0 1 90 85 Z" fill="none" stroke="#1a4478" stroke-width="3"/>
-                    <rect x="5" y="87" width="90" height="3" fill="#1a4478" />
-                    <rect x="46" y="20" width="8" height="65" rx="3" fill="#1a4478"/>
-                    <rect x="34" y="32" width="7" height="53" rx="3" fill="#1a4478"/>
-                    <rect x="59" y="32" width="7" height="53" rx="3" fill="#1a4478"/>
-                    <rect x="23" y="46" width="7" height="39" rx="3" fill="#1a4478"/>
-                    <rect x="70" y="46" width="7" height="39" rx="3" fill="#1a4478"/>
-                </svg>
+            @if($showLogo)
+                @if($logoFile)
+                    <img src="{{ $logoFile }}" style="max-height: 65px; max-width: 140px;">
+                @else
+                    <svg width="55" height="55" viewBox="0 0 100 100" fill="#1a4478" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M 10 85 A 45 45 0 0 1 90 85 Z" fill="none" stroke="#1a4478" stroke-width="3"/>
+                        <rect x="5" y="87" width="90" height="3" fill="#1a4478" />
+                        <rect x="46" y="20" width="8" height="65" rx="3" fill="#1a4478"/>
+                        <rect x="34" y="32" width="7" height="53" rx="3" fill="#1a4478"/>
+                        <rect x="59" y="32" width="7" height="53" rx="3" fill="#1a4478"/>
+                        <rect x="23" y="46" width="7" height="39" rx="3" fill="#1a4478"/>
+                        <rect x="70" y="46" width="7" height="39" rx="3" fill="#1a4478"/>
+                    </svg>
+                @endif
             @endif
         </td>
 
@@ -309,11 +317,13 @@
     وتقبلوا خالص التحية والتقدير،،،
 </div>
 
+@if($showSignature || $showStamp)
 <!-- --- Signature & Stamp --- -->
 <div class="signature-container">
     <table style="width: 100%; border-collapse: collapse;">
         <tr>
-            <td style="width: 55%; vertical-align: top; text-align: right;">
+            @if($showSignature)
+            <td style="width: {{ $showStamp ? '55%' : '100%' }}; vertical-align: top; text-align: right;">
                 <div style="font-size: 10pt; font-weight: bold; margin-bottom: 16px; color: #1a4478;">
                     {{ $company?->trade_name ?? '' }}
                 </div>
@@ -326,7 +336,9 @@
                 </div>
                 @endif
             </td>
-            <td style="width: 45%; vertical-align: middle; text-align: center;">
+            @endif
+            @if($showStamp)
+            <td style="width: {{ $showSignature ? '45%' : '100%' }}; vertical-align: middle; text-align: center;">
                 @if($stampFile)
                     <img src="{{ $stampFile }}" style="max-height: 95px; max-width: 160px; margin: 0 auto; display: block;">
                 @elseif($company)
@@ -339,9 +351,11 @@
                     </table>
                 @endif
             </td>
+            @endif
         </tr>
     </table>
 </div>
+@endif
 
 <!-- --- Page Footer --- -->
 <htmlpagefooter name="docFooter">

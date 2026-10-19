@@ -67,10 +67,28 @@ return [
         'generic_error' => 'Could not process the file',
     ],
 
+    'loading' => [
+        'status_badge' => 'AI is Active Now',
+        'engine_badge' => 'Google Gemini AI — Cloud Processing Engine',
+        'secure_badge' => '100% Encrypted & Secure Processing',
+        'analyzing_title' => 'Scanning & Analyzing Document with AI...',
+        'analyzing_desc' => 'The system is thoroughly scanning all pages, extracting records with high precision, and matching companies automatically.',
+        'processing_title' => 'Confirming & Inserting Records into Database...',
+        'processing_desc' => 'Validating records, preventing duplicates, and saving data securely...',
+        'please_wait' => 'Process is currently running in background. Please do not close or refresh this page.',
+        'please_wait_insert' => 'Directly injecting data, process will complete in a few moments...',
+        'stage_reading' => 'Reading Pages',
+        'stage_extracting' => 'Extracting Records',
+        'stage_matching' => 'Matching Companies',
+        'stage_confirming' => 'Ready for Approval',
+        'stage_saving' => 'Inserting Records',
+    ],
+
     'service' => [
         'no_api_key' => 'Gemini API key is not configured. Please add it from System Settings (AI group) or in .env',
         'file_not_found' => 'The specified file does not exist on the server.',
-        'instruction_prompt' => 'You are an intelligent assistant responsible for reading documents and extracting data with high precision. Analyze the file content and call the appropriate function for each record found.',
+        'instruction_prompt' => 'You are an intelligent, highly accurate assistant responsible for reading documents and extracting data completely. Crucial instruction for multi-page or large documents (e.g. employee rosters with dozens or hundreds of rows): You must thoroughly read all pages from the very first page to the last page, and extract every single employee/record without skipping or stopping at page 1. Call the appropriate function for every record found in the entire document until 100% complete.',
+        'company_context_instruction' => 'Important note on establishments/companies: If the file mentions the company or establishment name for each employee or record, extract it accurately and pass it in (company_name). Currently registered companies in the system include: [:companies].',
         'file_content_prefix' => "File content:\n",
         'connection_failed' => 'Failed to connect to Gemini API: :error',
         'no_records_found' => 'No compatible records were found in the file to process.',
@@ -114,6 +132,7 @@ return [
     ],
 
     'fields' => [
+        'company' => 'Company:',
         'national_id' => 'National ID:',
         'iqama_number' => 'Iqama ID:',
         'commercial_registration' => 'CR No:',
@@ -124,5 +143,14 @@ return [
         'currency' => 'SAR',
         'unit_mb' => 'MB',
         'unit_kb' => 'KB',
+    ],
+
+    'tools' => [
+        'create_saudi_employee' => [
+            'company_name_desc' => 'Company or establishment name for the Saudi employee if present in the document/table (optional)',
+        ],
+        'create_foreign_employee' => [
+            'company_name_desc' => 'Company or establishment name for the resident employee if present in the document/table (optional)',
+        ],
     ],
 ];

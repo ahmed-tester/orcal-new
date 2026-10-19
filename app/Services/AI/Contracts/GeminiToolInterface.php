@@ -5,17 +5,17 @@ namespace App\Services\AI\Contracts;
 interface GeminiToolInterface
 {
     /**
-     * اسم الدالة الذي يراه Gemini
+     * The tool function name exposed to Gemini.
      */
     public function getName(): string;
 
     /**
-     * الوصف والمواصفات التي يراها Gemini (الصندوق الخارجي فقط)
+     * Function declaration schema payload for Gemini.
      */
     public function getDeclaration(): array;
 
     /**
-     * التنفيذ البرمجي الحقيقي في السيرفر (مخفي تماماً عن Gemini)
+     * Execute the tool locally with given arguments.
      *
      * @param array<string, mixed> $arguments
      * @return array<string, mixed>

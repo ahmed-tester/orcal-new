@@ -79,7 +79,7 @@ class EmployeeSelectionService
 
         if ($mode === 'saudi_employees') {
             $query = Employee::with(['user'])
-                ->whereHas('user', fn ($q) => $q->where('user_type', UserType::SAUDI_EMPLOYEE));
+                ->whereHas('user', fn ($q) => $q->whereIn('user_type', [UserType::SAUDI_EMPLOYEE, UserType::OWNER]));
 
             $user = auth()->user();
             if ($user && !$user->hasRole('Super Admin') && $user->user_type !== UserType::SUPER_ADMIN && $user->user_type !== UserType::OWNER && $user->branch_id) {
@@ -92,7 +92,7 @@ class EmployeeSelectionService
             })->toArray();
         }
 
-        // Mode: 'staff' (من قائمة الإدارة والموظفين)
+        // Mode: 'staff' (management and staff list)
         $query = Employee::with(['user']);
         $user = auth()->user();
         if ($user && !$user->hasRole('Super Admin') && $user->user_type !== UserType::SUPER_ADMIN && $user->user_type !== UserType::OWNER && $user->branch_id) {

@@ -14,7 +14,10 @@ class SaudiEmployee extends Employee
         parent::booted();
 
         static::addGlobalScope('saudi', function (Builder $builder) {
-            $builder->whereHas('user', fn ($query) => $query->where('user_type', UserType::SAUDI_EMPLOYEE));
+            $builder->whereHas('user', fn ($query) => $query->whereIn('user_type', [
+                UserType::SAUDI_EMPLOYEE,
+                UserType::OWNER,
+            ]));
         });
     }
 }

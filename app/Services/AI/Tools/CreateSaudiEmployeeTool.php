@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\EmployeeDetail;
 use App\Models\User;
 use App\Services\AI\Contracts\GeminiToolInterface;
+use App\Services\CompanyFormService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -24,41 +25,45 @@ class CreateSaudiEmployeeTool implements GeminiToolInterface
     {
         return [
             'name' => $this->getName(),
-            'description' => 'إضافة موظف سعودي الجنسية فقط إلى النظام مع التحقق الصارم من الهوية الوطنية (تبدأ برقم 1 وتتكون من 10 أرقام).',
+            'description' => __('smart_import.tools.create_saudi_employee.description'),
             'parameters' => [
                 'type' => 'OBJECT',
                 'properties' => [
                     'name' => [
                         'type' => 'STRING',
-                        'description' => 'اسم الموظف السعودي الكامل'
+                        'description' => __('smart_import.tools.create_saudi_employee.name_desc'),
+                    ],
+                    'company_name' => [
+                        'type' => 'STRING',
+                        'description' => __('smart_import.tools.create_saudi_employee.company_name_desc'),
                     ],
                     'national_id' => [
                         'type' => 'STRING',
-                        'description' => 'رقم الهوية الوطنية السعودية (10 أرقام وتبدأ برقم 1)'
+                        'description' => __('smart_import.tools.create_saudi_employee.national_id_desc'),
                     ],
                     'phone' => [
                         'type' => 'STRING',
-                        'description' => 'رقم جوال الموظف'
+                        'description' => __('smart_import.tools.create_saudi_employee.phone_desc'),
                     ],
                     'email' => [
                         'type' => 'STRING',
-                        'description' => 'البريد الإلكتروني للموظف (اختياري)'
+                        'description' => __('smart_import.tools.create_saudi_employee.email_desc'),
                     ],
                     'basic_salary' => [
                         'type' => 'NUMBER',
-                        'description' => 'الراتب الأساسي الشهري بالريال السعودي'
+                        'description' => __('smart_import.tools.create_saudi_employee.basic_salary_desc'),
                     ],
                     'city' => [
                         'type' => 'STRING',
-                        'description' => 'المدينة (اختياري)'
+                        'description' => __('smart_import.tools.create_saudi_employee.city_desc'),
                     ],
                     'birth_date' => [
                         'type' => 'STRING',
-                        'description' => 'تاريخ الميلاد بصيغة YYYY-MM-DD (اختياري)'
-                    ]
+                        'description' => __('smart_import.tools.create_saudi_employee.birth_date_desc'),
+                    ],
                 ],
-                'required' => ['name', 'national_id']
-            ]
+                'required' => ['name', 'national_id'],
+            ],
         ];
     }
 
@@ -72,53 +77,57 @@ class CreateSaudiEmployeeTool implements GeminiToolInterface
         $city = trim($arguments['city'] ?? '');
         $birthDate = trim($arguments['birth_date'] ?? '');
 
-        // 1. فحص الاسم
+        // 1. Validate employee name
         if (empty($name)) {
-            return ['success' => false, 'message' => 'اسم الموظف السعودي مطلوب.'];
+            return ['success' => false, 'message' => __('smart_import.tools.create_saudi_employee.name_required')];
         }
 
-        // 2. فاليديشن رقم الهوية الوطنية السعودية (10 أرقام وتبدأ بـ 1)
+        // 2. Validate Saudi National ID (10 digits starting with 1)
         if (strlen($nationalId) !== 10) {
             return [
                 'success' => false,
-                'message' => "خطأ في الهوية ({$name}): رقم الهوية الوطنية يجب أن يتكون من 10 أرقام تماماً.",
+                'message' => __('smart_import.tools.create_saudi_employee.id_length_error', ['name' => $name]),
             ];
         }
 
         if (str_starts_with($nationalId, '2')) {
             return [
                 'success' => false,
-                'message' => "مرفوض ({$name}): رقم الهوية ({$nationalId}) يبدأ بـ (2) وهي هوية مقيم، ولا يمكن إضافته كموظف سعودي!",
+                'message' => __('smart_import.tools.create_saudi_employee.id_starts_with_2_error', ['name' => $name, 'id' => $nationalId]),
             ];
         }
 
         if (!str_starts_with($nationalId, '1')) {
             return [
                 'success' => false,
-                'message' => "خطأ ({$name}): الهوية الوطنية السعودية يجب أن تبدأ برقم (1).",
+                'message' => __('smart_import.tools.create_saudi_employee.id_must_start_with_1', ['name' => $name]),
             ];
         }
 
-        // 3. التحقق من عدم تكرار الهوية
+        // 3. Verify national ID uniqueness
         $exists = EmployeeDetail::where('national_id', $nationalId)->exists();
         if ($exists) {
             return [
                 'success' => false,
-                'message' => "تنبيه (مكرر): رقم الهوية ({$nationalId}) مسجل مسبقاً في النظام للموظف ({$name})، تم تجاهله لمنع التكرار.",
+                'message' => __('smart_import.tools.create_saudi_employee.duplicate_id', ['name' => $name, 'id' => $nationalId]),
             ];
         }
 
-        // 4. التحقق من عدم تكرار رقم الجوال إذا وجد
+        // 4. Verify phone uniqueness if provided
         if (!empty($phone) && User::where('phone', $phone)->exists()) {
             return [
                 'success' => false,
-                'message' => "تنبيه (مكرر): رقم الجوال ({$phone}) مسجل مسبقاً في النظام للموظف ({$name}).",
+                'message' => __('smart_import.tools.create_saudi_employee.duplicate_phone', ['name' => $name, 'phone' => $phone]),
             ];
         }
 
         try {
-            return DB::transaction(function () use ($name, $nationalId, $phone, $email, $salary, $city, $birthDate) {
-                $companyId = auth()->user()?->company_id ?? Company::first()?->id ?? 1;
+            return DB::transaction(function () use ($name, $nationalId, $phone, $email, $salary, $city, $birthDate, $arguments) {
+                $companyName = trim($arguments['company_name'] ?? '');
+                $fallbackCompanyId = !empty($arguments['company_id']) ? (int)$arguments['company_id'] : null;
+                $companyId = CompanyFormService::resolveCompanyIdByName($companyName, $fallbackCompanyId);
+                $companyObj = Company::find($companyId);
+                $companySuffix = $companyObj ? " ({$companyObj->trade_name})" : "";
 
                 $userEmail = !empty($email) ? $email : ('sa_emp_' . Str::random(8) . '@company.local');
                 $user = User::create([
@@ -140,23 +149,25 @@ class CreateSaudiEmployeeTool implements GeminiToolInterface
                 EmployeeDetail::create([
                     'employee_id' => $employee->id,
                     'national_id' => $nationalId,
-                    'nationality' => 'سعودي',
+                    'nationality' => __('smart_import.tools.create_saudi_employee.default_nationality'),
                     'city' => $city ?: null,
                     'birth_date' => $birthDate ?: null,
                 ]);
 
                 return [
                     'success' => true,
-                    'message' => "تم إضافة الموظف السعودي ({$name}) بنجاح برقم وظيفي {$employee->employee_number}",
+                    'message' => __('smart_import.tools.create_saudi_employee.success_message', ['name' => $name, 'number' => $employee->employee_number]) . $companySuffix,
                     'employee_id' => $employee->id,
                     'employee_number' => $employee->employee_number,
+                    'company_id' => $companyId,
+                    'company_name' => $companyObj?->trade_name,
                     'type' => 'saudi',
                 ];
             });
         } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'message' => "تعذر حفظ الموظف السعودي ({$name}): " . $e->getMessage(),
+                'message' => __('smart_import.tools.create_saudi_employee.failed_message', ['name' => $name, 'error' => $e->getMessage()]),
             ];
         }
     }

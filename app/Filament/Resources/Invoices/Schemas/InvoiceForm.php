@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\Invoices\Schemas;
 
+use App\Enums\GeneralStatus;
 use App\Enums\PaymentStatus;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\Service;
+use App\Services\CompanyFormService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -91,7 +93,7 @@ class InvoiceForm
                             ->schema([
                                 Select::make('service_id')
                                     ->label(__('invoices.fields.service'))
-                                    ->options(fn (callable $get) => Service::when($get('../../company_id'), fn ($q, $cid) => $q->where('company_id', $cid))->pluck('name', 'id'))
+                                    ->options(fn (callable $get, ?string $state) => CompanyFormService::getAvailableServiceOptions($get('../../company_id'), $state))
                                     ->searchable()
                                     ->preload()
                                     ->live()

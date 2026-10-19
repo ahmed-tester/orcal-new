@@ -32,7 +32,6 @@ class SaudiEmployeeForm
                             ->default('manual')
                             ->inline()
                             ->live()
-                            ->dehydrated(false)
                             ->columnSpanFull(),
 
                         Select::make('selected_owner_id')
@@ -69,7 +68,6 @@ class SaudiEmployeeForm
                                     }
                                 }
                             })
-                            ->dehydrated(false)
                             ->columnSpanFull(),
 
                         TextInput::make('user_name')
@@ -81,8 +79,13 @@ class SaudiEmployeeForm
                             ->label(__('employees.fields.email'))
                             ->email()
                             ->placeholder('example@orcal.sa')
-                            ->unique(\App\Models\User::class, 'email', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
-                                return $record?->user_id ? $rule->ignore($record->user_id) : $rule;
+                            ->unique(\App\Models\User::class, 'email', ignoreRecord: false, modifyRuleUsing: function ($rule, callable $get, $record) {
+                                $userId = $record?->user_id;
+                                if (! $userId && $get('registration_source') === 'from_owner' && $get('selected_owner_id')) {
+                                    $owner = \App\Models\Owner::find($get('selected_owner_id'));
+                                    $userId = $owner?->user_id;
+                                }
+                                return $userId ? $rule->ignore($userId) : $rule;
                             }),
 
                         TextInput::make('national_id')
@@ -94,8 +97,13 @@ class SaudiEmployeeForm
                         PhoneService::makeFormField('user_phone', __('employees.fields.phone'), required: true)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn ($state, callable $set) => $set('user_phone', PhoneService::normalize($state) ?? $state))
-                            ->unique(\App\Models\User::class, 'phone', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
-                                return $record?->user_id ? $rule->ignore($record->user_id) : $rule;
+                            ->unique(\App\Models\User::class, 'phone', ignoreRecord: false, modifyRuleUsing: function ($rule, callable $get, $record) {
+                                $userId = $record?->user_id;
+                                if (! $userId && $get('registration_source') === 'from_owner' && $get('selected_owner_id')) {
+                                    $owner = \App\Models\Owner::find($get('selected_owner_id'));
+                                    $userId = $owner?->user_id;
+                                }
+                                return $userId ? $rule->ignore($userId) : $rule;
                             }),
 
                         ...EmployeeAgeService::makeFormFields(),

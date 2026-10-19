@@ -16,15 +16,17 @@ class OfficialLetterPrintController extends Controller
     public function print(OfficialLetter $letter, Request $request)
     {
         $letter->load('company');
+        $options = $this->resolveOptions($letter, $request);
 
         if ($request->query('format') === 'html') {
             return view('letters.print', [
                 'letter'  => $letter,
                 'company' => $letter->company,
+                'options' => $options,
             ]);
         }
 
-        $mpdf = $this->buildPdf($letter);
+        $mpdf = $this->buildPdf($letter, $options);
         $filename = 'letter-' . ($letter->letter_number ?: $letter->id) . '.pdf';
 
         return response($mpdf->Output($filename, 'S'), 200, [
@@ -39,8 +41,9 @@ class OfficialLetterPrintController extends Controller
     public function pdf(OfficialLetter $letter, Request $request)
     {
         $letter->load('company');
+        $options = $this->resolveOptions($letter, $request);
 
-        $mpdf = $this->buildPdf($letter);
+        $mpdf = $this->buildPdf($letter, $options);
         $filename = 'letter-' . ($letter->letter_number ?: $letter->id) . '.pdf';
 
         return response($mpdf->Output($filename, 'S'), 200, [
@@ -50,9 +53,23 @@ class OfficialLetterPrintController extends Controller
     }
 
     /**
+     * Resolve print options prioritizing query parameters, then letter metadata, then defaults.
+     */
+    private function resolveOptions(OfficialLetter $letter, Request $request): array
+    {
+        $saved = $letter->metadata['print_options'] ?? [];
+
+        return [
+            'show_logo'      => $request->has('show_logo') ? $request->boolean('show_logo') : ($saved['show_logo'] ?? true),
+            'show_stamp'     => $request->has('show_stamp') ? $request->boolean('show_stamp') : ($saved['show_stamp'] ?? true),
+            'show_signature' => $request->has('show_signature') ? $request->boolean('show_signature') : ($saved['show_signature'] ?? true),
+        ];
+    }
+
+    /**
      * Build mPDF instance for official letter.
      */
-    private function buildPdf(OfficialLetter $letter): Mpdf
+    private function buildPdf(OfficialLetter $letter, array $options = []): Mpdf
     {
         $defaultConfig  = (new ConfigVariables())->getDefaults();
         $defaultFonts   = (new FontVariables())->getDefaults();
@@ -83,6 +100,7 @@ class OfficialLetterPrintController extends Controller
         $html = view('letters.print', [
             'letter'  => $letter,
             'company' => $letter->company,
+            'options' => $options,
         ])->render();
         $html = preg_replace('/^\xEF\xBB\xBF/', '', $html);
 
