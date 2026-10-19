@@ -99,6 +99,12 @@ return [
             'national_id_exists' => 'رقم الهوية الوطنية مسجل مسبقاً لموظف آخر.',
             'email_exists' => 'البريد الإلكتروني مسجل مسبقاً في النظام لمستخدم آخر.',
             'owner_data_unavailable' => 'بيانات المالك المحدد غير متوفرة أو حسابه غير موجود.',
+            'owner_already_employee' => 'هذا المالك مسجل بالفعل كموظف في النظام.',
+        ],
+        'expiry_status' => [
+            'expired' => 'منتهية منذ :days يوم',
+            'today' => 'تنتهي اليوم',
+            'remaining' => 'متبقي :days يوم',
         ],
     ],
     'gender_options' => [

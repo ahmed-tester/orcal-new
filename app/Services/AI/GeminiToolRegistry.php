@@ -58,139 +58,139 @@ class GeminiToolRegistry
 
     public function __construct()
     {
-        // 1. الموظفون السعوديون (فاليديشن صارم للهوية الوطنية والجنسية)
+        // 1. Saudi Employees
         $this->register(new CreateSaudiEmployeeTool());
 
-        // 2. الموظفون المقيمون / غير السعوديين (فاليديشن صارم للإقامة والجنسية غير السعودية)
+        // 2. Foreign / Resident Employees
         $this->register(new CreateForeignEmployeeTool());
 
-        // 3. العملاء والجهات المستفيدة
+        // 3. Customers and Beneficiaries
         $this->register(new CreateCustomerTool());
 
-        // 4. المؤسسات والشركات
+        // 4. Companies and Establishments
         $this->register(new CreateCompanyTool());
 
-        // 5. الإشراف والمناوبة
+        // 5. Supervision and Shifts
         $this->register(new CreateSupervisionShiftTool());
 
-        // 6. حركات وسندات الخزينة (قبض / صرف)
+        // 6. Treasury Transactions
         $this->register(new CreateTreasuryTransactionTool());
 
-        // 7. بنود الدفع والتحصيل
+        // 7. Payment Collection Items
         $this->register(new CreatePaymentCollectionItemTool());
 
-        // 8. نقاط البيع والشبكات (POS)
+        // 8. POS Devices
         $this->register(new CreatePosDeviceTool());
 
-        // 9. المخالفات والجزاءات
+        // 9. Violations and Penalties
         $this->register(new CreateViolationTool());
 
-        // 10. صندوق تحصيل المخالفات
+        // 10. Violation Transactions
         $this->register(new CreateViolationTransactionTool());
 
-        // 11. أقسام وتصنيفات المخالفات
+        // 11. Violation Categories
         $this->register(new CreateViolationCategoryTool());
 
-        // 12. أنواع ومسميات المخالفات
+        // 12. Violation Types
         $this->register(new CreateViolationTypeTool());
 
-        // 13. لوائح وأنظمة المخالفات
+        // 13. Violation Regulations
         $this->register(new CreateViolationRegulationTool());
 
-        // 14. الفواتير وسندات الخدمات
+        // 14. Invoices
         $this->register(new CreateInvoiceTool());
 
-        // 15. أنواع الفواتير
+        // 15. Invoice Types
         $this->register(new CreateInvoiceTypeTool());
 
-        // 16. قائمة أسعار الخدمات
+        // 16. Service Price List
         $this->register(new CreateServiceTool());
 
-        // 17. الأقساط والسلف
+        // 17. Installments
         $this->register(new CreateInstallmentTool());
 
-        // 18. أنواع الأقساط
+        // 18. Installment Types
         $this->register(new CreateInstallmentTypeTool());
 
-        // 19. مسيرات الرواتب (إعداد وتعديل)
+        // 19. Payroll Records
         $this->register(new CreatePayrollRecordTool());
 
-        // 20. صرف رواتب الموظفين (سندات صرف وخزينة)
+        // 20. Salary Disbursements
         $this->register(new DisburseSalaryTool());
 
-        // 21. سجلات الحضور والانصراف والبصمة
+        // 21. Attendance Records
         $this->register(new CreateAttendanceTool());
 
-        // 22. أجهزة البصمة والدوام
+        // 22. Attendance Devices
         $this->register(new CreateAttendanceDeviceTool());
 
-        // 23. الإجازات والطلبات
+        // 23. Leave Requests
         $this->register(new CreateLeaveTool());
 
-        // 24. أنواع الإجازات
+        // 24. Leave Types
         $this->register(new CreateLeaveTypeTool());
 
-        // 25. المكافآت والبدلات
+        // 25. Employee Rewards
         $this->register(new CreateEmployeeRewardTool());
 
-        // 26. قيود اليومية (المبيعات والمشتريات)
+        // 26. Daily Journals
         $this->register(new CreateDailyJournalTool());
 
-        // 27. المهام والتكليفات
+        // 27. Tasks
         $this->register(new CreateTaskTool());
 
-        // 28. الفروع ومواقع العمل
+        // 28. Branches
         $this->register(new CreateBranchTool());
 
-        // 29. الأقسام والإدارات
+        // 29. Departments
         $this->register(new CreateDepartmentTool());
 
-        // 30. المسميات الوظيفية
+        // 30. Job Titles
         $this->register(new CreateJobTitleTool());
 
-        // 31. صناديق القروض والسلف
+        // 31. Loan Funds
         $this->register(new CreateLoanFundTool());
 
-        // 32. مشتركو صناديق القروض والسلف
+        // 32. Loan Fund Members
         $this->register(new CreateLoanFundMemberTool());
 
-        // 33. قروض وسلف الصندوق
+        // 33. Loan Fund Loans
         $this->register(new CreateLoanFundLoanTool());
 
-        // 34. سداد أقساط قروض الصندوق
+        // 34. Loan Fund Payments
         $this->register(new CreateLoanFundPaymentTool());
 
-        // 35. الجمعيات المالية
+        // 35. ROSCA Funds
         $this->register(new CreateRoscaFundTool());
 
-        // 36. مشتركو الجمعيات المالية
+        // 36. ROSCA Fund Members
         $this->register(new CreateRoscaFundMemberTool());
 
-        // 37. دفعات وأقساط الجمعيات
+        // 37. ROSCA Payments
         $this->register(new CreateRoscaPaymentTool());
 
-        // 38. عروض الأسعار
+        // 38. Price Offers
         $this->register(new CreateOfferTool());
 
-        // 39. الملاك والشركاء
+        // 39. Owners and Partners
         $this->register(new CreateOwnerTool());
 
-        // 40. المستخدمون والمديرون
+        // 40. System Users
         $this->register(new CreateUserTool());
 
-        // 41. تذاكر الدعم الفني
+        // 41. Support Tickets
         $this->register(new CreateTicketTool());
 
-        // 42. الأسئلة الشائعة
+        // 42. FAQs
         $this->register(new CreateFaqTool());
 
-        // 43. الملاحظات والتقارير الأسبوعية
+        // 43. Weekly Notes
         $this->register(new CreateWeeklyNoteTool());
 
-        // 44. الديون والالتزامات المالية
+        // 44. Financial Debts
         $this->register(new CreateDebtTool());
 
-        // 45. سندات تحصيل وسداد الديون
+        // 45. Debt Collections
         $this->register(new CreateDebtCollectionTool());
     }
 
@@ -201,7 +201,7 @@ class GeminiToolRegistry
     }
 
     /**
-     * الحصول على جميع الأدوات المسجلة
+     * Get all registered tools.
      *
      * @return array<string, GeminiToolInterface>
      */
@@ -211,7 +211,7 @@ class GeminiToolRegistry
     }
 
     /**
-     * الحصول على مصفوفة الـ Function Declarations لإرسالها لـ Gemini
+     * Get function declarations payload for Gemini API.
      */
     public function getDeclarationsForGemini(?array $allowedToolNames = null): array
     {
@@ -232,14 +232,14 @@ class GeminiToolRegistry
     }
 
     /**
-     * تنفيذ الميثود الحقيقية محلياً عند تلقي طلب من Gemini
+     * Execute a specific tool by name.
      */
     public function executeTool(string $toolName, array $arguments): array
     {
         if (!isset($this->tools[$toolName])) {
             return [
                 'success' => false,
-                'message' => "الدالة المطلوبة ({$toolName}) غير مسجلة في النظام.",
+                'message' => __('smart_import.service.tool_not_registered', ['tool' => $toolName]),
             ];
         }
 

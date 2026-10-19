@@ -4,7 +4,9 @@ namespace App\Filament\Resources\SaudiEmployees\Pages;
 
 use App\Enums\UserType;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
+use App\Models\Employee;
 use App\Models\EmployeeDetail;
+use App\Models\Owner;
 use App\Models\User;
 use App\Services\PhoneService;
 use Filament\Resources\Pages\CreateRecord;
@@ -16,17 +18,38 @@ class CreateSaudiEmployee extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $registrationSource = $data['registration_source'] ?? 'manual';
-        $selectedOwnerId = $data['selected_owner_id'] ?? null;
+        $rawState = $this->form->getRawState();
+        $registrationSource = $data['registration_source'] ?? $rawState['registration_source'] ?? 'manual';
+        $selectedOwnerId = $data['selected_owner_id'] ?? $rawState['selected_owner_id'] ?? null;
 
         if ($registrationSource === 'from_owner' && !empty($selectedOwnerId)) {
-            $owner = \App\Models\Owner::with('user')->find($selectedOwnerId);
+            $owner = Owner::with('user')->find($selectedOwnerId);
             if (!$owner || !$owner->user) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'selected_owner_id' => __('employees.fields.errors.owner_data_unavailable'),
                 ]);
             }
+
+            if (Employee::where('user_id', $owner->user->id)->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'selected_owner_id' => __('employees.fields.errors.owner_already_employee'),
+                ]);
+            }
+
             $data['user_id'] = $owner->user->id;
+
+            // Update owner user account data if changes were provided in form
+            $userUpdates = array_filter([
+                'name' => $data['user_name'] ?? null,
+                'email' => !empty($data['user_email']) ? trim($data['user_email']) : null,
+                'phone' => !empty($data['user_phone']) ? PhoneService::normalize($data['user_phone']) : null,
+            ]);
+            if (!empty($data['user_password'])) {
+                $userUpdates['password'] = Hash::make($data['user_password']);
+            }
+            if (!empty($userUpdates)) {
+                $owner->user->update($userUpdates);
+            }
         } else {
             $nationalId = $data['national_id'] ?? null;
             if (!empty($nationalId) && EmployeeDetail::where('national_id', $nationalId)->exists()) {
@@ -70,6 +93,8 @@ class CreateSaudiEmployee extends CreateRecord
                 $data['company_id'] = $branch->company_id;
             }
         }
+
+        unset($data['registration_source'], $data['selected_owner_id']);
 
         return $data;
     }

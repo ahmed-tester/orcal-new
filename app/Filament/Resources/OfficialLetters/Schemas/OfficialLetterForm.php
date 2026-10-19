@@ -83,6 +83,30 @@ class OfficialLetterForm
                             ->placeholder(__('official_letters.placeholders.body'))
                             ->columnSpanFull(),
                     ]),
+
+                // --- 3. Print & Display Options ---
+                Section::make(__('official_letters.sections.print_options'))
+                    ->description(__('official_letters.sections.print_options_desc'))
+                    ->icon('heroicon-o-printer')
+                    ->collapsible()
+                    ->columns(3)
+                    ->schema([
+
+                        \Filament\Forms\Components\Toggle::make('metadata.print_options.show_logo')
+                            ->label(__('official_letters.fields.show_logo'))
+                            ->helperText(__('official_letters.helpers.show_logo'))
+                            ->default(true),
+
+                        \Filament\Forms\Components\Toggle::make('metadata.print_options.show_stamp')
+                            ->label(__('official_letters.fields.show_stamp'))
+                            ->helperText(__('official_letters.helpers.show_stamp'))
+                            ->default(true),
+
+                        \Filament\Forms\Components\Toggle::make('metadata.print_options.show_signature')
+                            ->label(__('official_letters.fields.show_signature'))
+                            ->helperText(__('official_letters.helpers.show_signature'))
+                            ->default(true),
+                    ]),
             ]);
     }
 }

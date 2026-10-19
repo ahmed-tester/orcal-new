@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\EmployeeDetail;
 use App\Models\User;
 use App\Services\AI\Contracts\GeminiToolInterface;
+use App\Services\CompanyFormService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -24,53 +25,57 @@ class CreateForeignEmployeeTool implements GeminiToolInterface
     {
         return [
             'name' => $this->getName(),
-            'description' => 'إضافة موظف مقيم (غير سعودي) إلى النظام مع التحقق الصارم من رقم الإقامة (يبدأ برقم 2 ويتكون من 10 أرقام) والجنسية غير السعودية.',
+            'description' => __('smart_import.tools.create_foreign_employee.description'),
             'parameters' => [
                 'type' => 'OBJECT',
                 'properties' => [
                     'name' => [
                         'type' => 'STRING',
-                        'description' => 'اسم الموظف المقيم الكامل'
+                        'description' => __('smart_import.tools.create_foreign_employee.name_desc'),
+                    ],
+                    'company_name' => [
+                        'type' => 'STRING',
+                        'description' => __('smart_import.tools.create_foreign_employee.company_name_desc'),
                     ],
                     'iqama_number' => [
                         'type' => 'STRING',
-                        'description' => 'رقم الإقامة في السعودية (10 أرقام وتبدأ برقم 2)'
+                        'description' => __('smart_import.tools.create_foreign_employee.iqama_desc'),
                     ],
                     'nationality' => [
                         'type' => 'STRING',
-                        'description' => 'جنسية الموظف المقيم (مثال: مصري، هندي، يمني، فلبيني، باكستاني... ولا يمكن أن تكون سعودي)'
+                        'description' => __('smart_import.tools.create_foreign_employee.nationality_desc'),
                     ],
                     'passport_number' => [
                         'type' => 'STRING',
-                        'description' => 'رقم جواز السفر (اختياري)'
+                        'description' => __('smart_import.tools.create_foreign_employee.passport_desc'),
                     ],
                     'phone' => [
                         'type' => 'STRING',
-                        'description' => 'رقم جوال الموظف'
+                        'description' => __('smart_import.tools.create_foreign_employee.phone_desc'),
                     ],
                     'email' => [
                         'type' => 'STRING',
-                        'description' => 'البريد الإلكتروني (اختياري)'
+                        'description' => __('smart_import.tools.create_foreign_employee.email_desc'),
                     ],
                     'basic_salary' => [
                         'type' => 'NUMBER',
-                        'description' => 'الراتب الأساسي الشهري بالريال السعودي'
+                        'description' => __('smart_import.tools.create_foreign_employee.basic_salary_desc'),
                     ],
                     'iqama_expiry' => [
                         'type' => 'STRING',
-                        'description' => 'تاريخ انتهاء الإقامة بصيغة YYYY-MM-DD (اختياري)'
+                        'description' => __('smart_import.tools.create_foreign_employee.iqama_expiry_desc'),
                     ],
                     'work_permit_number' => [
                         'type' => 'STRING',
-                        'description' => 'رقم رخصة العمل (اختياري)'
+                        'description' => __('smart_import.tools.create_foreign_employee.work_permit_desc'),
                     ],
                     'sponsor_name' => [
                         'type' => 'STRING',
-                        'description' => 'اسم الكفيل أو المنشأة السابقة (اختياري)'
-                    ]
+                        'description' => __('smart_import.tools.create_foreign_employee.sponsor_name_desc'),
+                    ],
                 ],
-                'required' => ['name', 'iqama_number', 'nationality']
-            ]
+                'required' => ['name', 'iqama_number', 'nationality'],
+            ],
         ];
     }
 
@@ -87,73 +92,99 @@ class CreateForeignEmployeeTool implements GeminiToolInterface
         $workPermitNumber = trim($arguments['work_permit_number'] ?? '');
         $sponsorName = trim($arguments['sponsor_name'] ?? '');
 
-        // 1. فحص الاسم
+        // 1. Validate employee name
         if (empty($name)) {
-            return ['success' => false, 'message' => 'اسم الموظف المقيم مطلوب.'];
+            return ['success' => false, 'message' => __('smart_import.tools.create_foreign_employee.name_required')];
         }
 
-        // 2. فحص الجنسية (يجب ألا تكون سعودي)
+        // 2. Validate nationality (must be provided and non-Saudi)
         if (empty($nationality)) {
-            return ['success' => false, 'message' => "الجنسية مطلوبة للموظف المقيم ({$name})."];
-        }
-
-        if (in_array(mb_strtolower($nationality), ['سعودي', 'سعودية', 'saudi', 'saudi arabia', 'ksa'])) {
             return [
                 'success' => false,
-                'message' => "مرفوض ({$name}): تم تحديد الجنسية ({$nationality})، لا يمكن إضافة موظف سعودي في شاشة المقيمين!",
+                'message' => __('smart_import.tools.create_foreign_employee.nationality_required', ['name' => $name]),
             ];
         }
 
-        // 3. فاليديشن رقم الإقامة (10 أرقام وتبدأ بـ 2)
+        $banned = (array) __('smart_import.tools.create_foreign_employee.banned_nationalities');
+        if (empty($banned) || !is_array($banned)) {
+            $banned = ['saudi', 'saudi arabia', 'ksa'];
+        }
+        if (in_array(mb_strtolower($nationality), array_map('mb_strtolower', $banned), true)) {
+            return [
+                'success' => false,
+                'message' => __('smart_import.tools.create_foreign_employee.saudi_nationality_rejected', [
+                    'name' => $name,
+                    'nationality' => $nationality,
+                ]),
+            ];
+        }
+
+        // 3. Validate Iqama number (10 digits starting with 2)
         if (strlen($iqamaNumber) !== 10) {
             return [
                 'success' => false,
-                'message' => "خطأ في الإقامة ({$name}): رقم الإقامة يجب أن يتكون من 10 أرقام تماماً.",
+                'message' => __('smart_import.tools.create_foreign_employee.iqama_length_error', ['name' => $name]),
             ];
         }
 
         if (str_starts_with($iqamaNumber, '1')) {
             return [
                 'success' => false,
-                'message' => "مرفوض ({$name}): رقم الإقامة ({$iqamaNumber}) يبدأ بـ (1) وهو رقم هوية وطنية سعودية، ولا يمكن إضافته كمقيم!",
+                'message' => __('smart_import.tools.create_foreign_employee.iqama_starts_with_1_rejected', [
+                    'name' => $name,
+                    'iqama' => $iqamaNumber,
+                ]),
             ];
         }
 
         if (!str_starts_with($iqamaNumber, '2')) {
             return [
                 'success' => false,
-                'message' => "خطأ ({$name}): رقم إقامة المقيم يجب أن يبدأ برقم (2).",
+                'message' => __('smart_import.tools.create_foreign_employee.iqama_must_start_with_2', ['name' => $name]),
             ];
         }
 
-        // 4. فحص عدم التكرار برقم الإقامة
+        // 4. Verify Iqama uniqueness
         $exists = EmployeeDetail::where('iqama_number', $iqamaNumber)->orWhere('national_id', $iqamaNumber)->exists();
         if ($exists) {
             return [
                 'success' => false,
-                'message' => "تنبيه (مكرر): رقم الإقامة ({$iqamaNumber}) مسجل مسبقاً في النظام للموظف ({$name})، تم تجاهله لمنع التكرار.",
+                'message' => __('smart_import.tools.create_foreign_employee.duplicate_iqama', [
+                    'name' => $name,
+                    'iqama' => $iqamaNumber,
+                ]),
             ];
         }
 
-        // 5. فحص عدم التكرار برقم الجواز إذا وجد
+        // 5. Verify passport uniqueness if provided
         if (!empty($passportNumber) && EmployeeDetail::where('passport_number', $passportNumber)->exists()) {
             return [
                 'success' => false,
-                'message' => "تنبيه (مكرر): جواز السفر ({$passportNumber}) مسجل مسبقاً في النظام للموظف ({$name}).",
+                'message' => __('smart_import.tools.create_foreign_employee.duplicate_passport', [
+                    'name' => $name,
+                    'passport' => $passportNumber,
+                ]),
             ];
         }
 
-        // 6. فحص عدم تكرار رقم الجوال
+        // 6. Verify phone uniqueness if provided
         if (!empty($phone) && User::where('phone', $phone)->exists()) {
             return [
                 'success' => false,
-                'message' => "تنبيه (مكرر): رقم الجوال ({$phone}) مسجل مسبقاً في النظام للموظف ({$name}).",
+                'message' => __('smart_import.tools.create_foreign_employee.duplicate_phone', [
+                    'name' => $name,
+                    'phone' => $phone,
+                ]),
             ];
         }
 
         try {
-            return DB::transaction(function () use ($name, $iqamaNumber, $nationality, $passportNumber, $phone, $email, $salary, $iqamaExpiry, $workPermitNumber, $sponsorName) {
-                $companyId = auth()->user()?->company_id ?? Company::first()?->id ?? 1;
+            return DB::transaction(function () use ($name, $iqamaNumber, $nationality, $passportNumber, $phone, $email, $salary, $iqamaExpiry, $workPermitNumber, $sponsorName, $arguments) {
+                $companyName = trim($arguments['company_name'] ?? '');
+                $fallbackCompanyId = !empty($arguments['company_id']) ? (int)$arguments['company_id'] : null;
+                $companyId = CompanyFormService::resolveCompanyIdByName($companyName, $fallbackCompanyId);
+                $companyObj = Company::find($companyId);
+                $companySuffix = $companyObj ? " ({$companyObj->trade_name})" : "";
 
                 $userEmail = !empty($email) ? $email : ('for_emp_' . Str::random(8) . '@company.local');
                 $user = User::create([
@@ -185,16 +216,25 @@ class CreateForeignEmployeeTool implements GeminiToolInterface
 
                 return [
                     'success' => true,
-                    'message' => "تم إضافة الموظف المقيم ({$name} - {$nationality}) بنجاح برقم وظيفي {$employee->employee_number}",
+                    'message' => __('smart_import.tools.create_foreign_employee.success_message', [
+                        'name' => $name,
+                        'nationality' => $nationality,
+                        'number' => $employee->employee_number,
+                    ]) . $companySuffix,
                     'employee_id' => $employee->id,
                     'employee_number' => $employee->employee_number,
+                    'company_id' => $companyId,
+                    'company_name' => $companyObj?->trade_name,
                     'type' => 'foreign',
                 ];
             });
         } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'message' => "تعذر حفظ الموظف المقيم ({$name}): " . $e->getMessage(),
+                'message' => __('smart_import.tools.create_foreign_employee.failed_message', [
+                    'name' => $name,
+                    'error' => $e->getMessage(),
+                ]),
             ];
         }
     }

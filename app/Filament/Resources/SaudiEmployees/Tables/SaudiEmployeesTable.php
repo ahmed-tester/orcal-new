@@ -20,6 +20,7 @@ class SaudiEmployeesTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultSort('id', 'desc')
             ->modifyQueryUsing(fn ($query) => $query->with([
                 'user',
                 'details.guarantor',
@@ -75,9 +76,9 @@ class SaudiEmployeesTable
                         $expiry = $record->details->iqama_expiry;
                         $days = (int) \Carbon\Carbon::today()->diffInDays(\Carbon\Carbon::parse($expiry), false);
                         return match (true) {
-                            $days < 0  => 'منتهية منذ ' . abs($days) . ' يوم',
-                            $days == 0 => 'تنتهي اليوم',
-                            default    => 'متبقي ' . $days . ' يوم',
+                            $days < 0  => __('employees.fields.expiry_status.expired', ['days' => abs($days)]),
+                            $days == 0 => __('employees.fields.expiry_status.today'),
+                            default    => __('employees.fields.expiry_status.remaining', ['days' => $days]),
                         };
                     }),
 
@@ -155,7 +156,7 @@ class SaudiEmployeesTable
                     ->icon('heroicon-o-shield-check')
                     ->color('info')
                     ->visible(fn ($record) => !empty($record->details?->guarantor_id))
-                    ->tooltip('عرض تقرير الضامن والمكفولين')
+                    ->tooltip(__('guarantors.report.title'))
                     ->url(fn ($record) => route('filament.admin.pages.general-reports', [
                         'reportType' => 'guarantors',
                         'guarantorId' => $record->details?->guarantor_id,
