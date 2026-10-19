@@ -402,6 +402,7 @@ return [
             'external_address'       => 'المدينة، الحي، العنوان الوطني',
             'notification_notes'     => 'تنبيه: المعاملة مستحقة السداد — يرجى المتابعة',
             'installment_type_name'  => 'مثال: سلفة زواج / قسط سيارة',
+            'monthly_amount_helper'  => 'يُحسب تلقائياً: (الإجمالي − الدفعة) ÷ الشهور',
         ],
         'types' => [
             'installment' => 'قسط',

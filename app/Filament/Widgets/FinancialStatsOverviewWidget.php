@@ -21,13 +21,7 @@ class FinancialStatsOverviewWidget extends BaseWidget
         $companyIds = [];
 
         if ($user) {
-            if ($user->isSuperAdmin()) {
-                $companyIds = Company::pluck('id')->toArray();
-            } elseif ($user->isOwner()) {
-                $companyIds = $user->getOwnedCompanyIds();
-            } elseif ($user->company_id) {
-                $companyIds = [$user->company_id];
-            }
+            $companyIds = $user->getAccessibleCompanyIds();
         }
 
         $currency = __('dashboard.stats.currency');

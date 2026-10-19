@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Users\Schemas;
 
 use App\Filament\Resources\Users\Pages\CreateUser;
+use App\Services\PhoneService;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -20,7 +21,6 @@ class UserForm
             ->components([
                 Grid::make(['default' => 1, 'lg' => 2])
                     ->schema([
-                        // 1. معلومات الحساب الأساسية
                         Section::make(__('admin.account_information'))
                             ->schema([
                                 TextInput::make('name')
@@ -35,10 +35,11 @@ class UserForm
                                     ->unique(ignoreRecord: true)
                                     ->maxLength(255),
 
-                                TextInput::make('phone')
-                                    ->label(__('admin.phone'))
-                                    ->tel()
-                                    ->maxLength(50),
+                                PhoneService::makeFormField('phone', __('admin.phone'))
+                                    ->nullable()
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(fn ($state, callable $set) => $set('phone', PhoneService::normalize($state) ?? $state))
+                                    ->unique(ignoreRecord: true),
 
                                 FileUpload::make('avatar_url')
                                     ->label(__('admin.avatar'))
@@ -57,7 +58,6 @@ class UserForm
                                     ->default(true),
                             ]),
 
-                        // 2. الأمان وكلمة المرور
                         Section::make(__('admin.security_and_password'))
                             ->schema([
                                 TextInput::make('password')
@@ -67,6 +67,7 @@ class UserForm
                                     ->required(fn ($livewire) => $livewire instanceof CreateUser)
                                     ->dehydrated(fn ($state) => filled($state))
                                     ->same('password_confirmation')
+                                    ->minLength(8)
                                     ->maxLength(255),
 
                                 TextInput::make('password_confirmation')
@@ -74,12 +75,12 @@ class UserForm
                                     ->password()
                                     ->revealable()
                                     ->required(fn ($livewire) => $livewire instanceof CreateUser)
+                                    ->requiredWith('password')
                                     ->dehydrated(false)
                                     ->maxLength(255),
                             ]),
                     ]),
 
-                // 3. تعيين الأدوار والصلاحيات
                 Section::make(__('admin.roles_and_permissions_assignment'))
                     ->schema([
                         Select::make('roles')

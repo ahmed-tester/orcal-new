@@ -7,6 +7,7 @@ use App\Filament\Components\OrgSelect;
 use App\Models\Employee;
 use App\Models\Guarantor;
 use App\Models\InstallmentType;
+use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -23,7 +24,6 @@ class InstallmentForm
         return $schema
             ->columns(1)
             ->components([
-                // 1. نوع المعاملة ومصدر المستفيد
                 Section::make(__('finance.installments.sections.type_and_source'))
                     ->description(__('finance.installments.sections.type_and_source_desc'))
                     ->icon('heroicon-o-adjustments-horizontal')
@@ -97,7 +97,6 @@ class InstallmentForm
                             ->columnSpanFull(),
                     ]),
 
-                // 2. في حال كان المستفيد من قائمة المنشآت (خدمات داخلية)
                 Section::make(__('finance.installments.sections.loan_info'))
                     ->description(__('finance.installments.sections.loan_info_desc'))
                     ->icon('heroicon-o-building-office-2')
@@ -114,7 +113,7 @@ class InstallmentForm
                                     $query->where('company_id', $companyId);
                                 }
                             })
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "موظف #{$record->id}")
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
                             ->searchable()
                             ->preload()
                             ->required(fn (callable $get) => ($get('beneficiary_type') ?? 'internal') === 'internal')
@@ -131,7 +130,6 @@ class InstallmentForm
                         static::getInstallmentTypeSelect(isRequired: true),
                     ]),
 
-                // 3. في حال كان المستفيد من خارج المنشآت (سجل قانوني كامل)
                 Section::make(__('finance.installments.sections.external_legal_info'))
                     ->description(__('finance.installments.sections.external_legal_info_desc'))
                     ->icon('heroicon-o-identification')
@@ -150,12 +148,8 @@ class InstallmentForm
                             ->required(fn (callable $get) => $get('beneficiary_type') === 'external')
                             ->maxLength(50),
 
-                        TextInput::make('external_phone')
-                            ->label(__('finance.installments.fields.external_phone'))
-                            ->placeholder(__('finance.installments.placeholders.external_phone'))
-                            ->tel()
-                            ->required(fn (callable $get) => $get('beneficiary_type') === 'external')
-                            ->maxLength(50),
+                        PhoneService::makeFormField('external_phone', __('finance.installments.fields.external_phone'))
+                            ->required(fn (callable $get) => $get('beneficiary_type') === 'external'),
 
                         TextInput::make('external_email')
                             ->label(__('finance.installments.fields.external_email'))
@@ -169,7 +163,6 @@ class InstallmentForm
                         static::getInstallmentTypeSelect(isRequired: false),
                     ]),
 
-                // 4. قسم الكفيل أو الضامن (مرتبط بجدول guarantors المعتمد في النظام)
                 Section::make(__('guarantors.section_title'))
                     ->description(__('guarantors.section_desc'))
                     ->icon('heroicon-o-user-group')
@@ -208,11 +201,7 @@ class InstallmentForm
                                             ->placeholder(__('guarantors.placeholders.national_id'))
                                             ->maxLength(50),
 
-                                        TextInput::make('phone')
-                                            ->label(__('guarantors.fields.phone'))
-                                            ->placeholder(__('finance.installments.placeholders.external_phone'))
-                                            ->tel()
-                                            ->maxLength(50),
+                                        PhoneService::makeFormField('phone', __('guarantors.fields.phone')),
 
                                         TextInput::make('job_title')
                                             ->label(__('guarantors.fields.job_title'))
@@ -246,7 +235,6 @@ class InstallmentForm
                             }),
                     ]),
 
-                // 5. الخطة المالية والتقسيط
                 Section::make(__('finance.installments.sections.financial'))
                     ->description(__('finance.installments.sections.financial_desc'))
                     ->icon('heroicon-o-calculator')
@@ -288,7 +276,7 @@ class InstallmentForm
                             ->prefix('SAR')
                             ->default(0)
                             ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
-                            ->helperText('يُحسب تلقائياً: (الإجمالي − الدفعة) ÷ الشهور'),
+                            ->helperText(__('finance.installments.placeholders.monthly_amount_helper')),
 
                         TextInput::make('paid_amount')
                             ->label(__('finance.installments.fields.paid_amount'))
@@ -319,7 +307,7 @@ class InstallmentForm
                         Select::make('executed_by')
                             ->label(__('finance.installments.fields.executed_by'))
                             ->relationship('executor', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "موظف #{$record->id}")
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
                             ->searchable()
                             ->preload()
                             ->default(fn () => auth()->user()?->employee?->id)
@@ -332,7 +320,6 @@ class InstallmentForm
                             ->columnSpanFull(),
                     ]),
 
-                // 6. التنبيهات والمتابعة
                 Section::make(__('finance.installments.sections.notification'))
                     ->description(__('finance.installments.sections.notification_desc'))
                     ->icon('heroicon-o-bell-alert')
@@ -341,7 +328,7 @@ class InstallmentForm
                         Select::make('notify_employee_id')
                             ->label(__('finance.installments.fields.notify_employee'))
                             ->relationship('notifyEmployee', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "موظف #{$record->id}")
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
                             ->searchable()
                             ->preload(),
 
@@ -368,9 +355,6 @@ class InstallmentForm
         $set('remaining_amount', $remaining);
     }
 
-    /**
-     * قائمة ذكية منسقة لأنواع الأقساط والسلف مجمعة بدون أقواس مشوهة مع فلترة تلقائية وزر إضافة سريع.
-     */
     public static function getInstallmentTypeSelect(bool $isRequired = true): Select
     {
         return Select::make('installment_type_id')
@@ -390,15 +374,9 @@ class InstallmentForm
                     });
 
                 if ($transactionType === 'advance') {
-                    $query->where(function ($q) {
-                        $q->where('category', 'advances')
-                          ->orWhere('name', 'like', '%سلف%');
-                    });
+                    $query->where('category', 'advances');
                 } else {
-                    $query->where(function ($q) {
-                        $q->whereIn('category', ['debts', 'others'])
-                          ->orWhere('name', 'not like', '%سلف%');
-                    });
+                    $query->whereIn('category', ['debts', 'others']);
                 }
 
                 $items = $query->get();

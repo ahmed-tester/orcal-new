@@ -68,6 +68,8 @@ class AdminPanelProvider extends PanelProvider
                 \Filament\Navigation\NavigationGroup::make()
                     ->label(fn () => __('navigation.funds_group')),
                 \Filament\Navigation\NavigationGroup::make()
+                    ->label(fn () => __('navigation.letters_group')),
+                \Filament\Navigation\NavigationGroup::make()
                     ->label(fn () => __('navigation.reports_group')),
                 \Filament\Navigation\NavigationGroup::make()
                     ->label(fn () => __('navigation.faq_group')),

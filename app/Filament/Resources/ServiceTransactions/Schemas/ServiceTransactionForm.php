@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ServiceTransactions\Schemas;
 use App\Filament\Components\OrgSelect;
 use App\Models\Employee;
 use App\Models\Service;
+use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -21,7 +22,6 @@ class ServiceTransactionForm
         return $schema
             ->columns(1)
             ->components([
-                // 1. نطاق وتاريخ الخدمة
                 Section::make(__('services_tracking.sections.scope_and_date'))
                     ->description(__('services_tracking.sections.scope_and_date_desc'))
                     ->icon('heroicon-o-calendar-days')
@@ -63,7 +63,6 @@ class ServiceTransactionForm
                             ->label(__('services_tracking.fields.due_date')),
                     ]),
 
-                // 2. الخدمات الداخلية (مربوطة بالمنشآت)
                 Section::make(__('services_tracking.sections.internal_service'))
                     ->description(__('services_tracking.sections.internal_service_desc'))
                     ->icon('heroicon-o-building-office-2')
@@ -102,7 +101,7 @@ class ServiceTransactionForm
                         Select::make('employee_id')
                             ->label(__('services_tracking.fields.employee'))
                             ->relationship('employee', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "موظف #{$record->id}")
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
                             ->searchable()
                             ->preload()
                             ->visible(fn (callable $get) => $get('service_target') === 'employee')
@@ -155,7 +154,7 @@ class ServiceTransactionForm
                                             ->options([
                                                 'company'  => __('services_tracking.toggle_options.target_company'),
                                                 'employee' => __('services_tracking.toggle_options.target_employee'),
-                                                'general'  => 'عام',
+                                                'general'  => __('services.general'),
                                             ])
                                             ->default(fn (callable $get) => $get('../../service_target') ?? 'company')
                                             ->required(),
@@ -182,7 +181,7 @@ class ServiceTransactionForm
                                             ->required(),
 
                                         TextInput::make('default_gov_fee')
-                                            ->label('رسوم حكومية تقديرية (ر.س)')
+                                            ->label(__('services.estimated_gov_fee'))
                                             ->numeric()
                                             ->prefix('SAR')
                                             ->default(0),
@@ -195,7 +194,6 @@ class ServiceTransactionForm
                             ]),
                     ]),
 
-                // 3. الخدمات الخارجية (تسجيل حر)
                 Section::make(__('services_tracking.sections.external_service'))
                     ->description(__('services_tracking.sections.external_service_desc'))
                     ->icon('heroicon-o-identification')
@@ -224,11 +222,7 @@ class ServiceTransactionForm
                             ->required(fn (callable $get) => $get('scope_type') === 'external')
                             ->maxLength(255),
 
-                        TextInput::make('beneficiary_phone')
-                            ->label(__('services_tracking.fields.beneficiary_phone'))
-                            ->placeholder(__('services_tracking.placeholders.beneficiary_phone'))
-                            ->tel()
-                            ->maxLength(50),
+                        PhoneService::makeFormField('beneficiary_phone', __('services_tracking.fields.beneficiary_phone')),
 
                         TextInput::make('beneficiary_national_id')
                             ->label(__('services_tracking.fields.beneficiary_national_id'))
@@ -236,7 +230,6 @@ class ServiceTransactionForm
                             ->maxLength(50),
                     ]),
 
-                // 4. البيانات المالية والأتعاب
                 Section::make(__('services_tracking.sections.financial'))
                     ->description(__('services_tracking.sections.financial_desc'))
                     ->icon('heroicon-o-banknotes')
@@ -276,7 +269,6 @@ class ServiceTransactionForm
                             ->dehydrated(false),
                     ]),
 
-                // 5. الإنجاز والمتابعة الإدارية
                 Section::make(__('services_tracking.sections.execution'))
                     ->description(__('services_tracking.sections.execution_desc'))
                     ->icon('heroicon-o-check-circle')
@@ -296,7 +288,7 @@ class ServiceTransactionForm
                         Select::make('executed_by')
                             ->label(__('services_tracking.fields.executed_by'))
                             ->relationship('executor', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "موظف #{$record->id}")
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
                             ->searchable()
                             ->preload()
                             ->default(fn () => auth()->user()?->employee?->id)

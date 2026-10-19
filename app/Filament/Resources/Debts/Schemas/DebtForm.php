@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Debts\Schemas;
 
 use App\Filament\Components\OrgSelect;
 use App\Models\Employee;
+use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -20,7 +21,6 @@ class DebtForm
         return $schema
             ->columns(1)
             ->components([
-                // 1. مصدر وتاريخ الدين
                 Section::make(__('debts.sections.debtor_source'))
                     ->description(__('debts.sections.debtor_source_desc'))
                     ->icon('heroicon-o-user-circle')
@@ -85,7 +85,6 @@ class DebtForm
                             ->dehydrated(),
                     ]),
 
-                // 2. بيانات المنشأة والموظف المدين (في حال كان داخلياً)
                 Section::make(__('debts.sections.internal_debtor'))
                     ->description(__('debts.sections.internal_debtor_desc'))
                     ->icon('heroicon-o-building-office')
@@ -97,7 +96,7 @@ class DebtForm
                         Select::make('employee_id')
                             ->label(__('debts.fields.employee'))
                             ->relationship('employee', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "موظف #{$record->id}")
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
                             ->searchable()
                             ->preload()
                             ->reactive()
@@ -111,7 +110,6 @@ class DebtForm
                             }),
                     ]),
 
-                // 3. السجل القانوني الكامل (في حال كان خارج المنشآت)
                 Section::make(__('debts.sections.external_legal_info'))
                     ->description(__('debts.sections.external_legal_info_desc'))
                     ->icon('heroicon-o-identification')
@@ -130,12 +128,8 @@ class DebtForm
                             ->required(fn (callable $get) => $get('debtor_type') === 'external')
                             ->maxLength(50),
 
-                        TextInput::make('external_phone')
-                            ->label(__('debts.fields.external_phone'))
-                            ->placeholder(__('debts.placeholders.external_phone'))
-                            ->tel()
-                            ->required(fn (callable $get) => $get('debtor_type') === 'external')
-                            ->maxLength(50),
+                        PhoneService::makeFormField('external_phone', __('debts.fields.external_phone'))
+                            ->required(fn (callable $get) => $get('debtor_type') === 'external'),
 
                         TextInput::make('external_email')
                             ->label(__('debts.fields.external_email'))
@@ -148,7 +142,6 @@ class DebtForm
                             ->columnSpanFull(),
                     ]),
 
-                // 4. بيانات الضامن أو الكفيل (اختياري)
                 Section::make(__('debts.sections.guarantor_info'))
                     ->description(__('debts.sections.guarantor_info_desc'))
                     ->icon('heroicon-o-user-group')
@@ -187,11 +180,7 @@ class DebtForm
                                             ->placeholder(__('guarantors.placeholders.national_id'))
                                             ->maxLength(50),
 
-                                        TextInput::make('phone')
-                                            ->label(__('guarantors.fields.phone'))
-                                            ->placeholder(__('debts.placeholders.external_phone'))
-                                            ->tel()
-                                            ->maxLength(50),
+                                        PhoneService::makeFormField('phone', __('guarantors.fields.phone')),
 
                                         TextInput::make('job_title')
                                             ->label(__('guarantors.fields.job_title'))
@@ -211,7 +200,6 @@ class DebtForm
                             ]),
                     ]),
 
-                // 5. البيانات المالية وأصل الدين
                 Section::make(__('debts.sections.financial'))
                     ->description(__('debts.sections.financial_desc'))
                     ->icon('heroicon-o-banknotes')
@@ -256,7 +244,6 @@ class DebtForm
                             ->columnSpanFull(),
                     ]),
 
-                // 6. المتابعة والتنبيهات
                 Section::make(__('debts.sections.notification'))
                     ->description(__('debts.sections.notification_desc'))
                     ->icon('heroicon-o-bell')
@@ -267,14 +254,14 @@ class DebtForm
                         Select::make('notify_employee_id')
                             ->label(__('debts.fields.notify_employee'))
                             ->relationship('notifyEmployee', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "موظف #{$record->id}")
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
                             ->searchable()
                             ->preload(),
 
                         Select::make('executed_by')
                             ->label(__('debts.fields.executed_by'))
                             ->relationship('executor', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "موظف #{$record->id}")
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
                             ->searchable()
                             ->preload()
                             ->default(fn () => auth()->user()?->employee?->id)

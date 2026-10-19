@@ -38,7 +38,7 @@ class DepartmentForm
                                     $user = auth()->user();
                                     if ($user && ! $user->isSuperAdmin()) {
                                         $authorizedIds = \App\Services\CompanyFormService::getAuthorizedCompanyIds($user);
-                                        $query->whereIn('id', !empty($authorizedIds) ? $authorizedIds : [0]);
+                                        $query->whereIn('companies.id', !empty($authorizedIds) ? $authorizedIds : [0]);
                                     }
                                 }
                             )

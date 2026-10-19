@@ -2,10 +2,8 @@
 
 namespace App\Filament\Pages;
 
-use App\Events\DueDateReminderEvent;
 use App\Models\User;
 use App\Services\Notifications\NotificationAlertsService;
-use Filament\Notifications\Notification as FilamentNotification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
@@ -40,34 +38,25 @@ class NotificationsReport extends Page
 
     public static function getNavigationLabel(): string
     {
-        return 'تقرير الإشعارات والتنبيهات';
+        return __('notifications.report_label');
     }
 
     public function getTitle(): string|Htmlable
     {
-        return '🔔 تقرير الإشعارات والتنبيهات النشطة';
+        return __('notifications.report_title');
     }
 
     // Filter states
     public string $category = 'all'; // all, documents, tasks, invoices
     public string $urgency = 'all';   // all, urgent, overdue, upcoming
     public string $search = '';
-    public int $perPage = 15;
+    public int|string $perPage = 20;
 
-    // Comprehensive Matrix Filters (As in requested document report)
+    // Comprehensive Matrix Filters
     public string $entityFilter = 'all'; // all, companies, employees, or specific id
     public ?string $dateFrom = null;
     public ?string $dateTo = null;
     public string $viewMode = 'matrix'; // matrix, list
-
-    // Send Notification Modal State
-    public bool $showSendModal = false;
-    public ?string $selectedAlertId = null;
-    public ?string $modalRecipientName = '';
-    public ?string $modalRecipientPhone = '';
-    public ?string $modalDocumentType = '';
-    public string $modalCustomMessage = '';
-    public string $modalChannel = 'sms'; // sms, database
 
     protected $queryString = [
         'category' => ['except' => 'all'],
@@ -81,9 +70,15 @@ class NotificationsReport extends Page
 
     public function updated($propertyName)
     {
-        if (in_array($propertyName, ['category', 'urgency', 'search', 'perPage'])) {
+        if (in_array($propertyName, ['category', 'urgency', 'search', 'perPage', 'entityFilter', 'dateFrom', 'dateTo', 'viewMode'])) {
             $this->resetPage();
         }
+    }
+
+    public function switchViewMode(string $mode)
+    {
+        $this->viewMode = $mode;
+        $this->resetPage();
     }
 
     public function setCategory(string $category)
@@ -103,6 +98,9 @@ class NotificationsReport extends Page
         $this->category = 'all';
         $this->urgency = 'all';
         $this->search = '';
+        $this->entityFilter = 'all';
+        $this->dateFrom = null;
+        $this->dateTo = null;
         $this->resetPage();
     }
 
@@ -131,9 +129,9 @@ class NotificationsReport extends Page
         };
 
         $text = match (true) {
-            $days < 0 => 'منتهية منذ ' . abs($days) . ' يوم',
-            $days == 0 => 'تنتهي اليوم',
-            default => $days . ' يوم',
+            $days < 0 => __('notifications.stages.days_overdue', ['days' => abs($days)]),
+            $days == 0 => __('notifications.stages.expires_today'),
+            default => __('notifications.stages.days_remaining', ['days' => $days]),
         };
 
         return [
@@ -156,7 +154,7 @@ class NotificationsReport extends Page
 
             $employees = \App\Models\Employee::with('user')->where('status', 'active')->get();
             foreach ($employees as $e) {
-                $name = $e->user?->name ?? ('موظف #' . $e->id);
+                $name = $e->user?->name ?? __('notifications.alerts.employee_fallback', ['id' => $e->id]);
                 $list['emp_' . $e->id] = '👤 ' . $name;
             }
         } catch (\Throwable $e) {
@@ -237,7 +235,7 @@ class NotificationsReport extends Page
 
                 $matrix->push([
                     'is_company' => false,
-                    'name' => $emp->user?->name ?? ('موظف #' . $emp->id),
+                    'name' => $emp->user?->name ?? __('notifications.alerts.employee_fallback', ['id' => $emp->id]),
                     'company_name' => $emp->company?->trade_name,
                     'iqama_number' => $maskedIqama,
                     'raw_iqama_number' => $iqamaNum,
@@ -269,7 +267,7 @@ class NotificationsReport extends Page
 
                     $matrix->push([
                         'is_company' => true,
-                        'name' => $c->trade_name . ' (وثائق المؤسسة)',
+                        'name' => $c->trade_name . ' (' . __('notifications.documents.company_documents') . ')',
                         'company_name' => $c->trade_name,
                         'iqama_number' => '—',
                         'cr' => $crCell,
@@ -304,91 +302,35 @@ class NotificationsReport extends Page
         );
     }
 
-    public function getPaginatedAlertsProperty()
+    public function getPaginatedDocumentsMatrixProperty()
     {
-        $alerts = $this->alerts;
+        $matrix = $this->documentsMatrix;
+        $total = $matrix->count();
+        $perPage = $this->perPage === 'all' ? ($total ?: 20) : (int) $this->perPage;
         $page = $this->getPage();
-        $perPage = $this->perPage;
 
         return new \Illuminate\Pagination\LengthAwarePaginator(
-            $alerts->forPage($page, $perPage),
-            $alerts->count(),
+            $this->perPage === 'all' ? $matrix : $matrix->forPage($page, $perPage),
+            $total,
             $perPage,
             $page,
             ['path' => request()->url(), 'query' => request()->query()]
         );
     }
 
-    /**
-     * Open Send Notification Modal for a specific alert item.
-     */
-    public function openSendModal(string $alertId)
+    public function getPaginatedAlertsProperty()
     {
-        $alert = $this->alerts->firstWhere('id', $alertId);
-        if (!$alert) {
-            return;
-        }
+        $alerts = $this->alerts;
+        $total = $alerts->count();
+        $perPage = $this->perPage === 'all' ? ($total ?: 20) : (int) $this->perPage;
+        $page = $this->getPage();
 
-        $this->selectedAlertId = $alertId;
-        $this->modalRecipientName = $alert['recipient_name'];
-        $this->modalRecipientPhone = $alert['recipient_phone'] ?? '';
-        $this->modalDocumentType = $alert['type_label'];
-
-        // Pre-fill message draft
-        $this->modalCustomMessage = "عزيزنا {$alert['recipient_name']}، نود تذكيركم بأن {$alert['type_label']} ({$alert['title']}) {$alert['status_text']} (بتاريخ {$alert['due_date']}). يرجى المتابعة والإجراء.";
-        $this->modalChannel = 'sms';
-        $this->showSendModal = true;
-    }
-
-    /**
-     * Close Send Notification Modal.
-     */
-    public function closeSendModal()
-    {
-        $this->showSendModal = false;
-        $this->selectedAlertId = null;
-    }
-
-    /**
-     * Dispatch notification to recipient using our notification system.
-     */
-    public function sendNotification()
-    {
-        $alert = $this->alerts->firstWhere('id', $this->selectedAlertId);
-
-        $recipient = $alert['notifiable'] ?? null;
-
-        // Fallback to anonymous notifiable if no model attached
-        if (!$recipient && !empty($this->modalRecipientPhone)) {
-            $recipient = (new \Illuminate\Notifications\AnonymousNotifiable)
-                ->route('sms', $this->modalRecipientPhone);
-        }
-
-        if (!$recipient) {
-            FilamentNotification::make()
-                ->title('تعذر الإرسال')
-                ->body('لم يتم العثور على وسيلة اتصال صالحة للمستلم.')
-                ->danger()
-                ->send();
-            return;
-        }
-
-        // Fire Notification Event!
-        event(new DueDateReminderEvent(
-            recipient: $recipient,
-            customMessage: $this->modalCustomMessage,
-            placeholders: [
-                'employee_name' => $this->modalRecipientName,
-                'type' => $this->modalDocumentType,
-            ]
-        ));
-
-        $this->closeSendModal();
-
-        FilamentNotification::make()
-            ->title('تم إرسال الإشعار بنجاح 🚀')
-            ->body("تم إرسال التنبيه إلى {$this->modalRecipientName} بنجاح.")
-            ->success()
-            ->send();
+        return new \Illuminate\Pagination\LengthAwarePaginator(
+            $this->perPage === 'all' ? $alerts : $alerts->forPage($page, $perPage),
+            $total,
+            $perPage,
+            $page,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
     }
 }

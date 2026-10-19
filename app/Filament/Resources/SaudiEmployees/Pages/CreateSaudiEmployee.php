@@ -45,10 +45,17 @@ class CreateSaudiEmployee extends CreateRecord
                 ]);
             }
 
+            $normalizedPhone = PhoneService::normalize($data['user_phone'] ?? null);
+            if ($normalizedPhone && User::where('phone', $normalizedPhone)->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'user_phone' => __('validation.unique', ['attribute' => __('employees.fields.phone')]),
+                ]);
+            }
+
             $user = User::create([
                 'name' => $data['user_name'] ?? 'Employee',
                 'email' => $email,
-                'phone' => PhoneService::normalize($data['user_phone'] ?? null),
+                'phone' => $normalizedPhone,
                 'password' => !empty($data['user_password']) ? Hash::make($data['user_password']) : Hash::make('12345678'),
                 'user_type' => UserType::SAUDI_EMPLOYEE,
                 'status' => 'active',
@@ -57,7 +64,6 @@ class CreateSaudiEmployee extends CreateRecord
             $data['user_id'] = $user->id;
         }
 
-        // Auto-assign company_id from branch_id if available
         if (empty($data['company_id']) && !empty($data['branch_id'])) {
             $branch = \App\Models\Branch::find($data['branch_id']);
             if ($branch) {

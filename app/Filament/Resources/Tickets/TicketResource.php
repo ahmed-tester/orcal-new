@@ -44,6 +44,11 @@ class TicketResource extends Resource
         return __('navigation.support_group');
     }
 
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->isSuperAdmin() ?? false;
+    }
+
     public static function getNavigationBadge(): ?string
     {
         $user = auth()->user();

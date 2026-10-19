@@ -158,4 +158,9 @@ return [
         'delete' => 'Delete',
         'delete_selected' => 'Delete Selected',
     ],
+
+    'placeholders' => [
+        'name' => 'Enter employee name',
+        'address' => 'National or detailed address',
+    ],
 ];

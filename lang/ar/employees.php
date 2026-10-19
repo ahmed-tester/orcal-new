@@ -160,4 +160,8 @@ return [
         'delete' => 'حذف',
         'delete_selected' => 'حذف المحدد',
     ],
+    'placeholders' => [
+        'name' => 'أدخل اسم الموظف',
+        'address' => 'العنوان الوطني أو التفصيلي',
+    ],
 ];

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Roles\Pages;
 
 use App\Filament\Resources\Roles\RoleResource;
+use App\Filament\Resources\Roles\Schemas\RoleForm;
 use Filament\Resources\Pages\CreateRecord;
 use Spatie\Permission\Models\Permission;
 
@@ -12,25 +13,13 @@ class CreateRole extends CreateRecord
 
     protected function afterCreate(): void
     {
-        $permissions = array_filter(array_merge(
-            $this->data['permissions_admin'] ?? [],
-            $this->data['permissions_roles'] ?? [],
-            $this->data['permissions_org'] ?? [],
-            $this->data['permissions_employees'] ?? [],
-            $this->data['permissions_attendance'] ?? [],
-            $this->data['permissions_leaves'] ?? [],
-            $this->data['permissions_crm'] ?? [],
-            $this->data['permissions_billing'] ?? [],
-            $this->data['permissions_tasks'] ?? [],
-            $this->data['permissions_settings'] ?? [],
-            $this->data['permissions_finance'] ?? [],
-            $this->data['permissions_installments'] ?? [],
-            $this->data['permissions_faq'] ?? [],
-            $this->data['permissions_tickets'] ?? [],
-            $this->data['permissions_violations'] ?? [],
-            $this->data['permissions_funds'] ?? [],
-            $this->data['permissions_reports_and_tools'] ?? [],
-        ));
+        $permissions = [];
+        foreach (array_keys(RoleForm::getPermissionGroups()) as $groupField) {
+            if (!empty($this->data[$groupField])) {
+                $permissions = array_merge($permissions, (array) $this->data[$groupField]);
+            }
+        }
+        $permissions = array_filter(array_unique($permissions));
 
         foreach ($permissions as $permName) {
             Permission::firstOrCreate([

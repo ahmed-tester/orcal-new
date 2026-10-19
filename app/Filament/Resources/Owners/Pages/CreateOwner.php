@@ -15,10 +15,25 @@ class CreateOwner extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        $normalizedPhone = PhoneService::normalize($data['user_phone'] ?? null);
+        $email = !empty($data['user_email']) ? trim($data['user_email']) : ('owner_' . uniqid() . '@company.com');
+
+        if (User::where('email', $email)->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'user_email' => __('employees.fields.errors.email_exists'),
+            ]);
+        }
+
+        if ($normalizedPhone && User::where('phone', $normalizedPhone)->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'user_phone' => __('validation.unique', ['attribute' => __('owners.fields.phone')]),
+            ]);
+        }
+
         $user = User::create([
             'name' => $data['user_name'] ?? 'Owner',
-            'email' => $data['user_email'] ?? ('owner_' . uniqid() . '@company.com'),
-            'phone' => PhoneService::normalize($data['user_phone'] ?? null),
+            'email' => $email,
+            'phone' => $normalizedPhone,
             'password' => !empty($data['user_password']) ? Hash::make($data['user_password']) : Hash::make('password'),
             'user_type' => UserType::OWNER,
             'status' => 'active',

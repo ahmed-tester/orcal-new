@@ -85,6 +85,15 @@ class AppServiceProvider extends ServiceProvider
         // FAQ Policy
         Gate::policy(\App\Models\Faq::class, \App\Policies\FaqPolicy::class);
 
+        // Core Employee & Additional Module Policies
+        Gate::policy(\App\Models\Employee::class, \App\Policies\EmployeePolicy::class);
+        Gate::policy(\App\Models\Debt::class, \App\Policies\DebtPolicy::class);
+        Gate::policy(\App\Models\DebtCollection::class, \App\Policies\DebtCollectionPolicy::class);
+        Gate::policy(\App\Models\ServiceTransaction::class, \App\Policies\ServiceTransactionPolicy::class);
+        Gate::policy(\App\Models\SupervisionShift::class, \App\Policies\SupervisionShiftPolicy::class);
+        Gate::policy(\App\Models\OfficialLetter::class, \App\Policies\OfficialLetterPolicy::class);
+        Gate::policy(\App\Models\LoanFundMemberPayment::class, \App\Policies\LoanFundMemberPaymentPolicy::class);
+
         // Global Select Searchable Configuration for all Filament Forms and Tables
         \Filament\Forms\Components\Select::configureUsing(function (\Filament\Forms\Components\Select $select): void {
             $select->searchable()->preload();

@@ -34,10 +34,17 @@ class CreateForeignEmployee extends CreateRecord
             $email = 'foreign_' . uniqid() . '@company.com';
         }
 
+        $normalizedPhone = PhoneService::normalize($data['user_phone'] ?? null);
+        if ($normalizedPhone && User::where('phone', $normalizedPhone)->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'user_phone' => __('validation.unique', ['attribute' => __('employees.fields.phone')]),
+            ]);
+        }
+
         $user = User::create([
             'name' => $data['user_name'] ?? 'Resident Employee',
             'email' => $email,
-            'phone' => PhoneService::normalize($data['user_phone'] ?? null),
+            'phone' => $normalizedPhone,
             'password' => !empty($data['user_password']) ? Hash::make($data['user_password']) : Hash::make('12345678'),
             'user_type' => UserType::FOREIGN_EMPLOYEE,
             'status' => 'active',

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\RoscaFundMembers\Schemas;
 
 use App\Models\Employee;
 use App\Models\RoscaFund;
+use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -76,9 +77,7 @@ class RoscaFundMemberForm
                         TextInput::make('national_id')
                             ->label(__('funds.rosca_fund_members.fields.national_id')),
 
-                        TextInput::make('phone')
-                            ->label(__('funds.rosca_fund_members.fields.phone'))
-                            ->tel(),
+                        PhoneService::makeFormField('phone', __('funds.rosca_fund_members.fields.phone')),
 
                         TextInput::make('address')
                             ->label(__('funds.rosca_fund_members.fields.address'))
