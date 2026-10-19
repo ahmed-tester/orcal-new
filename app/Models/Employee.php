@@ -83,7 +83,7 @@ class Employee extends Model
     protected static function booted(): void
     {
         static::creating(function (Employee $employee) {
-            if (empty($employee->employee_number)) {
+            if (empty($employee->employee_number) || static::withoutGlobalScopes()->where('employee_number', $employee->employee_number)->exists()) {
                 $employee->employee_number = static::generateNextEmployeeNumber($employee->company_id);
             }
         });

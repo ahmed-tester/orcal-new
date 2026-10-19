@@ -27,33 +27,45 @@ class CodeGeneratorService
     ): string {
         $companyId = $companyId ?: static::resolveCompanyId();
 
-        // Count existing records for this company to determine next sequence
-        $query = $modelClass::withoutGlobalScopes()
-            ->whereNotNull($column)
-            ->where($column, '!=', '');
+        $includeCompanyId = static::modelHasCompanyId($modelClass);
 
-        if (static::modelHasCompanyId($modelClass)) {
-            $query->where('company_id', $companyId);
+        $baseParts = [$prefix];
+        if ($includeCompanyId && $companyId) {
+            $baseParts[] = 'C' . $companyId;
         }
-
-        $count = $query->count();
-        $nextSeq = $count + 1;
-
-        $code = static::buildCode($prefix, $companyId, $nextSeq, $padLength, $datePart, static::modelHasCompanyId($modelClass));
-
-        // Ensure uniqueness within the company scope
-        $uniqueQuery = $modelClass::withoutGlobalScopes()->where($column, $code);
-        if (static::modelHasCompanyId($modelClass)) {
-            $uniqueQuery->where('company_id', $companyId);
+        if ($datePart) {
+            $baseParts[] = date($datePart);
         }
+        $codePrefix = implode('-', $baseParts) . '-';
 
-        while ($uniqueQuery->exists()) {
-            $nextSeq++;
-            $code = static::buildCode($prefix, $companyId, $nextSeq, $padLength, $datePart, static::modelHasCompanyId($modelClass));
-            $uniqueQuery = $modelClass::withoutGlobalScopes()->where($column, $code);
-            if (static::modelHasCompanyId($modelClass)) {
-                $uniqueQuery->where('company_id', $companyId);
+        // Find the maximum existing sequence number for this prefix
+        $existingCodes = $modelClass::withoutGlobalScopes()
+            ->where($column, 'like', "{$codePrefix}%")
+            ->pluck($column);
+
+        $maxSeq = 0;
+        foreach ($existingCodes as $existingCode) {
+            $seqPart = substr($existingCode, strlen($codePrefix));
+            if (is_numeric($seqPart)) {
+                $maxSeq = max($maxSeq, (int) $seqPart);
             }
+        }
+
+        // Count existing records as a baseline
+        $count = $modelClass::withoutGlobalScopes()
+            ->whereNotNull($column)
+            ->where($column, '!=', '')
+            ->when($includeCompanyId && $companyId, fn ($q) => $q->where('company_id', $companyId))
+            ->count();
+
+        $nextSeq = max($maxSeq + 1, $count + 1, 1);
+        $code = static::buildCode($prefix, $companyId, $nextSeq, $padLength, $datePart, $includeCompanyId);
+
+        // Ensure global uniqueness across the entire table (not scoped to company_id,
+        // because unique constraints on number columns are table-wide)
+        while ($modelClass::withoutGlobalScopes()->where($column, $code)->exists()) {
+            $nextSeq++;
+            $code = static::buildCode($prefix, $companyId, $nextSeq, $padLength, $datePart, $includeCompanyId);
         }
 
         return $code;
