@@ -92,36 +92,14 @@ class LeaveForm
                             ->default(now())
                             ->required()
                             ->live()
-                            ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                                $end = $get('end_date');
-                                if ($state && $end) {
-                                    try {
-                                        $s = Carbon::parse($state);
-                                        $e = Carbon::parse($end);
-                                        if ($e->greaterThanOrEqualTo($s)) {
-                                            $set('days', $s->diffInDays($e) + 1);
-                                        }
-                                    } catch (\Exception) {}
-                                }
-                            }),
+                            ->afterStateUpdated(fn (callable $get, callable $set) => static::syncEndDate($get, $set)),
 
                         DatePicker::make('end_date')
                             ->label(__('leaves.fields.end_date'))
                             ->default(now())
                             ->required()
                             ->live()
-                            ->afterStateUpdated(function ($state, callable $get, callable $set) {
-                                $start = $get('start_date');
-                                if ($start && $state) {
-                                    try {
-                                        $s = Carbon::parse($start);
-                                        $e = Carbon::parse($state);
-                                        if ($e->greaterThanOrEqualTo($s)) {
-                                            $set('days', $s->diffInDays($e) + 1);
-                                        }
-                                    } catch (\Exception) {}
-                                }
-                            }),
+                            ->afterStateUpdated(fn (callable $get, callable $set) => static::syncDays($get, $set)),
 
                         TextInput::make('days')
                             ->label(__('leaves.fields.days'))
@@ -131,7 +109,8 @@ class LeaveForm
                             ->dehydrateStateUsing(fn ($state) => max(1, (int) ($state ?: 1)))
                             ->suffix(' ' . __('leaves.units.day'))
                             ->required()
-                            ->live()
+                            ->live(debounce: 500)
+                            ->afterStateUpdated(fn (callable $get, callable $set) => static::syncEndDate($get, $set))
                             ->rules([
                                 fn (callable $get, $record) => function (string $attribute, $value, \Closure $fail) use ($get, $record) {
                                     $empId = $get('employee_id');
@@ -255,4 +234,29 @@ class LeaveForm
                     ]),
             ]);
     }
+
+    /**
+     * Synchronize the leave end date based on start date and requested days.
+     */
+    public static function syncEndDate(callable $get, callable $set): void
+    {
+        $endDate = LeaveBalanceService::calculateEndDate($get('start_date'), $get('days'));
+        if ($endDate) {
+            $set('end_date', $endDate);
+        } elseif ($get('start_date') && $get('end_date')) {
+            static::syncDays($get, $set);
+        }
+    }
+
+    /**
+     * Synchronize the requested days count based on start and end dates.
+     */
+    public static function syncDays(callable $get, callable $set): void
+    {
+        $days = LeaveBalanceService::calculateDays($get('start_date'), $get('end_date'));
+        if ($days !== null) {
+            $set('days', $days);
+        }
+    }
 }
+
