@@ -1,5 +1,6 @@
 {{-- 3. Actions Toolbar --}}
 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;" class="no-print">
+    {{-- 
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
         <button
             type="button"
@@ -20,6 +21,7 @@
             <span>{{ __('finance.payroll_records.sheet.uncheck_all') }}</span>
         </button>
     </div>
+    --}}
 
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
         <button

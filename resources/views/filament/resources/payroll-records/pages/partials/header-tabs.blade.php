@@ -1,15 +1,12 @@
 {{-- Top Navigation: Sheet View vs Records History Table --}}
 <div class="payroll-top-tabs no-print">
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-        <button
-            type="button"
-            wire:click="switchTab('sheet')"
-            class="tab-btn {{ $pageViewTab === 'sheet' ? 'tab-btn-active' : 'tab-btn-inactive' }}"
-        >
+        <div class="tab-btn tab-btn-active" style="cursor: default;">
             <x-heroicon-o-document-currency-dollar style="width: 1.15rem; height: 1.15rem;" />
             <span>{{ __('finance.payroll_records.sheet.tab_sheet') }}</span>
-        </button>
+        </div>
 
+        @php /* Records tab button — commented out
         <button
             type="button"
             wire:click="switchTab('records')"
@@ -18,6 +15,7 @@
             <x-heroicon-o-table-cells style="width: 1.15rem; height: 1.15rem;" />
             <span>{{ __('finance.payroll_records.sheet.tab_records') }}</span>
         </button>
+        */ @endphp
     </div>
 
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">

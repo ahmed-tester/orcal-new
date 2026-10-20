@@ -331,10 +331,12 @@ class ListPayrollRecords extends ListRecords
         $this->loadSheet();
     }
 
+    /* switchTab method — commented out
     public function switchTab(string $tab): void
     {
         $this->pageViewTab = $tab;
     }
+    */
 
     public function getCompaniesProperty(): Collection
     {
@@ -412,6 +414,7 @@ class ListPayrollRecords extends ListRecords
         $this->js('window.print()');
     }
 
+    /*
     public function toggleEmployeeCheck(int $employeeId): void
     {
         $this->checkedEmployees[$employeeId] = !($this->checkedEmployees[$employeeId] ?? false);
@@ -435,6 +438,7 @@ class ListPayrollRecords extends ListRecords
 
         $this->recalculatePagination();
     }
+    */
 
     public function savePayrollSheet(): void
     {

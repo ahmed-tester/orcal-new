@@ -150,6 +150,8 @@ class PayrollSheetService
                 $notes[$emp->id] = $payrollData['notes'];
             }
 
+            // Checkbox quick toggle handling (Commented out):
+            /*
             $isPaid = ($paymentStatus === PaymentStatus::PAID || ($remaining <= 0 && $net > 0));
 
             if (!isset($checkedEmployees[$emp->id])) {
@@ -164,6 +166,9 @@ class PayrollSheetService
 
             $effectivePaid = $currentChecked ? $net : $paid;
             $effectiveRemaining = $currentChecked ? 0.0 : $remaining;
+            */
+            $effectivePaid = $paid;
+            $effectiveRemaining = $remaining;
 
             $totalBasic += $basic;
             $totalAdditional += $additional;
@@ -278,6 +283,8 @@ class PayrollSheetService
                 $record->net_amount        = $netAmount;
                 $record->notes             = $notes[$empId] ?? null;
 
+                /*
+                // Quick disburse when checkbox is checked (Commented out):
                 if ($isChecked) {
                     $record->paid_amount      = $netAmount;
                     $record->remaining_amount = 0.0;
@@ -297,6 +304,7 @@ class PayrollSheetService
                         } catch (\Throwable $e) {}
                     }
                 } else {
+                */
                     $paidAmount = (float) ($row['paid_amount'] ?? 0.0);
                     $remainingAmount = (float) ($row['remaining_amount'] ?? max(0.0, $netAmount - $paidAmount));
 
@@ -312,7 +320,7 @@ class PayrollSheetService
                     }
 
                     $record->save();
-                }
+                // }
 
                 $savedCount++;
             }
@@ -321,68 +329,61 @@ class PayrollSheetService
         return $savedCount;
     }
 
-    /**
-     * Update row and totals when an employee checkbox is toggled.
-     */
-    public static function applyEmployeeCheck(array &$rows, array $checkedEmployees, int $employeeId): array
-    {
-        $isChecked = $checkedEmployees[$employeeId] ?? false;
-        $totalPaid = 0.0;
-        $totalPending = 0.0;
-
-        foreach ($rows as &$row) {
-            if ($row['employee_id'] === $employeeId) {
-                $net = (float) $row['net_amount'];
-                if ($isChecked) {
-                    $row['paid_amount'] = $net;
-                    $row['remaining_amount'] = 0.0;
-                    $row['payment_status'] = PaymentStatus::PAID;
-                } else {
-                    $row['paid_amount'] = (float) ($row['original_paid_amount'] ?? 0.0);
-                    $row['remaining_amount'] = (float) ($row['original_remaining_amount'] ?? $net);
-                    $row['payment_status'] = $row['original_payment_status'] ?? PaymentStatus::UNPAID;
-                }
-            }
-            $totalPaid += (float) $row['paid_amount'];
-            $totalPending += (float) $row['remaining_amount'];
-        }
-        unset($row);
-
-        return [
-            'totalPaidAmount'    => round($totalPaid, 2),
-            'totalPendingAmount' => round($totalPending, 2),
-        ];
-    }
-
-    /**
-     * Update all rows and totals when check-all / uncheck-all is triggered.
-     */
-    public static function applyCheckAll(array &$rows, bool $checkState): array
-    {
-        $totalPaid = 0.0;
-        $totalPending = 0.0;
-
-        foreach ($rows as &$row) {
-            $net = (float) $row['net_amount'];
-            if ($checkState) {
-                $row['paid_amount'] = $net;
-                $row['remaining_amount'] = 0.0;
-                $row['payment_status'] = PaymentStatus::PAID;
-            } else {
-                $row['paid_amount'] = (float) ($row['original_paid_amount'] ?? 0.0);
-                $row['remaining_amount'] = (float) ($row['original_remaining_amount'] ?? $net);
-                $row['payment_status'] = $row['original_payment_status'] ?? PaymentStatus::UNPAID;
-            }
-            $totalPaid += (float) $row['paid_amount'];
-            $totalPending += (float) $row['remaining_amount'];
-        }
-        unset($row);
-
-        return [
-            'totalPaidAmount'    => round($totalPaid, 2),
-            'totalPendingAmount' => round($totalPending, 2),
-        ];
-    }
+    // ==========================================
+    // Checkbox quick calculation methods (Commented out):
+    // ==========================================
+    // public static function applyEmployeeCheck(array &$rows, array $checkedEmployees, int $employeeId): array
+    // {
+    //     $isChecked = $checkedEmployees[$employeeId] ?? false;
+    //     $totalPaid = 0.0;
+    //     $totalPending = 0.0;
+    //     foreach ($rows as &$row) {
+    //         if ($row['employee_id'] === $employeeId) {
+    //             $net = (float) $row['net_amount'];
+    //             if ($isChecked) {
+    //                 $row['paid_amount'] = $net;
+    //                 $row['remaining_amount'] = 0.0;
+    //                 $row['payment_status'] = PaymentStatus::PAID;
+    //             } else {
+    //                 $row['paid_amount'] = (float) ($row['original_paid_amount'] ?? 0.0);
+    //                 $row['remaining_amount'] = (float) ($row['original_remaining_amount'] ?? $net);
+    //                 $row['payment_status'] = $row['original_payment_status'] ?? PaymentStatus::UNPAID;
+    //             }
+    //         }
+    //         $totalPaid += (float) $row['paid_amount'];
+    //         $totalPending += (float) $row['remaining_amount'];
+    //     }
+    //     unset($row);
+    //     return [
+    //         'totalPaidAmount'    => round($totalPaid, 2),
+    //         'totalPendingAmount' => round($totalPending, 2),
+    //     ];
+    // }
+    //
+    // public static function applyCheckAll(array &$rows, bool $checkState): array
+    // {
+    //     $totalPaid = 0.0;
+    //     $totalPending = 0.0;
+    //     foreach ($rows as &$row) {
+    //         $net = (float) $row['net_amount'];
+    //         if ($checkState) {
+    //             $row['paid_amount'] = $net;
+    //             $row['remaining_amount'] = 0.0;
+    //             $row['payment_status'] = PaymentStatus::PAID;
+    //         } else {
+    //             $row['paid_amount'] = (float) ($row['original_paid_amount'] ?? 0.0);
+    //             $row['remaining_amount'] = (float) ($row['original_remaining_amount'] ?? $net);
+    //             $row['payment_status'] = $row['original_payment_status'] ?? PaymentStatus::UNPAID;
+    //         }
+    //         $totalPaid += (float) $row['paid_amount'];
+    //         $totalPending += (float) $row['remaining_amount'];
+    //     }
+    //     unset($row);
+    //     return [
+    //         'totalPaidAmount'    => round($totalPaid, 2),
+    //         'totalPendingAmount' => round($totalPending, 2),
+    //     ];
+    // }
 
     /**
      * Retrieve or instantiate a new PayrollRecord for single employee edit modal.

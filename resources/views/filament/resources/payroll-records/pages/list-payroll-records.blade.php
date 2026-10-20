@@ -7,12 +7,14 @@
         {{-- Top Navigation: Sheet View vs Records History Table & Print Triggers --}}
         @include('filament.resources.payroll-records.pages.partials.header-tabs')
 
+        @php /* Records tab view — commented out
         @if($pageViewTab === 'records')
             {{-- Standard Filament Table --}}
             <div>
                 {{ $this->table }}
             </div>
         @else
+        */ @endphp
             {{-- Interactive Sheet View --}}
             <div id="printable-sheet" style="display: flex; flex-direction: column; gap: 1.25rem;">
 
@@ -38,7 +40,7 @@
                 @include('filament.resources.payroll-records.pages.partials.print-signatures')
 
             </div>
-        @endif
+        @php /* @endif — commented out (was for records tab conditional) */ @endphp
 
     </div>
 </x-filament-panels::page>

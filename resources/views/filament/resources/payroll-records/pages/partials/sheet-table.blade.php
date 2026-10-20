@@ -23,10 +23,12 @@
                 <th style="text-align: center; width: 90px; color: #86efac;">{{ __('finance.payroll_records.sheet.col_paid') }}</th>
                 <th style="text-align: center; width: 90px; color: #fde047;">{{ __('finance.payroll_records.sheet.col_remaining') }}</th>
                 <th style="text-align: center; width: 95px;">{{ __('finance.payroll_records.sheet.col_phone') }}</th>
+                {{-- 
                 <th style="text-align: center; width: 105px;" class="no-print">
                     {{ $operationType === 'payroll' ? __('finance.payroll_records.sheet.col_disburse_status') : __('finance.payroll_records.sheet.col_collect_status') }}
                 </th>
-                <th style="width: 110px;" class="no-print">{{ __('finance.payroll_records.sheet.col_notes') }}</th>
+                --}}
+                @php /* <th style="width: 110px;" class="no-print">{{ __('finance.payroll_records.sheet.col_notes') }}</th> */ @endphp
                 <th style="width: 48px; text-align: center;" class="no-print">{{ __('finance.payroll_records.sheet.col_action') }}</th>
             </tr>
         </thead>
@@ -133,7 +135,7 @@
                         {{ $row['phone'] }}
                     </td>
 
-                    {{-- 12. Interactive Checkbox & Status (no-print) --}}
+                    @php /* 12. Interactive Checkbox & Status (no-print) — commented out
                     <td style="text-align: center;" class="no-print">
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 0.2rem;">
                             <input
@@ -157,8 +159,9 @@
                             @endif
                         </div>
                     </td>
+                    */ @endphp
 
-                    {{-- 13. Notes (no-print) --}}
+                    @php /* 13. Notes (no-print) — commented out
                     <td class="no-print">
                         <input
                             type="text"
@@ -168,6 +171,7 @@
                             style="padding: 0.35rem 0.5rem; font-size: 0.75rem;"
                         />
                     </td>
+                    */ @endphp
 
                     {{-- 14. Action / Delete Button (no-print) --}}
                     <td style="text-align: center;" class="no-print">
@@ -187,7 +191,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="14" style="text-align: center; padding: 3rem; color: #94a3b8;">
+                    <td colspan="13" style="text-align: center; padding: 3rem; color: #94a3b8;">
                         <div style="font-weight: 800; font-size: 0.95rem;">{{ __('finance.payroll_records.sheet.empty_heading') }}</div>
                         <div style="font-size: 0.75rem; margin-top: 0.35rem;">{{ __('finance.payroll_records.sheet.empty_subheading') }}</div>
                     </td>
@@ -218,7 +222,7 @@
                     <td style="text-align: center; font-family: monospace; font-size: 0.875rem; color: #b45309; font-weight: 900; background: #fef3c7;">
                         {{ number_format($totalPendingAmount, 2) }}
                     </td>
-                    <td colspan="4" class="no-print"></td>
+                    <td colspan="3" class="no-print"></td>
                 </tr>
             </tfoot>
         @endif
