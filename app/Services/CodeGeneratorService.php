@@ -41,19 +41,10 @@ class CodeGeneratorService
 
         $code = static::buildCode($prefix, $companyId, $nextSeq, $padLength, $datePart, static::modelHasCompanyId($modelClass));
 
-        // Ensure uniqueness within the company scope
-        $uniqueQuery = $modelClass::withoutGlobalScopes()->where($column, $code);
-        if (static::modelHasCompanyId($modelClass)) {
-            $uniqueQuery->where('company_id', $companyId);
-        }
-
-        while ($uniqueQuery->exists()) {
+        // Ensure uniqueness across the entire table to prevent database unique constraint violations
+        while ($modelClass::withoutGlobalScopes()->where($column, $code)->exists()) {
             $nextSeq++;
             $code = static::buildCode($prefix, $companyId, $nextSeq, $padLength, $datePart, static::modelHasCompanyId($modelClass));
-            $uniqueQuery = $modelClass::withoutGlobalScopes()->where($column, $code);
-            if (static::modelHasCompanyId($modelClass)) {
-                $uniqueQuery->where('company_id', $companyId);
-            }
         }
 
         return $code;
