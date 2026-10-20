@@ -121,24 +121,94 @@ class PayrollCalculationService
     }
 
     /**
-     * إعادة احتساب الصافي والمتبقي وحالة الدفع
+     * Recalculate net amount, remaining amount, and payment status.
      */
     public static function computeTotals(float $basic, float $additional, float $deductions, float $paid = 0): array
     {
-        $net = round($basic + $additional - $deductions, 2);
+        $net = round(max(0, $basic + $additional - $deductions), 2);
         $remaining = round(max(0, $net - $paid), 2);
 
-        $status = PaymentStatus::UNPAID->value;
+        $status = PaymentStatus::UNPAID;
         if ($paid >= $net && $net > 0) {
-            $status = PaymentStatus::PAID->value;
+            $status = PaymentStatus::PAID;
         } elseif ($paid > 0) {
-            $status = PaymentStatus::PARTIALLY_PAID->value;
+            $status = PaymentStatus::PARTIALLY_PAID;
         }
 
         return [
             'net_amount'       => $net,
             'remaining_amount' => $remaining,
             'payment_status'   => $status,
+        ];
+    }
+
+    /**
+     * Synchronize and recalculate totals for the given payroll record.
+     */
+    public static function syncTotalsForRecord(PayrollRecord $record): void
+    {
+        $basic = (float)($record->basic_salary ?? 0);
+        $overtime = (float)($record->overtime_amount ?? 0);
+        $rewards = (float)($record->rewards_amount ?? 0);
+
+        $sumAdditions = round($overtime + $rewards, 2);
+        if ($sumAdditions > 0 || !isset($record->additional_amount)) {
+            $record->additional_amount = $sumAdditions;
+        } else {
+            $record->additional_amount = round((float)($record->additional_amount ?? 0), 2);
+        }
+
+        $advance = (float)($record->advance_deduction ?? 0);
+        $absence = (float)($record->absence_deduction ?? 0);
+        $sumDeductions = round($advance + $absence, 2);
+        if ($sumDeductions > 0 || !isset($record->deduction_amount)) {
+            $record->deduction_amount = $sumDeductions;
+        } else {
+            $record->deduction_amount = round((float)($record->deduction_amount ?? 0), 2);
+        }
+
+        $paid = (float)($record->paid_amount ?? 0);
+        $totals = static::computeTotals($basic, $record->additional_amount, $record->deduction_amount, $paid);
+
+        $record->net_amount = $totals['net_amount'];
+        $record->remaining_amount = $totals['remaining_amount'];
+        $record->payment_status = $totals['payment_status'];
+    }
+
+    /**
+     * Resolve unified payroll financial data for an employee (whether existing or calculated on-the-fly).
+     */
+    public static function resolveEmployeePayrollData(Employee $emp, ?PayrollRecord $existing, string $payrollMonth): array
+    {
+        if ($existing) {
+            $basic = (float) $existing->basic_salary;
+            $additional = (float) $existing->additional_amount;
+            $deductions = (float) $existing->deduction_amount;
+            $paid = (float) ($existing->paid_amount ?? 0.0);
+            $recordNumber = $existing->record_number;
+            $notes = $existing->notes ?? '';
+        } else {
+            $financials = static::calculateEmployeeFinancials($emp->id, $payrollMonth);
+            $basic = (float) ($emp->basic_salary ?? 0.0);
+            $additional = (float) ($financials['additional_amount'] ?? 0.0);
+            $deductions = (float) ($financials['deduction_amount'] ?? 0.0);
+            $paid = 0.0;
+            $recordNumber = null;
+            $notes = '';
+        }
+
+        $totals = static::computeTotals($basic, $additional, $deductions, $paid);
+
+        return [
+            'basic_salary'      => $basic,
+            'additional_amount' => $additional,
+            'deduction_amount'  => $deductions,
+            'net_amount'        => $totals['net_amount'],
+            'paid_amount'       => $paid,
+            'remaining_amount'  => $totals['remaining_amount'],
+            'payment_status'    => $totals['payment_status'],
+            'record_number'     => $recordNumber,
+            'notes'             => $notes,
         ];
     }
 

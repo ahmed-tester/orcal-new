@@ -3,25 +3,25 @@
     <div style="display: flex; justify-content: space-between; align-items: center;">
         <div style="text-align: right;">
             <div style="font-size: 15px; font-weight: 900; color: #1e3a8a;">
-                {{ $selectedCompanyId && ($company = \App\Models\Company::find($selectedCompanyId)) ? $company->trade_name : 'مجموعة فواز القابضة' }}
+                {{ $selectedCompanyId && ($company = \App\Models\Company::find($selectedCompanyId)) ? $company->trade_name : __('finance.payroll_records.sheet.print_default_company') }}
             </div>
             <div style="font-size: 10.5px; color: #64748b; margin-top: 3px;">
-                إدارة الموارد البشرية والعمليات المالية
+                {{ __('finance.payroll_records.sheet.print_dept') }}
             </div>
         </div>
 
         <div style="text-align: center;">
             <div style="font-size: 18px; font-weight: 900; color: #2e3882; text-decoration: underline;">
-                {{ $operationType === 'payroll' ? 'كشف دفع رواتب الموظفين' : 'كشف التحصيل العام للموظفين' }}
+                {{ $operationType === 'payroll' ? __('finance.payroll_records.sheet.print_payroll_title') : __('finance.payroll_records.sheet.print_collection_title') }}
             </div>
             <div style="font-size: 11px; font-weight: bold; color: #334155; margin-top: 4px;">
-                عن استحقاق شهر: {{ $payrollMonth }}
+                {{ __('finance.payroll_records.sheet.print_month_label', ['month' => $payrollMonth]) }}
             </div>
         </div>
 
         <div style="text-align: left; font-size: 10.5px; color: #475569;">
-            <div><strong>تاريخ الطباعة:</strong> {{ \App\Services\HijriDateService::formatDual(now(), true) }}</div>
-            <div style="margin-top: 3px;"><strong>المستخدم:</strong> {{ auth()->user()?->name ?? 'المسؤول' }}</div>
+            <div><strong>{{ __('finance.payroll_records.sheet.print_date_label') }}</strong> {{ \App\Services\HijriDateService::formatDual(now(), true) }}</div>
+            <div style="margin-top: 3px;"><strong>{{ __('finance.payroll_records.sheet.print_user_label') }}</strong> {{ auth()->user()?->name ?? __('finance.payroll_records.sheet.print_default_user') }}</div>
         </div>
     </div>
 </div>
