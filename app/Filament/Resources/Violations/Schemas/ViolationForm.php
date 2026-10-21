@@ -102,14 +102,19 @@ class ViolationForm
                         DatePicker::make('violation_date')
                             ->label(__('violations.violations.fields.violation_date'))
                             ->default(now())
+                            ->native(false)
                             ->required()
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set) {
                                 if ($state) {
-                                    $date = Carbon::parse($state);
-                                    $set('correction_deadline', $date->copy()->addDays(14)->format('Y-m-d'));
-                                    $set('objection_deadline', $date->copy()->addDays(60)->format('Y-m-d'));
-                                    $set('grace_deadline', $date->copy()->addDays(90)->format('Y-m-d'));
+                                    try {
+                                        $date = Carbon::parse($state);
+                                        $set('correction_deadline', $date->copy()->addDays(14)->format('Y-m-d'));
+                                        $set('objection_deadline', $date->copy()->addDays(60)->format('Y-m-d'));
+                                        $set('grace_deadline', $date->copy()->addDays(90)->format('Y-m-d'));
+                                        $set('legal_deadline', $date->copy()->addDays(60)->format('Y-m-d'));
+                                    } catch (\Throwable $e) {
+                                    }
                                 }
                             }),
 
@@ -158,22 +163,31 @@ class ViolationForm
 
                         DatePicker::make('correction_deadline')
                             ->label(__('violations.violations.fields.correction_deadline'))
+                            ->default(fn () => now()->addDays(14)->format('Y-m-d'))
+                            ->native(false)
                             ->helperText(__('violations.violations.helpers.correction_deadline')),
 
                         DatePicker::make('objection_deadline')
                             ->label(__('violations.violations.fields.objection_deadline'))
+                            ->default(fn () => now()->addDays(60)->format('Y-m-d'))
+                            ->native(false)
                             ->helperText(__('violations.violations.helpers.objection_deadline')),
 
                         DatePicker::make('grace_deadline')
                             ->label(__('violations.violations.fields.grace_deadline'))
+                            ->default(fn () => now()->addDays(90)->format('Y-m-d'))
+                            ->native(false)
                             ->helperText(__('violations.violations.helpers.grace_deadline')),
 
                         DatePicker::make('legal_deadline')
                             ->label(__('violations.violations.fields.legal_deadline'))
+                            ->default(fn () => now()->addDays(60)->format('Y-m-d'))
+                            ->native(false)
                             ->helperText(__('violations.violations.helpers.legal_deadline')),
 
                         DatePicker::make('admin_execution_date')
-                            ->label(__('violations.violations.fields.admin_execution_date')),
+                            ->label(__('violations.violations.fields.admin_execution_date'))
+                            ->native(false),
                     ]),
 
                 // 4. Payment Status Section
@@ -221,7 +235,8 @@ class ViolationForm
                             ->helperText(__('violations.violations.helpers.remaining_amount')),
 
                         DatePicker::make('closure_date')
-                            ->label(__('violations.violations.fields.closure_date')),
+                            ->label(__('violations.violations.fields.closure_date'))
+                            ->native(false),
 
                         Textarea::make('notes')
                             ->label(__('violations.violations.fields.notes'))

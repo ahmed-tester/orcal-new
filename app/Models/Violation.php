@@ -97,27 +97,25 @@ class Violation extends Model
                     padLength: 4,
                 );
             }
+        });
 
+        static::saving(function (Violation $violation) {
             // Auto calculate stage deadlines from violation date
             $date = $violation->violation_date ?? now()->toDateString();
             if (empty($violation->correction_deadline)) {
-                $violation->correction_deadline = Carbon::parse($date)->addDays(14);
+                $violation->correction_deadline = Carbon::parse($date)->addDays(14)->toDateString();
             }
             if (empty($violation->objection_deadline)) {
-                $violation->objection_deadline = Carbon::parse($date)->addDays(60);
+                $violation->objection_deadline = Carbon::parse($date)->addDays(60)->toDateString();
             }
             if (empty($violation->grace_deadline)) {
-                $violation->grace_deadline = Carbon::parse($date)->addDays(90);
+                $violation->grace_deadline = Carbon::parse($date)->addDays(90)->toDateString();
+            }
+            if (empty($violation->legal_deadline)) {
+                $violation->legal_deadline = Carbon::parse($date)->addDays(60)->toDateString();
             }
 
             // Calculate remaining amount
-            if (empty($violation->remaining_amount)) {
-                $violation->remaining_amount = (float) $violation->violation_amount - (float) ($violation->paid_amount ?? 0);
-            }
-        });
-
-        static::updating(function (Violation $violation) {
-            // Update remaining amount automatically
             $violation->remaining_amount = (float) $violation->violation_amount - (float) ($violation->paid_amount ?? 0);
 
             // Update closure date when fully paid

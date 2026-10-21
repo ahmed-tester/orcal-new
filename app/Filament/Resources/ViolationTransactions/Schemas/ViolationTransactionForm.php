@@ -44,13 +44,26 @@ class ViolationTransactionForm
                                 if ($companyId) {
                                     $query->where('company_id', $companyId);
                                 }
-                                return $query->get()->mapWithKeys(function ($v) {
-                                    $label = ($v->violation_number ?? "ID: {$v->id}") . " — {$v->issuing_authority} (" . number_format($v->remaining_amount, 2) . " SAR remaining)";
+                                return $query->with('type')->get()->mapWithKeys(function ($v) {
+                                    $name = $v->type?->name ?: ($v->issuing_authority ?? '');
+                                    $label = ($v->violation_number ?? "ID: {$v->id}") . ($name ? " — {$name}" : '');
                                     return [$v->id => $label];
                                 });
                             })
                             ->searchable()
                             ->preload()
+                            ->live()
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                if ($state && ($violation = Violation::find($state))) {
+                                    $amount = (float) $violation->remaining_amount > 0
+                                        ? (float) $violation->remaining_amount
+                                        : (float) $violation->violation_amount;
+                                    $set('amount', $amount);
+                                    if ($violation->company_id) {
+                                        $set('company_id', $violation->company_id);
+                                    }
+                                }
+                            })
                             ->required(),
 
                         TextInput::make('amount')
