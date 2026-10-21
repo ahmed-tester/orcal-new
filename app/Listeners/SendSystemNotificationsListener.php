@@ -63,6 +63,10 @@ class SendSystemNotificationsListener
                 continue;
             }
 
+            if ($notifiable instanceof \App\Models\Employee && $notifiable->user) {
+                $notifiable = $notifiable->user;
+            }
+
             $userKey = method_exists($notifiable, 'getKey') && $notifiable->getKey()
                 ? (get_class($notifiable) . ':' . $notifiable->getKey())
                 : (is_object($notifiable) ? spl_object_hash($notifiable) : (string) $notifiable);
