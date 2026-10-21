@@ -29,17 +29,42 @@ class SupervisionShiftPrintController extends Controller
     public function pdf(Request $request, SupervisionShift $shift)
     {
         $shift->load(['company', 'supervisor.user', 'supervisor.jobTitle', 'supervisor.department', 'task', 'creator']);
-        $html = view('supervision-shifts.pdf', compact('shift'))->render();
+        $html = view('supervision-shifts.print', compact('shift'))->render();
         $html = preg_replace('/^\xEF\xBB\xBF/', '', $html);
-        $html = preg_replace('/[\x{10000}-\x{10FFFF}]/u', '', $html);
+
+        $defaultConfig = (new ConfigVariables())->getDefaults();
+        $defaultFonts  = (new FontVariables())->getDefaults();
+
+        $mpdf = new Mpdf([
+            'mode'             => 'utf-8',
+            'format'           => 'A4',
+            'margin_top'       => 10,
+            'margin_bottom'    => 10,
+            'margin_left'      => 12,
+            'margin_right'     => 12,
+            'default_font'     => 'dejavusans',
+            'autoScriptToLang' => true,
+            'autoLangToFont'   => true,
+            'autoArabic'       => true,
+            'baseScript'       => 1,
+            'biDirectional'    => true,
+            'fontDir'          => array_merge($defaultConfig['fontDir'], [
+                storage_path('fonts'),
+            ]),
+            'fontdata'         => $defaultFonts['fontdata'],
+        ]);
+
+        $mpdf->SetDirectionality('rtl');
+        $mpdf->autoScriptToLang = true;
+        $mpdf->autoLangToFont   = true;
+
+        $mpdf->WriteHTML($html);
 
         $filename = 'supervision-shift-' . $shift->id . '.pdf';
 
-        return ExportPdfService::renderHtml($html, $filename, false, [
-            'margin_top'    => 8,
-            'margin_bottom' => 8,
-            'margin_left'   => 10,
-            'margin_right'  => 10,
+        return response($mpdf->Output($filename, 'S'), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
         ]);
     }
 

@@ -103,33 +103,17 @@ class PayrollRecord extends Model
             $record->absence_deduction = (float)($record->absence_deduction ?? 0);
             $record->paid_amount = (float)($record->paid_amount ?? 0);
 
+            if ($record->payment_status === \App\Enums\PaymentStatus::CANCELLED) {
+                return;
+            }
+
             static::calculateTotals($record);
         });
     }
 
     public static function calculateTotals(PayrollRecord $record): void
     {
-        $basic = (float)($record->basic_salary ?? 0);
-        $overtime = (float)($record->overtime_amount ?? 0);
-        $rewards = (float)($record->rewards_amount ?? 0);
-        
-        $record->additional_amount = round($overtime + $rewards, 2);
-
-        $advance = (float)($record->advance_deduction ?? 0);
-        $absence = (float)($record->absence_deduction ?? 0);
-        $record->deduction_amount = round($advance + $absence, 2);
-
-        $record->net_amount = round($basic + $record->additional_amount - $record->deduction_amount, 2);
-        $paid = (float)($record->paid_amount ?? 0);
-        $record->remaining_amount = round(max(0, $record->net_amount - $paid), 2);
-
-        if ($paid <= 0) {
-            $record->payment_status = PaymentStatus::UNPAID;
-        } elseif ($paid >= $record->net_amount) {
-            $record->payment_status = PaymentStatus::PAID;
-        } else {
-            $record->payment_status = PaymentStatus::PARTIALLY_PAID;
-        }
+        \App\Services\PayrollCalculationService::syncTotalsForRecord($record);
     }
 
     public function company(): BelongsTo
