@@ -576,6 +576,9 @@ return [
             'payroll_deduction' => 'خصم مسير راتب',
             'bank'              => 'تحويل بنكي',
         ],
+        'actions' => [
+            'print_voucher' => 'طباعة السند PDF',
+        ],
         'table_heading' => 'سجل فواتير وسندات التسديد — :count سند',
     ],
 ];

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\InstallmentPayments\Tables;
 
 use App\Filament\Components\OrgSelect;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -101,7 +102,18 @@ class InstallmentPaymentsTable
                     ->options(\App\Enums\InstallmentPaymentSource::class),
             ])
             ->recordActions([
+                Action::make('print_voucher')
+                    ->label(__('finance.installment_payments.actions.print_voucher'))
+                    ->icon('heroicon-o-printer')
+                    ->color('warning')
+                    ->url(fn ($record) => route('system.print', ['type' => 'installment-payment', 'id' => $record->id]))
+                    ->openUrlInNewTab(),
                 ActionGroup::make([
+                    Action::make('print_voucher_menu')
+                        ->label(__('finance.installment_payments.actions.print_voucher'))
+                        ->icon('heroicon-o-printer')
+                        ->url(fn ($record) => route('system.print', ['type' => 'installment-payment', 'id' => $record->id]))
+                        ->openUrlInNewTab(),
                     EditAction::make(),
                     DeleteAction::make(),
                 ])

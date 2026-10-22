@@ -94,6 +94,7 @@ return [
             'gemini_model' => 'نموذج الذكاء الاصطناعي (Gemini Model)',
             'gemini_model_helper' => 'اختر نموذج الذكاء الاصطناعي المعتمد لمعالجة واستيراد الملفات',
             'models' => [
+                'gemini_4_argon' => 'Gemini 4 Argon (الأقوى والأعلى دقة 🧠)',
                 'gemini_3_5_flash' => 'Gemini 3.5 Flash (النموذج القياسي ⚡)',
                 'gemini_3_6_flash' => 'Gemini 3.6 Flash',
                 'gemini_3_7_flash' => 'Gemini 3.7 Flash',

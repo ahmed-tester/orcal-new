@@ -15,6 +15,7 @@ use App\Services\AI\Tools\CreateDepartmentTool;
 use App\Services\AI\Tools\CreateEmployeeRewardTool;
 use App\Services\AI\Tools\CreateFaqTool;
 use App\Services\AI\Tools\CreateForeignEmployeeTool;
+use App\Services\AI\Tools\CreateInstallmentPaymentTool;
 use App\Services\AI\Tools\CreateInstallmentTool;
 use App\Services\AI\Tools\CreateInstallmentTypeTool;
 use App\Services\AI\Tools\CreateInvoiceTool;
@@ -108,6 +109,7 @@ class GeminiToolRegistry
 
         // 17. Installments
         $this->register(new CreateInstallmentTool());
+        $this->register(new CreateInstallmentPaymentTool());
 
         // 18. Installment Types
         $this->register(new CreateInstallmentTypeTool());

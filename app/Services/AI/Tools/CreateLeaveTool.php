@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\Leave;
 use App\Models\LeaveType;
 use App\Services\AI\Contracts\GeminiToolInterface;
+use App\Services\AI\EmployeeNameMatcher;
 use Carbon\Carbon;
 
 class CreateLeaveTool implements GeminiToolInterface
@@ -27,35 +28,35 @@ class CreateLeaveTool implements GeminiToolInterface
                 'properties' => [
                     'employee_identifier' => [
                         'type' => 'STRING',
-                        'description' => 'اسم الموظف أو رقم الهوية أو الرقم الوظيفي'
+                        'description' => 'اسم الموظف أو رقم الهوية أو الرقم الوظيفي',
                     ],
                     'leave_type' => [
                         'type' => 'STRING',
-                        'description' => 'نوع الإجازة (مثال: سنوية، مرضية، طارئة، بدون راتب)'
+                        'description' => 'نوع الإجازة (مثال: سنوية، مرضية، طارئة، بدون راتب)',
                     ],
                     'start_date' => [
                         'type' => 'STRING',
-                        'description' => 'تاريخ بداية الإجازة بصيغة YYYY-MM-DD'
+                        'description' => 'تاريخ بداية الإجازة بصيغة YYYY-MM-DD',
                     ],
                     'end_date' => [
                         'type' => 'STRING',
-                        'description' => 'تاريخ نهاية الإجازة بصيغة YYYY-MM-DD'
+                        'description' => 'تاريخ نهاية الإجازة بصيغة YYYY-MM-DD',
                     ],
                     'days' => [
                         'type' => 'INTEGER',
-                        'description' => 'عدد أيام الإجازة (اختياري، يتم حسابه تلقائياً إذا لم يحدد)'
+                        'description' => 'عدد أيام الإجازة (اختياري، يتم حسابه تلقائياً إذا لم يحدد)',
                     ],
                     'reason' => [
                         'type' => 'STRING',
-                        'description' => 'سبب أو مبرر الإجازة'
+                        'description' => 'سبب أو مبرر الإجازة',
                     ],
                     'status' => [
                         'type' => 'STRING',
-                        'description' => 'حالة الإجازة: approved (معتمدة), pending (معلقة), rejected (مرفوضة)'
-                    ]
+                        'description' => 'حالة الإجازة: approved (معتمدة), pending (معلقة), rejected (مرفوضة)',
+                    ],
                 ],
-                'required' => ['employee_identifier', 'start_date', 'end_date']
-            ]
+                'required' => ['employee_identifier', 'start_date', 'end_date'],
+            ],
         ];
     }
 
@@ -79,18 +80,12 @@ class CreateLeaveTool implements GeminiToolInterface
 
             $companyId = auth()->user()?->company_id ?? Company::first()?->id ?? 1;
 
-            $employee = $this->resolveEmployee($identifier, $companyId);
-            if (!$employee) {
-                return [
-                    'success' => false,
-                    'message' => "تعذر العثور على الموظف ({$identifier}) في النظام لإدراج الإجازة.",
-                ];
-            }
+            $employee = EmployeeNameMatcher::findOrCreate($identifier, $companyId);
 
             // حساب عدد الأيام
             $start = Carbon::parse($startDate);
             $end = Carbon::parse($endDate);
-            $days = max(1, (int)($arguments['days'] ?? ($end->diffInDays($start) + 1)));
+            $days = max(1, (int) ($arguments['days'] ?? ($end->diffInDays($start) + 1)));
 
             // العثور على نوع الإجازة أو إنشاؤه
             $type = LeaveType::firstOrCreate(
@@ -136,12 +131,12 @@ class CreateLeaveTool implements GeminiToolInterface
                     'days' => "{$days} أيام",
                     'type' => $type->name,
                     'start_date' => $startDate,
-                ]
+                ],
             ];
         } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'message' => 'حدث خطأ أثناء حفظ الإجازة: ' . $e->getMessage(),
+                'message' => 'حدث خطأ أثناء حفظ الإجازة: '.$e->getMessage(),
             ];
         }
     }
@@ -155,17 +150,23 @@ class CreateLeaveTool implements GeminiToolInterface
 
         if (is_numeric($identifier)) {
             $emp = (clone $query)->where('id', $identifier)->first();
-            if ($emp) return $emp;
+            if ($emp) {
+                return $emp;
+            }
         }
 
         $emp = (clone $query)->where('employee_number', $identifier)->first();
-        if ($emp) return $emp;
+        if ($emp) {
+            return $emp;
+        }
 
-        $emp = (clone $query)->whereHas('saudiDetail', fn($q) => $q->where('national_id', $identifier))
-            ->orWhereHas('foreignDetail', fn($q) => $q->where('iqama_number', $identifier))
+        $emp = (clone $query)->whereHas('saudiDetail', fn ($q) => $q->where('national_id', $identifier))
+            ->orWhereHas('foreignDetail', fn ($q) => $q->where('iqama_number', $identifier))
             ->first();
-        if ($emp) return $emp;
+        if ($emp) {
+            return $emp;
+        }
 
-        return (clone $query)->whereHas('user', fn($q) => $q->where('name', 'like', "%{$identifier}%")->orWhere('phone', 'like', "%{$identifier}%"))->first();
+        return (clone $query)->whereHas('user', fn ($q) => $q->where('name', 'like', "%{$identifier}%")->orWhere('phone', 'like', "%{$identifier}%"))->first();
     }
 }

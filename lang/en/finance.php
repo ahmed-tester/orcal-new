@@ -516,6 +516,9 @@ return [
             'payroll_deduction' => 'Payroll Deduction',
             'bank'              => 'Bank Transfer',
         ],
+        'actions' => [
+            'print_voucher' => 'Print Voucher PDF',
+        ],
         'table_heading' => 'Payment Vouchers — :count vouchers',
     ],
 ];

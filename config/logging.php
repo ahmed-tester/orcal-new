@@ -147,6 +147,13 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'test' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/test.log'),
+            'level' => 'debug',
+            'replace_placeholders' => true,
+        ],
+
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],
