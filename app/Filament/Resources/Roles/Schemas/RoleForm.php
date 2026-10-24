@@ -169,6 +169,7 @@ class RoleForm
                     'create_installment_payment' => __('permissions.create_installment_payment'),
                     'update_installment_payment' => __('permissions.update_installment_payment'),
                     'delete_installment_payment' => __('permissions.delete_installment_payment'),
+                    'approve_installment_payment' => __('permissions.approve_installment_payment'),
 
                     'view_any_installment_type' => __('permissions.view_any_installment_type'),
                     'create_installment_type' => __('permissions.create_installment_type'),
@@ -184,11 +185,13 @@ class RoleForm
                     'create_debt_collection' => __('permissions.create_debt_collection'),
                     'update_debt_collection' => __('permissions.update_debt_collection'),
                     'delete_debt_collection' => __('permissions.delete_debt_collection'),
+                    'approve_debt_collection' => __('permissions.approve_debt_collection'),
 
                     'view_any_service_transaction' => __('permissions.view_any_service_transaction'),
                     'create_service_transaction' => __('permissions.create_service_transaction'),
                     'update_service_transaction' => __('permissions.update_service_transaction'),
                     'delete_service_transaction' => __('permissions.delete_service_transaction'),
+                    'approve_service_transaction' => __('permissions.approve_service_transaction'),
 
                     'view_any_service' => __('permissions.view_any_service'),
                     'create_service' => __('permissions.create_service'),
@@ -352,9 +355,9 @@ class RoleForm
                 'label' => __('navigation.faq_group'),
                 'permissions' => [
                     'view_any_faq' => __('permissions.view_any_faq'),
-                    'create_faq'   => __('permissions.create_faq'),
-                    'update_faq'   => __('permissions.update_faq'),
-                    'delete_faq'   => __('permissions.delete_faq'),
+                    'create_faq' => __('permissions.create_faq'),
+                    'update_faq' => __('permissions.update_faq'),
+                    'delete_faq' => __('permissions.delete_faq'),
                 ],
             ],
         ];

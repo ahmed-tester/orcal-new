@@ -185,11 +185,29 @@ return [
     'create_installment_payment' => 'تسجيل دفعة قسط جديدة',
     'update_installment_payment' => 'تعديل دفعة قسط',
     'delete_installment_payment' => 'حذف دفعة قسط',
+    'approve_installment_payment' => 'اعتماد سندات تسديد الأقساط',
 
     'view_any_installment_type' => 'استعراض أنواع الأقساط',
     'create_installment_type' => 'إضافة نوع قسط',
     'update_installment_type' => 'تعديل نوع قسط',
     'delete_installment_type' => 'حذف نوع قسط',
+
+    'view_any_debt' => 'استعراض سجل الديون العامة',
+    'create_debt' => 'تسجيل دين عام جديد',
+    'update_debt' => 'تعديل دين عام',
+    'delete_debt' => 'حذف دين عام',
+
+    'view_any_debt_collection' => 'استعراض سندات تحصيل الديون',
+    'create_debt_collection' => 'تسجيل سند تحصيل دين',
+    'update_debt_collection' => 'تعديل سند تحصيل دين',
+    'delete_debt_collection' => 'حذف سند تحصيل دين',
+    'approve_debt_collection' => 'اعتماد سندات تحصيل الديون',
+
+    'view_any_service_transaction' => 'استعراض معاملات الخدمات والمتابعة',
+    'create_service_transaction' => 'تسجيل معاملة خدمة جديدة',
+    'update_service_transaction' => 'تعديل معاملة خدمة',
+    'delete_service_transaction' => 'حذف معاملة خدمة',
+    'approve_service_transaction' => 'اعتماد معاملات الخدمات',
 
     // 13. تذاكر الدعم الفني
     'tickets_group' => 'تذاكر الدعم الفني',

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\CodeGeneratorService;
+use App\Traits\HasApprovalStatus;
 use App\Traits\HasHijriDates;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DebtCollection extends Model
 {
-    use HasFactory, HasHijriDates;
+    use HasApprovalStatus, HasFactory, HasHijriDates;
 
     public function getHijriDateFieldNames(): array
     {
@@ -29,6 +31,7 @@ class DebtCollection extends Model
         'treasury_transaction_id',
         'description',
         'executed_by',
+        'status',
         'metadata',
     ];
 
@@ -36,8 +39,8 @@ class DebtCollection extends Model
     {
         return [
             'collection_date' => 'date',
-            'amount'          => 'decimal:2',
-            'metadata'        => 'array',
+            'amount' => 'decimal:2',
+            'metadata' => 'array',
         ];
     }
 
@@ -58,7 +61,7 @@ class DebtCollection extends Model
             }
 
             if (empty($collection->voucher_number)) {
-                $collection->voucher_number = \App\Services\CodeGeneratorService::generate(
+                $collection->voucher_number = CodeGeneratorService::generate(
                     modelClass: static::class,
                     column: 'voucher_number',
                     prefix: 'REC-DBT',
