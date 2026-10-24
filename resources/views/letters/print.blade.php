@@ -287,34 +287,28 @@
 
 <div class="header-divider"></div>
 
+@if(filled($letter->subject))
 <!-- --- Document Title --- -->
 <div class="doc-title-container">
-    <span class="doc-title">{{ $letter->subject ?: 'خطاب رسمي' }}</span>
+    <span class="doc-title">{{ $letter->subject }}</span>
 </div>
+@endif
 
+@if($letter->letter_date)
 <!-- --- Document Meta Bar (Date only) --- -->
 <table class="doc-meta-table">
     <tr>
         <td style="text-align: right;">
             <span class="meta-label">التاريخ:</span>
-            <span class="meta-val">{{ $letter->letter_date?->format('Y/m/d') ?? date('Y/m/d') }}م</span>
+            <span class="meta-val">{{ $letter->letter_date->format('Y/m/d') }}م</span>
         </td>
     </tr>
 </table>
-
-<!-- --- Bismillah --- -->
-<div style="text-align: center; margin-bottom: 12px; font-weight: bold; font-size: 11pt; color: #1a4478;">
-    بسم الله الرحمن الرحيم
-</div>
+@endif
 
 <!-- --- Letter Content --- -->
 <div class="letter-body">
-    {!! $letter->body ?? '<p style="color:#888;font-style:italic;">لم يتم إدخال نص الخطاب بعد.</p>' !!}
-</div>
-
-<!-- --- Closing --- -->
-<div style="margin-top: 16px; margin-bottom: 20px; font-weight: bold; font-size: 9.5pt; color: #1a4478;">
-    وتقبلوا خالص التحية والتقدير،،،
+    {!! $letter->body ?? '' !!}
 </div>
 
 @if($showSignature || $showStamp)

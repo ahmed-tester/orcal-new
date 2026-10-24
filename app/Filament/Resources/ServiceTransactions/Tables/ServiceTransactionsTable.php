@@ -2,12 +2,16 @@
 
 namespace App\Filament\Resources\ServiceTransactions\Tables;
 
+use App\Enums\ApprovalStatus;
 use App\Filament\Components\OrgSelect;
+use App\Filament\Resources\ServiceTransactions\ServiceTransactionResource;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -18,7 +22,7 @@ class ServiceTransactionsTable
     {
         return $table
             ->heading(fn () => __('services_tracking.table_heading', [
-                'count' => \App\Filament\Resources\ServiceTransactions\ServiceTransactionResource::getEloquentQuery()->count(),
+                'count' => ServiceTransactionResource::getEloquentQuery()->count(),
             ]))
             ->columns([
                 TextColumn::make('transaction_number')
@@ -27,6 +31,11 @@ class ServiceTransactionsTable
                     ->sortable()
                     ->badge()
                     ->color('primary'),
+
+                TextColumn::make('status')
+                    ->label(__('services_tracking.fields.status'))
+                    ->badge()
+                    ->sortable(query: fn ($query, string $direction) => $query->orderBy('metadata->status', $direction)),
 
                 TextColumn::make('scope_type')
                     ->label(__('services_tracking.fields.scope_type'))
@@ -79,13 +88,13 @@ class ServiceTransactionsTable
                     ->badge()
                     ->formatStateUsing(fn ($state) => match ($state) {
                         'completed' => __('services_tracking.badges.completed'),
-                        'inactive'  => __('services_tracking.badges.inactive'),
-                        default     => __('services_tracking.badges.active'),
+                        'inactive' => __('services_tracking.badges.inactive'),
+                        default => __('services_tracking.badges.active'),
                     })
                     ->color(fn ($state) => match ($state) {
                         'completed' => 'success',
-                        'inactive'  => 'gray',
-                        default     => 'info',
+                        'inactive' => 'gray',
+                        default => 'info',
                     })
                     ->sortable(),
 
@@ -106,6 +115,15 @@ class ServiceTransactionsTable
                     ->toggleable(),
             ])
             ->filters([
+                SelectFilter::make('status')
+                    ->label(__('services_tracking.fields.status'))
+                    ->options(ApprovalStatus::class)
+                    ->query(function ($query, array $data) {
+                        if (! empty($data['value'])) {
+                            $query->where('metadata->status', $data['value']);
+                        }
+                    }),
+
                 SelectFilter::make('scope_type')
                     ->label(__('services_tracking.fields.scope_type'))
                     ->options([
@@ -116,24 +134,57 @@ class ServiceTransactionsTable
                 SelectFilter::make('service_status')
                     ->label(__('services_tracking.fields.service_status'))
                     ->options([
-                        'active'    => __('services_tracking.service_statuses.active'),
+                        'active' => __('services_tracking.service_statuses.active'),
                         'completed' => __('services_tracking.service_statuses.completed'),
-                        'inactive'  => __('services_tracking.service_statuses.inactive'),
+                        'inactive' => __('services_tracking.service_statuses.inactive'),
                     ]),
 
                 SelectFilter::make('payment_status')
                     ->label(__('services_tracking.fields.payment_status'))
                     ->options([
-                        'unpaid'  => __('services_tracking.payment_statuses.unpaid'),
+                        'unpaid' => __('services_tracking.payment_statuses.unpaid'),
                         'partial' => __('services_tracking.payment_statuses.partial'),
-                        'paid'    => __('services_tracking.payment_statuses.paid'),
+                        'paid' => __('services_tracking.payment_statuses.paid'),
                     ]),
             ])
-            ->actions([
+            ->recordActions([
+                Action::make('approve')
+                    ->label(__('services_tracking.actions.approve'))
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->visible(fn ($record) => auth()->user()?->can('approve_service_transaction') && ! $record->isApproved())
+                    ->requiresConfirmation()
+                    ->action(function ($record) {
+                        $record->status = ApprovalStatus::APPROVED;
+                        $record->save();
+
+                        Notification::make()
+                            ->title(__('services_tracking.actions.approved_success'))
+                            ->success()
+                            ->send();
+                    }),
+
+                Action::make('unapprove')
+                    ->label(__('services_tracking.actions.unapprove'))
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('gray')
+                    ->visible(fn ($record) => auth()->user()?->can('approve_service_transaction') && $record->isApproved())
+                    ->requiresConfirmation()
+                    ->action(function ($record) {
+                        $record->status = ApprovalStatus::UNAPPROVED;
+                        $record->save();
+
+                        Notification::make()
+                            ->title(__('services_tracking.actions.unapproved_success'))
+                            ->warning()
+                            ->send();
+                    }),
+
                 ActionGroup::make([
                     EditAction::make(),
                     DeleteAction::make(),
-                ]),
+                ])
+                    ->icon('heroicon-m-ellipsis-vertical'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

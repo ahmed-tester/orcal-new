@@ -4,7 +4,6 @@ namespace App\Services\AI\Tools;
 
 use App\Enums\GeneralStatus;
 use App\Enums\UserType;
-use App\Models\Company;
 use App\Models\Employee;
 use App\Models\EmployeeDetail;
 use App\Models\User;
@@ -12,10 +11,18 @@ use App\Services\AI\Contracts\GeminiToolInterface;
 use App\Services\CompanyFormService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class CreateForeignEmployeeTool implements GeminiToolInterface
 {
+    protected static ?string $cachedPasswordHash = null;
+
+    protected function getCachedPasswordHash(): string
+    {
+        return self::$cachedPasswordHash ??= Hash::make(Str::random(24));
+    }
+
     public function getName(): string
     {
         return 'create_foreign_employee';
@@ -87,7 +94,7 @@ class CreateForeignEmployeeTool implements GeminiToolInterface
         $passportNumber = trim($arguments['passport_number'] ?? '');
         $phone = trim($arguments['phone'] ?? '');
         $email = trim($arguments['email'] ?? '');
-        $salary = isset($arguments['basic_salary']) ? (float)$arguments['basic_salary'] : 0.0;
+        $salary = isset($arguments['basic_salary']) ? (float) $arguments['basic_salary'] : 0.0;
         $iqamaExpiry = trim($arguments['iqama_expiry'] ?? '');
         $workPermitNumber = trim($arguments['work_permit_number'] ?? '');
         $sponsorName = trim($arguments['sponsor_name'] ?? '');
@@ -106,7 +113,7 @@ class CreateForeignEmployeeTool implements GeminiToolInterface
         }
 
         $banned = (array) __('smart_import.tools.create_foreign_employee.banned_nationalities');
-        if (empty($banned) || !is_array($banned)) {
+        if (empty($banned) || ! is_array($banned)) {
             $banned = ['saudi', 'saudi arabia', 'ksa'];
         }
         if (in_array(mb_strtolower($nationality), array_map('mb_strtolower', $banned), true)) {
@@ -137,7 +144,7 @@ class CreateForeignEmployeeTool implements GeminiToolInterface
             ];
         }
 
-        if (!str_starts_with($iqamaNumber, '2')) {
+        if (! str_starts_with($iqamaNumber, '2')) {
             return [
                 'success' => false,
                 'message' => __('smart_import.tools.create_foreign_employee.iqama_must_start_with_2', ['name' => $name]),
@@ -145,53 +152,96 @@ class CreateForeignEmployeeTool implements GeminiToolInterface
         }
 
         // 4. Verify Iqama uniqueness
-        $exists = EmployeeDetail::where('iqama_number', $iqamaNumber)->orWhere('national_id', $iqamaNumber)->exists();
-        if ($exists) {
+        $existingIqama = EmployeeDetail::where('iqama_number', $iqamaNumber)->orWhere('national_id', $iqamaNumber)->with('employee.user')->first();
+        if ($existingIqama) {
+            $conflictingEmpName = $existingIqama->employee?->user?->name ?? __('smart_import.company_match.unknown');
+            $conflictingEmpNumber = $existingIqama->employee?->employee_number ?? '';
+            Log::warning('[SmartImport] Duplicate Foreign Employee Iqama Detected', [
+                'candidate_name' => $name,
+                'iqama_number' => $iqamaNumber,
+                'conflicting_employee_id' => $existingIqama->employee_id,
+                'conflicting_employee_name' => $conflictingEmpName,
+                'conflicting_employee_number' => $conflictingEmpNumber,
+            ]);
+
             return [
                 'success' => false,
                 'message' => __('smart_import.tools.create_foreign_employee.duplicate_iqama', [
                     'name' => $name,
                     'iqama' => $iqamaNumber,
+                    'existing_name' => $conflictingEmpName,
+                    'existing_number' => $conflictingEmpNumber,
                 ]),
             ];
         }
 
         // 5. Verify passport uniqueness if provided
-        if (!empty($passportNumber) && EmployeeDetail::where('passport_number', $passportNumber)->exists()) {
-            return [
-                'success' => false,
-                'message' => __('smart_import.tools.create_foreign_employee.duplicate_passport', [
-                    'name' => $name,
-                    'passport' => $passportNumber,
-                ]),
-            ];
+        if (! empty($passportNumber)) {
+            $existingPassport = EmployeeDetail::where('passport_number', $passportNumber)->with('employee.user')->first();
+            if ($existingPassport) {
+                $conflictingEmpName = $existingPassport->employee?->user?->name ?? __('smart_import.company_match.unknown');
+                Log::warning('[SmartImport] Duplicate Foreign Employee Passport Detected', [
+                    'candidate_name' => $name,
+                    'passport_number' => $passportNumber,
+                    'conflicting_employee_name' => $conflictingEmpName,
+                ]);
+
+                return [
+                    'success' => false,
+                    'message' => __('smart_import.tools.create_foreign_employee.duplicate_passport', [
+                        'name' => $name,
+                        'passport' => $passportNumber,
+                        'existing_name' => $conflictingEmpName,
+                    ]),
+                ];
+            }
         }
 
         // 6. Verify phone uniqueness if provided
-        if (!empty($phone) && User::where('phone', $phone)->exists()) {
-            return [
-                'success' => false,
-                'message' => __('smart_import.tools.create_foreign_employee.duplicate_phone', [
-                    'name' => $name,
+        if (! empty($phone)) {
+            $existingUser = User::where('phone', $phone)->first();
+            if ($existingUser) {
+                Log::warning('[SmartImport] Duplicate Foreign Employee Phone Detected', [
+                    'candidate_name' => $name,
                     'phone' => $phone,
-                ]),
-            ];
+                    'conflicting_user_id' => $existingUser->id,
+                    'conflicting_user_name' => $existingUser->name,
+                ]);
+
+                return [
+                    'success' => false,
+                    'message' => __('smart_import.tools.create_foreign_employee.duplicate_phone', [
+                        'name' => $name,
+                        'phone' => $phone,
+                        'existing_name' => $existingUser->name,
+                        'existing_id' => $existingUser->id,
+                    ]),
+                ];
+            }
         }
 
         try {
             return DB::transaction(function () use ($name, $iqamaNumber, $nationality, $passportNumber, $phone, $email, $salary, $iqamaExpiry, $workPermitNumber, $sponsorName, $arguments) {
                 $companyName = trim($arguments['company_name'] ?? '');
-                $fallbackCompanyId = !empty($arguments['company_id']) ? (int)$arguments['company_id'] : null;
-                $companyId = CompanyFormService::resolveCompanyIdByName($companyName, $fallbackCompanyId);
-                $companyObj = Company::find($companyId);
-                $companySuffix = $companyObj ? " ({$companyObj->trade_name})" : "";
+                $fallbackCompanyId = ! empty($arguments['company_id']) ? (int) $arguments['company_id'] : null;
+                $companyRes = CompanyFormService::resolveOrCreateCompanyByName($companyName, $fallbackCompanyId);
+                $companyId = $companyRes['company_id'];
+                $companyTradeName = $companyRes['company_name'];
+                $companyStatus = $companyRes['status'];
 
-                $userEmail = !empty($email) ? $email : ('for_emp_' . Str::random(8) . '@company.local');
+                $companySuffix = match ($companyStatus) {
+                    'created' => __('smart_import.company_match.created_suffix', ['company' => $companyTradeName]),
+                    'ambiguous' => __('smart_import.company_match.ambiguous_suffix', ['company' => $companyTradeName]),
+                    'none' => __('smart_import.company_match.no_company_suffix'),
+                    default => ($companyTradeName ? " ({$companyTradeName})" : ''),
+                };
+
+                $userEmail = ! empty($email) ? $email : ('for_emp_'.Str::random(8).'@company.local');
                 $user = User::create([
                     'name' => $name,
                     'email' => $userEmail,
                     'phone' => $phone ?: null,
-                    'password' => Hash::make(Str::random(16)),
+                    'password' => $this->getCachedPasswordHash(),
                     'user_type' => UserType::FOREIGN_EMPLOYEE,
                     'status' => 'active',
                 ]);
@@ -220,11 +270,12 @@ class CreateForeignEmployeeTool implements GeminiToolInterface
                         'name' => $name,
                         'nationality' => $nationality,
                         'number' => $employee->employee_number,
-                    ]) . $companySuffix,
+                    ]).$companySuffix,
                     'employee_id' => $employee->id,
                     'employee_number' => $employee->employee_number,
                     'company_id' => $companyId,
-                    'company_name' => $companyObj?->trade_name,
+                    'company_name' => $companyTradeName,
+                    'company_status' => $companyStatus,
                     'type' => 'foreign',
                 ];
             });

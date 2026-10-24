@@ -1679,6 +1679,52 @@
                 </div>
             </div>
 
+            <!-- Live progress while page batches are being analyzed -->
+            @if ($isProcessing)
+                <div class="ai-processing-state-card" wire:poll.1200ms="processNextBatch">
+                    <div class="ai-loading-top-bar">
+                        <div class="ai-badge-active">
+                            <span class="ai-badge-live-pulse"></span>
+                            <span>{{ __('smart_import.loading.status_badge') }} (Gemini Flash AI)</span>
+                        </div>
+                        @if ($totalPages > 0)
+                            <div class="ai-engine-tag">
+                                <span>📄</span>
+                                <span>{{ $processedPages }} / {{ $totalPages }}</span>
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="ai-loading-content-row">
+                        <div class="ai-pulse-scanner">
+                            <div class="ai-pulse-glow"></div>
+                            <span class="ai-pulse-icon">🤖</span>
+                            <div class="ai-pulse-rings"></div>
+                        </div>
+                        <div class="ai-processing-text">
+                            <div class="ai-loading-title-box">
+                                <svg class="ai-loading-spinner ai-loading-spinner-indigo" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <h4 class="ai-loading-title">{{ __('smart_import.loading.analyzing_title') }}</h4>
+                            </div>
+                            <p class="ai-loading-desc">
+                                @if ($totalPages > 0)
+                                    {{ __('smart_import.loading.progress_pages', ['processed' => $processedPages, 'total' => $totalPages]) }}
+                                @else
+                                    {{ __('smart_import.loading.analyzing_desc') }}
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="ai-progress-bar-wrapper">
+                        <div class="ai-progress-bar-animated"></div>
+                    </div>
+                </div>
+            @endif
+
             <div class="guide-banner-blue">
                 <span class="text-xl">💡</span>
                 <span>{{ __('smart_import.guide_tip') }}</span>
@@ -2137,7 +2183,6 @@
                                      x-transition:enter-start="opacity-0 transform scale-95"
                                      x-transition:enter-end="opacity-100 transform scale-100">
                                     
-                                    <!-- رأس بطاقة السجل -->
                                     <div class="record-card-header">
                                         <div class="record-card-title-group">
                                             <div class="record-card-icon-badge">
@@ -2154,8 +2199,16 @@
                                         </span>
                                     </div>
 
-                                    <!-- رقائق البيانات المستخرجة -->
                                     <div class="record-fields-chips">
+                                        @php
+                                            $cardCompany = $item['result']['company_name'] ?? $args['company_name'] ?? null;
+                                        @endphp
+                                        @if(!empty($cardCompany))
+                                            <div class="field-chip">
+                                                <span class="field-chip-label">{{ __('smart_import.fields.company') }}</span>
+                                                <span class="field-chip-val font-bold">{{ $cardCompany }}</span>
+                                            </div>
+                                        @endif
                                         @if(!empty($args['national_id']))
                                             <div class="field-chip">
                                                 <span class="field-chip-label">{{ __('smart_import.fields.national_id') }}</span>

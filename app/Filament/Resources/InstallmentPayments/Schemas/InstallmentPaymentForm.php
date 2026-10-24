@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\InstallmentPayments\Schemas;
 
+use App\Enums\ApprovalStatus;
+use App\Enums\InstallmentPaymentSource;
 use App\Enums\InstallmentStatus;
 use App\Filament\Components\OrgSelect;
 use App\Models\Employee;
@@ -33,15 +35,15 @@ class InstallmentPaymentForm
                             ->label(__('finance.installment_payments.fields.payment_type'))
                             ->options([
                                 'installment' => __('finance.installment_payments.types.installment'),
-                                'advance'     => __('finance.installment_payments.types.advance'),
+                                'advance' => __('finance.installment_payments.types.advance'),
                             ])
                             ->icons([
                                 'installment' => 'heroicon-m-calendar-days',
-                                'advance'     => 'heroicon-m-banknotes',
+                                'advance' => 'heroicon-m-banknotes',
                             ])
                             ->colors([
                                 'installment' => 'info',
-                                'advance'     => 'success',
+                                'advance' => 'success',
                             ])
                             ->default('installment')
                             ->inline()
@@ -89,6 +91,18 @@ class InstallmentPaymentForm
                             ->dehydrated(false)
                             ->visible(fn ($record) => $record !== null),
 
+                        ToggleButtons::make('status')
+                            ->label(__('finance.installment_payments.fields.status'))
+                            ->options(ApprovalStatus::class)
+                            ->default(ApprovalStatus::UNAPPROVED->value)
+                            ->inline()
+                            ->grouped()
+                            ->disabled(fn () => ! (auth()->user()?->can('approve_installment_payment') ?? false))
+                            ->dehydrated()
+                            ->extraAttributes([
+                                'class' => '!w-full !max-w-full',
+                            ]),
+
                         DatePicker::make('payment_date')
                             ->label(__('finance.installment_payments.fields.payment_date'))
                             ->default(now())
@@ -107,12 +121,12 @@ class InstallmentPaymentForm
                             ->prefix('SAR')
                             ->default(0)
                             ->required()
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0)),
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0)),
 
                         Select::make('payment_source')
                             ->label(__('finance.installment_payments.fields.payment_source'))
-                            ->options(\App\Enums\InstallmentPaymentSource::class)
-                            ->default(\App\Enums\InstallmentPaymentSource::CASH->value)
+                            ->options(InstallmentPaymentSource::class)
+                            ->default(InstallmentPaymentSource::CASH->value)
                             ->required()
                             ->reactive(),
 
@@ -121,14 +135,14 @@ class InstallmentPaymentForm
                             ->relationship('treasuryTransaction', 'voucher_number', fn ($query) => $query->where('transaction_type', 'incoming'))
                             ->searchable()
                             ->preload()
-                            ->visible(fn (callable $get) => ($get('payment_source') instanceof \App\Enums\InstallmentPaymentSource ? $get('payment_source')->value : $get('payment_source')) === 'cash'),
+                            ->visible(fn (callable $get) => ($get('payment_source') instanceof InstallmentPaymentSource ? $get('payment_source')->value : $get('payment_source')) === 'cash'),
 
                         Select::make('payroll_record_id')
                             ->label(__('finance.installment_payments.fields.payroll_record'))
                             ->relationship('payrollRecord', 'record_number')
                             ->searchable()
                             ->preload()
-                            ->visible(fn (callable $get) => ($get('payment_source') instanceof \App\Enums\InstallmentPaymentSource ? $get('payment_source')->value : $get('payment_source')) === 'payroll_deduction'),
+                            ->visible(fn (callable $get) => ($get('payment_source') instanceof InstallmentPaymentSource ? $get('payment_source')->value : $get('payment_source')) === 'payroll_deduction'),
 
                         Select::make('executed_by')
                             ->label(__('finance.installment_payments.fields.executed_by'))
@@ -174,9 +188,10 @@ class InstallmentPaymentForm
             ->relationship('installment', 'installment_number', fn ($query, callable $get) => static::filterInstallments($query, $get))
             ->getOptionLabelFromRecordUsing(function ($record) {
                 $beneficiary = $record->beneficiary_name;
-                $rem = number_format((float)$record->remaining_amount, 2);
+                $rem = number_format((float) $record->remaining_amount, 2);
                 $code = $record->installment_number;
                 $remainingLabel = __('finance.installments.fields.remaining_amount');
+
                 return "{$beneficiary}  —  ({$code})  —  {$remainingLabel}: {$rem}";
             })
             ->searchable(['installment_number', 'external_name', 'external_national_id', 'external_phone'])
@@ -201,8 +216,8 @@ class InstallmentPaymentForm
 
         $query->whereHas('installments', function ($q) use ($paymentType) {
             $q->where('remaining_amount', '>', 0)
-              ->where('transaction_type', $paymentType)
-              ->whereNotIn('status', [InstallmentStatus::COMPLETED, InstallmentStatus::CANCELLED]);
+                ->where('transaction_type', $paymentType)
+                ->whereNotIn('status', [InstallmentStatus::COMPLETED, InstallmentStatus::CANCELLED]);
         });
     }
 
@@ -212,7 +227,7 @@ class InstallmentPaymentForm
     protected static function filterInstallments($query, callable $get): void
     {
         $query->where('remaining_amount', '>', 0)
-              ->whereNotIn('status', [InstallmentStatus::COMPLETED, InstallmentStatus::CANCELLED]);
+            ->whereNotIn('status', [InstallmentStatus::COMPLETED, InstallmentStatus::CANCELLED]);
 
         $paymentType = $get('payment_type');
         if ($paymentType) {
@@ -225,7 +240,7 @@ class InstallmentPaymentForm
         } else {
             $query->where(function ($q) {
                 $q->where('beneficiary_type', 'internal')
-                  ->orWhereNull('beneficiary_type');
+                    ->orWhereNull('beneficiary_type');
             });
 
             $employeeId = $get('employee_id');
@@ -248,6 +263,7 @@ class InstallmentPaymentForm
         if (! $state) {
             $set('installment_id', null);
             $set('amount', 0);
+
             return;
         }
 
@@ -267,7 +283,7 @@ class InstallmentPaymentForm
         if ($activeInstallments->count() === 1) {
             $single = $activeInstallments->first();
             $set('installment_id', $single->id);
-            $set('amount', (float)$single->monthly_amount > 0 ? (float)$single->monthly_amount : (float)$single->remaining_amount);
+            $set('amount', (float) $single->monthly_amount > 0 ? (float) $single->monthly_amount : (float) $single->remaining_amount);
         } else {
             $set('installment_id', null);
             $set('amount', 0);
@@ -298,7 +314,7 @@ class InstallmentPaymentForm
                 $set('beneficiary_type', $installment->beneficiary_type);
             }
 
-            $set('amount', (float)$installment->monthly_amount > 0 ? (float)$installment->monthly_amount : (float)$installment->remaining_amount);
+            $set('amount', (float) $installment->monthly_amount > 0 ? (float) $installment->monthly_amount : (float) $installment->remaining_amount);
         }
     }
 }

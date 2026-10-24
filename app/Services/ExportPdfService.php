@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Company;
+use App\Models\InstallmentPayment;
 use App\Models\TreasuryTransaction;
 use App\Models\ViolationTransaction;
 use Illuminate\Database\Eloquent\Model;
@@ -153,13 +154,44 @@ class ExportPdfService
             $departmentLabel = 'إدارة الحسابات — الخزينة الرئيسية';
             $partyName = $transaction->recipient_or_payer ?? '—';
             $categoryName = $transaction->paymentCollectionItem?->full_name ?? $transaction->paymentCollectionItem?->sub_item;
+        } elseif ($transaction instanceof InstallmentPayment) {
+            $isIncoming = true;
+            $isAdvance = ($transaction->payment_type === 'advance');
+            $voucherTitle = $isAdvance ? 'سند تسديد سلفة (قبض)' : 'سند تسديد قسط (قبض)';
+            $departmentLabel = 'إدارة التمويل والأقساط — سندات التحصيل';
+            $partyName = $transaction->installment?->beneficiary_name 
+                ?? ($transaction->employee?->user?->name ?? '—');
+            $categoryName = ($isAdvance ? 'سداد سلفة مالية' : 'سداد قسط تمويل') 
+                . ($transaction->installment?->installment_number ? ' — رقم: ' . $transaction->installment->installment_number : '')
+                . ($transaction->installment?->installmentType?->name ? ' (' . $transaction->installment->installmentType->name . ')' : '');
         }
 
         $amount = (float)$transaction->amount;
         $amountWords = TafqeetService::inArabic($amount);
-        $transDate = $transaction->transaction_date ?? now();
+        $transDate = $transaction->transaction_date ?? $transaction->payment_date ?? now();
         $gregorianDate = $transDate->format('Y/m/d');
         $hijriDate = HijriDateService::toHijri($transDate);
+
+        $balanceAfter = $transaction->balance_after ?? null;
+        if ($transaction instanceof InstallmentPayment && $balanceAfter === null) {
+            if ($transaction->installment) {
+                $total = (float)$transaction->installment->total_amount;
+                $paid = (float)$transaction->installment->paid_amount;
+                $balanceAfter = max(0, $total - $paid);
+            }
+        }
+
+        $description = $transaction->description;
+        if (empty($description) && $transaction instanceof InstallmentPayment) {
+            $sourceText = $transaction->payment_source instanceof \BackedEnum
+                ? $transaction->payment_source->getLabel()
+                : ($transaction->payment_source ?? '');
+            $description = ($transaction->payment_type === 'advance' ? 'سداد دفعة من سلفة' : 'سداد قسط مجدول')
+                . ($sourceText ? " [طريقة السداد: {$sourceText}]" : '');
+        }
+
+        $executedBy = $transaction->executor?->user?->name 
+            ?? ($transaction->executor?->name ?? (auth()->user()?->name ?? 'أمين الصندوق'));
 
         $html = view('exports.pdf-voucher', [
             'voucher_title'    => $voucherTitle,
@@ -174,13 +206,13 @@ class ExportPdfService
             'amount_words'     => $amountWords,
             'party_name'       => $partyName,
             'category_name'    => $categoryName,
-            'description'      => $transaction->description ?? '—',
-            'balance_after'    => $transaction->balance_after,
-            'executed_by'      => $transaction->executor?->user?->name ?? (auth()->user()?->name ?? 'أمين الصندوق'),
+            'description'      => $description ?? '—',
+            'balance_after'    => $balanceAfter,
+            'executed_by'      => $executedBy,
         ])->render();
 
         $filename = 'voucher-' . ($transaction->voucher_number ?? $transaction->id) . '.pdf';
 
-        return self::renderHtml($html, $filename, $download, ['margin_top' => 12, 'margin_bottom' => 12]);
+        return self::renderHtml($html, $filename, $download);
     }
 }

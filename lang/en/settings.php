@@ -94,6 +94,7 @@ return [
             'gemini_model' => 'AI Model (Gemini Model)',
             'gemini_model_helper' => 'Choose the AI model used for processing and importing files',
             'models' => [
+                'gemini_4_argon' => 'Gemini 4 Argon (Most Powerful & Accurate 🧠)',
                 'gemini_3_5_flash' => 'Gemini 3.5 Flash (Standard Model ⚡)',
                 'gemini_3_6_flash' => 'Gemini 3.6 Flash',
                 'gemini_3_7_flash' => 'Gemini 3.7 Flash',

@@ -33,10 +33,10 @@ class PayrollRecordForm
                         OrgSelect::company('company_id', __('finance.payroll_records.fields.company'), 'employee_id'),
 
                         Select::make('operation_type')
-                            ->label('نوع العملية')
+                            ->label(__('finance.payroll_records.fields.operation_type'))
                             ->options([
-                                'payroll'    => 'رواتب 💵',
-                                'collection' => 'تحصيل 📥',
+                                'payroll'    => __('finance.payroll_records.fields.operation_types.payroll'),
+                                'collection' => __('finance.payroll_records.fields.operation_types.collection'),
                             ])
                             ->default('payroll')
                             ->required(),
@@ -87,13 +87,13 @@ class PayrollRecordForm
                              ->label(__('finance.payroll_records.fields.overtime_amount'))
                              ->numeric()->prefix('SAR')->default(0)->disabled()->dehydrated()
                              ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
-                             ->helperText('محسوبة آلياً من ساعات العمل الإضافي'),
+                             ->helperText(__('finance.payroll_records.helpers.overtime_amount')),
 
                          TextInput::make('rewards_amount')
                              ->label(__('finance.payroll_records.fields.rewards_amount'))
                              ->numeric()->prefix('SAR')->default(0)->disabled()->dehydrated()
                              ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
-                             ->helperText('المكافآت المعتمدة للشهر فقط')
+                             ->helperText(__('finance.payroll_records.helpers.rewards_amount'))
                              ->extraAttributes(['class' => 'font-semibold text-emerald-600']),
 
                          TextInput::make('additional_amount')
@@ -112,14 +112,14 @@ class PayrollRecordForm
                              ->label(__('finance.payroll_records.fields.advance_deduction'))
                              ->numeric()->prefix('SAR')->default(0)->disabled()->dehydrated()
                              ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
-                             ->helperText('أقساط السلف والديون المستحقة')
+                             ->helperText(__('finance.payroll_records.helpers.advance_deduction'))
                              ->extraAttributes(['class' => 'font-semibold text-amber-600']),
 
                          TextInput::make('absence_deduction')
                              ->label(__('finance.payroll_records.fields.absence_deduction'))
                              ->numeric()->prefix('SAR')->default(0)->disabled()->dehydrated()
                              ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
-                             ->helperText('خصم الغياب والتأخير من سجل البصمة'),
+                             ->helperText(__('finance.payroll_records.helpers.absence_deduction')),
 
                          TextInput::make('deduction_amount')
                              ->label(__('finance.payroll_records.fields.deduction_amount'))

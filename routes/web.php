@@ -43,6 +43,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/exports/supervision-shifts-statement', [\App\Http\Controllers\SupervisionShiftPrintController::class, 'statement'])->name('exports.supervision-shifts-statement');
     Route::get('/supervision-shifts/{shift}/print',     [\App\Http\Controllers\SupervisionShiftPrintController::class, 'print'])->name('supervision-shifts.print');
     Route::get('/supervision-shifts/{shift}/pdf',       [\App\Http\Controllers\SupervisionShiftPrintController::class, 'pdf'])->name('supervision-shifts.pdf');
+
+    // Universal Dynamic Print Route
+    Route::get('/print/{type}/{id}', [\App\Http\Controllers\UniversalPrintController::class, 'print'])->name('system.print');
 });
 
 // ─── ZKTeco Biometric ADMS / Push Protocol Routes ───────────────────────────

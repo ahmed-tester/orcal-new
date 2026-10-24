@@ -41,9 +41,9 @@ class PayrollRecordsTable
                     ->sortable(),
 
                 TextColumn::make('operation_type')
-                    ->label('نوع العملية')
+                    ->label(__('finance.payroll_records.fields.operation_type'))
                     ->badge()
-                    ->formatStateUsing(fn ($state) => $state === 'collection' ? 'تحصيل 📥' : 'رواتب 💵')
+                    ->formatStateUsing(fn ($state) => $state === 'collection' ? __('finance.payroll_records.fields.operation_types.collection') : __('finance.payroll_records.fields.operation_types.payroll'))
                     ->color(fn ($state) => $state === 'collection' ? 'purple' : 'success'),
 
                 TextColumn::make('employee.user.name')
@@ -103,10 +103,10 @@ class PayrollRecordsTable
             ->filters([
                 OrgSelect::tableFilterCompany('company_id', __('finance.payroll_records.fields.company')),
                 SelectFilter::make('operation_type')
-                    ->label('نوع العملية')
+                    ->label(__('finance.payroll_records.fields.operation_type'))
                     ->options([
-                        'payroll'    => 'رواتب 💵',
-                        'collection' => 'تحصيل 📥',
+                        'payroll'    => __('finance.payroll_records.fields.operation_types.payroll'),
+                        'collection' => __('finance.payroll_records.fields.operation_types.collection'),
                     ]),
                 SelectFilter::make('payment_status')
                     ->label(__('finance.payroll_records.fields.payment_status'))
@@ -131,10 +131,10 @@ class PayrollRecordsTable
                     ->searchable()
                     ->preload(),
                 \Filament\Tables\Filters\Filter::make('payroll_month')
-                    ->label('شهر المسير')
+                    ->label(__('finance.payroll_records.actions.filter_month'))
                     ->form([
                         \Filament\Forms\Components\TextInput::make('month')
-                            ->label('شهر المسير (سنة-شهر)')
+                            ->label(__('finance.payroll_records.actions.filter_month_format'))
                             ->placeholder(now()->format('Y-m')),
                     ])
                     ->query(function ($query, array $data) {
@@ -158,7 +158,7 @@ class PayrollRecordsTable
             ->bulkActions([
                 BulkActionGroup::make([
                     BulkAction::make('bulkPaySalary')
-                        ->label('صرف / تسليم للمحددين 💵')
+                        ->label(__('finance.payroll_records.actions.bulk_disburse'))
                         ->icon('heroicon-o-banknotes')
                         ->color('success')
                         ->requiresConfirmation()
@@ -197,7 +197,7 @@ class PayrollRecordsTable
                                 }
                             }
                             \Filament\Notifications\Notification::make()
-                                ->title("تم صرف مستحقات {$count} مسير بنجاح")
+                                ->title(__('finance.payroll_records.actions.bulk_disburse_success', ['count' => $count]))
                                 ->success()
                                 ->send();
                         })
@@ -211,12 +211,12 @@ class PayrollRecordsTable
     protected static function getPaySalaryAction(): \Filament\Actions\Action
     {
         return \Filament\Actions\Action::make('paySalary')
-            ->label(fn (\App\Models\PayrollRecord $record) => $record->operation_type === 'collection' ? 'تحصيل المبلغ 📥' : __('finance.payroll_records.actions.pay_salary'))
+            ->label(fn (\App\Models\PayrollRecord $record) => $record->operation_type === 'collection' ? __('finance.payroll_records.actions.collect_amount') : __('finance.payroll_records.actions.pay_salary'))
             ->icon(fn (\App\Models\PayrollRecord $record) => $record->operation_type === 'collection' ? 'heroicon-o-arrow-down-tray' : 'heroicon-o-banknotes')
             ->color(fn (\App\Models\PayrollRecord $record) => $record->operation_type === 'collection' ? 'purple' : 'success')
             ->visible(fn (\App\Models\PayrollRecord $record) => (float) $record->remaining_amount > 0 && $record->payment_status !== PaymentStatus::PAID)
             ->modalHeading(fn (\App\Models\PayrollRecord $record) => $record->operation_type === 'collection'
-                ? "تسجيل تحصيل مستحقات: " . ($record->employee?->user?->name ?? "#{$record->employee_id}")
+                ? __('finance.payroll_records.actions.collect_heading', ['employee' => $record->employee?->user?->name ?? "#{$record->employee_id}"])
                 : __('finance.payroll_records.actions.pay_salary_heading', [
                     'employee' => $record->employee?->user?->name ?? "#{$record->employee_id}",
                 ])

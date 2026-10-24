@@ -77,6 +77,7 @@ class OfficialLetterForm
                                 'h2',
                                 'h3',
                                 'link',
+                                'table',
                                 'undo',
                                 'redo',
                             ])

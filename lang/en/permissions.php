@@ -178,11 +178,29 @@ return [
     'create_installment_payment' => 'Create Installment Payment',
     'update_installment_payment' => 'Update Installment Payment',
     'delete_installment_payment' => 'Delete Installment Payment',
+    'approve_installment_payment' => 'Approve Installment Payment Vouchers',
 
     'view_any_installment_type' => 'View Installment Types',
     'create_installment_type' => 'Create Installment Type',
     'update_installment_type' => 'Update Installment Type',
     'delete_installment_type' => 'Delete Installment Type',
+
+    'view_any_debt' => 'View Debts',
+    'create_debt' => 'Create Debt',
+    'update_debt' => 'Update Debt',
+    'delete_debt' => 'Delete Debt',
+
+    'view_any_debt_collection' => 'View Debt Collections',
+    'create_debt_collection' => 'Create Debt Collection',
+    'update_debt_collection' => 'Update Debt Collection',
+    'delete_debt_collection' => 'Delete Debt Collection',
+    'approve_debt_collection' => 'Approve Debt Collection Vouchers',
+
+    'view_any_service_transaction' => 'View Service Transactions',
+    'create_service_transaction' => 'Create Service Transaction',
+    'update_service_transaction' => 'Update Service Transaction',
+    'delete_service_transaction' => 'Delete Service Transaction',
+    'approve_service_transaction' => 'Approve Service Transactions',
 
     // 13. Support Tickets
     'tickets_group' => 'Support Tickets',

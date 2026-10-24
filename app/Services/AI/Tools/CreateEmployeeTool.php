@@ -2,6 +2,8 @@
 
 namespace App\Services\AI\Tools;
 
+use App\Enums\GeneralStatus;
+use App\Enums\UserType;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Models\EmployeeDetail;
@@ -31,35 +33,35 @@ class CreateEmployeeTool implements GeminiToolInterface
                 'properties' => [
                     'name' => [
                         'type' => 'STRING',
-                        'description' => 'الاسم الكامل للموظف'
+                        'description' => 'الاسم الكامل للموظف',
                     ],
                     'national_id' => [
                         'type' => 'STRING',
-                        'description' => 'رقم الهوية الوطنية أو رقم الإقامة'
+                        'description' => 'رقم الهوية الوطنية أو رقم الإقامة',
                     ],
                     'phone' => [
                         'type' => 'STRING',
-                        'description' => 'رقم هاتف الموظف'
+                        'description' => 'رقم هاتف الموظف',
                     ],
                     'email' => [
                         'type' => 'STRING',
-                        'description' => 'البريد الإلكتروني للموظف (اختياري)'
+                        'description' => 'البريد الإلكتروني للموظف (اختياري)',
                     ],
                     'basic_salary' => [
                         'type' => 'NUMBER',
-                        'description' => 'الراتب الأساسي الشهري (اختياري)'
+                        'description' => 'الراتب الأساسي الشهري (اختياري)',
                     ],
                     'nationality' => [
                         'type' => 'STRING',
-                        'description' => 'جنسية الموظف (مثال: سعودي، مصري... اختياري)'
+                        'description' => 'جنسية الموظف (مثال: سعودي، مصري... اختياري)',
                     ],
                     'iqama_number' => [
                         'type' => 'STRING',
-                        'description' => 'رقم الإقامة إذا كان موظفاً غير سعودي (اختياري)'
+                        'description' => 'رقم الإقامة إذا كان موظفاً غير سعودي (اختياري)',
                     ],
                 ],
-                'required' => ['name']
-            ]
+                'required' => ['name'],
+            ],
         ];
     }
 
@@ -72,7 +74,7 @@ class CreateEmployeeTool implements GeminiToolInterface
         $nationalId = trim($arguments['national_id'] ?? '');
         $phone = trim($arguments['phone'] ?? '');
         $email = trim($arguments['email'] ?? '');
-        $salary = isset($arguments['basic_salary']) ? (float)$arguments['basic_salary'] : 0.0;
+        $salary = isset($arguments['basic_salary']) ? (float) $arguments['basic_salary'] : 0.0;
         $nationality = trim($arguments['nationality'] ?? '');
         $iqamaNumber = trim($arguments['iqama_number'] ?? '');
 
@@ -86,14 +88,22 @@ class CreateEmployeeTool implements GeminiToolInterface
         return DB::transaction(function () use ($name, $nationalId, $phone, $email, $salary, $nationality, $iqamaNumber) {
             $companyId = auth()->user()?->company_id ?? Company::first()?->id;
 
-            // 1. إنشاء حساب المستخدم إذا لم يكن موجوداً
-            $userEmail = !empty($email) ? $email : ('emp_' . Str::random(8) . '@company.local');
+            // 1. تحديد نوع الموظف بذكاء (سعودي أم غير سعودي)
+            $userType = UserType::detect(
+                nationalId: $nationalId ?: null,
+                iqamaNumber: $iqamaNumber ?: null,
+                nationality: $nationality ?: null,
+                name: $name
+            );
+            $isSaudi = ($userType === UserType::SAUDI_EMPLOYEE);
+
+            $userEmail = ! empty($email) ? $email : ('emp_'.Str::random(8).'@company.local');
             $user = User::create([
                 'name' => $name,
                 'email' => $userEmail,
                 'phone' => $phone ?: null,
                 'password' => Hash::make(Str::random(16)),
-                'user_type' => \App\Enums\UserType::EMPLOYEE,
+                'user_type' => $userType,
                 'status' => 'active',
             ]);
 
@@ -102,15 +112,15 @@ class CreateEmployeeTool implements GeminiToolInterface
                 'user_id' => $user->id,
                 'company_id' => $companyId,
                 'basic_salary' => $salary,
-                'status' => \App\Enums\GeneralStatus::ACTIVE,
+                'status' => GeneralStatus::ACTIVE,
             ]);
 
             // 3. إنشاء تفاصيل الموظف (الهوية / الإقامة / الجنسية)
             EmployeeDetail::create([
                 'employee_id' => $employee->id,
-                'national_id' => $nationalId ?: null,
-                'iqama_number' => $iqamaNumber ?: ($nationalId ?: null),
-                'nationality' => $nationality ?: null,
+                'national_id' => $isSaudi ? ($nationalId ?: null) : null,
+                'iqama_number' => ! $isSaudi ? ($iqamaNumber ?: ($nationalId ?: null)) : null,
+                'nationality' => $nationality ?: ($isSaudi ? 'سعودي' : null),
             ]);
 
             return [

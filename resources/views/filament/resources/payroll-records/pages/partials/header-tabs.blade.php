@@ -7,7 +7,7 @@
             class="tab-btn {{ $pageViewTab === 'sheet' ? 'tab-btn-active' : 'tab-btn-inactive' }}"
         >
             <x-heroicon-o-document-currency-dollar style="width: 1.15rem; height: 1.15rem;" />
-            <span>كشف ومسير التحصيل والرواتب التفاعلي</span>
+            <span>{{ __('finance.payroll_records.sheet.tab_sheet') }}</span>
         </button>
 
         <button
@@ -16,7 +16,7 @@
             class="tab-btn {{ $pageViewTab === 'records' ? 'tab-btn-active' : 'tab-btn-inactive' }}"
         >
             <x-heroicon-o-table-cells style="width: 1.15rem; height: 1.15rem;" />
-            <span>سجل المسيرات المعتمدة والتاريخية</span>
+            <span>{{ __('finance.payroll_records.sheet.tab_records') }}</span>
         </button>
     </div>
 
@@ -28,7 +28,7 @@
             style="background: #1e3a8a; color: #ffffff; border-color: #1e3a8a; box-shadow: 0 2px 4px rgba(30, 58, 138, 0.2);"
         >
             <x-heroicon-o-printer style="width: 1.1rem; height: 1.1rem;" />
-            <span>🖨️ طباعة كشف دفع رواتب</span>
+            <span>{{ __('finance.payroll_records.sheet.print_payroll') }}</span>
         </button>
 
         <button
@@ -38,7 +38,7 @@
             style="background: #6b21a8; color: #ffffff; border-color: #6b21a8; box-shadow: 0 2px 4px rgba(107, 33, 168, 0.2);"
         >
             <x-heroicon-o-printer style="width: 1.1rem; height: 1.1rem;" />
-            <span>🖨️ طباعة كشف تحصيل</span>
+            <span>{{ __('finance.payroll_records.sheet.print_collection') }}</span>
         </button>
     </div>
 </div>
