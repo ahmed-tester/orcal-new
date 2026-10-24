@@ -4,7 +4,6 @@ namespace App\Filament\Pages;
 
 use App\Filament\Resources\OfficialLetters\OfficialLetterResource;
 use BackedEnum;
-use Filament\Actions\Action;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -66,9 +65,9 @@ class SystemDocumentationPage extends Page
         $groups = self::getDocumentationGroups();
 
         return [
-            'groups'      => $groups,
+            'groups' => $groups,
             'activeGroup' => $this->activeGroup,
-            'current'     => $groups[$this->activeGroup] ?? $groups['letters'],
+            'current' => $groups[$this->activeGroup] ?? $groups['letters'],
         ];
     }
 
@@ -76,24 +75,24 @@ class SystemDocumentationPage extends Page
     {
         return [
             'letters' => [
-                'key'                => 'letters',
-                'title'              => __('documentation.groups.letters'),
-                'icon'               => 'heroicon-o-envelope-open',
+                'key' => 'letters',
+                'title' => __('documentation.groups.letters'),
+                'icon' => 'heroicon-o-envelope-open',
                 'has_detailed_guide' => true,
-                'view'               => 'filament.pages.documentation.letters.official-letters',
-                'resources'          => [
+                'view' => 'filament.pages.documentation.letters.official-letters',
+                'resources' => [
                     [
                         'name' => __('navigation.official_letters'),
-                        'url'  => OfficialLetterResource::getUrl('index'),
+                        'url' => OfficialLetterResource::getUrl('index'),
                     ],
                 ],
             ],
             'organization' => [
-                'key'                => 'organization',
-                'title'              => __('documentation.groups.organization'),
-                'icon'               => 'heroicon-o-building-office-2',
+                'key' => 'organization',
+                'title' => __('documentation.groups.organization'),
+                'icon' => 'heroicon-o-building-office-2',
                 'has_detailed_guide' => false,
-                'resources'          => [
+                'resources' => [
                     ['name' => __('navigation.companies'), 'url' => '/companies'],
                     ['name' => __('navigation.branches'), 'url' => '/branches'],
                     ['name' => __('navigation.departments'), 'url' => '/departments'],
@@ -101,11 +100,11 @@ class SystemDocumentationPage extends Page
                 ],
             ],
             'hr' => [
-                'key'                => 'hr',
-                'title'              => __('documentation.groups.hr'),
-                'icon'               => 'heroicon-o-user-group',
+                'key' => 'hr',
+                'title' => __('documentation.groups.hr'),
+                'icon' => 'heroicon-o-user-group',
                 'has_detailed_guide' => false,
-                'resources'          => [
+                'resources' => [
                     ['name' => __('navigation.saudi_employees'), 'url' => '/saudi-employees'],
                     ['name' => __('navigation.foreign_employees'), 'url' => '/foreign-employees'],
                     ['name' => __('navigation.attendance'), 'url' => '/attendances'],
@@ -115,11 +114,11 @@ class SystemDocumentationPage extends Page
                 ],
             ],
             'finance' => [
-                'key'                => 'finance',
-                'title'              => __('documentation.groups.finance'),
-                'icon'               => 'heroicon-o-banknotes',
+                'key' => 'finance',
+                'title' => __('documentation.groups.finance'),
+                'icon' => 'heroicon-o-banknotes',
                 'has_detailed_guide' => false,
-                'resources'          => [
+                'resources' => [
                     ['name' => __('navigation.treasury_transactions'), 'url' => '/treasury-transactions'],
                     ['name' => __('navigation.payment_collection_items'), 'url' => '/payment-collection-items'],
                     ['name' => __('navigation.payroll_records'), 'url' => '/payroll-records'],
@@ -131,12 +130,24 @@ class SystemDocumentationPage extends Page
                     ['name' => __('navigation.installment_types'), 'url' => '/installment-types'],
                 ],
             ],
+            'approvals' => [
+                'key' => 'approvals',
+                'title' => __('documentation.groups.approvals'),
+                'icon' => 'heroicon-o-check-badge',
+                'has_detailed_guide' => true,
+                'view' => 'filament.pages.documentation.approvals.approvals-guide',
+                'resources' => [
+                    ['name' => __('finance.installment_payments.plural'), 'url' => '/installment-payments'],
+                    ['name' => __('debts.collections.plural'), 'url' => '/debt-collections'],
+                    ['name' => __('services_tracking.plural'), 'url' => '/service-transactions'],
+                ],
+            ],
             'tasks' => [
-                'key'                => 'tasks',
-                'title'              => __('documentation.groups.tasks'),
-                'icon'               => 'heroicon-o-clipboard-document-check',
+                'key' => 'tasks',
+                'title' => __('documentation.groups.tasks'),
+                'icon' => 'heroicon-o-clipboard-document-check',
                 'has_detailed_guide' => false,
-                'resources'          => [
+                'resources' => [
                     ['name' => __('navigation.tasks'), 'url' => '/tasks'],
                     ['name' => __('navigation.task_assignments'), 'url' => '/task-assignments'],
                     ['name' => __('navigation.supervision_shifts'), 'url' => '/supervision-shifts'],
@@ -144,11 +155,11 @@ class SystemDocumentationPage extends Page
                 ],
             ],
             'contracts' => [
-                'key'                => 'contracts',
-                'title'              => __('documentation.groups.contracts'),
-                'icon'               => 'heroicon-o-document-chart-bar',
+                'key' => 'contracts',
+                'title' => __('documentation.groups.contracts'),
+                'icon' => 'heroicon-o-document-chart-bar',
                 'has_detailed_guide' => false,
-                'resources'          => [
+                'resources' => [
                     ['name' => __('navigation.customers'), 'url' => '/customers'],
                     ['name' => __('navigation.offers'), 'url' => '/offers'],
                     ['name' => __('navigation.invoices'), 'url' => '/invoices'],
@@ -156,22 +167,22 @@ class SystemDocumentationPage extends Page
                 ],
             ],
             'violations' => [
-                'key'                => 'violations',
-                'title'              => __('documentation.groups.violations'),
-                'icon'               => 'heroicon-o-exclamation-triangle',
+                'key' => 'violations',
+                'title' => __('documentation.groups.violations'),
+                'icon' => 'heroicon-o-exclamation-triangle',
                 'has_detailed_guide' => false,
-                'resources'          => [
+                'resources' => [
                     ['name' => __('navigation.violations'), 'url' => '/violations'],
                     ['name' => __('navigation.violation_regulations'), 'url' => '/violation-regulations'],
                     ['name' => __('navigation.violation_transactions'), 'url' => '/violation-transactions'],
                 ],
             ],
             'funds' => [
-                'key'                => 'funds',
-                'title'              => __('documentation.groups.funds'),
-                'icon'               => 'heroicon-o-currency-dollar',
+                'key' => 'funds',
+                'title' => __('documentation.groups.funds'),
+                'icon' => 'heroicon-o-currency-dollar',
                 'has_detailed_guide' => false,
-                'resources'          => [
+                'resources' => [
                     ['name' => __('navigation.loan_funds'), 'url' => '/loan-funds'],
                     ['name' => __('navigation.loan_fund_members'), 'url' => '/loan-fund-members'],
                     ['name' => __('navigation.loan_fund_loans'), 'url' => '/loan-fund-loans'],
@@ -182,21 +193,22 @@ class SystemDocumentationPage extends Page
                 ],
             ],
             'reports' => [
-                'key'                => 'reports',
-                'title'              => __('documentation.groups.reports'),
-                'icon'               => 'heroicon-o-chart-pie',
-                'has_detailed_guide' => false,
-                'resources'          => [
+                'key' => 'reports',
+                'title' => __('documentation.groups.reports'),
+                'icon' => 'heroicon-o-chart-pie',
+                'has_detailed_guide' => true,
+                'view' => 'filament.pages.documentation.reports.reports-guide',
+                'resources' => [
                     ['name' => __('navigation.general_reports'), 'url' => '/general-reports'],
                     ['name' => __('navigation.notifications_report'), 'url' => '/notifications-report'],
                 ],
             ],
             'system' => [
-                'key'                => 'system',
-                'title'              => __('documentation.groups.system'),
-                'icon'               => 'heroicon-o-cog-6-tooth',
+                'key' => 'system',
+                'title' => __('documentation.groups.system'),
+                'icon' => 'heroicon-o-cog-6-tooth',
                 'has_detailed_guide' => false,
-                'resources'          => [
+                'resources' => [
                     ['name' => __('navigation.users'), 'url' => '/users'],
                     ['name' => __('navigation.roles'), 'url' => '/roles'],
                     ['name' => __('navigation.settings'), 'url' => '/settings'],

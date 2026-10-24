@@ -18,13 +18,13 @@
         }
 
         /* ==========================================================================
-           2. Scoped Documentation Hub Container & Typography (Cairo Font)
+           2. Scoped Documentation Hub Container & Typography (Tajawal Font)
            ========================================================================== */
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap');
 
         .doc-hub-root,
         .doc-hub-root * {
-            font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            font-family: 'Tajawal', sans-serif !important;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
             text-rendering: optimizeLegibility;
@@ -153,49 +153,95 @@
         }
 
         /* ==========================================================================
-           4. Two-Column Layout (Sidebar + Content Viewport)
+           4. Horizontal Layout (Top Horizontal Bar + Full Width Viewport)
            ========================================================================== */
         .doc-hub-body-layout {
             display: flex;
-            gap: 22px;
-            align-items: flex-start;
+            flex-direction: column;
+            gap: 18px;
+            width: 100%;
         }
 
-        @media (max-width: 960px) {
-            .doc-hub-body-layout {
-                flex-direction: column;
-            }
-        }
-
-        /* Internal Sidebar Mirroring System Groups */
-        .doc-hub-nav-aside {
-            width: 310px;
-            min-width: 310px;
+        /* Top Horizontal Department Navigation Bar (بالعرض في أول الصفحة) */
+        .doc-hub-nav-horizontal-wrap {
             background: #ffffff;
             border: 1px solid #e2e8f0;
-            border-radius: 16px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            border-radius: 14px;
+            padding: 8px 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+            width: 100%;
         }
 
-        .dark .doc-hub-nav-aside {
-            background: #111827;
-            border-color: #1f2937;
+        .dark .doc-hub-nav-horizontal-wrap {
+            background: #1e293b;
+            border-color: #334155;
         }
 
-        .doc-hub-nav-title {
-            font-size: 13px;
-            font-weight: 900;
-            color: #64748b;
-            padding: 4px 10px 12px 10px;
-            border-bottom: 2px solid #f1f5f9;
-            margin-bottom: 4px;
+        .doc-hub-nav-horizontal {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            gap: 6px;
+            overflow-x: auto;
+            white-space: nowrap;
+            scrollbar-width: thin;
+            padding-bottom: 2px;
+        }
+
+        .doc-hub-horiz-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 15px;
+            border-radius: 9px;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #475569;
+            background: transparent;
+            border: 1px solid transparent;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+            font-family: inherit;
+        }
+
+        .dark .doc-hub-horiz-btn {
+            color: #cbd5e1;
+        }
+
+        .doc-hub-horiz-btn:hover {
+            background: #f1f5f9;
+            color: #0284c7;
+        }
+
+        .dark .doc-hub-horiz-btn:hover {
+            background: #0f172a;
+            color: #38bdf8;
+        }
+
+        .doc-hub-horiz-btn.active {
+            background: #0284c7;
+            color: #ffffff;
+            border-color: #0284c7;
+            box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+        }
+
+        .dark .doc-hub-horiz-btn.active {
+            background: #0284c7;
+            color: #ffffff;
+        }
+
+        .doc-hub-horiz-badge {
+            font-size: 11px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 6px;
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .doc-hub-horiz-btn.active .doc-hub-horiz-badge {
+            background: rgba(255, 255, 255, 0.25);
+            color: #ffffff;
         }
 
         .dark .doc-hub-nav-title {
@@ -772,35 +818,32 @@
             </a>
         </div>
 
-        <!-- Layout: Internal Navigation Matching Sidebar + Content -->
+        <!-- Layout: Horizontal Navigation + Full-Width Content -->
         <div class="doc-hub-body-layout">
 
-            <!-- Internal Sidebar -->
-            <aside class="doc-hub-nav-aside">
-                <div class="doc-hub-nav-title">
-                    <span>{{ __('documentation.sidebar_heading') }}</span>
-                    <span>{{ __('documentation.sections_count', ['count' => count($groups)]) }}</span>
-                </div>
+            <!-- Horizontal Department Navigation across the top (السايد بار في أول الصفحة وبالعرض) -->
+            <div class="doc-hub-nav-horizontal-wrap">
+                <nav class="doc-hub-nav-horizontal">
+                    @foreach($groups as $groupKey => $groupData)
+                        <button
+                            type="button"
+                            wire:click="setGroup('{{ $groupKey }}')"
+                            class="doc-hub-horiz-btn {{ $activeGroup === $groupKey ? 'active' : '' }}"
+                        >
+                            <span>{{ $groupData['title'] }}</span>
 
-                @foreach($groups as $groupKey => $groupData)
-                    <button
-                        type="button"
-                        wire:click="setGroup('{{ $groupKey }}')"
-                        class="doc-hub-nav-item {{ $activeGroup === $groupKey ? 'active' : '' }}"
-                    >
-                        <span>{{ $groupData['title'] }}</span>
+                            @if(!empty($groupData['has_detailed_guide']))
+                                <span class="doc-hub-horiz-badge">{{ __('documentation.detailed_guide') }} ✨</span>
+                            @else
+                                <span class="doc-hub-horiz-badge">{{ count($groupData['resources'] ?? []) }}</span>
+                            @endif
+                        </button>
+                    @endforeach
+                </nav>
+            </div>
 
-                        @if(!empty($groupData['has_detailed_guide']))
-                            <span class="doc-hub-nav-badge">{{ __('documentation.detailed_guide') }} ✨</span>
-                        @else
-                            <span class="doc-hub-nav-badge">{{ count($groupData['resources'] ?? []) }}</span>
-                        @endif
-                    </button>
-                @endforeach
-            </aside>
-
-            <!-- Main Content Area -->
-            <main class="doc-hub-main-panel">
+            <!-- Main Content Area (Full Width) -->
+            <main class="doc-hub-main-panel" style="width: 100%; max-width: 100%; flex: 1;">
 
                 @if(!empty($current['has_detailed_guide']) && !empty($current['view']))
                     <!-- Render Dedicated Guide Partial -->
