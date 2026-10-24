@@ -25,14 +25,28 @@ class SystemDocumentationPage extends Page
     }
 
     public string $activeGroup = 'letters';
+    public ?string $activeSub = null;
 
     protected $queryString = [
         'activeGroup' => ['except' => 'letters'],
+        'activeSub' => ['except' => ''],
     ];
+
+    public function mount(): void
+    {
+        $this->activeGroup = request()->query('activeGroup', $this->activeGroup);
+        $this->activeSub = request()->query('activeSub', null);
+    }
 
     public function setGroup(string $group): void
     {
         $this->activeGroup = $group;
+        $this->activeSub = null;
+    }
+
+    public function setSub(?string $sub): void
+    {
+        $this->activeSub = $sub;
     }
 
     public function getMaxContentWidth(): Width|string|null
@@ -67,6 +81,7 @@ class SystemDocumentationPage extends Page
         return [
             'groups' => $groups,
             'activeGroup' => $this->activeGroup,
+            'activeSub' => $this->activeSub,
             'current' => $groups[$this->activeGroup] ?? $groups['letters'],
         ];
     }
@@ -91,7 +106,8 @@ class SystemDocumentationPage extends Page
                 'key' => 'organization',
                 'title' => __('documentation.groups.organization'),
                 'icon' => 'heroicon-o-building-office-2',
-                'has_detailed_guide' => false,
+                'has_detailed_guide' => true,
+                'view' => 'filament.pages.documentation.organization.companies-guide',
                 'resources' => [
                     ['name' => __('navigation.companies'), 'url' => '/companies'],
                     ['name' => __('navigation.branches'), 'url' => '/branches'],
@@ -103,7 +119,8 @@ class SystemDocumentationPage extends Page
                 'key' => 'hr',
                 'title' => __('documentation.groups.hr'),
                 'icon' => 'heroicon-o-user-group',
-                'has_detailed_guide' => false,
+                'has_detailed_guide' => true,
+                'view' => 'filament.pages.documentation.hr.employees-guide',
                 'resources' => [
                     ['name' => __('navigation.saudi_employees'), 'url' => '/saudi-employees'],
                     ['name' => __('navigation.foreign_employees'), 'url' => '/foreign-employees'],
@@ -117,7 +134,8 @@ class SystemDocumentationPage extends Page
                 'key' => 'finance',
                 'title' => __('documentation.groups.finance'),
                 'icon' => 'heroicon-o-banknotes',
-                'has_detailed_guide' => false,
+                'has_detailed_guide' => true,
+                'view' => 'filament.pages.documentation.finance.finance-guide',
                 'resources' => [
                     ['name' => __('navigation.treasury_transactions'), 'url' => '/treasury-transactions'],
                     ['name' => __('navigation.payment_collection_items'), 'url' => '/payment-collection-items'],
@@ -146,7 +164,8 @@ class SystemDocumentationPage extends Page
                 'key' => 'tasks',
                 'title' => __('documentation.groups.tasks'),
                 'icon' => 'heroicon-o-clipboard-document-check',
-                'has_detailed_guide' => false,
+                'has_detailed_guide' => true,
+                'view' => 'filament.pages.documentation.tasks.tasks-guide',
                 'resources' => [
                     ['name' => __('navigation.tasks'), 'url' => '/tasks'],
                     ['name' => __('navigation.task_assignments'), 'url' => '/task-assignments'],
@@ -158,7 +177,8 @@ class SystemDocumentationPage extends Page
                 'key' => 'contracts',
                 'title' => __('documentation.groups.contracts'),
                 'icon' => 'heroicon-o-document-chart-bar',
-                'has_detailed_guide' => false,
+                'has_detailed_guide' => true,
+                'view' => 'filament.pages.documentation.contracts.contracts-guide',
                 'resources' => [
                     ['name' => __('navigation.customers'), 'url' => '/customers'],
                     ['name' => __('navigation.offers'), 'url' => '/offers'],
@@ -170,7 +190,8 @@ class SystemDocumentationPage extends Page
                 'key' => 'violations',
                 'title' => __('documentation.groups.violations'),
                 'icon' => 'heroicon-o-exclamation-triangle',
-                'has_detailed_guide' => false,
+                'has_detailed_guide' => true,
+                'view' => 'filament.pages.documentation.violations.violations-guide',
                 'resources' => [
                     ['name' => __('navigation.violations'), 'url' => '/violations'],
                     ['name' => __('navigation.violation_regulations'), 'url' => '/violation-regulations'],
