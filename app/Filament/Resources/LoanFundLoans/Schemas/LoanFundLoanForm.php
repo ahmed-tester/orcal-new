@@ -4,6 +4,7 @@ namespace App\Filament\Resources\LoanFundLoans\Schemas;
 
 use App\Models\LoanFund;
 use App\Models\LoanFundMember;
+use App\Services\LoanFundLimitService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -72,25 +73,28 @@ class LoanFundLoanForm
                             ->default(now()->addMonth())
                             ->required(),
 
-                        TextInput::make('loan_amount')
-                            ->label(__('funds.loan_fund_loans.fields.loan_amount'))
-                            ->numeric()
-                            ->prefix('SAR')
-                            ->default(0)
-                            ->required()
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
-                            ->reactive()
-                            ->afterStateUpdated(fn (callable $set, callable $get) => static::recalculateLoan($set, $get)),
+                        LoanFundLimitService::applyLoanAmountLimit(
+                            TextInput::make('loan_amount')
+                                ->label(__('funds.loan_fund_loans.fields.loan_amount'))
+                                ->numeric()
+                                ->prefix('SAR')
+                                ->default(0)
+                                ->required()
+                                ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
+                                ->reactive()
+                                ->afterStateUpdated(fn (callable $set, callable $get) => static::recalculateLoan($set, $get))
+                        ),
 
-                        TextInput::make('installments_count')
-                            ->label(__('funds.loan_fund_loans.fields.installments_count'))
-                            ->numeric()
-                            ->default(1)
-                            ->minValue(1)
-                            ->required()
-                            ->dehydrateStateUsing(fn ($state) => max(1, (int)($state ?: 1)))
-                            ->reactive()
-                            ->afterStateUpdated(fn (callable $set, callable $get) => static::recalculateLoan($set, $get)),
+                        LoanFundLimitService::applyInstallmentsLimit(
+                            TextInput::make('installments_count')
+                                ->label(__('funds.loan_fund_loans.fields.installments_count'))
+                                ->numeric()
+                                ->default(1)
+                                ->required()
+                                ->dehydrateStateUsing(fn ($state) => max(1, (int)($state ?: 1)))
+                                ->reactive()
+                                ->afterStateUpdated(fn (callable $set, callable $get) => static::recalculateLoan($set, $get))
+                        ),
 
                         TextInput::make('monthly_installment')
                             ->label(__('funds.loan_fund_loans.fields.monthly_installment'))

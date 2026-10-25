@@ -59,11 +59,17 @@ class LoanFundLoansTable
                 TextColumn::make('status')
                     ->label(__('funds.loan_fund_loans.fields.status'))
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn ($state) => match ($state) {
+                        'active' => __('funds.enums.general_status.active'),
+                        'completed' => __('funds.enums.general_status.completed'),
+                        'defaulted' => __('funds.enums.general_status.defaulted'),
+                        default => $state,
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
                         'completed' => 'success',
-                        'active'    => 'warning',
+                        'active' => 'warning',
                         'defaulted' => 'danger',
-                        default     => 'gray',
+                        default => 'gray',
                     }),
 
                 IconColumn::make('is_closed')
@@ -74,6 +80,14 @@ class LoanFundLoansTable
                 SelectFilter::make('loan_fund_id')
                     ->label(__('funds.loan_fund_loans.fields.fund'))
                     ->relationship('loanFund', 'fund_name'),
+
+                SelectFilter::make('status')
+                    ->label(__('funds.loan_fund_loans.fields.status'))
+                    ->options([
+                        'active' => __('funds.enums.general_status.active'),
+                        'completed' => __('funds.enums.general_status.completed'),
+                        'defaulted' => __('funds.enums.general_status.defaulted'),
+                    ]),
             ])
             ->actions([
                 ActionGroup::make([

@@ -93,6 +93,10 @@ return [
             'quick_pay_heading' => 'Record Member Subscription Payment',
             'quick_pay_success' => 'Subscription payment recorded and member balance updated successfully.',
         ],
+        'helpers' => [
+            'total_annual_amount' => 'Calculated automatically: Installments count × Monthly amount',
+            'remaining_amount' => 'Calculated automatically: Total annual amount − Paid amount',
+        ],
     ],
 
     'loan_fund_member_payments' => [
@@ -147,6 +151,16 @@ return [
         'helpers' => [
             'monthly_installment' => 'Auto-calculated: Loan Amount ÷ Installments Count',
             'remaining_amount' => 'Auto-calculated: Loan Amount − Total Paid',
+            'max_loan_limit_hint' => 'Max loan limit per member: :limit SAR',
+            'max_months_hint' => 'Maximum allowed repayment period: :months months',
+            'available_balance_hint' => 'Currently available fund liquidity: :balance SAR',
+            'target_not_reached_hint' => 'Target fund amount not reached yet (:collected of :target SAR) — Loans cannot be disbursed',
+        ],
+        'validation' => [
+            'max_limit_exceeded' => 'The loan amount exceeds the maximum allowed limit for this fund (:limit SAR).',
+            'max_months_exceeded' => 'The installments count exceeds the maximum allowed period for this fund (:months months).',
+            'insufficient_fund_balance' => 'The currently available fund balance (:available SAR) is insufficient to grant this loan.',
+            'target_amount_not_reached' => 'Loans cannot be disbursed before the target fund amount (:target SAR) is fully collected. Current collections: :collected SAR.',
         ],
     ],
 
@@ -257,7 +271,7 @@ return [
         'salifni_subtitle' => 'By-laws, loan eligibility criteria, and repayment tables',
         'salifni_section_title' => 'Formulate Salifni Fund By-laws & Regulations',
         'salifni_section_desc' => 'Edit and formulate the approved policy articles and terms via the rich editor below.',
-        
+
         'rosca_title' => 'ROSCA Society Fund Policy & Regulations',
         'rosca_subtitle' => 'Mutual savings bylaws, turn allocation criteria, and obligations',
         'rosca_section_title' => 'Formulate ROSCA Society By-laws & Regulations',
