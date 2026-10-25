@@ -58,11 +58,17 @@ class RoscaFundsTable
                 TextColumn::make('status')
                     ->label(__('funds.rosca_funds.fields.status'))
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'active'    => 'success',
+                    ->formatStateUsing(fn ($state) => match ($state) {
+                        'active' => __('funds.enums.general_status.active'),
+                        'completed' => __('funds.enums.general_status.completed'),
+                        'closed' => __('funds.enums.general_status.closed'),
+                        default => $state,
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
+                        'active' => 'success',
                         'completed' => 'info',
-                        'closed'    => 'gray',
-                        default     => 'warning',
+                        'closed' => 'gray',
+                        default => 'warning',
                     }),
             ])
             ->actions([

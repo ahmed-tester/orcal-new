@@ -93,6 +93,10 @@ return [
             'quick_pay_heading' => 'Record Member Subscription Payment',
             'quick_pay_success' => 'Subscription payment recorded and member balance updated successfully.',
         ],
+        'helpers' => [
+            'total_annual_amount' => 'Calculated automatically: Installments count × Monthly amount',
+            'remaining_amount' => 'Calculated automatically: Total annual amount − Paid amount',
+        ],
     ],
 
     'loan_fund_member_payments' => [
@@ -257,7 +261,7 @@ return [
         'salifni_subtitle' => 'By-laws, loan eligibility criteria, and repayment tables',
         'salifni_section_title' => 'Formulate Salifni Fund By-laws & Regulations',
         'salifni_section_desc' => 'Edit and formulate the approved policy articles and terms via the rich editor below.',
-        
+
         'rosca_title' => 'ROSCA Society Fund Policy & Regulations',
         'rosca_subtitle' => 'Mutual savings bylaws, turn allocation criteria, and obligations',
         'rosca_section_title' => 'Formulate ROSCA Society By-laws & Regulations',
