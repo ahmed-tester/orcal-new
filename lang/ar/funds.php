@@ -151,6 +151,14 @@ return [
         'helpers' => [
             'monthly_installment' => 'يُحسب آلياً: مبلغ السلفة ÷ عدد الأقساط',
             'remaining_amount' => 'يُحسب آلياً: مبلغ السلفة − إجمالي المسدد',
+            'max_loan_limit_hint' => 'الحد الأقصى للسلفة للعضو: :limit ر.س.',
+            'max_months_hint' => 'أقصى مدة سداد مسموحة في هذا الصندوق: :months شهر',
+            'available_balance_hint' => 'السيولة المتاحة في الصندوق حالياً: :balance ر.س.',
+        ],
+        'validation' => [
+            'max_limit_exceeded' => 'مبلغ السلفة يتجاوز الحد الأقصى المسموح به في هذا الصندوق (:limit ر.س.).',
+            'max_months_exceeded' => 'عدد الأقساط يتجاوز الحد الأقصى المسموح به في هذا الصندوق (:months شهر).',
+            'insufficient_fund_balance' => 'رصيد الصندوق المتاح حالياً (:available ر.س.) لا يكفي لصرف هذه السلفة.',
         ],
     ],
 
