@@ -89,6 +89,26 @@ trait HasApprovalStatus
     }
 
     /**
+     * Approve the model and save.
+     */
+    public function approve(): bool
+    {
+        $this->status = ApprovalStatus::APPROVED;
+
+        return $this->save();
+    }
+
+    /**
+     * Unapprove the model and save.
+     */
+    public function unapprove(): bool
+    {
+        $this->status = ApprovalStatus::UNAPPROVED;
+
+        return $this->save();
+    }
+
+    /**
      * Query scope to filter records by approval status in the metadata JSON column.
      */
     public function scopeWhereStatus(Builder $query, ApprovalStatus|string $status): Builder

@@ -530,4 +530,11 @@ return [
         'approved' => 'Approved',
         'unapproved' => 'Unapproved',
     ],
+
+    'approval_actions' => [
+        'approve' => 'Approve',
+        'unapprove' => 'Unapprove',
+        'approved_success' => 'Approved successfully.',
+        'unapproved_success' => 'Approval cancelled successfully.',
+    ],
 ];

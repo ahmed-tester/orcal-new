@@ -3,15 +3,14 @@
 namespace App\Filament\Resources\ServiceTransactions\Tables;
 
 use App\Enums\ApprovalStatus;
+use App\Filament\Components\ApprovalActions;
 use App\Filament\Components\OrgSelect;
 use App\Filament\Resources\ServiceTransactions\ServiceTransactionResource;
-use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -148,37 +147,7 @@ class ServiceTransactionsTable
                     ]),
             ])
             ->recordActions([
-                Action::make('approve')
-                    ->label(__('services_tracking.actions.approve'))
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn ($record) => auth()->user()?->can('approve_service_transaction') && ! $record->isApproved())
-                    ->requiresConfirmation()
-                    ->action(function ($record) {
-                        $record->status = ApprovalStatus::APPROVED;
-                        $record->save();
-
-                        Notification::make()
-                            ->title(__('services_tracking.actions.approved_success'))
-                            ->success()
-                            ->send();
-                    }),
-
-                Action::make('unapprove')
-                    ->label(__('services_tracking.actions.unapprove'))
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('gray')
-                    ->visible(fn ($record) => auth()->user()?->can('approve_service_transaction') && $record->isApproved())
-                    ->requiresConfirmation()
-                    ->action(function ($record) {
-                        $record->status = ApprovalStatus::UNAPPROVED;
-                        $record->save();
-
-                        Notification::make()
-                            ->title(__('services_tracking.actions.unapproved_success'))
-                            ->warning()
-                            ->send();
-                    }),
+                ...ApprovalActions::make('approve_service_transaction', translationKey: 'services_tracking.actions'),
 
                 ActionGroup::make([
                     EditAction::make(),

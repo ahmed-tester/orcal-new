@@ -4,6 +4,7 @@ namespace App\Filament\Resources\InstallmentPayments\Tables;
 
 use App\Enums\ApprovalStatus;
 use App\Enums\InstallmentPaymentSource;
+use App\Filament\Components\ApprovalActions;
 use App\Filament\Components\OrgSelect;
 use App\Filament\Resources\InstallmentPayments\InstallmentPaymentResource;
 use Filament\Actions\Action;
@@ -12,7 +13,6 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -121,37 +121,7 @@ class InstallmentPaymentsTable
                     ->options(InstallmentPaymentSource::class),
             ])
             ->recordActions([
-                Action::make('approve')
-                    ->label(__('finance.installment_payments.actions.approve'))
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn ($record) => auth()->user()?->can('approve_installment_payment') && ! $record->isApproved())
-                    ->requiresConfirmation()
-                    ->action(function ($record) {
-                        $record->status = ApprovalStatus::APPROVED;
-                        $record->save();
-
-                        Notification::make()
-                            ->title(__('finance.installment_payments.actions.approved_success'))
-                            ->success()
-                            ->send();
-                    }),
-
-                Action::make('unapprove')
-                    ->label(__('finance.installment_payments.actions.unapprove'))
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('gray')
-                    ->visible(fn ($record) => auth()->user()?->can('approve_installment_payment') && $record->isApproved())
-                    ->requiresConfirmation()
-                    ->action(function ($record) {
-                        $record->status = ApprovalStatus::UNAPPROVED;
-                        $record->save();
-
-                        Notification::make()
-                            ->title(__('finance.installment_payments.actions.unapproved_success'))
-                            ->warning()
-                            ->send();
-                    }),
+                ...ApprovalActions::make('approve_installment_payment', translationKey: 'finance.installment_payments.actions'),
 
                 Action::make('print_voucher')
                     ->label(__('finance.installment_payments.actions.print_voucher'))
