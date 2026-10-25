@@ -4,7 +4,6 @@ namespace App\Services\AI\Tools;
 
 use App\Enums\GeneralStatus;
 use App\Enums\UserType;
-use App\Models\Company;
 use App\Models\Employee;
 use App\Models\EmployeeDetail;
 use App\Models\User;
@@ -12,10 +11,18 @@ use App\Services\AI\Contracts\GeminiToolInterface;
 use App\Services\CompanyFormService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class CreateSaudiEmployeeTool implements GeminiToolInterface
 {
+    protected static ?string $cachedPasswordHash = null;
+
+    protected function getCachedPasswordHash(): string
+    {
+        return self::$cachedPasswordHash ??= Hash::make(Str::random(24));
+    }
+
     public function getName(): string
     {
         return 'create_saudi_employee';
@@ -73,7 +80,7 @@ class CreateSaudiEmployeeTool implements GeminiToolInterface
         $nationalId = preg_replace('/[^0-9]/', '', $arguments['national_id'] ?? '');
         $phone = trim($arguments['phone'] ?? '');
         $email = trim($arguments['email'] ?? '');
-        $salary = isset($arguments['basic_salary']) ? (float)$arguments['basic_salary'] : 0.0;
+        $salary = isset($arguments['basic_salary']) ? (float) $arguments['basic_salary'] : 0.0;
         $city = trim($arguments['city'] ?? '');
         $birthDate = trim($arguments['birth_date'] ?? '');
 
@@ -97,7 +104,7 @@ class CreateSaudiEmployeeTool implements GeminiToolInterface
             ];
         }
 
-        if (!str_starts_with($nationalId, '1')) {
+        if (! str_starts_with($nationalId, '1')) {
             return [
                 'success' => false,
                 'message' => __('smart_import.tools.create_saudi_employee.id_must_start_with_1', ['name' => $name]),
@@ -105,36 +112,74 @@ class CreateSaudiEmployeeTool implements GeminiToolInterface
         }
 
         // 3. Verify national ID uniqueness
-        $exists = EmployeeDetail::where('national_id', $nationalId)->exists();
-        if ($exists) {
+        $existingDetail = EmployeeDetail::where('national_id', $nationalId)->with('employee.user')->first();
+        if ($existingDetail) {
+            $conflictingEmpName = $existingDetail->employee?->user?->name ?? __('smart_import.company_match.unknown');
+            $conflictingEmpNumber = $existingDetail->employee?->employee_number ?? '';
+            Log::warning('[SmartImport] Duplicate Saudi National ID Detected', [
+                'candidate_name' => $name,
+                'national_id' => $nationalId,
+                'conflicting_employee_id' => $existingDetail->employee_id,
+                'conflicting_employee_name' => $conflictingEmpName,
+                'conflicting_employee_number' => $conflictingEmpNumber,
+            ]);
+
             return [
                 'success' => false,
-                'message' => __('smart_import.tools.create_saudi_employee.duplicate_id', ['name' => $name, 'id' => $nationalId]),
+                'message' => __('smart_import.tools.create_saudi_employee.duplicate_id', [
+                    'name' => $name,
+                    'id' => $nationalId,
+                    'existing_name' => $conflictingEmpName,
+                    'existing_number' => $conflictingEmpNumber,
+                ]),
             ];
         }
 
         // 4. Verify phone uniqueness if provided
-        if (!empty($phone) && User::where('phone', $phone)->exists()) {
-            return [
-                'success' => false,
-                'message' => __('smart_import.tools.create_saudi_employee.duplicate_phone', ['name' => $name, 'phone' => $phone]),
-            ];
+        if (! empty($phone)) {
+            $existingUser = User::where('phone', $phone)->first();
+            if ($existingUser) {
+                Log::warning('[SmartImport] Duplicate Saudi Employee Phone Detected', [
+                    'candidate_name' => $name,
+                    'phone' => $phone,
+                    'conflicting_user_id' => $existingUser->id,
+                    'conflicting_user_name' => $existingUser->name,
+                ]);
+
+                return [
+                    'success' => false,
+                    'message' => __('smart_import.tools.create_saudi_employee.duplicate_phone', [
+                        'name' => $name,
+                        'phone' => $phone,
+                        'existing_name' => $existingUser->name,
+                        'existing_id' => $existingUser->id,
+                    ]),
+                ];
+            }
         }
 
         try {
             return DB::transaction(function () use ($name, $nationalId, $phone, $email, $salary, $city, $birthDate, $arguments) {
                 $companyName = trim($arguments['company_name'] ?? '');
-                $fallbackCompanyId = !empty($arguments['company_id']) ? (int)$arguments['company_id'] : null;
-                $companyId = CompanyFormService::resolveCompanyIdByName($companyName, $fallbackCompanyId);
-                $companyObj = Company::find($companyId);
-                $companySuffix = $companyObj ? " ({$companyObj->trade_name})" : "";
+                $fallbackCompanyId = ! empty($arguments['company_id']) ? (int) $arguments['company_id'] : null;
+                $companyRes = CompanyFormService::resolveOrCreateCompanyByName($companyName, $fallbackCompanyId);
+                $companyId = $companyRes['company_id'];
+                $companyTradeName = $companyRes['company_name'];
+                $companyStatus = $companyRes['status'];
 
-                $userEmail = !empty($email) ? $email : ('sa_emp_' . Str::random(8) . '@company.local');
+                $companySuffix = match ($companyStatus) {
+                    'created' => __('smart_import.company_match.created_suffix', ['company' => $companyTradeName]),
+                    'ambiguous' => __('smart_import.company_match.ambiguous_suffix', ['company' => $companyTradeName]),
+                    'none' => __('smart_import.company_match.no_company_suffix'),
+                    default => ($companyTradeName ? " ({$companyTradeName})" : ''),
+                };
+
+                $userEmail = ! empty($email) ? $email : ('sa_emp_'.Str::random(8).'@company.local');
                 $user = User::create([
                     'name' => $name,
                     'email' => $userEmail,
                     'phone' => $phone ?: null,
-                    'password' => Hash::make(Str::random(16)),
+                    'password' => $this->getCachedPasswordHash(),
                     'user_type' => UserType::SAUDI_EMPLOYEE,
                     'status' => 'active',
                 ]);
@@ -156,11 +201,12 @@ class CreateSaudiEmployeeTool implements GeminiToolInterface
 
                 return [
                     'success' => true,
-                    'message' => __('smart_import.tools.create_saudi_employee.success_message', ['name' => $name, 'number' => $employee->employee_number]) . $companySuffix,
+                    'message' => __('smart_import.tools.create_saudi_employee.success_message', ['name' => $name, 'number' => $employee->employee_number]).$companySuffix,
                     'employee_id' => $employee->id,
                     'employee_number' => $employee->employee_number,
                     'company_id' => $companyId,
-                    'company_name' => $companyObj?->trade_name,
+                    'company_name' => $companyTradeName,
+                    'company_status' => $companyStatus,
                     'type' => 'saudi',
                 ];
             });

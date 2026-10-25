@@ -3,17 +3,17 @@
     <div class="no-print" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; padding: 0.75rem 1rem; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.75rem; margin-top: 0.75rem;">
         {{-- Entries Per Page Selector --}}
         <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #475569;">
-            <span>عرض</span>
+            <span>{{ __('finance.payroll_records.sheet.pagination_show') }}</span>
             <select wire:model.live="sheetPerPage" class="form-select" style="width: auto; padding: 0.35rem 0.65rem; font-size: 0.8rem;">
                 <option value="15">15</option>
                 <option value="25">25</option>
                 <option value="50">50</option>
                 <option value="100">100</option>
-                <option value="all">الكل ({{ count($employeeRows) }})</option>
+                <option value="all">{{ __('finance.payroll_records.sheet.pagination_all', ['count' => count($employeeRows)]) }}</option>
             </select>
-            <span>موظف لكل صفحة</span>
+            <span>{{ __('finance.payroll_records.sheet.pagination_per_page') }}</span>
             <span style="color: #94a3b8; margin: 0 0.25rem;">|</span>
-            <span>إجمالي الموظفين: <strong>{{ count($employeeRows) }}</strong></span>
+            <span>{{ __('finance.payroll_records.sheet.pagination_total_employees', ['count' => count($employeeRows)]) }}</span>
         </div>
 
         {{-- Pagination Controls --}}
@@ -26,7 +26,7 @@
                     class="tab-btn {{ $sheetPage <= 1 ? 'tab-btn-inactive' : 'tab-btn-active' }}"
                     style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 0.5rem;"
                 >
-                    السابق
+                    {{ __('finance.payroll_records.sheet.pagination_prev') }}
                 </button>
 
                 <div style="display: flex; gap: 0.25rem; align-items: center;">
@@ -49,11 +49,11 @@
                     class="tab-btn {{ $sheetPage >= $totalSheetPages ? 'tab-btn-inactive' : 'tab-btn-active' }}"
                     style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 0.5rem;"
                 >
-                    التالي
+                    {{ __('finance.payroll_records.sheet.pagination_next') }}
                 </button>
 
                 <span style="font-size: 0.75rem; color: #64748b; margin-right: 0.5rem;">
-                    صفحة {{ $sheetPage }} من {{ $totalSheetPages }}
+                    {{ __('finance.payroll_records.sheet.pagination_page_info', ['page' => $sheetPage, 'total' => $totalSheetPages]) }}
                 </span>
             </div>
         @endif

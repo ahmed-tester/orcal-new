@@ -61,7 +61,19 @@ class RoscaFundMembersTable
 
                 TextColumn::make('status')
                     ->label(__('funds.rosca_fund_members.fields.status'))
-                    ->badge(),
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => match ($state) {
+                        'active' => __('funds.enums.general_status.active'),
+                        'completed' => __('funds.enums.general_status.completed'),
+                        'dropped' => __('funds.enums.general_status.dropped'),
+                        default => $state,
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
+                        'active' => 'success',
+                        'completed' => 'info',
+                        'dropped' => 'danger',
+                        default => 'gray',
+                    }),
             ])
             ->filters([
                 SelectFilter::make('rosca_fund_id')

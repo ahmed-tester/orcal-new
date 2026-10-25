@@ -208,6 +208,7 @@ class ManageSettings extends Page implements HasForms
                                             ->label(__('settings.manage.ai.gemini_model'))
                                             ->helperText(__('settings.manage.ai.gemini_model_helper'))
                                             ->options([
+                                                'gemini-4-argon' => __('settings.manage.ai.models.gemini_4_argon'),
                                                 'gemini-3.5-flash' => __('settings.manage.ai.models.gemini_3_5_flash'),
                                                 'gemini-3.6-flash' => __('settings.manage.ai.models.gemini_3_6_flash'),
                                                 'gemini-3.7-flash' => __('settings.manage.ai.models.gemini_3_7_flash'),

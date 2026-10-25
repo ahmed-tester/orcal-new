@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ServiceTransactions\Schemas;
 
+use App\Enums\ApprovalStatus;
 use App\Filament\Components\OrgSelect;
 use App\Models\Employee;
 use App\Models\Service;
@@ -61,6 +62,15 @@ class ServiceTransactionForm
 
                         DatePicker::make('due_date')
                             ->label(__('services_tracking.fields.due_date')),
+
+                        ToggleButtons::make('status')
+                            ->label(__('services_tracking.fields.status'))
+                            ->options(ApprovalStatus::class)
+                            ->default(ApprovalStatus::UNAPPROVED->value)
+                            ->inline()
+                            ->grouped()
+                            ->disabled(fn () => ! (auth()->user()?->can('approve_service_transaction') ?? false))
+                            ->dehydrated(),
                     ]),
 
                 Section::make(__('services_tracking.sections.internal_service'))
@@ -72,15 +82,15 @@ class ServiceTransactionForm
                         ToggleButtons::make('service_target')
                             ->label(__('services_tracking.fields.service_target'))
                             ->options([
-                                'company'  => __('services_tracking.toggle_options.target_company'),
+                                'company' => __('services_tracking.toggle_options.target_company'),
                                 'employee' => __('services_tracking.toggle_options.target_employee'),
                             ])
                             ->icons([
-                                'company'  => 'heroicon-m-building-office',
+                                'company' => 'heroicon-m-building-office',
                                 'employee' => 'heroicon-m-user-group',
                             ])
                             ->colors([
-                                'company'  => 'info',
+                                'company' => 'info',
                                 'employee' => 'success',
                             ])
                             ->default('company')
@@ -101,7 +111,7 @@ class ServiceTransactionForm
                         Select::make('employee_id')
                             ->label(__('services_tracking.fields.employee'))
                             ->relationship('employee', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single')." #{$record->id}"))
                             ->searchable()
                             ->preload()
                             ->visible(fn (callable $get) => $get('service_target') === 'employee')
@@ -119,9 +129,10 @@ class ServiceTransactionForm
                             ->label(__('services_tracking.fields.service'))
                             ->relationship('service', 'name', function ($query, callable $get) {
                                 $target = $get('service_target') ?? 'company';
+
                                 return $query->whereIn('target_type', [$target, 'general'])->where('status', 'active');
                             })
-                            ->getOptionLabelFromRecordUsing(fn (Service $record) => "{$record->name} • " . number_format($record->price, 2) . " SAR")
+                            ->getOptionLabelFromRecordUsing(fn (Service $record) => "{$record->name} • ".number_format($record->price, 2).' SAR')
                             ->searchable(['name'])
                             ->preload()
                             ->required(fn (callable $get) => ($get('scope_type') ?? 'internal') === 'internal')
@@ -130,9 +141,9 @@ class ServiceTransactionForm
                                 if ($state) {
                                     $svc = Service::find($state);
                                     if ($svc) {
-                                        $price = (float)$svc->price;
+                                        $price = (float) $svc->price;
                                         $set('total_amount', $price);
-                                        $paid = (float)($get('paid_amount') ?? 0);
+                                        $paid = (float) ($get('paid_amount') ?? 0);
                                         $set('remaining_amount', max(0, $price - $paid));
                                     }
                                 }
@@ -152,9 +163,9 @@ class ServiceTransactionForm
                                         Select::make('target_type')
                                             ->label(__('services_tracking.quick_add.target_type'))
                                             ->options([
-                                                'company'  => __('services_tracking.toggle_options.target_company'),
+                                                'company' => __('services_tracking.toggle_options.target_company'),
                                                 'employee' => __('services_tracking.toggle_options.target_employee'),
-                                                'general'  => __('services.general'),
+                                                'general' => __('services.general'),
                                             ])
                                             ->default(fn (callable $get) => $get('../../service_target') ?? 'company')
                                             ->required(),
@@ -162,13 +173,13 @@ class ServiceTransactionForm
                                         Select::make('category')
                                             ->label(__('services_tracking.quick_add.category'))
                                             ->options([
-                                                'cr_licenses'  => __('services_tracking.categories.cr_licenses'),
-                                                'municipal'    => __('services_tracking.categories.municipal'),
+                                                'cr_licenses' => __('services_tracking.categories.cr_licenses'),
+                                                'municipal' => __('services_tracking.categories.municipal'),
                                                 'work_permits' => __('services_tracking.categories.work_permits'),
-                                                'passports'    => __('services_tracking.categories.passports'),
-                                                'visas'        => __('services_tracking.categories.visas'),
-                                                'insurance'    => __('services_tracking.categories.insurance'),
-                                                'other'        => __('services_tracking.categories.other'),
+                                                'passports' => __('services_tracking.categories.passports'),
+                                                'visas' => __('services_tracking.categories.visas'),
+                                                'insurance' => __('services_tracking.categories.insurance'),
+                                                'other' => __('services_tracking.categories.other'),
                                             ])
                                             ->default('other')
                                             ->required(),
@@ -243,8 +254,8 @@ class ServiceTransactionForm
                             ->required()
                             ->reactive()
                             ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                $total = (float)($state ?? 0);
-                                $paid = (float)($get('paid_amount') ?? 0);
+                                $total = (float) ($state ?? 0);
+                                $paid = (float) ($get('paid_amount') ?? 0);
                                 $set('remaining_amount', max(0, $total - $paid));
                             }),
 
@@ -256,8 +267,8 @@ class ServiceTransactionForm
                             ->required()
                             ->reactive()
                             ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                $paid = (float)($state ?? 0);
-                                $total = (float)($get('total_amount') ?? 0);
+                                $paid = (float) ($state ?? 0);
+                                $total = (float) ($get('total_amount') ?? 0);
                                 $set('remaining_amount', max(0, $total - $paid));
                             }),
 
@@ -277,9 +288,9 @@ class ServiceTransactionForm
                         Select::make('service_status')
                             ->label(__('services_tracking.fields.service_status'))
                             ->options([
-                                'active'    => __('services_tracking.service_statuses.active'),
+                                'active' => __('services_tracking.service_statuses.active'),
                                 'completed' => __('services_tracking.service_statuses.completed'),
-                                'inactive'  => __('services_tracking.service_statuses.inactive'),
+                                'inactive' => __('services_tracking.service_statuses.inactive'),
                             ])
                             ->default('active')
                             ->required()
@@ -288,7 +299,7 @@ class ServiceTransactionForm
                         Select::make('executed_by')
                             ->label(__('services_tracking.fields.executed_by'))
                             ->relationship('executor', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
+                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single')." #{$record->id}"))
                             ->searchable()
                             ->preload()
                             ->default(fn () => auth()->user()?->employee?->id)

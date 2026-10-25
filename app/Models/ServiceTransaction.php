@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\CodeGeneratorService;
+use App\Traits\HasApprovalStatus;
 use App\Traits\HasHijriDates;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ServiceTransaction extends Model
 {
-    use HasFactory, HasHijriDates;
+    use HasApprovalStatus, HasFactory, HasHijriDates;
 
     public function getHijriDateFieldNames(): array
     {
@@ -43,6 +45,7 @@ class ServiceTransaction extends Model
         'due_date',
         'completion_date',
         'notes',
+        'status',
         'metadata',
     ];
 
@@ -50,12 +53,12 @@ class ServiceTransaction extends Model
     {
         return [
             'transaction_date' => 'date',
-            'due_date'         => 'date',
-            'completion_date'  => 'date',
-            'total_amount'     => 'decimal:2',
-            'paid_amount'      => 'decimal:2',
+            'due_date' => 'date',
+            'completion_date' => 'date',
+            'total_amount' => 'decimal:2',
+            'paid_amount' => 'decimal:2',
             'remaining_amount' => 'decimal:2',
-            'metadata'         => 'array',
+            'metadata' => 'array',
         ];
     }
 
@@ -63,7 +66,7 @@ class ServiceTransaction extends Model
     {
         static::creating(function (ServiceTransaction $transaction) {
             if (empty($transaction->scope_type)) {
-                $transaction->scope_type = !empty($transaction->service_name) ? 'external' : 'internal';
+                $transaction->scope_type = ! empty($transaction->service_name) ? 'external' : 'internal';
             }
 
             if ($transaction->scope_type === 'internal' && empty($transaction->company_id)) {
@@ -71,7 +74,7 @@ class ServiceTransaction extends Model
             }
 
             if (empty($transaction->transaction_number)) {
-                $transaction->transaction_number = \App\Services\CodeGeneratorService::generate(
+                $transaction->transaction_number = CodeGeneratorService::generate(
                     modelClass: static::class,
                     column: 'transaction_number',
                     prefix: 'SRV',
@@ -89,8 +92,8 @@ class ServiceTransaction extends Model
         });
 
         static::saving(function (ServiceTransaction $transaction) {
-            $total = (float)($transaction->total_amount ?? 0);
-            $paid = (float)($transaction->paid_amount ?? 0);
+            $total = (float) ($transaction->total_amount ?? 0);
+            $paid = (float) ($transaction->paid_amount ?? 0);
             $remaining = max(0, $total - $paid);
 
             $transaction->total_amount = $total;
@@ -113,7 +116,7 @@ class ServiceTransaction extends Model
 
     public function getDisplayServiceNameAttribute(): string
     {
-        if ($this->scope_type === 'external' || !empty($this->service_name)) {
+        if ($this->scope_type === 'external' || ! empty($this->service_name)) {
             return $this->service_name ?? __('services_tracking.badges.external');
         }
 

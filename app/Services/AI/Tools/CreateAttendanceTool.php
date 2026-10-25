@@ -8,6 +8,7 @@ use App\Models\Attendance;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Services\AI\Contracts\GeminiToolInterface;
+use App\Services\AI\EmployeeNameMatcher;
 
 class CreateAttendanceTool implements GeminiToolInterface
 {
@@ -26,39 +27,39 @@ class CreateAttendanceTool implements GeminiToolInterface
                 'properties' => [
                     'employee_identifier' => [
                         'type' => 'STRING',
-                        'description' => 'اسم الموظف أو رقم الهوية أو الرقم الوظيفي'
+                        'description' => 'اسم الموظف أو رقم الهوية أو الرقم الوظيفي',
                     ],
                     'date' => [
                         'type' => 'STRING',
-                        'description' => 'تاريخ الحضور بصيغة YYYY-MM-DD'
+                        'description' => 'تاريخ الحضور بصيغة YYYY-MM-DD',
                     ],
                     'check_in' => [
                         'type' => 'STRING',
-                        'description' => 'وقت الحضور بصيغة HH:MM (مثال: 08:00)'
+                        'description' => 'وقت الحضور بصيغة HH:MM (مثال: 08:00)',
                     ],
                     'check_out' => [
                         'type' => 'STRING',
-                        'description' => 'وقت الانصراف بصيغة HH:MM (مثال: 16:30)'
+                        'description' => 'وقت الانصراف بصيغة HH:MM (مثال: 16:30)',
                     ],
                     'late_hours' => [
                         'type' => 'NUMBER',
-                        'description' => 'ساعات التأخير إن وجدت'
+                        'description' => 'ساعات التأخير إن وجدت',
                     ],
                     'overtime_hours' => [
                         'type' => 'NUMBER',
-                        'description' => 'ساعات العمل الإضافي إن وجدت'
+                        'description' => 'ساعات العمل الإضافي إن وجدت',
                     ],
                     'status' => [
                         'type' => 'STRING',
-                        'description' => 'حالة الحضور: present (حاضر), absent (غائب), late (متأخر), leave (إجازة)'
+                        'description' => 'حالة الحضور: present (حاضر), absent (غائب), late (متأخر), leave (إجازة)',
                     ],
                     'notes' => [
                         'type' => 'STRING',
-                        'description' => 'ملاحظات'
-                    ]
+                        'description' => 'ملاحظات',
+                    ],
                 ],
-                'required' => ['employee_identifier', 'date']
-            ]
+                'required' => ['employee_identifier', 'date'],
+            ],
         ];
     }
 
@@ -67,10 +68,10 @@ class CreateAttendanceTool implements GeminiToolInterface
         try {
             $identifier = trim($arguments['employee_identifier'] ?? '');
             $date = trim($arguments['date'] ?? date('Y-m-d'));
-            $checkIn = !empty($arguments['check_in']) ? trim($arguments['check_in']) : null;
-            $checkOut = !empty($arguments['check_out']) ? trim($arguments['check_out']) : null;
-            $lateHours = (float)($arguments['late_hours'] ?? 0);
-            $overtimeHours = (float)($arguments['overtime_hours'] ?? 0);
+            $checkIn = ! empty($arguments['check_in']) ? trim($arguments['check_in']) : null;
+            $checkOut = ! empty($arguments['check_out']) ? trim($arguments['check_out']) : null;
+            $lateHours = (float) ($arguments['late_hours'] ?? 0);
+            $overtimeHours = (float) ($arguments['overtime_hours'] ?? 0);
             $statusStr = strtolower(trim($arguments['status'] ?? 'present'));
             $notes = trim($arguments['notes'] ?? '');
 
@@ -80,13 +81,7 @@ class CreateAttendanceTool implements GeminiToolInterface
 
             $companyId = auth()->user()?->company_id ?? Company::first()?->id ?? 1;
 
-            $employee = $this->resolveEmployee($identifier, $companyId);
-            if (!$employee) {
-                return [
-                    'success' => false,
-                    'message' => "تعذر العثور على الموظف ({$identifier}) في النظام لإدراج الحضور.",
-                ];
-            }
+            $employee = EmployeeNameMatcher::findOrCreate($identifier, $companyId);
 
             $status = match ($statusStr) {
                 'absent', 'غائب', 'غياب' => AttendanceStatus::ABSENT,
@@ -134,18 +129,18 @@ class CreateAttendanceTool implements GeminiToolInterface
 
             return [
                 'success' => true,
-                'message' => "تم تسجيل حضور الموظف ({$employee->user?->name}) بتاريخ ({$date}) بنجاح (دخول: " . ($checkIn ?: '--') . " | خروج: " . ($checkOut ?: '--') . ")",
-                'record_name' => $employee->user?->name ?? "سجل حضور",
+                'message' => "تم تسجيل حضور الموظف ({$employee->user?->name}) بتاريخ ({$date}) بنجاح (دخول: ".($checkIn ?: '--').' | خروج: '.($checkOut ?: '--').')',
+                'record_name' => $employee->user?->name ?? 'سجل حضور',
                 'details' => [
                     'date' => $date,
                     'check_in' => $checkIn ?: '--',
                     'check_out' => $checkOut ?: '--',
-                ]
+                ],
             ];
         } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'message' => 'حدث خطأ أثناء حفظ سجل الحضور: ' . $e->getMessage(),
+                'message' => 'حدث خطأ أثناء حفظ سجل الحضور: '.$e->getMessage(),
             ];
         }
     }
@@ -159,17 +154,23 @@ class CreateAttendanceTool implements GeminiToolInterface
 
         if (is_numeric($identifier)) {
             $emp = (clone $query)->where('id', $identifier)->first();
-            if ($emp) return $emp;
+            if ($emp) {
+                return $emp;
+            }
         }
 
         $emp = (clone $query)->where('employee_number', $identifier)->first();
-        if ($emp) return $emp;
+        if ($emp) {
+            return $emp;
+        }
 
-        $emp = (clone $query)->whereHas('saudiDetail', fn($q) => $q->where('national_id', $identifier))
-            ->orWhereHas('foreignDetail', fn($q) => $q->where('iqama_number', $identifier))
+        $emp = (clone $query)->whereHas('saudiDetail', fn ($q) => $q->where('national_id', $identifier))
+            ->orWhereHas('foreignDetail', fn ($q) => $q->where('iqama_number', $identifier))
             ->first();
-        if ($emp) return $emp;
+        if ($emp) {
+            return $emp;
+        }
 
-        return (clone $query)->whereHas('user', fn($q) => $q->where('name', 'like', "%{$identifier}%")->orWhere('phone', 'like', "%{$identifier}%"))->first();
+        return (clone $query)->whereHas('user', fn ($q) => $q->where('name', 'like', "%{$identifier}%")->orWhere('phone', 'like', "%{$identifier}%"))->first();
     }
 }

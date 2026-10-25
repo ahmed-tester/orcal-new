@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Observers\OfficialLetterObserver;
 use App\Traits\HasHijriDates;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+#[ObservedBy([OfficialLetterObserver::class])]
 class OfficialLetter extends Model
 {
     use HasFactory, HasHijriDates;
@@ -32,33 +35,6 @@ class OfficialLetter extends Model
             'letter_date' => 'date',
             'metadata'    => 'array',
         ];
-    }
-
-    protected static function booted(): void
-    {
-        static::creating(function (OfficialLetter $letter) {
-            if (empty($letter->letter_number)) {
-                $letter->letter_number = \App\Services\CodeGeneratorService::generate(
-                    modelClass: static::class,
-                    column:     'letter_number',
-                    prefix:     'LTR',
-                );
-            }
-
-            foreach ($letter->getAttributes() as $key => $value) {
-                if ($value === '') {
-                    $letter->{$key} = null;
-                }
-            }
-        });
-
-        static::updating(function (OfficialLetter $letter) {
-            foreach ($letter->getAttributes() as $key => $value) {
-                if ($value === '') {
-                    $letter->{$key} = null;
-                }
-            }
-        });
     }
 
     public function company(): BelongsTo

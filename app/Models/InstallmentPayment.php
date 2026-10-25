@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
-
+use App\Enums\InstallmentPaymentSource;
+use App\Services\CodeGeneratorService;
+use App\Traits\HasApprovalStatus;
 use App\Traits\HasHijriDates;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InstallmentPayment extends Model
 {
-    use HasFactory, HasHijriDates;
+    use HasApprovalStatus, HasFactory, HasHijriDates;
 
     public function getHijriDateFieldNames(): array
     {
@@ -18,7 +20,6 @@ class InstallmentPayment extends Model
             'payment_date',
         ];
     }
-
 
     protected $fillable = [
         'voucher_number',
@@ -34,15 +35,16 @@ class InstallmentPayment extends Model
         'payroll_record_id',
         'description',
         'executed_by',
+        'status',
         'metadata',
     ];
 
     protected function casts(): array
     {
         return [
-            'payment_date'   => 'date',
-            'amount'         => 'decimal:2',
-            'payment_source' => \App\Enums\InstallmentPaymentSource::class,
+            'payment_date' => 'date',
+            'amount' => 'decimal:2',
+            'payment_source' => InstallmentPaymentSource::class,
             'metadata' => 'array',
         ];
     }
@@ -68,7 +70,7 @@ class InstallmentPayment extends Model
 
             if (empty($payment->voucher_number)) {
                 $prefix = ($payment->payment_type === 'advance') ? 'PADV' : 'P';
-                $payment->voucher_number = \App\Services\CodeGeneratorService::generate(
+                $payment->voucher_number = CodeGeneratorService::generate(
                     modelClass: static::class,
                     column: 'voucher_number',
                     prefix: $prefix,
@@ -86,7 +88,7 @@ class InstallmentPayment extends Model
         });
 
         static::saving(function (InstallmentPayment $payment) {
-            $payment->amount = (float)($payment->amount ?? 0);
+            $payment->amount = (float) ($payment->amount ?? 0);
         });
 
         static::saved(function (InstallmentPayment $payment) {
@@ -101,7 +103,7 @@ class InstallmentPayment extends Model
             if ($schedule) {
                 $schedulePaid = $schedule->payments()->sum('amount');
                 $schedule->paid_amount = $schedulePaid;
-                $schedule->remaining_amount = max(0, (float)$schedule->amount - $schedulePaid);
+                $schedule->remaining_amount = max(0, (float) $schedule->amount - $schedulePaid);
                 if ($schedule->remaining_amount <= 0) {
                     $schedule->status = 'paid';
                 } elseif ($schedulePaid > 0) {

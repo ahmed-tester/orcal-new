@@ -2,11 +2,13 @@
 
 namespace App\Filament\Resources\DebtCollections\Schemas;
 
+use App\Enums\ApprovalStatus;
 use App\Models\Debt;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
@@ -28,6 +30,16 @@ class DebtCollectionForm
                             ->dehydrated(false)
                             ->visible(fn ($record) => $record !== null),
 
+                        ToggleButtons::make('status')
+                            ->label(__('debts.collections.fields.status'))
+                            ->options(ApprovalStatus::class)
+                            ->default(ApprovalStatus::UNAPPROVED->value)
+                            ->inline()
+                            ->grouped()
+                            ->disabled(fn () => ! (auth()->user()?->can('approve_debt_collection') ?? false))
+                            ->dehydrated()
+                            ->columnSpan(fn ($record) => $record !== null ? 1 : 2),
+
                         DatePicker::make('collection_date')
                             ->label(__('debts.collections.fields.collection_date'))
                             ->default(now())
@@ -36,7 +48,7 @@ class DebtCollectionForm
                         Select::make('debt_id')
                             ->label(__('debts.collections.fields.debt'))
                             ->relationship('debt', 'id', fn ($query) => $query->whereIn('status', ['pending', 'partial', 'overdue']))
-                            ->getOptionLabelFromRecordUsing(fn (Debt $record) => "{$record->debt_number} — {$record->beneficiary_name} • " . __('debts.fields.remaining_amount') . ': ' . number_format($record->remaining_amount, 2) . ' SAR')
+                            ->getOptionLabelFromRecordUsing(fn (Debt $record) => "{$record->debt_number} — {$record->beneficiary_name} • ".__('debts.fields.remaining_amount').': '.number_format($record->remaining_amount, 2).' SAR')
                             ->searchable(['debt_number', 'external_name'])
                             ->preload()
                             ->required()
@@ -59,14 +71,14 @@ class DebtCollectionForm
                             ->prefix('SAR')
                             ->default(0)
                             ->required()
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0)),
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0)),
 
                         Select::make('payment_method')
                             ->label(__('debts.collections.fields.payment_method'))
                             ->options([
-                                'cash'          => __('debts.collections.payment_methods.cash'),
+                                'cash' => __('debts.collections.payment_methods.cash'),
                                 'bank_transfer' => __('debts.collections.payment_methods.bank_transfer'),
-                                'cheque'        => __('debts.collections.payment_methods.cheque'),
+                                'cheque' => __('debts.collections.payment_methods.cheque'),
                             ])
                             ->default('cash')
                             ->required()
