@@ -154,11 +154,13 @@ return [
             'max_loan_limit_hint' => 'Max loan limit per member: :limit SAR',
             'max_months_hint' => 'Maximum allowed repayment period: :months months',
             'available_balance_hint' => 'Currently available fund liquidity: :balance SAR',
+            'target_not_reached_hint' => 'Target fund amount not reached yet (:collected of :target SAR) — Loans cannot be disbursed',
         ],
         'validation' => [
             'max_limit_exceeded' => 'The loan amount exceeds the maximum allowed limit for this fund (:limit SAR).',
             'max_months_exceeded' => 'The installments count exceeds the maximum allowed period for this fund (:months months).',
             'insufficient_fund_balance' => 'The currently available fund balance (:available SAR) is insufficient to grant this loan.',
+            'target_amount_not_reached' => 'Loans cannot be disbursed before the target fund amount (:target SAR) is fully collected. Current collections: :collected SAR.',
         ],
     ],
 

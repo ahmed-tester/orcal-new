@@ -71,14 +71,20 @@ class LoanFundLimitService
         }
         $loansDisbursed = (float) $loansQuery->sum('loan_amount');
 
+        $targetAmount = (float) ($fundModel->target_amount ?? 0);
+        $isTargetReached = $targetAmount <= 0 || ($subscriptions >= $targetAmount);
+
         $availableBalance = max(0.0, round($totalInflows - $loansDisbursed, 2));
 
         return [
+            'target_amount'             => round($targetAmount, 2),
+            'is_target_reached'         => $isTargetReached,
             'subscriptions_collected'   => round($subscriptions, 2),
             'loan_repayments_collected' => round($loanRepayments, 2),
             'total_inflows'             => round($totalInflows, 2),
             'loans_disbursed'           => round($loansDisbursed, 2),
-            'available_balance'         => $availableBalance,
+            'available_balance'         => $isTargetReached ? $availableBalance : 0.0,
+            'actual_available_balance'  => $availableBalance,
         ];
     }
 
@@ -158,7 +164,18 @@ class LoanFundLimitService
             return null;
         }
 
-        $available = self::getAvailableFundBalance($get, $foreignKey, $exceptLoanId);
+        $liquidity = self::getFundLiquidity($fund, $exceptLoanId);
+        $targetAmount = (float) $fund->target_amount;
+
+        // 1. If target amount is set and subscriptions haven't reached it yet, show clear warning
+        if ($targetAmount > 0 && ! $liquidity['is_target_reached']) {
+            return __('funds.loan_fund_loans.helpers.target_not_reached_hint', [
+                'target'    => number_format($targetAmount, 2),
+                'collected' => number_format($liquidity['subscriptions_collected'], 2),
+            ]);
+        }
+
+        $available = $liquidity['available_balance'];
         $fundLimit = (float) $fund->max_loan_limit;
 
         $parts = [];
@@ -192,12 +209,24 @@ class LoanFundLimitService
                     return;
                 }
 
+                $liquidity = self::getFundLiquidity($fund, $record?->id);
+                $targetAmount = (float) $fund->target_amount;
+
+                // 1. Strict Target Capital Check: Target amount must be fully collected before disbursing any loan
+                if ($targetAmount > 0 && ! $liquidity['is_target_reached']) {
+                    $fail(__('funds.loan_fund_loans.validation.target_amount_not_reached', [
+                        'target'    => number_format($targetAmount, 2),
+                        'collected' => number_format($liquidity['subscriptions_collected'], 2),
+                    ]));
+                    return;
+                }
+
                 $val = (float) $value;
                 $currentId = $record?->id;
-                $available = self::getAvailableFundBalance($get, $foreignKey, $currentId);
+                $available = $liquidity['available_balance'];
                 $fundLimit = (float) $fund->max_loan_limit;
 
-                // 1. Strict Liquidity Check: Fund Treasury Balance
+                // 2. Strict Liquidity Check: Fund Treasury Balance
                 if ($val > $available) {
                     $fail(__('funds.loan_fund_loans.validation.insufficient_fund_balance', [
                         'available' => number_format($available, 2),
@@ -205,7 +234,7 @@ class LoanFundLimitService
                     return;
                 }
 
-                // 2. Member Cap Check: Max loan limit per member
+                // 3. Member Cap Check: Max loan limit per member
                 if ($fundLimit > 0 && $val > $fundLimit) {
                     $fail(__('funds.loan_fund_loans.validation.max_limit_exceeded', [
                         'limit' => number_format($fundLimit, 2),
