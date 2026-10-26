@@ -596,19 +596,24 @@ class CompanyFormService
         ?string $label = null,
         bool $required = true,
         string $relationshipName = 'employee',
-        ?string $companyFieldName = null
+        ?string $companyFieldName = null,
+        bool $saudiOnly = false
     ): Select {
         return Select::make($name)
             ->label($label ?? __('employees.single'))
             ->relationship(
                 name: $relationshipName,
                 titleAttribute: 'id',
-                modifyQueryUsing: function (Builder $query, callable $get) use ($companyFieldName) {
+                modifyQueryUsing: function (Builder $query, callable $get) use ($companyFieldName, $saudiOnly) {
                     $user = auth()->user();
                     $companyId = $companyFieldName ? $get($companyFieldName) : null;
 
                     $query->with('user')
                         ->where('status', 'active');
+
+                    if ($saudiOnly) {
+                        $query->saudi();
+                    }
 
                     if ($user && method_exists($user, 'canAccessAllBranches') && ! $user->canAccessAllBranches() && $user->branch_id) {
                         $query->where('branch_id', $user->branch_id);
@@ -622,12 +627,13 @@ class CompanyFormService
                     }
                 },
             )
-            ->getSearchResultsUsing(function (Select $component, ?string $search) use ($companyFieldName) {
+            ->getSearchResultsUsing(function (Select $component, ?string $search) use ($companyFieldName, $saudiOnly) {
                 $user = auth()->user();
                 $companyId = $companyFieldName ? $component->evaluate(fn (callable $get) => $get($companyFieldName)) : null;
 
                 $query = Employee::query()
                     ->where('status', 'active')
+                    ->when($saudiOnly, fn ($q) => $q->saudi())
                     ->when($user && method_exists($user, 'canAccessAllBranches') && ! $user->canAccessAllBranches() && $user->branch_id, function ($q) use ($user) {
                         $q->where('branch_id', $user->branch_id);
                     })

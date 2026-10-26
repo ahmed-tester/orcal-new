@@ -42,6 +42,7 @@ class TaskAssignmentForm
                         CompanyFormService::makeEmployeeSelect(
                             label: __('tasks.fields.employee'),
                             required: true,
+                            saudiOnly: true,
                         ),
 
                         DatePicker::make('from_date')
