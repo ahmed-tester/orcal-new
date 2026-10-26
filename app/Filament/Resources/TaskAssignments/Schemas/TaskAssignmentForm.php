@@ -4,16 +4,16 @@ namespace App\Filament\Resources\TaskAssignments\Schemas;
 
 use App\Enums\TaskStatus;
 use App\Models\Task;
+use App\Services\CompanyFormService;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
-use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
 class TaskAssignmentForm
@@ -39,13 +39,10 @@ class TaskAssignmentForm
                             ->default(now())
                             ->required(),
 
-                        Select::make('employee_id')
-                            ->label(__('tasks.fields.employee'))
-                            ->relationship('employee', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "موظف #{$record->id}")
-                            ->searchable()
-                            ->preload()
-                            ->required(),
+                        CompanyFormService::makeEmployeeSelect(
+                            label: __('tasks.fields.employee'),
+                            required: true,
+                        ),
 
                         DatePicker::make('from_date')
                             ->label(__('tasks.fields.from_date')),
@@ -64,7 +61,7 @@ class TaskAssignmentForm
                     ]),
 
                 Section::make(__('tasks.sections.tasks_list'))
-                    ->description(__('tasks.sections.tasks_list_desc') . ' - ' . __('tasks.helpers.weight_limit_hint'))
+                    ->description(__('tasks.sections.tasks_list_desc').' - '.__('tasks.helpers.weight_limit_hint'))
                     ->icon('heroicon-o-queue-list')
                     ->schema([
                         Repeater::make('items')
@@ -154,7 +151,7 @@ class TaskAssignmentForm
                             ->defaultItems(1)
                             ->reorderable()
                             ->collapsible()
-                            ->addActionLabel('+ ' . __('tasks.single')),
+                            ->addActionLabel('+ '.__('tasks.single')),
                     ]),
             ]);
     }

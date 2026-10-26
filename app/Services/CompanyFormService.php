@@ -6,6 +6,7 @@ use App\Enums\GeneralStatus;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Department;
+use App\Models\Employee;
 use App\Models\InvoiceType;
 use App\Models\JobTitle;
 use App\Models\Service;
@@ -585,5 +586,86 @@ class CompanyFormService
 
             return [$service->id => $service->name.$suffix];
         })->toArray();
+    }
+
+    /**
+     * Create a scoped, searchable Employee Select component.
+     */
+    public static function makeEmployeeSelect(
+        string $name = 'employee_id',
+        ?string $label = null,
+        bool $required = true,
+        string $relationshipName = 'employee',
+        ?string $companyFieldName = null
+    ): Select {
+        return Select::make($name)
+            ->label($label ?? __('employees.single'))
+            ->relationship(
+                name: $relationshipName,
+                titleAttribute: 'id',
+                modifyQueryUsing: function (Builder $query, callable $get) use ($companyFieldName) {
+                    $user = auth()->user();
+                    $companyId = $companyFieldName ? $get($companyFieldName) : null;
+
+                    $query->with('user')
+                        ->where('status', 'active');
+
+                    if ($user && method_exists($user, 'canAccessAllBranches') && ! $user->canAccessAllBranches() && $user->branch_id) {
+                        $query->where('branch_id', $user->branch_id);
+                    }
+
+                    if ($companyId) {
+                        $query->where('company_id', $companyId);
+                    } elseif ($user && ! $user->isSuperAdmin()) {
+                        $companyIds = static::getAuthorizedCompanyIds($user);
+                        $query->whereIn('company_id', ! empty($companyIds) ? $companyIds : [0]);
+                    }
+                },
+            )
+            ->getSearchResultsUsing(function (Select $component, ?string $search) use ($companyFieldName) {
+                $user = auth()->user();
+                $companyId = $companyFieldName ? $component->evaluate(fn (callable $get) => $get($companyFieldName)) : null;
+
+                $query = Employee::query()
+                    ->where('status', 'active')
+                    ->when($user && method_exists($user, 'canAccessAllBranches') && ! $user->canAccessAllBranches() && $user->branch_id, function ($q) use ($user) {
+                        $q->where('branch_id', $user->branch_id);
+                    })
+                    ->when($companyId, function ($query, $cid) {
+                        $query->where('company_id', $cid);
+                    }, function ($query) use ($user) {
+                        if ($user && ! $user->isSuperAdmin()) {
+                            $companyIds = static::getAuthorizedCompanyIds($user);
+                            $query->whereIn('company_id', ! empty($companyIds) ? $companyIds : [0]);
+                        }
+                    });
+
+                return static::employeeSearchResults($search, $query);
+            })
+            ->getOptionLabelFromRecordUsing(fn ($record) => ($record->user?->name ?? "موظف #{$record->id}").($record->employee_number ? " ({$record->employee_number})" : '')
+            )
+            ->searchable()
+            ->preload()
+            ->required($required);
+    }
+
+    /**
+     * Search employees by name or employee number and return select options [id => label].
+     * Pass a pre-scoped $query to apply the same filters as the select's relationship query.
+     */
+    public static function employeeSearchResults(?string $search, ?Builder $query = null): array
+    {
+        return ($query ?? Employee::query())
+            ->with('user')
+            ->where(function (Builder $q) use ($search) {
+                $q->where('employee_number', 'like', "%{$search}%")
+                    ->orWhereHas('user', fn ($sub) => $sub->where('name', 'like', "%{$search}%"));
+            })
+            ->limit(50)
+            ->get()
+            ->mapWithKeys(fn ($record) => [
+                $record->id => ($record->user?->name ?? "موظف #{$record->id}").($record->employee_number ? " ({$record->employee_number})" : ''),
+            ])
+            ->toArray();
     }
 }

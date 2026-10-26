@@ -4,6 +4,7 @@ namespace App\Filament\Resources\RoscaFundMembers\Schemas;
 
 use App\Models\Employee;
 use App\Models\RoscaFund;
+use App\Services\CompanyFormService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -51,12 +52,10 @@ class RoscaFundMemberForm
                             ->required()
                             ->reactive(),
 
-                        Select::make('employee_id')
-                            ->label(__('funds.rosca_fund_members.fields.employee'))
-                            ->relationship('employee', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "Employee #{$record->id}")
-                            ->searchable()
-                            ->preload()
+                        CompanyFormService::makeEmployeeSelect(
+                            label: __('funds.rosca_fund_members.fields.employee'),
+                            required: false,
+                        )
                             ->visible(fn (callable $get) => $get('member_type') === 'employee')
                             ->reactive()
                             ->afterStateUpdated(function ($state, callable $set) {
@@ -94,7 +93,7 @@ class RoscaFundMemberForm
                             ->default(1)
                             ->minValue(1)
                             ->required()
-                            ->dehydrateStateUsing(fn ($state) => max(1, (int)($state ?: 1))),
+                            ->dehydrateStateUsing(fn ($state) => max(1, (int) ($state ?: 1))),
 
                         DatePicker::make('payout_month')
                             ->label(__('funds.rosca_fund_members.fields.payout_month')),
@@ -105,7 +104,7 @@ class RoscaFundMemberForm
                             ->default(1)
                             ->minValue(1)
                             ->required()
-                            ->dehydrateStateUsing(fn ($state) => max(1, (int)($state ?: 1)))
+                            ->dehydrateStateUsing(fn ($state) => max(1, (int) ($state ?: 1)))
                             ->reactive()
                             ->afterStateUpdated(fn (callable $set, callable $get) => static::recalculate($set, $get)),
 
@@ -115,7 +114,7 @@ class RoscaFundMemberForm
                             ->prefix('SAR')
                             ->default(0)
                             ->required()
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
                             ->reactive()
                             ->afterStateUpdated(fn (callable $set, callable $get) => static::recalculate($set, $get)),
 
@@ -125,7 +124,7 @@ class RoscaFundMemberForm
                             ->prefix('SAR')
                             ->disabled()
                             ->dehydrated()
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
                             ->helperText(__('funds.rosca_fund_members.helpers.total_final_amount')),
 
                         TextInput::make('paid_amount')
@@ -133,7 +132,7 @@ class RoscaFundMemberForm
                             ->numeric()
                             ->prefix('SAR')
                             ->default(0)
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
                             ->reactive()
                             ->afterStateUpdated(fn (callable $set, callable $get) => static::recalculate($set, $get)),
 
@@ -143,7 +142,7 @@ class RoscaFundMemberForm
                             ->prefix('SAR')
                             ->disabled()
                             ->dehydrated()
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0)),
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0)),
 
                         Toggle::make('has_received_payout')
                             ->label(__('funds.rosca_fund_members.fields.has_received_payout'))
@@ -157,14 +156,14 @@ class RoscaFundMemberForm
 
                         DatePicker::make('payout_date')
                             ->label(__('funds.rosca_fund_members.fields.payout_date'))
-                            ->visible(fn (callable $get) => (bool)$get('has_received_payout')),
+                            ->visible(fn (callable $get) => (bool) $get('has_received_payout')),
 
                         Select::make('status')
                             ->label(__('funds.rosca_fund_members.fields.status'))
                             ->options([
-                                'active'    => __('funds.enums.general_status.active'),
+                                'active' => __('funds.enums.general_status.active'),
                                 'completed' => __('funds.enums.general_status.completed'),
-                                'dropped'   => __('funds.enums.general_status.dropped'),
+                                'dropped' => __('funds.enums.general_status.dropped'),
                             ])
                             ->default('active')
                             ->required(),
@@ -174,10 +173,10 @@ class RoscaFundMemberForm
 
     public static function recalculate(callable $set, callable $get): void
     {
-        $count = max(1, (int)($get('installments_count') ?? 1));
-        $monthly = (float)($get('monthly_installment') ?? 0);
+        $count = max(1, (int) ($get('installments_count') ?? 1));
+        $monthly = (float) ($get('monthly_installment') ?? 0);
         $total = round($count * $monthly, 2);
-        $paid = (float)($get('paid_amount') ?? 0);
+        $paid = (float) ($get('paid_amount') ?? 0);
         $remaining = max(0, $total - $paid);
 
         $set('total_final_amount', $total);

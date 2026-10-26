@@ -2,16 +2,21 @@
 
 namespace App\Filament\Resources\Leaves\Tables;
 
+use App\Enums\LeaveStatus;
+use App\Models\Company;
 use App\Models\Employee;
 use App\Models\Leave;
 use App\Models\LeaveType;
+use App\Services\CompanyFormService;
 use App\Services\LeaveBalanceService;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
@@ -68,7 +73,7 @@ class LeavesTable
 
                 TextColumn::make('days')
                     ->label(__('leaves.fields.days'))
-                    ->suffix(' ' . __('leaves.units.day'))
+                    ->suffix(' '.__('leaves.units.day'))
                     ->weight('bold')
                     ->sortable(),
 
@@ -80,7 +85,7 @@ class LeavesTable
             ->filters([
                 SelectFilter::make('status')
                     ->label(__('leaves.fields.status'))
-                    ->options(\App\Enums\LeaveStatus::class),
+                    ->options(LeaveStatus::class),
 
                 SelectFilter::make('leave_type_id')
                     ->label(__('leaves.fields.leave_type'))
@@ -91,7 +96,8 @@ class LeavesTable
                 SelectFilter::make('employee_id')
                     ->label(__('leaves.fields.employee'))
                     ->relationship('employee', 'id')
-                    ->getOptionLabelFromRecordUsing(fn (Employee $record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
+                    ->getSearchResultsUsing(fn (?string $search) => CompanyFormService::employeeSearchResults($search))
+                    ->getOptionLabelFromRecordUsing(fn (Employee $record) => $record->user?->name ?? (__('employees.single')." #{$record->id}"))
                     ->searchable()
                     ->preload(),
 
@@ -113,7 +119,7 @@ class LeavesTable
                         ->label(__('leaves.actions.approve'))
                         ->icon('heroicon-m-check-circle')
                         ->color('success')
-                        ->visible(fn (Leave $record) => $record->status !== \App\Enums\LeaveStatus::APPROVED && auth()->user()?->can('change_leave_status', $record))
+                        ->visible(fn (Leave $record) => $record->status !== LeaveStatus::APPROVED && auth()->user()?->can('change_leave_status', $record))
                         ->requiresConfirmation()
                         ->modalHeading(__('leaves.actions.approve_confirm_heading'))
                         ->modalDescription(__('leaves.actions.approve_confirm_description'))
@@ -132,12 +138,13 @@ class LeavesTable
                                         ->title(__('leaves.notifications.insufficient_balance', ['available' => $remaining, 'days' => $record->days]))
                                         ->danger()
                                         ->send();
+
                                     return;
                                 }
                             }
 
                             $record->update([
-                                'status'      => \App\Enums\LeaveStatus::APPROVED,
+                                'status' => LeaveStatus::APPROVED,
                                 'approved_by' => auth()->id(),
                                 'approved_at' => now(),
                             ]);
@@ -152,7 +159,7 @@ class LeavesTable
                         ->label(__('leaves.actions.reject'))
                         ->icon('heroicon-m-x-circle')
                         ->color('danger')
-                        ->visible(fn (Leave $record) => $record->status !== \App\Enums\LeaveStatus::REJECTED && auth()->user()?->can('change_leave_status', $record))
+                        ->visible(fn (Leave $record) => $record->status !== LeaveStatus::REJECTED && auth()->user()?->can('change_leave_status', $record))
                         ->modalHeading(__('leaves.actions.reject_confirm_heading'))
                         ->form([
                             TextInput::make('rejection_reason')
@@ -162,9 +169,9 @@ class LeavesTable
                         ])
                         ->action(function (Leave $record, array $data) {
                             $record->update([
-                                'status'           => \App\Enums\LeaveStatus::REJECTED,
-                                'approved_by'      => auth()->id(),
-                                'approved_at'      => now(),
+                                'status' => LeaveStatus::REJECTED,
+                                'approved_by' => auth()->id(),
+                                'approved_at' => now(),
                                 'rejection_reason' => $data['rejection_reason'] ?? null,
                             ]);
 
@@ -192,7 +199,7 @@ class LeavesTable
                                 'actual_return_date' => $data['actual_return_date'],
                             ]);
 
-                            $diff = $record->end_date->diffInDays(\Carbon\Carbon::parse($data['actual_return_date'])->startOfDay(), false);
+                            $diff = $record->end_date->diffInDays(Carbon::parse($data['actual_return_date'])->startOfDay(), false);
                             $unit = abs($diff) == 1 ? __('leaves.units.day') : __('leaves.units.days');
 
                             if ($diff < 0) {
@@ -204,7 +211,7 @@ class LeavesTable
                             }
 
                             Notification::make()
-                                ->title(__('leaves.notifications.return_registered') . ' ' . $suffix)
+                                ->title(__('leaves.notifications.return_registered').' '.$suffix)
                                 ->success()
                                 ->send();
                         }),
@@ -239,19 +246,19 @@ class LeavesTable
                             ->native(false)
                             ->required(),
 
-                        \Filament\Forms\Components\Select::make('company_id')
+                        Select::make('company_id')
                             ->label(__('leaves.fields.company'))
-                            ->options(fn () => \App\Models\Company::pluck('trade_name', 'id'))
+                            ->options(fn () => Company::pluck('trade_name', 'id'))
                             ->placeholder(__('leaves.actions.all_companies'))
                             ->searchable(),
 
-                        \Filament\Forms\Components\Select::make('leave_type_id')
+                        Select::make('leave_type_id')
                             ->label(__('leaves.fields.leave_type'))
                             ->options(fn () => LeaveBalanceService::getLeaveTypeOptions())
                             ->placeholder(__('leaves.actions.all_types'))
                             ->searchable(),
 
-                        \Filament\Forms\Components\Select::make('status')
+                        Select::make('status')
                             ->label(__('leaves.fields.status'))
                             ->options([
                                 'all' => __('leaves.actions.all_types') ? __('admin.all') ?? 'الكل' : 'الكل',
@@ -262,7 +269,8 @@ class LeavesTable
                             ->default('all'),
                     ])
                     ->action(function (array $data) {
-                        $params = array_filter($data, fn ($v) => !is_null($v) && $v !== '');
+                        $params = array_filter($data, fn ($v) => ! is_null($v) && $v !== '');
+
                         return redirect()->to(route('leaves.report.print', $params));
                     }),
             ])

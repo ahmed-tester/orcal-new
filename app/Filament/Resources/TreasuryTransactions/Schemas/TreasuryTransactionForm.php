@@ -2,7 +2,11 @@
 
 namespace App\Filament\Resources\TreasuryTransactions\Schemas;
 
+use App\Enums\PaymentItemCategory;
+use App\Enums\TreasuryTransactionType;
 use App\Filament\Components\OrgSelect;
+use App\Services\CompanyFormService;
+use App\Services\TreasuryBeneficiaryService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -45,17 +49,18 @@ class TreasuryTransactionForm
 
                         Select::make('transaction_type')
                             ->label(__('finance.treasury_transactions.fields.transaction_type'))
-                            ->options(\App\Enums\TreasuryTransactionType::class)
-                            ->default(\App\Enums\TreasuryTransactionType::INCOMING->value)
+                            ->options(TreasuryTransactionType::class)
+                            ->default(TreasuryTransactionType::INCOMING->value)
                             ->required(),
 
                         Select::make('payment_collection_item_id')
                             ->label(__('finance.treasury_transactions.fields.payment_collection_item'))
                             ->relationship('paymentCollectionItem', 'sub_item')
                             ->getOptionLabelFromRecordUsing(function ($record) {
-                                $mainLabel = $record->main_item instanceof \App\Enums\PaymentItemCategory 
-                                    ? $record->main_item->getLabel() 
+                                $mainLabel = $record->main_item instanceof PaymentItemCategory
+                                    ? $record->main_item->getLabel()
                                     : ($record->main_item ?? '');
+
                                 return "{$mainLabel} — {$record->sub_item}";
                             })
                             ->searchable()
@@ -68,7 +73,7 @@ class TreasuryTransactionForm
                             ->prefix('SAR')
                             ->default(0)
                             ->required()
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0)),
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0)),
 
                         Select::make('beneficiary_type')
                             ->label(__('finance.treasury_transactions.fields.beneficiary_type'))
@@ -81,7 +86,7 @@ class TreasuryTransactionForm
                                 $set('recipient_or_payer', null);
                             }),
 
-                        \App\Services\TreasuryBeneficiaryService::makeEmployeeSelect(),
+                        TreasuryBeneficiaryService::makeEmployeeSelect(),
 
                         TextInput::make('recipient_or_payer')
                             ->label(__('finance.treasury_transactions.fields.recipient_or_payer'))
@@ -90,12 +95,12 @@ class TreasuryTransactionForm
                             ->readOnly(fn (callable $get) => in_array($get('beneficiary_type'), ['saudi_employee', 'foreign_employee']))
                             ->helperText(fn (callable $get) => in_array($get('beneficiary_type'), ['saudi_employee', 'foreign_employee']) ? __('finance.treasury_transactions.helpers.selected_employee_name') : null),
 
-                        Select::make('executed_by')
-                            ->label(__('finance.treasury_transactions.fields.executed_by'))
-                            ->relationship('executor', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "موظف #{$record->id}")
-                            ->searchable()
-                            ->preload()
+                        CompanyFormService::makeEmployeeSelect(
+                            name: 'executed_by',
+                            label: __('finance.treasury_transactions.fields.executed_by'),
+                            required: false,
+                            relationshipName: 'executor',
+                        )
                             ->default(fn () => auth()->user()?->employee?->id)
                             ->disabled(fn () => ! (auth()->user()?->isSuperAdmin() ?? false))
                             ->dehydrated(),

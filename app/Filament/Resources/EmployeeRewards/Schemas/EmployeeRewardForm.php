@@ -5,6 +5,7 @@ namespace App\Filament\Resources\EmployeeRewards\Schemas;
 use App\Enums\RewardStatus;
 use App\Filament\Components\OrgSelect;
 use App\Models\Employee;
+use App\Services\CompanyFormService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -38,18 +39,11 @@ class EmployeeRewardForm
 
                         OrgSelect::company('company_id', __('finance.employee_rewards.fields.company'), 'employee_id'),
 
-                        Select::make('employee_id')
-                            ->label(__('finance.employee_rewards.fields.employee'))
-                            ->relationship('employee', 'id', function ($query, callable $get) {
-                                $companyId = $get('company_id') ?? auth()->user()?->company_id ?? auth()->user()?->employee?->company_id;
-                                if ($companyId) {
-                                    $query->where('company_id', $companyId);
-                                }
-                            })
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "موظف #{$record->id}")
-                            ->searchable()
-                            ->preload()
-                            ->required()
+                        CompanyFormService::makeEmployeeSelect(
+                            label: __('finance.employee_rewards.fields.employee'),
+                            required: true,
+                            companyFieldName: 'company_id',
+                        )
                             ->reactive()
                             ->afterStateUpdated(function ($state, callable $set, callable $get) {
                                 if ($state) {
@@ -58,9 +52,9 @@ class EmployeeRewardForm
                                         if ($employee->company_id) {
                                             $set('company_id', $employee->company_id);
                                         }
-                                        if ((float)$employee->basic_salary > 0) {
+                                        if ((float) $employee->basic_salary > 0) {
                                             // Standard 30 days * 8 hours = 240 work hours per month
-                                            $calcHourly = round((float)$employee->basic_salary / 240, 2);
+                                            $calcHourly = round((float) $employee->basic_salary / 240, 2);
                                             $set('hourly_rate', $calcHourly);
                                             static::recalculateBonus($set, $get, $calcHourly);
                                         }
@@ -109,7 +103,7 @@ class EmployeeRewardForm
                             ->required()
                             ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
                             ->reactive()
-                            ->afterStateUpdated(fn ($state, callable $set, callable $get) => static::recalculateBonus($set, $get, (float)$state)),
+                            ->afterStateUpdated(fn ($state, callable $set, callable $get) => static::recalculateBonus($set, $get, (float) $state)),
 
                         TextInput::make('hours_count')
                             ->label(__('finance.employee_rewards.fields.hours_count'))
@@ -179,9 +173,9 @@ class EmployeeRewardForm
 
     public static function recalculateBonus(callable $set, callable $get, ?float $hourlyRate = null): void
     {
-        $hourly = $hourlyRate !== null ? $hourlyRate : (float)($get('hourly_rate') ?? 0);
-        $hours = (float)($get('hours_count') ?? 0);
-        $minutes = (int)($get('minutes_count') ?? 0);
+        $hourly = $hourlyRate !== null ? $hourlyRate : (float) ($get('hourly_rate') ?? 0);
+        $hours = (float) ($get('hours_count') ?? 0);
+        $minutes = (int) ($get('minutes_count') ?? 0);
 
         $hoursAmount = round($hourly * $hours, 2);
         $minuteRate = round($hourly / 60, 4);

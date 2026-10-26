@@ -2,11 +2,13 @@
 
 namespace App\Filament\Resources\Installments\Schemas;
 
+use App\Enums\InstallmentCategory;
 use App\Enums\InstallmentStatus;
 use App\Filament\Components\OrgSelect;
 use App\Models\Employee;
 use App\Models\Guarantor;
 use App\Models\InstallmentType;
+use App\Services\CompanyFormService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -36,15 +38,15 @@ class InstallmentForm
                             ->label(__('finance.installments.fields.transaction_type'))
                             ->options([
                                 'installment' => __('finance.installments.toggle_options.installment'),
-                                'advance'     => __('finance.installments.toggle_options.advance'),
+                                'advance' => __('finance.installments.toggle_options.advance'),
                             ])
                             ->icons([
                                 'installment' => 'heroicon-m-calendar-days',
-                                'advance'     => 'heroicon-m-banknotes',
+                                'advance' => 'heroicon-m-banknotes',
                             ])
                             ->colors([
                                 'installment' => 'info',
-                                'advance'     => 'success',
+                                'advance' => 'success',
                             ])
                             ->default('installment')
                             ->inline()
@@ -105,17 +107,11 @@ class InstallmentForm
                     ->schema([
                         OrgSelect::company('company_id', __('finance.installments.fields.company'), 'employee_id'),
 
-                        Select::make('employee_id')
-                            ->label(__('finance.installments.fields.employee'))
-                            ->relationship('employee', 'id', function ($query, callable $get) {
-                                $companyId = $get('company_id') ?? auth()->user()?->company_id ?? auth()->user()?->employee?->company_id;
-                                if ($companyId) {
-                                    $query->where('company_id', $companyId);
-                                }
-                            })
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
-                            ->searchable()
-                            ->preload()
+                        CompanyFormService::makeEmployeeSelect(
+                            label: __('finance.installments.fields.employee'),
+                            required: false,
+                            companyFieldName: 'company_id',
+                        )
                             ->required(fn (callable $get) => ($get('beneficiary_type') ?? 'internal') === 'internal')
                             ->reactive()
                             ->afterStateUpdated(function ($state, callable $set) {
@@ -173,7 +169,7 @@ class InstallmentForm
                         Select::make('guarantor_id')
                             ->label(__('finance.installments.fields.guarantor'))
                             ->relationship('guarantor', 'name')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->name} " . ($record->national_id ? "({$record->national_id})" : '') . ($record->phone ? " - {$record->phone}" : ''))
+                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->name} ".($record->national_id ? "({$record->national_id})" : '').($record->phone ? " - {$record->phone}" : ''))
                             ->searchable(['name', 'national_id', 'phone'])
                             ->preload()
                             ->createOptionModalHeading(__('guarantors.actions.create'))
@@ -221,16 +217,17 @@ class InstallmentForm
                             ])
                             ->createOptionUsing(function (array $data, callable $get) {
                                 $companyId = $get('company_id') ?? auth()->user()?->company_id;
+
                                 return Guarantor::create([
-                                    'type'        => $data['type'] ?? 'external',
-                                    'company_id'  => $companyId,
-                                    'name'        => $data['name'],
+                                    'type' => $data['type'] ?? 'external',
+                                    'company_id' => $companyId,
+                                    'name' => $data['name'],
                                     'national_id' => $data['national_id'] ?? null,
-                                    'phone'       => $data['phone'] ?? null,
-                                    'job_title'   => $data['job_title'] ?? null,
-                                    'address'     => $data['address'] ?? null,
-                                    'notes'       => $data['notes'] ?? null,
-                                    'status'      => 'active',
+                                    'phone' => $data['phone'] ?? null,
+                                    'job_title' => $data['job_title'] ?? null,
+                                    'address' => $data['address'] ?? null,
+                                    'notes' => $data['notes'] ?? null,
+                                    'status' => 'active',
                                 ])->id;
                             }),
                     ]),
@@ -246,9 +243,9 @@ class InstallmentForm
                             ->prefix('SAR')
                             ->default(0)
                             ->required()
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
                             ->reactive()
-                            ->afterStateUpdated(fn ($state, callable $set, callable $get) => static::recalculateLoan($set, $get, (float)$state)),
+                            ->afterStateUpdated(fn ($state, callable $set, callable $get) => static::recalculateLoan($set, $get, (float) $state)),
 
                         TextInput::make('down_payment')
                             ->label(__('finance.installments.fields.down_payment'))
@@ -257,7 +254,7 @@ class InstallmentForm
                             ->default(0)
                             ->placeholder('0.00')
                             ->minValue(0)
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
                             ->reactive()
                             ->afterStateUpdated(fn ($state, callable $set, callable $get) => static::recalculateLoan($set, $get)),
 
@@ -266,7 +263,7 @@ class InstallmentForm
                             ->numeric()
                             ->default(1)
                             ->minValue(1)
-                            ->dehydrateStateUsing(fn ($state) => max(1, (int)($state ?: 1)))
+                            ->dehydrateStateUsing(fn ($state) => max(1, (int) ($state ?: 1)))
                             ->reactive()
                             ->afterStateUpdated(fn ($state, callable $set, callable $get) => static::recalculateLoan($set, $get)),
 
@@ -275,7 +272,7 @@ class InstallmentForm
                             ->numeric()
                             ->prefix('SAR')
                             ->default(0)
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
                             ->helperText(__('finance.installments.placeholders.monthly_amount_helper')),
 
                         TextInput::make('paid_amount')
@@ -283,7 +280,7 @@ class InstallmentForm
                             ->numeric()
                             ->prefix('SAR')
                             ->default(0)
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
                             ->reactive()
                             ->afterStateUpdated(fn ($state, callable $set, callable $get) => static::recalculateLoan($set, $get)),
 
@@ -294,7 +291,7 @@ class InstallmentForm
                             ->disabled()
                             ->dehydrated()
                             ->default(0)
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
                             ->extraAttributes(['class' => 'font-bold text-lg text-amber-600']),
 
                         DatePicker::make('start_due_date')
@@ -304,12 +301,12 @@ class InstallmentForm
                         DatePicker::make('final_due_date')
                             ->label(__('finance.installments.fields.final_due_date')),
 
-                        Select::make('executed_by')
-                            ->label(__('finance.installments.fields.executed_by'))
-                            ->relationship('executor', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
-                            ->searchable()
-                            ->preload()
+                        CompanyFormService::makeEmployeeSelect(
+                            name: 'executed_by',
+                            label: __('finance.installments.fields.executed_by'),
+                            required: false,
+                            relationshipName: 'executor',
+                        )
                             ->default(fn () => auth()->user()?->employee?->id)
                             ->disabled(fn () => ! (auth()->user()?->isSuperAdmin() ?? false))
                             ->dehydrated(),
@@ -325,12 +322,12 @@ class InstallmentForm
                     ->icon('heroicon-o-bell-alert')
                     ->columns(2)
                     ->schema([
-                        Select::make('notify_employee_id')
-                            ->label(__('finance.installments.fields.notify_employee'))
-                            ->relationship('notifyEmployee', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
-                            ->searchable()
-                            ->preload(),
+                        CompanyFormService::makeEmployeeSelect(
+                            name: 'notify_employee_id',
+                            label: __('finance.installments.fields.notify_employee'),
+                            required: false,
+                            relationshipName: 'notifyEmployee',
+                        ),
 
                         Textarea::make('notification_notes')
                             ->label(__('finance.installments.fields.notification_notes'))
@@ -342,10 +339,10 @@ class InstallmentForm
 
     public static function recalculateLoan(callable $set, callable $get, ?float $totalAmount = null): void
     {
-        $total = $totalAmount !== null ? $totalAmount : (float)($get('total_amount') ?? 0);
-        $down = (float)($get('down_payment') ?? 0);
-        $months = max(1, (int)($get('months_count') ?? 1));
-        $paid = (float)($get('paid_amount') ?? 0);
+        $total = $totalAmount !== null ? $totalAmount : (float) ($get('total_amount') ?? 0);
+        $down = (float) ($get('down_payment') ?? 0);
+        $months = max(1, (int) ($get('months_count') ?? 1));
+        $paid = (float) ($get('paid_amount') ?? 0);
 
         $netToPay = max(0, $total - $down);
         $monthly = round($netToPay / $months, 2);
@@ -358,8 +355,8 @@ class InstallmentForm
     public static function getInstallmentTypeSelect(bool $isRequired = true): Select
     {
         return Select::make('installment_type_id')
-            ->label(fn (callable $get) => ($get('transaction_type') ?? 'installment') === 'advance' 
-                ? __('finance.installments.fields.advance_type') 
+            ->label(fn (callable $get) => ($get('transaction_type') ?? 'installment') === 'advance'
+                ? __('finance.installments.fields.advance_type')
                 : __('finance.installments.fields.installment_type_only'))
             ->options(function (callable $get) {
                 $transactionType = $get('transaction_type') ?? 'installment';
@@ -387,7 +384,7 @@ class InstallmentForm
 
                 $grouped = [];
                 foreach ($items as $item) {
-                    $categoryName = $item->category instanceof \App\Enums\InstallmentCategory
+                    $categoryName = $item->category instanceof InstallmentCategory
                         ? $item->category->getLabel()
                         : __('finance.payment_collection_items.categories.other');
                     $grouped[$categoryName][$item->id] = $item->name;
@@ -409,18 +406,19 @@ class InstallmentForm
                             ->required(),
                         Select::make('category')
                             ->label(__('finance.installment_types.fields.category'))
-                            ->options(\App\Enums\InstallmentCategory::class)
+                            ->options(InstallmentCategory::class)
                             ->default(fn (callable $get) => ($get('transaction_type') ?? 'installment') === 'advance' ? 'advances' : 'others')
                             ->required(),
                     ]),
             ])
             ->createOptionUsing(function (array $data, callable $get) {
                 $companyId = $get('company_id') ?? auth()->user()?->company_id;
+
                 return InstallmentType::create([
-                    'name'       => $data['name'],
-                    'category'   => $data['category'],
+                    'name' => $data['name'],
+                    'category' => $data['category'],
                     'company_id' => $companyId,
-                    'status'     => 'active',
+                    'status' => 'active',
                 ])->id;
             });
     }

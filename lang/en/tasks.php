@@ -56,4 +56,12 @@ return [
         'weight_limit_hint' => 'Total maximum allowed weight is 100%',
         'calculated_percentage' => 'Calculated: (Score / Weight) * 100',
     ],
+
+    'creator_default' => 'Management',
+
+    'notifications' => [
+        'new_assignment_title' => 'New Task Assignment',
+        'new_assignment_body' => 'A new task assignment (:number) has been assigned to you by :creator.',
+        'view_assignment' => 'View Assignment',
+    ],
 ];

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\DebtCollections\Schemas;
 
 use App\Enums\ApprovalStatus;
 use App\Models\Debt;
+use App\Services\CompanyFormService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -91,12 +92,12 @@ class DebtCollectionForm
                             ->preload()
                             ->visible(fn (callable $get) => ($get('payment_method') ?? 'cash') === 'cash'),
 
-                        Select::make('executed_by')
-                            ->label(__('debts.collections.fields.executed_by'))
-                            ->relationship('executor', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "موظف #{$record->id}")
-                            ->searchable()
-                            ->preload()
+                        CompanyFormService::makeEmployeeSelect(
+                            name: 'executed_by',
+                            label: __('debts.collections.fields.executed_by'),
+                            required: false,
+                            relationshipName: 'executor',
+                        )
                             ->default(fn () => auth()->user()?->employee?->id)
                             ->disabled(fn () => ! (auth()->user()?->isSuperAdmin() ?? false))
                             ->dehydrated(),
