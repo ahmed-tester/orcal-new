@@ -38,9 +38,9 @@ class PayrollSheetService
             ->whereHas('company')
             ->with(['user', 'company', 'branch', 'details.guarantor']);
 
-        if ($user && !$user->isSuperAdmin()) {
+        if ($user && ! $user->isSuperAdmin()) {
             $authorizedIds = CompanyFormService::getAuthorizedCompanyIds($user);
-            if (!empty($authorizedIds)) {
+            if (! empty($authorizedIds)) {
                 $query->whereIn('company_id', $authorizedIds);
             }
         }
@@ -54,7 +54,7 @@ class PayrollSheetService
                 $query->where('id', $selectedEmployeeId);
             }
         } elseif ($filterMode === 'multiple_companies') {
-            if (!empty($selectedCompanyIds)) {
+            if (! empty($selectedCompanyIds)) {
                 $query->whereIn('company_id', $selectedCompanyIds);
             }
         } elseif ($filterMode === 'all_companies') {
@@ -79,12 +79,12 @@ class PayrollSheetService
         }
 
         // 2. Search Query
-        if (!empty($searchQuery)) {
+        if (! empty($searchQuery)) {
             $query->where(function ($q) use ($searchQuery) {
                 $q->whereHas('user', fn ($u) => $u->where('name', 'like', "%{$searchQuery}%")->orWhere('email', 'like', "%{$searchQuery}%"))
-                  ->orWhere('employee_number', 'like', "%{$searchQuery}%")
-                  ->orWhereHas('company', fn ($c) => $c->where('trade_name', 'like', "%{$searchQuery}%"))
-                  ->orWhereHas('details', fn ($d) => $d->where('sponsor_name', 'like', "%{$searchQuery}%"));
+                    ->orWhere('employee_number', 'like', "%{$searchQuery}%")
+                    ->orWhereHas('company', fn ($c) => $c->where('trade_name', 'like', "%{$searchQuery}%"))
+                    ->orWhereHas('details', fn ($d) => $d->where('sponsor_name', 'like', "%{$searchQuery}%"));
             });
         }
 
@@ -118,12 +118,12 @@ class PayrollSheetService
                 ->first();
 
             if ($operationType === 'collection') {
-                if (!$existing && !($employeeScope === 'specific' && $selectedEmployeeId == $emp->id)) {
+                if (! $existing && ! ($employeeScope === 'specific' && $selectedEmployeeId == $emp->id)) {
                     continue;
                 }
             }
 
-            if ($operationType === 'payroll' && !$existing) {
+            if ($operationType === 'payroll' && ! $existing) {
                 $hasCollection = PayrollRecord::where('employee_id', $emp->id)
                     ->where('operation_type', 'collection')
                     ->whereYear('payroll_month', $year)
@@ -146,13 +146,13 @@ class PayrollSheetService
             $paymentStatus = $payrollData['payment_status'];
             $recordNumber = $payrollData['record_number'];
 
-            if (!isset($notes[$emp->id])) {
+            if (! isset($notes[$emp->id])) {
                 $notes[$emp->id] = $payrollData['notes'];
             }
 
             $isPaid = ($paymentStatus === PaymentStatus::PAID || ($remaining <= 0 && $net > 0));
 
-            if (!isset($checkedEmployees[$emp->id])) {
+            if (! isset($checkedEmployees[$emp->id])) {
                 $checkedEmployees[$emp->id] = $isPaid;
             } else {
                 if ($existing && $isPaid) {
@@ -179,53 +179,53 @@ class PayrollSheetService
 
             $otherParts = [];
             if ($additional > 0) {
-                $otherParts[] = '+' . number_format($additional, 2);
+                $otherParts[] = '+'.number_format($additional, 2);
             }
             if ($deductions > 0) {
-                $otherParts[] = '-' . number_format($deductions, 2);
+                $otherParts[] = '-'.number_format($deductions, 2);
             }
-            $otherAmount = !empty($otherParts) ? implode(' / ', $otherParts) : '—';
+            $otherAmount = ! empty($otherParts) ? implode(' / ', $otherParts) : '—';
 
             $rows[] = [
-                'employee_id'               => $emp->id,
-                'name'                      => $emp->user?->name ?? 'موظف #' . $emp->id,
-                'email'                     => $emp->user?->email,
-                'phone'                     => $phone,
-                'iqama_number'              => $iqamaNumber,
-                'iqama_expiry_gregorian'    => $iqamaExpiryGregorian,
-                'iqama_expiry_hijri'        => $iqamaExpiryHijri,
-                'employee_number'           => $emp->employee_number ?? ('EMP-' . $emp->id),
-                'company_name'              => $emp->company?->trade_name ?? '—',
-                'branch_name'               => $emp->branch?->name ?? null,
-                'sponsor_name'              => $emp->details?->guarantor?->name ?? $emp->details?->sponsor_name ?? '—',
-                'basic_salary'              => $basic,
-                'additional_amount'         => $additional,
-                'deduction_amount'          => $deductions,
-                'other_amount'              => $otherAmount,
-                'net_amount'                => $net,
-                'paid_amount'               => $effectivePaid,
-                'remaining_amount'          => $effectiveRemaining,
-                'payment_status'            => $paymentStatus,
-                'original_paid_amount'      => $paid,
+                'employee_id' => $emp->id,
+                'name' => $emp->user?->name ?? 'موظف #'.$emp->id,
+                'email' => $emp->user?->email,
+                'phone' => $phone,
+                'iqama_number' => $iqamaNumber,
+                'iqama_expiry_gregorian' => $iqamaExpiryGregorian,
+                'iqama_expiry_hijri' => $iqamaExpiryHijri,
+                'employee_number' => $emp->employee_number ?? ('EMP-'.$emp->id),
+                'company_name' => $emp->company?->trade_name ?? '—',
+                'branch_name' => $emp->branch?->name ?? null,
+                'sponsor_name' => $emp->details?->guarantor?->name ?? $emp->details?->sponsor_name ?? '—',
+                'basic_salary' => $basic,
+                'additional_amount' => $additional,
+                'deduction_amount' => $deductions,
+                'other_amount' => $otherAmount,
+                'net_amount' => $net,
+                'paid_amount' => $effectivePaid,
+                'remaining_amount' => $effectiveRemaining,
+                'payment_status' => $paymentStatus,
+                'original_paid_amount' => $paid,
                 'original_remaining_amount' => $remaining,
-                'original_payment_status'   => $paymentStatus,
-                'record_number'             => $recordNumber,
-                'existing_id'               => $existing?->id,
+                'original_payment_status' => $paymentStatus,
+                'record_number' => $recordNumber,
+                'existing_id' => $existing?->id,
             ];
         }
 
         return [
-            'rows'             => $rows,
+            'rows' => $rows,
             'checkedEmployees' => $checkedEmployees,
-            'notes'            => $notes,
-            'totals'           => [
-                'totalEmployees'        => count($rows),
-                'totalBasicAmount'      => round($totalBasic, 2),
+            'notes' => $notes,
+            'totals' => [
+                'totalEmployees' => count($rows),
+                'totalBasicAmount' => round($totalBasic, 2),
                 'totalAdditionalAmount' => round($totalAdditional, 2),
-                'totalDeductionAmount'  => round($totalDeduction, 2),
-                'totalNetAmount'        => round($totalNet, 2),
-                'totalPaidAmount'       => round($totalPaid, 2),
-                'totalPendingAmount'    => round($totalPending, 2),
+                'totalDeductionAmount' => round($totalDeduction, 2),
+                'totalNetAmount' => round($totalNet, 2),
+                'totalPaidAmount' => round($totalPaid, 2),
+                'totalPendingAmount' => round($totalPending, 2),
             ],
         ];
     }
@@ -251,7 +251,7 @@ class PayrollSheetService
             foreach ($employeeRows as $row) {
                 $empId = $row['employee_id'];
                 $emp = Employee::find($empId);
-                if (!$emp || empty($emp->company_id) || !Company::where('id', $emp->company_id)->exists()) {
+                if (! $emp || empty($emp->company_id) || ! Company::where('id', $emp->company_id)->exists()) {
                     continue;
                 }
 
@@ -259,29 +259,29 @@ class PayrollSheetService
                 $netAmount = (float) $row['net_amount'];
 
                 $record = PayrollRecord::firstOrNew([
-                    'company_id'     => $emp->company_id,
-                    'employee_id'    => $emp->id,
+                    'company_id' => $emp->company_id,
+                    'employee_id' => $emp->id,
                     'operation_type' => $operationType,
-                    'payroll_month'  => $monthDate,
+                    'payroll_month' => $monthDate,
                 ]);
 
                 $financials = PayrollCalculationService::calculateEmployeeFinancials($emp->id, $payrollMonth);
 
-                $record->record_date       = now()->toDateString();
-                $record->basic_salary      = (float) $row['basic_salary'];
+                $record->record_date = now()->toDateString();
+                $record->basic_salary = (float) $row['basic_salary'];
                 $record->additional_amount = (float) $row['additional_amount'];
-                $record->deduction_amount  = (float) $row['deduction_amount'];
-                $record->overtime_amount   = (float) ($financials['overtime_amount'] ?? 0);
-                $record->rewards_amount    = (float) ($financials['rewards_amount'] ?? 0);
+                $record->deduction_amount = (float) $row['deduction_amount'];
+                $record->overtime_amount = (float) ($financials['overtime_amount'] ?? 0);
+                $record->rewards_amount = (float) ($financials['rewards_amount'] ?? 0);
                 $record->advance_deduction = (float) ($financials['advance_deduction'] ?? 0);
                 $record->absence_deduction = (float) ($financials['absence_deduction'] ?? 0);
-                $record->net_amount        = $netAmount;
-                $record->notes             = $notes[$empId] ?? null;
+                $record->net_amount = $netAmount;
+                $record->notes = $notes[$empId] ?? null;
 
                 if ($isChecked) {
-                    $record->paid_amount      = $netAmount;
+                    $record->paid_amount = $netAmount;
                     $record->remaining_amount = 0.0;
-                    $record->payment_status   = PaymentStatus::PAID;
+                    $record->payment_status = PaymentStatus::PAID;
                     $record->save();
 
                     // If not disbursed yet, create treasury transaction and payment
@@ -294,13 +294,14 @@ class PayrollSheetService
                                 paymentMethod: 'cash',
                                 notes: $record->notes
                             );
-                        } catch (\Throwable $e) {}
+                        } catch (\Throwable $e) {
+                        }
                     }
                 } else {
                     $paidAmount = (float) ($row['paid_amount'] ?? 0.0);
                     $remainingAmount = (float) ($row['remaining_amount'] ?? max(0.0, $netAmount - $paidAmount));
 
-                    $record->paid_amount      = $paidAmount;
+                    $record->paid_amount = $paidAmount;
                     $record->remaining_amount = $remainingAmount;
 
                     if ($paidAmount >= $netAmount && $netAmount > 0) {
@@ -349,7 +350,7 @@ class PayrollSheetService
         unset($row);
 
         return [
-            'totalPaidAmount'    => round($totalPaid, 2),
+            'totalPaidAmount' => round($totalPaid, 2),
             'totalPendingAmount' => round($totalPending, 2),
         ];
     }
@@ -379,7 +380,7 @@ class PayrollSheetService
         unset($row);
 
         return [
-            'totalPaidAmount'    => round($totalPaid, 2),
+            'totalPaidAmount' => round($totalPaid, 2),
             'totalPendingAmount' => round($totalPending, 2),
         ];
     }
@@ -406,7 +407,7 @@ class PayrollSheetService
         }
 
         $emp = Employee::find($employeeId);
-        if (!$emp || empty($emp->company_id)) {
+        if (! $emp || empty($emp->company_id)) {
             return null;
         }
 
@@ -414,24 +415,24 @@ class PayrollSheetService
         $financials = PayrollCalculationService::calculateEmployeeFinancials($emp->id, $payrollMonth);
 
         return PayrollRecord::create([
-            'company_id'        => $emp->company_id,
-            'employee_id'       => $emp->id,
-            'operation_type'    => $operationType,
-            'payroll_month'     => $c->copy()->startOfMonth()->toDateString(),
-            'record_date'       => now()->toDateString(),
-            'basic_salary'      => $fin['basic_salary'],
-            'overtime_amount'   => (float) ($financials['overtime_amount'] ?? 0),
-            'rewards_amount'    => (float) ($financials['rewards_amount'] ?? 0),
+            'company_id' => $emp->company_id,
+            'employee_id' => $emp->id,
+            'operation_type' => $operationType,
+            'payroll_month' => $c->copy()->startOfMonth()->toDateString(),
+            'record_date' => now()->toDateString(),
+            'basic_salary' => $fin['basic_salary'],
+            'overtime_amount' => (float) ($financials['overtime_amount'] ?? 0),
+            'rewards_amount' => (float) ($financials['rewards_amount'] ?? 0),
             'additional_amount' => $fin['additional_amount'],
             'advance_deduction' => (float) ($financials['advance_deduction'] ?? 0),
             'absence_deduction' => (float) ($financials['absence_deduction'] ?? 0),
-            'deduction_amount'  => $fin['deduction_amount'],
-            'net_amount'        => $fin['net_amount'],
-            'paid_amount'       => $fin['paid_amount'],
-            'remaining_amount'  => $fin['remaining_amount'],
-            'payment_status'    => $fin['payment_status'],
-            'notes'             => $note,
-            'created_by'        => auth()->id(),
+            'deduction_amount' => $fin['deduction_amount'],
+            'net_amount' => $fin['net_amount'],
+            'paid_amount' => $fin['paid_amount'],
+            'remaining_amount' => $fin['remaining_amount'],
+            'payment_status' => $fin['payment_status'],
+            'notes' => $note,
+            'created_by' => auth()->id(),
         ]);
     }
 
@@ -449,7 +450,7 @@ class PayrollSheetService
             $record = PayrollRecord::find($recordId);
         }
 
-        if (!$record) {
+        if (! $record) {
             $c = Carbon::parse($payrollMonth ?: now());
             $record = PayrollRecord::where('employee_id', $employeeId)
                 ->where('operation_type', $operationType)
@@ -459,7 +460,6 @@ class PayrollSheetService
         }
 
         if ($record) {
-            $record->payments()->delete();
             $record->delete();
         }
     }

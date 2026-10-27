@@ -39,6 +39,8 @@ return [
         'categories' => [
             'salary_collection' => 'تحصيل رواتب',
             'salary_payment' => 'تسليم رواتب',
+            'salary_refund' => 'استرداد مسير رواتب ملغى',
+            'salary_collection_refund' => 'استرداد مسير تحصيل ملغى',
             'general_expenses' => 'مصروفات عمومية',
             'violations' => 'المخالفات',
             'services' => 'خدمات',
@@ -324,6 +326,10 @@ return [
             'disbursement_success_body' => 'تم خصم المبلغ من رصيد الخزنة وتحديث حالة الراتب.',
             'disbursement_failed_title' => 'فشل في عملية الصرف',
         ],
+        'reversal' => [
+            'salary_desc' => 'استرداد مسير رواتب ملغى: :employee (:month) [:number]',
+            'collection_desc' => 'استرداد مسير تحصيل ملغى: :employee (:month) [:number]',
+        ],
         'table_heading' => 'مسيرات الرواتب — :count مسير',
         'sheet' => [
             'tab_sheet' => 'كشف ومسير التحصيل والرواتب التفاعلي',
@@ -331,6 +337,7 @@ return [
             'print_payroll' => '🖨️ طباعة كشف دفع رواتب',
             'print_collection' => '🖨️ طباعة كشف تحصيل',
             'kpi_employees_count' => 'عدد الموظفين بالكشف',
+            'employees_unit' => 'موظف',
             'kpi_total_net' => 'إجمالي الصافي المستحق',
             'kpi_total_paid' => 'تم الصرف والتسليم',
             'kpi_total_collected' => 'تم التحصيل',
@@ -342,7 +349,7 @@ return [
             'save_btn' => 'حفظ واعتماد المسير',
             'title_payroll' => 'كشف مسير (تسليم الرواتب) - شهر :month',
             'title_collection' => 'كشف مسير (التحصيل) - شهر :month',
-            'tip' => '* انقر على اسم أي موظف لفتح تفاصيل المسير والتعديل • زر (🗑️) لحذف المسير',
+            'tip' => '* انقر على اسم أي موظف لفتح تفاصيل المسير والتعديل',
             'serial' => 'م',
             'col_name' => 'الاسم / NAME',
             'col_identity' => 'الهوية / الإقامة',

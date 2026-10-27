@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
-
+use App\Observers\PayrollPaymentObserver;
 use App\Traits\HasHijriDates;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+#[ObservedBy([PayrollPaymentObserver::class])]
 class PayrollPayment extends Model
 {
     use HasFactory, HasHijriDates;
@@ -18,7 +20,6 @@ class PayrollPayment extends Model
             'payment_date',
         ];
     }
-
 
     protected $fillable = [
         'payment_number',
@@ -38,51 +39,9 @@ class PayrollPayment extends Model
     {
         return [
             'payment_date' => 'date',
-            'amount'       => 'decimal:2',
+            'amount' => 'decimal:2',
             'metadata' => 'array',
         ];
-    }
-
-    protected static function booted(): void
-    {
-        static::creating(function (PayrollPayment $payment) {
-            if (empty($payment->payment_number)) {
-                $payment->payment_number = \App\Services\CodeGeneratorService::generate(
-                    modelClass: static::class,
-                    column: 'payment_number',
-                    prefix: 'PAY',
-                    companyId: $payment->company_id,
-                    padLength: 4,
-                    datePart: 'Ym',
-                );
-            }
-
-            if (empty($payment->payment_date)) {
-                $payment->payment_date = now()->toDateString();
-            }
-
-            if (empty($payment->executed_by)) {
-                $payment->executed_by = auth()->user()?->employee?->id;
-            }
-        });
-
-        static::saved(function (PayrollPayment $payment) {
-            $record = $payment->payrollRecord;
-            if ($record) {
-                $totalPaid = $record->payments()->sum('amount');
-                $record->paid_amount = $totalPaid;
-                $record->save();
-            }
-        });
-
-        static::deleted(function (PayrollPayment $payment) {
-            $record = $payment->payrollRecord;
-            if ($record) {
-                $totalPaid = $record->payments()->sum('amount');
-                $record->paid_amount = $totalPaid;
-                $record->save();
-            }
-        });
     }
 
     public function payrollRecord(): BelongsTo

@@ -39,6 +39,8 @@ return [
         'categories' => [
             'salary_collection' => 'Salary Collection',
             'salary_payment' => 'Salary Disbursement',
+            'salary_refund' => 'Salary Disbursement Refund',
+            'salary_collection_refund' => 'Salary Collection Refund',
             'general_expenses' => 'General Expenses',
             'violations' => 'Violations / Fines',
             'services' => 'Services',
@@ -313,6 +315,10 @@ return [
             'disbursement_success_body' => 'Amount has been deducted from treasury and status updated.',
             'disbursement_failed_title' => 'Disbursement Failed',
         ],
+        'reversal' => [
+            'salary_desc' => 'Refund for deleted payroll: :employee (:month) [:number]',
+            'collection_desc' => 'Refund for deleted collection: :employee (:month) [:number]',
+        ],
         'table_heading' => 'Payroll Records — :count records',
         'sheet' => [
             'tab_sheet' => 'Interactive Payroll & Collection Sheet',
@@ -320,6 +326,7 @@ return [
             'print_payroll' => '🖨️ Print Payroll Sheet',
             'print_collection' => '🖨️ Print Collection Sheet',
             'kpi_employees_count' => 'Employees in Sheet',
+            'employees_unit' => 'Employees',
             'kpi_total_net' => 'Total Net Due',
             'kpi_total_paid' => 'Disbursed & Delivered',
             'kpi_total_collected' => 'Collected',
@@ -331,7 +338,7 @@ return [
             'save_btn' => 'Save & Approve Sheet',
             'title_payroll' => 'Payroll Sheet (Disbursement) - Month :month',
             'title_collection' => 'Payroll Sheet (Collection) - Month :month',
-            'tip' => '* Click any employee name to open record details • (🗑️) button to delete record',
+            'tip' => '* Click any employee name to open record details',
             'serial' => '#',
             'col_name' => 'Name / NAME',
             'col_identity' => 'ID / Iqama',
