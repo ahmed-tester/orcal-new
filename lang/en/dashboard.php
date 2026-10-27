@@ -18,6 +18,7 @@ return [
         'owners_desc' => 'Founding Owners and Partners',
         'treasury_balance' => 'Cash Treasury Balance',
         'treasury_balance_desc' => 'Current cash liquidity in treasury',
+        'treasury_balance_scoped' => 'Total cash liquidity for :count companies',
         'total_revenue' => 'Total Sales & Revenues',
         'total_revenue_desc' => 'Invoices & daily journals sales',
         'monthly_payroll' => 'Current Month Payroll',

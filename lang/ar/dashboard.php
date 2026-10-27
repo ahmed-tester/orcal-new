@@ -17,6 +17,7 @@ return [
         'owners_desc' => 'الملاك والشركاء المؤسسون',
         'treasury_balance' => 'رصيد الخزينة النقدي',
         'treasury_balance_desc' => 'السيولة النقدية الحالية بالخزينة',
+        'treasury_balance_scoped' => 'إجمالي السيولة النقدية لـ :count منشآت',
         'total_revenue' => 'إجمالي الإيرادات والمبيعات',
         'total_revenue_desc' => 'فواتير ومبيعات القيود اليومية',
         'monthly_payroll' => 'مسيرات الرواتب للشهر الحالي',
