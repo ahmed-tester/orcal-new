@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\Attendance\Tables;
 
+use App\Enums\AttendanceStatus;
 use App\Models\Employee;
+use App\Services\CompanyFormService;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -56,14 +58,14 @@ class AttendanceTable
 
                 TextColumn::make('late_hours')
                     ->label(__('attendance.fields.late_hours'))
-                    ->formatStateUsing(fn ($state) => (int) round((float)$state) . ' ' . __('attendance.units.minute'))
-                    ->color(fn ($state) => (float)$state > 0 ? 'danger' : 'gray')
+                    ->formatStateUsing(fn ($state) => (int) round((float) $state).' '.__('attendance.units.minute'))
+                    ->color(fn ($state) => (float) $state > 0 ? 'danger' : 'gray')
                     ->sortable(),
 
                 TextColumn::make('overtime_hours')
                     ->label(__('attendance.fields.overtime_hours'))
-                    ->formatStateUsing(fn ($state) => (int) round((float)$state) . ' ' . __('attendance.units.minute'))
-                    ->color(fn ($state) => (float)$state > 0 ? 'success' : 'gray')
+                    ->formatStateUsing(fn ($state) => (int) round((float) $state).' '.__('attendance.units.minute'))
+                    ->color(fn ($state) => (float) $state > 0 ? 'success' : 'gray')
                     ->sortable(),
 
                 TextColumn::make('check_in_source')
@@ -85,11 +87,12 @@ class AttendanceTable
             ->filters([
                 SelectFilter::make('status')
                     ->label(__('attendance.fields.status'))
-                    ->options(\App\Enums\AttendanceStatus::class),
+                    ->options(AttendanceStatus::class),
 
                 SelectFilter::make('employee_id')
                     ->label(__('attendance.fields.employee'))
                     ->relationship('employee', 'id')
+                    ->getSearchResultsUsing(fn (?string $search) => CompanyFormService::employeeSearchResults($search))
                     ->getOptionLabelFromRecordUsing(fn (Employee $record) => $record->user?->name ?? "موظف #{$record->id}")
                     ->searchable()
                     ->preload(),

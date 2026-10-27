@@ -1129,14 +1129,62 @@
                     </p>
 
                     <div class="carnet-video-box">
-                        <video controls preload="auto" class="carnet-video-element" id="playerSupervisionShifts">
+                        <video controls preload="metadata" class="carnet-video-element" id="playerSupervisionShifts">
+                            <!-- مجلد vidoes -->
+                            <source src="{{ asset('vidoes/Supervision and shifts.mp4') }}" type="video/mp4">
+                            <source src="/vidoes/Supervision and shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('vidoes/Supervision%20and%20shifts.mp4') }}" type="video/mp4">
+                            <source src="/vidoes/Supervision%20and%20shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('vidoes/supervision and shifts.mp4') }}" type="video/mp4">
+                            <source src="/vidoes/supervision and shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('vidoes/supervision%20and%20shifts.mp4') }}" type="video/mp4">
+                            <source src="/vidoes/supervision%20and%20shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('vidoes/Supervision and Shifts.mp4') }}" type="video/mp4">
+                            <source src="/vidoes/Supervision and Shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('vidoes/Supervision%20and%20Shifts.mp4') }}" type="video/mp4">
+                            <source src="/vidoes/Supervision%20and%20Shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('vidoes/supervision.mp4') }}" type="video/mp4">
+                            <source src="/vidoes/supervision.mp4" type="video/mp4">
+                            <source src="{{ asset('vidoes/Supervision.mp4') }}" type="video/mp4">
+                            <source src="/vidoes/Supervision.mp4" type="video/mp4">
+                            <source src="{{ asset('vidoes/shifts.mp4') }}" type="video/mp4">
+                            <source src="/vidoes/shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('vidoes/Shifts.mp4') }}" type="video/mp4">
+                            <source src="/vidoes/Shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('vidoes/supervision-shifts.mp4') }}" type="video/mp4">
+                            <source src="/vidoes/supervision-shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('vidoes/supervision_and_shifts.mp4') }}" type="video/mp4">
+                            <source src="/vidoes/supervision_and_shifts.mp4" type="video/mp4">
+                            <!-- مجلد videos -->
                             <source src="{{ asset('videos/Supervision and shifts.mp4') }}" type="video/mp4">
                             <source src="/videos/Supervision and shifts.mp4" type="video/mp4">
-                            متصفحك لا يدعم تشغيل الفيديو المباشر.
+                            <source src="{{ asset('videos/Supervision%20and%20shifts.mp4') }}" type="video/mp4">
+                            <source src="/videos/Supervision%20and%20shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('videos/supervision and shifts.mp4') }}" type="video/mp4">
+                            <source src="/videos/supervision and shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('videos/supervision%20and%20shifts.mp4') }}" type="video/mp4">
+                            <source src="/videos/supervision%20and%20shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('videos/Supervision and Shifts.mp4') }}" type="video/mp4">
+                            <source src="/videos/Supervision and Shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('videos/Supervision%20and%20Shifts.mp4') }}" type="video/mp4">
+                            <source src="/videos/Supervision%20and%20Shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('videos/supervision.mp4') }}" type="video/mp4">
+                            <source src="/videos/supervision.mp4" type="video/mp4">
+                            <source src="{{ asset('videos/Supervision.mp4') }}" type="video/mp4">
+                            <source src="/videos/Supervision.mp4" type="video/mp4">
+                            <source src="{{ asset('videos/shifts.mp4') }}" type="video/mp4">
+                            <source src="/videos/shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('videos/Shifts.mp4') }}" type="video/mp4">
+                            <source src="/videos/Shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('videos/supervision-shifts.mp4') }}" type="video/mp4">
+                            <source src="/videos/supervision-shifts.mp4" type="video/mp4">
+                            <source src="{{ asset('videos/supervision_and_shifts.mp4') }}" type="video/mp4">
+                            <source src="/videos/supervision_and_shifts.mp4" type="video/mp4">
+                            متصفحك لا يدعم تشغيل الفيديو المباشر، يرجى استخدام متصفح حديث.
                         </video>
                         <div class="carnet-video-caption">
                             <span>📹 فيديو توضيحي مسجل: شرح تعريف وبنك المهام وجداول الإشراف والمناوبة وتكليف الفرق</span>
-                            <span>الملف: <code>/videos/Supervision and shifts.mp4</code></span>
+                            <span>مسار الفيديو: <code>/vidoes/Supervision and shifts.mp4</code></span>
                         </div>
                     </div>
                 </section>
@@ -1459,14 +1507,31 @@
                 <h2>مشاهدة فيديو شرح توزيع ومتابعة المهام (Distribution of tasks)</h2>
             </div>
             <div class="carnet-video-box">
-                <video controls preload="auto" class="carnet-video-element" id="playerTaskDistribution">
+                <video controls preload="metadata" class="carnet-video-element" id="playerTaskDistribution">
+                    <!-- مجلد vidoes (المجلد الفعلي المستخدم على السيرفر) -->
+                    <source src="{{ asset('vidoes/tasks.mp4') }}" type="video/mp4">
+                    <source src="/vidoes/tasks.mp4" type="video/mp4">
+                    <source src="{{ asset('vidoes/Tasks.mp4') }}" type="video/mp4">
+                    <source src="/vidoes/Tasks.mp4" type="video/mp4">
+                    <source src="{{ asset('vidoes/Distribution of tasks.mp4') }}" type="video/mp4">
+                    <source src="/vidoes/Distribution of tasks.mp4" type="video/mp4">
+                    <source src="{{ asset('vidoes/Distribution%20of%20tasks.mp4') }}" type="video/mp4">
+                    <source src="/vidoes/Distribution%20of%20tasks.mp4" type="video/mp4">
+
+                    <!-- مجلد videos الاحتياطي -->
+                    <source src="{{ asset('videos/tasks.mp4') }}" type="video/mp4">
+                    <source src="/videos/tasks.mp4" type="video/mp4">
+                    <source src="{{ asset('videos/Tasks.mp4') }}" type="video/mp4">
+                    <source src="/videos/Tasks.mp4" type="video/mp4">
                     <source src="{{ asset('videos/Distribution of tasks.mp4') }}" type="video/mp4">
                     <source src="/videos/Distribution of tasks.mp4" type="video/mp4">
-                    متصفحك لا يدعم تشغيل الفيديو المباشر.
+                    <source src="{{ asset('videos/Distribution%20of%20tasks.mp4') }}" type="video/mp4">
+                    <source src="/videos/Distribution%20of%20tasks.mp4" type="video/mp4">
+                    متصفحك لا يدعم تشغيل الفيديو المباشر، يرجى استخدام متصفح حديث.
                 </video>
                 <div class="carnet-video-caption">
                     <span>📹 فيديو توضيحي مسجل: دورة إسناد وتوزيع المهام ومتابعة تقييم الإنجاز</span>
-                    <span>الملف: <code>/videos/Distribution of tasks.mp4</code></span>
+                    <span>مسار الفيديو: <code>/vidoes/tasks.mp4</code></span>
                 </div>
             </div>
         </section>
@@ -1523,14 +1588,46 @@
                 <h2>مشاهدة فيديو شرح الملاحظات الأسبوعية (Weekly notes)</h2>
             </div>
             <div class="carnet-video-box">
-                <video controls preload="auto" class="carnet-video-element" id="playerWeeklyNotes">
+                <video controls preload="metadata" class="carnet-video-element" id="playerWeeklyNotes">
+                    <!-- مجلد vidoes -->
+                    <source src="{{ asset('vidoes/Weekly notes.mp4') }}" type="video/mp4">
+                    <source src="/vidoes/Weekly notes.mp4" type="video/mp4">
+                    <source src="{{ asset('vidoes/Weekly%20notes.mp4') }}" type="video/mp4">
+                    <source src="/vidoes/Weekly%20notes.mp4" type="video/mp4">
+                    <source src="{{ asset('vidoes/weekly notes.mp4') }}" type="video/mp4">
+                    <source src="/vidoes/weekly notes.mp4" type="video/mp4">
+                    <source src="{{ asset('vidoes/weekly%20notes.mp4') }}" type="video/mp4">
+                    <source src="/vidoes/weekly%20notes.mp4" type="video/mp4">
+                    <source src="{{ asset('vidoes/Weekly Notes.mp4') }}" type="video/mp4">
+                    <source src="/vidoes/Weekly Notes.mp4" type="video/mp4">
+                    <source src="{{ asset('vidoes/Weekly%20Notes.mp4') }}" type="video/mp4">
+                    <source src="/vidoes/Weekly%20Notes.mp4" type="video/mp4">
+                    <source src="{{ asset('vidoes/weekly-notes.mp4') }}" type="video/mp4">
+                    <source src="/vidoes/weekly-notes.mp4" type="video/mp4">
+                    <source src="{{ asset('vidoes/weekly_notes.mp4') }}" type="video/mp4">
+                    <source src="/vidoes/weekly_notes.mp4" type="video/mp4">
+                    <!-- مجلد videos -->
                     <source src="{{ asset('videos/Weekly notes.mp4') }}" type="video/mp4">
                     <source src="/videos/Weekly notes.mp4" type="video/mp4">
-                    متصفحك لا يدعم تشغيل الفيديو المباشر.
+                    <source src="{{ asset('videos/Weekly%20notes.mp4') }}" type="video/mp4">
+                    <source src="/videos/Weekly%20notes.mp4" type="video/mp4">
+                    <source src="{{ asset('videos/weekly notes.mp4') }}" type="video/mp4">
+                    <source src="/videos/weekly notes.mp4" type="video/mp4">
+                    <source src="{{ asset('videos/weekly%20notes.mp4') }}" type="video/mp4">
+                    <source src="/videos/weekly%20notes.mp4" type="video/mp4">
+                    <source src="{{ asset('videos/Weekly Notes.mp4') }}" type="video/mp4">
+                    <source src="/videos/Weekly Notes.mp4" type="video/mp4">
+                    <source src="{{ asset('videos/Weekly%20Notes.mp4') }}" type="video/mp4">
+                    <source src="/videos/Weekly%20Notes.mp4" type="video/mp4">
+                    <source src="{{ asset('videos/weekly-notes.mp4') }}" type="video/mp4">
+                    <source src="/videos/weekly-notes.mp4" type="video/mp4">
+                    <source src="{{ asset('videos/weekly_notes.mp4') }}" type="video/mp4">
+                    <source src="/videos/weekly_notes.mp4" type="video/mp4">
+                    متصفحك لا يدعم تشغيل الفيديو المباشر، يرجى استخدام متصفح حديث.
                 </video>
                 <div class="carnet-video-caption">
                     <span>📹 فيديو توضيحي مسجل: توثيق الملاحظات الميدانية والتقارير الأسبوعية</span>
-                    <span>الملف: <code>/videos/Weekly notes.mp4</code></span>
+                    <span>مسار الفيديو: <code>/vidoes/Weekly notes.mp4</code></span>
                 </div>
             </div>
         </section>

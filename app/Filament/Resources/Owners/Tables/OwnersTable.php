@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Owners\Tables;
 
+use App\Enums\GeneralStatus;
 use App\Services\PhoneService;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -10,6 +11,7 @@ use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Storage;
 
 class OwnersTable
 {
@@ -20,13 +22,21 @@ class OwnersTable
                 ImageColumn::make('image')
                     ->label(__('owners.fields.image'))
                     ->circular()
-                    ->defaultImageUrl(url('/images/default-avatar.png')),
+                    ->disk('public')
+                    ->getStateUsing(function ($record) {
+                        if (! empty($record->image) && Storage::disk('public')->exists($record->image)) {
+                            return $record->image;
+                        }
+
+                        return null;
+                    })
+                    ->defaultImageUrl(fn ($record) => 'https://ui-avatars.com/api/?name='.urlencode(mb_substr($record->user?->name ?? 'م', 0, 2)).'&background=1a4478&color=ffffff'),
 
                 TextColumn::make('user.name')
                     ->label(__('owners.fields.name'))
                     ->searchable()
                     ->sortable()
-                    ->description(fn ($record) => ($record->user?->phone ? '📱 ' . PhoneService::format($record->user->phone) : '') . ($record->user?->email ? ' | ✉️ ' . $record->user->email : '')),
+                    ->description(fn ($record) => ($record->user?->phone ? '📱 '.PhoneService::format($record->user->phone) : '').($record->user?->email ? ' | ✉️ '.$record->user->email : '')),
 
                 TextColumn::make('company.trade_name')
                     ->label(__('owners.fields.company'))
@@ -55,7 +65,7 @@ class OwnersTable
 
                 SelectFilter::make('status')
                     ->label(__('owners.fields.status'))
-                    ->options(\App\Enums\GeneralStatus::class),
+                    ->options(GeneralStatus::class),
             ])
             ->recordActions([
                 EditAction::make()->label(__('employees.actions.edit')),

@@ -4,9 +4,9 @@ namespace App\Filament\Resources\Attendance\Schemas;
 
 use App\Enums\AttendanceSource;
 use App\Enums\AttendanceStatus;
-use App\Enums\UserType;
 use App\Models\Employee;
 use App\Services\AttendancePenaltyService;
+use App\Services\CompanyFormService;
 use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -15,7 +15,6 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Illuminate\Database\Eloquent\Builder;
 
 class AttendanceForm
 {
@@ -27,24 +26,12 @@ class AttendanceForm
                 Section::make(__('attendance.sections.entry_data'))
                     ->columns(3)
                     ->schema([
-                        Select::make('employee_id')
-                            ->label(__('attendance.fields.employee'))
-                            ->relationship(
-                                name: 'employee',
-                                titleAttribute: 'id',
-                                modifyQueryUsing: function (Builder $query) {
-                                    $user = auth()->user();
-                                    if ($user && !$user->hasRole('Super Admin') && $user->user_type !== UserType::SUPER_ADMIN && $user->user_type !== UserType::OWNER && $user->branch_id) {
-                                        $query->where('branch_id', $user->branch_id);
-                                    }
-                                }
-                            )
-                            ->getOptionLabelFromRecordUsing(fn (Employee $record) => $record->user?->name ?? "موظف #{$record->id}")
-                            ->searchable()
-                            ->preload()
+                        CompanyFormService::makeEmployeeSelect(
+                            label: __('attendance.fields.employee'),
+                            required: true,
+                        )
                             ->live()
-                            ->afterStateUpdated(fn (callable $set, callable $get) => static::calculateAttendanceMetrics($set, $get))
-                            ->required(),
+                            ->afterStateUpdated(fn (callable $set, callable $get) => static::calculateAttendanceMetrics($set, $get)),
 
                         DatePicker::make('date')
                             ->label(__('attendance.fields.date'))
@@ -79,21 +66,21 @@ class AttendanceForm
                             ->default(0)
                             ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
                             ->helperText('يتم احتساب دقائق التأخير آلياً بناءً على مواعيد الفرع وفترة السماح')
-                            ->suffix(' ' . __('attendance.units.minute')),
+                            ->suffix(' '.__('attendance.units.minute')),
 
                         TextInput::make('overtime_hours')
                             ->label(__('attendance.fields.overtime_hours'))
                             ->numeric()
                             ->default(0)
                             ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
-                            ->suffix(' ' . __('attendance.units.minute')),
+                            ->suffix(' '.__('attendance.units.minute')),
 
                         TextInput::make('total_hours')
                             ->label(__('attendance.fields.total_hours'))
                             ->numeric()
                             ->default(8.5)
                             ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
-                            ->suffix(' ' . __('attendance.units.hour')),
+                            ->suffix(' '.__('attendance.units.hour')),
 
                         Select::make('check_in_source')
                             ->label(__('attendance.fields.source'))
@@ -125,7 +112,7 @@ class AttendanceForm
         $date = $get('date') ?? now()->toDateString();
         $employeeId = $get('employee_id');
 
-        if (!$checkIn) {
+        if (! $checkIn) {
             return;
         }
 

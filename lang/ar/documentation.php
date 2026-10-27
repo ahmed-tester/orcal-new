@@ -372,13 +372,13 @@ return [
         'card_leaves_title' => 'الإجازات والأرصدة (Leaves)',
         'card_leaves_en' => 'LEAVE MANAGEMENT & BALANCES',
         'card_leaves_desc' => 'إدارة طلبات الإجازات السنوية والمرضية والاضطرارية، رصيد الإجازات وفق نظام العمل السعودي، وسلاسل الموافقات.',
-        
+
         // Saudi Subpage
         'saudi_title' => 'شرح شاشة الموظفين السعوديين (Saudi Employees)',
         'saudi_subtitle' => 'دليل تسجيل الكوادر الوطنية، ربط التأمينات الاجتماعية، حماية الأجور، والتسكين الإداري والمالي.',
         'saudi_video_title' => 'فيديو شرح شاشة الموظفين السعوديين (Saudi Employee)',
         'saudi_video_desc' => 'فيديو توضيحي مسجل يوضح خطوات تسجيل وتسكين الموظف السعودي، وتوثيق راتبه والتأمينات وإعدادات حسابه:',
-        
+
         // Foreign Subpage
         'foreign_title' => 'شرح شاشة الموظفين غير السعوديين (Non-Saudi Employees)',
         'foreign_subtitle' => 'دليل إدارة شؤون المقيمين، الإقامات، الجوازات، رخص العمل عبر قوى، والتأمين الطبي.',
@@ -409,14 +409,15 @@ return [
         'tag' => 'إدارة المهام والعمليات الميدانية',
         'hub_heading' => 'إدارة المهام والإشراف الميداني (Tasks & Operations)',
         'hub_note' => 'الدليل الشامل لإدارة وتعريف بنك المهام القياسية، جداول الإشراف والمناوبة، إسناد ومتابعة المهام للموظفين، وتوثيق الملاحظات الأسبوعية.',
-        'card_supervision_title' => 'تعريف المهام والإشراف والمناوبة (Supervision & Shifts)',
+        'card_supervision_title' => 'تعريف المهام والإشراف والمناوبة',
         'card_supervision_en' => 'SUPERVISION AND SHIFTS & TASK CATALOG',
         'card_supervision_desc' => 'تعريف وبنك المهام القياسية وأوزانها، جدولة فترات الإشراف والمناوبة، تعيين المشرفين وفرق العمل، وتوثيق التزام الورديات.',
-        'card_assignments_title' => 'توزيع ومتابعة المهام (Task Assignments)',
+        'card_assignments_title' => 'توزيع ومتابعة المهام',
         'card_assignments_en' => 'TASK ASSIGNMENTS & TRACKING',
         'card_assignments_desc' => 'إسناد المهام للموظفين، توزيع الأوزان النسبية، تقييم درجات الإنجاز ونسب التنفيذ، وربط المتابعة بالأداء الوظيفي.',
-        'card_notes_title' => 'الملاحظات الأسبوعية (Weekly Notes)',
+        'card_notes_title' => 'الملاحظات الأسبوعية الميدانية',
         'card_notes_en' => 'WEEKLY OPERATIONAL NOTES',
+        'card_notes_desc' => 'تسجيل الملاحظات الميدانية والتقارير الأسبوعية الدورية، رصد التحديات التشغيلية، ومتابعة تنفيذ التوصيات الإدارية.',
     ],
 
     // Contracts & Invoicing Guide (المبيعات والعقود والفوترة)
