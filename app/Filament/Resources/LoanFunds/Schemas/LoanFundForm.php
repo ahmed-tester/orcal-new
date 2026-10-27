@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\LoanFunds\Schemas;
 
 use App\Enums\FundGeneralStatus;
-use App\Filament\Components\OrgSelect;
+// use App\Filament\Components\OrgSelect;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -32,7 +32,7 @@ class LoanFundForm
                             ->label(__('funds.loan_funds.fields.fund_name'))
                             ->required(),
 
-                        OrgSelect::company('company_id', __('funds.loan_funds.fields.company')),
+                        // OrgSelect::company('company_id', __('funds.loan_funds.fields.company')),
 
                         TextInput::make('target_amount')
                             ->label(__('funds.loan_funds.fields.target_amount'))

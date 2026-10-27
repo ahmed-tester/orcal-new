@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\RoscaFunds\Schemas;
 
 use App\Enums\RoscaAllocationMethod;
-use App\Filament\Components\OrgSelect;
+// use App\Filament\Components\OrgSelect;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -32,7 +32,7 @@ class RoscaFundForm
                             ->label(__('funds.rosca_funds.fields.fund_name'))
                             ->required(),
 
-                        OrgSelect::company('company_id', __('funds.rosca_funds.fields.company')),
+                        // OrgSelect::company('company_id', __('funds.rosca_funds.fields.company')),
 
                         DatePicker::make('start_date')
                             ->label(__('funds.rosca_funds.fields.start_date'))

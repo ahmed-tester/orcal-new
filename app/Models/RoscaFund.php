@@ -25,7 +25,7 @@ class RoscaFund extends Model
 
 
     protected $fillable = [
-        'company_id',
+        // 'company_id',
         'fund_number',
         'fund_name',
         'start_date',
@@ -66,16 +66,17 @@ class RoscaFund extends Model
     protected static function booted(): void
     {
         static::creating(function (RoscaFund $fund) {
-            if (empty($fund->company_id)) {
-                $fund->company_id = auth()->user()?->company_id ?? auth()->user()?->employee?->company_id;
-            }
+            // if (empty($fund->company_id)) {
+            //     $fund->company_id = auth()->user()?->company_id ?? auth()->user()?->employee?->company_id;
+            // }
 
             if (empty($fund->fund_number)) {
                 $fund->fund_number = CodeGeneratorService::generate(
                     modelClass: static::class,
                     column: 'fund_number',
                     prefix: 'RF',
-                    companyId: $fund->company_id,
+                    // companyId: $fund->company_id,
+                    companyId: null,
                 );
             }
 

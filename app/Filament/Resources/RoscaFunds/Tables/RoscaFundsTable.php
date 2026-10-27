@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\RoscaFunds\Tables;
 
-use App\Filament\Components\OrgSelect;
+// use App\Filament\Components\OrgSelect;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -30,7 +30,7 @@ class RoscaFundsTable
                     ->sortable()
                     ->weight('bold'),
 
-                OrgSelect::tableColumnCompany('company.trade_name', __('funds.rosca_funds.fields.company')),
+                // OrgSelect::tableColumnCompany('company.trade_name', __('funds.rosca_funds.fields.company')),
 
                 TextColumn::make('members_count')
                     ->label(__('funds.rosca_funds.fields.members_count'))

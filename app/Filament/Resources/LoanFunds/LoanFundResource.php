@@ -7,7 +7,7 @@ use App\Filament\Resources\LoanFunds\Pages\EditLoanFund;
 use App\Filament\Resources\LoanFunds\Pages\ListLoanFunds;
 use App\Filament\Resources\LoanFunds\Schemas\LoanFundForm;
 use App\Filament\Resources\LoanFunds\Tables\LoanFundsTable;
-use App\Filament\Traits\HasCompanyScope;
+// use App\Filament\Traits\HasCompanyScope;
 use App\Models\LoanFund;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -16,7 +16,7 @@ use Filament\Tables\Table;
 
 class LoanFundResource extends Resource
 {
-    use HasCompanyScope;
+    // use HasCompanyScope;
 
     protected static ?string $model = LoanFund::class;
 
