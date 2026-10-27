@@ -68,7 +68,8 @@ class LoanFundMember extends Model
                 if ($employee) {
                     $member->full_name = $member->full_name ?: ($employee->user?->name ?? $employee->id);
                     $member->phone = $member->phone ?: ($employee->user?->phone ?? $employee->phone);
-                    $member->national_id = $member->national_id ?: ($employee->saudiDetail?->national_id ?? $employee->foreignDetail?->iqama_number);
+                    // $member->national_id = $member->national_id ?: ($employee->saudiDetail?->national_id ?? $employee->foreignDetail?->iqama_number);
+                    $member->national_id = $member->national_id ?: ($employee->details?->national_id ?? $employee->saudiDetail?->national_id);
                 }
             }
         });

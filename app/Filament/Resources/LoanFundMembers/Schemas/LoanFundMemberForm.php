@@ -3,9 +3,11 @@
 namespace App\Filament\Resources\LoanFundMembers\Schemas;
 
 use App\Enums\FundPaymentStatus;
+use App\Enums\UserType;
 use App\Models\Employee;
 use App\Models\LoanFund;
 use App\Services\CompanyFormService;
+use App\Services\FundFormService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -13,6 +15,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Builder;
 
 class LoanFundMemberForm
 {
@@ -51,10 +54,27 @@ class LoanFundMemberForm
                             ->required()
                             ->reactive(),
 
-                        CompanyFormService::makeEmployeeSelect(
-                            label: __('funds.loan_fund_members.fields.employee'),
-                            required: false,
-                        )
+                        Select::make('employee_id')
+                            ->label(__('funds.loan_fund_members.fields.employee'))
+                            ->relationship(
+                                name: 'employee',
+                                modifyQueryUsing: fn (Builder $query) => $query
+                                    ->withoutGlobalScopes()
+                                    ->with(['user', 'details'])
+                                    ->where('status', 'active')
+                                    ->saudi()
+                            )
+                            ->getOptionLabelFromRecordUsing(
+                                fn ($record) => ($record->user?->name ?? "موظف #{$record->id}").($record->employee_number ? " ({$record->employee_number})" : '')
+                            )
+                            ->searchable()
+                            ->preload()
+                            ->nullable()
+                            // FundFormService::makeSaudiEmployeeSelect(
+                            //     name: 'employee_id',
+                            //     label: __('funds.loan_fund_members.fields.employee'),
+                            //     required: false,
+                            // )
                             ->visible(fn (callable $get) => $get('member_type') === 'employee')
                             ->reactive()
                             ->afterStateUpdated(function ($state, callable $set) {
@@ -63,10 +83,17 @@ class LoanFundMemberForm
                                     if ($employee) {
                                         $set('full_name', $employee->user?->name);
                                         $set('phone', $employee->user?->phone ?? $employee->phone);
-                                        $set('national_id', $employee->saudiDetail?->national_id ?? $employee->foreignDetail?->iqama_number);
+                                        // $set('national_id', $employee->saudiDetail?->national_id ?? $employee->foreignDetail?->iqama_number);
+                                        $set('national_id', $employee->details?->national_id ?? $employee->saudiDetail?->national_id);
                                     }
                                 }
                             }),
+
+                        // CompanyFormService::makeEmployeeSelect(
+                        //     label: __('funds.loan_fund_members.fields.employee'),
+                        //     required: false,
+                        //     saudiOnly: true,
+                        // ),
 
                         TextInput::make('full_name')
                             ->label(__('funds.loan_fund_members.fields.full_name'))
