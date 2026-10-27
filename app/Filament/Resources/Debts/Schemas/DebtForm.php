@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Debts\Schemas;
 
 use App\Filament\Components\OrgSelect;
 use App\Models\Employee;
+use App\Services\CompanyFormService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -77,7 +78,7 @@ class DebtForm
                             ->options([
                                 'pending' => __('debts.statuses.pending'),
                                 'partial' => __('debts.statuses.partial'),
-                                'paid'    => __('debts.statuses.paid'),
+                                'paid' => __('debts.statuses.paid'),
                                 'overdue' => __('debts.statuses.overdue'),
                             ])
                             ->default('pending')
@@ -93,12 +94,11 @@ class DebtForm
                     ->schema([
                         OrgSelect::company('company_id', __('debts.fields.company'), ['employee_id']),
 
-                        Select::make('employee_id')
-                            ->label(__('debts.fields.employee'))
-                            ->relationship('employee', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
-                            ->searchable()
-                            ->preload()
+                        CompanyFormService::makeEmployeeSelect(
+                            label: __('debts.fields.employee'),
+                            required: false,
+                            companyFieldName: 'company_id',
+                        )
                             ->reactive()
                             ->afterStateUpdated(function ($state, callable $set) {
                                 if ($state) {
@@ -152,7 +152,7 @@ class DebtForm
                         Select::make('guarantor_id')
                             ->label(__('debts.fields.guarantor'))
                             ->relationship('guarantor', 'name')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->name} " . ($record->national_id ? "({$record->national_id})" : '') . ($record->phone ? " - {$record->phone}" : ''))
+                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->name} ".($record->national_id ? "({$record->national_id})" : '').($record->phone ? " - {$record->phone}" : ''))
                             ->searchable(['name', 'national_id', 'phone'])
                             ->preload()
                             ->createOptionModalHeading(__('guarantors.actions.create'))
@@ -213,8 +213,8 @@ class DebtForm
                             ->required()
                             ->reactive()
                             ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                $total = (float)($state ?? 0);
-                                $paid = (float)($get('paid_amount') ?? 0);
+                                $total = (float) ($state ?? 0);
+                                $paid = (float) ($get('paid_amount') ?? 0);
                                 $set('remaining_amount', max(0, $total - $paid));
                             }),
 
@@ -251,19 +251,19 @@ class DebtForm
                     ->collapsed(true)
                     ->collapsible()
                     ->schema([
-                        Select::make('notify_employee_id')
-                            ->label(__('debts.fields.notify_employee'))
-                            ->relationship('notifyEmployee', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
-                            ->searchable()
-                            ->preload(),
+                        CompanyFormService::makeEmployeeSelect(
+                            name: 'notify_employee_id',
+                            label: __('debts.fields.notify_employee'),
+                            required: false,
+                            relationshipName: 'notifyEmployee',
+                        ),
 
-                        Select::make('executed_by')
-                            ->label(__('debts.fields.executed_by'))
-                            ->relationship('executor', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single') . " #{$record->id}"))
-                            ->searchable()
-                            ->preload()
+                        CompanyFormService::makeEmployeeSelect(
+                            name: 'executed_by',
+                            label: __('debts.fields.executed_by'),
+                            required: false,
+                            relationshipName: 'executor',
+                        )
                             ->default(fn () => auth()->user()?->employee?->id)
                             ->disabled(fn () => ! (auth()->user()?->isSuperAdmin() ?? false))
                             ->dehydrated(),

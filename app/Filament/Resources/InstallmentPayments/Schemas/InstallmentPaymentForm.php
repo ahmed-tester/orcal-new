@@ -8,6 +8,7 @@ use App\Enums\InstallmentStatus;
 use App\Filament\Components\OrgSelect;
 use App\Models\Employee;
 use App\Models\Installment;
+use App\Services\CompanyFormService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -144,12 +145,12 @@ class InstallmentPaymentForm
                             ->preload()
                             ->visible(fn (callable $get) => ($get('payment_source') instanceof InstallmentPaymentSource ? $get('payment_source')->value : $get('payment_source')) === 'payroll_deduction'),
 
-                        Select::make('executed_by')
-                            ->label(__('finance.installment_payments.fields.executed_by'))
-                            ->relationship('executor', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "موظف #{$record->id}")
-                            ->searchable()
-                            ->preload()
+                        CompanyFormService::makeEmployeeSelect(
+                            name: 'executed_by',
+                            label: __('finance.installment_payments.fields.executed_by'),
+                            required: false,
+                            relationshipName: 'executor',
+                        )
                             ->default(fn () => auth()->user()?->employee?->id)
                             ->disabled(fn () => ! (auth()->user()?->isSuperAdmin() ?? false))
                             ->dehydrated(),
@@ -170,6 +171,12 @@ class InstallmentPaymentForm
         return Select::make('employee_id')
             ->label(__('finance.installment_payments.fields.employee'))
             ->relationship('employee', 'id', fn ($query, callable $get) => static::filterEmployeesWithInstallments($query, $get))
+            ->getSearchResultsUsing(function (Select $component, ?string $search) {
+                $query = Employee::query();
+                static::filterEmployeesWithInstallments($query, $component->evaluate(fn (callable $get) => $get));
+
+                return CompanyFormService::employeeSearchResults($search, $query);
+            })
             ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "موظف #{$record->id}")
             ->searchable()
             ->preload()

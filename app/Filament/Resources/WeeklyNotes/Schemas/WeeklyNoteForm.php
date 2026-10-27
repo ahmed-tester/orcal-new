@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\WeeklyNotes\Schemas;
 
 use App\Enums\WeeklyNoteStatus;
+use App\Services\CompanyFormService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
@@ -24,7 +25,7 @@ class WeeklyNoteForm
                     ->schema([
                         TextInput::make('voucher_number')
                             ->label(__('weekly_notes.fields.voucher_number'))
-                            ->default(fn () => 'WN-' . date('Ymd') . '-' . rand(100, 999))
+                            ->default(fn () => 'WN-'.date('Ymd').'-'.rand(100, 999))
                             ->maxLength(50),
 
                         DatePicker::make('note_date')
@@ -32,7 +33,7 @@ class WeeklyNoteForm
                             ->default(now())
                             ->required(),
 
-                        \App\Services\CompanyFormService::makeCompanySelect('company_id', __('weekly_notes.fields.company')),
+                        CompanyFormService::makeCompanySelect('company_id', __('weekly_notes.fields.company')),
 
                         TextInput::make('title')
                             ->label(__('weekly_notes.fields.title'))
@@ -46,13 +47,13 @@ class WeeklyNoteForm
                             ->default(WeeklyNoteStatus::PENDING->value)
                             ->required(),
 
-                        Select::make('assigned_to')
-                            ->label(__('weekly_notes.fields.assigned_to'))
-                            ->relationship('assignedEmployee', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name)
-                            ->searchable()
-                            ->preload()
-                            ->columnSpanFull(),
+                        CompanyFormService::makeEmployeeSelect(
+                            name: 'assigned_to',
+                            label: __('weekly_notes.fields.assigned_to'),
+                            required: false,
+                            relationshipName: 'assignedEmployee',
+                            companyFieldName: 'company_id',
+                        )->columnSpanFull(),
 
                         RichEditor::make('content')
                             ->label(__('weekly_notes.fields.content'))

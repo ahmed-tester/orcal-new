@@ -590,4 +590,11 @@ return [
         'approved' => 'معتمدة',
         'unapproved' => 'غير معتمدة',
     ],
+
+    'approval_actions' => [
+        'approve' => 'اعتماد',
+        'unapprove' => 'إلغاء الاعتماد',
+        'approved_success' => 'تم الاعتماد بنجاح.',
+        'unapproved_success' => 'تم إلغاء الاعتماد بنجاح.',
+    ],
 ];

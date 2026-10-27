@@ -4,6 +4,8 @@ namespace App\Filament\Resources\Owners\Schemas;
 
 use App\Filament\Resources\Owners\Pages\CreateOwner;
 use App\Filament\Resources\Owners\Pages\EditOwner;
+use App\Models\Setting;
+use App\Models\User;
 use App\Services\CompanyFormService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
@@ -31,7 +33,7 @@ class OwnerForm
                             ->label(__('owners.fields.email'))
                             ->email()
                             ->nullable()
-                            ->unique(\App\Models\User::class, 'email', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
+                            ->unique(User::class, 'email', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
                                 return $record?->user_id ? $rule->ignore($record->user_id) : $rule;
                             }),
 
@@ -39,7 +41,7 @@ class OwnerForm
                             ->nullable()
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn ($state, callable $set) => $set('user_phone', PhoneService::normalize($state) ?? $state))
-                            ->unique(\App\Models\User::class, 'phone', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
+                            ->unique(User::class, 'phone', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
                                 return $record?->user_id ? $rule->ignore($record->user_id) : $rule;
                             }),
 
@@ -79,7 +81,7 @@ class OwnerForm
                             ->native(false)
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set) {
-                                if (!empty($state)) {
+                                if (! empty($state)) {
                                     $set('status', 'inactive');
                                 }
                             }),
@@ -91,9 +93,10 @@ class OwnerForm
 
                         FileUpload::make('image')
                             ->label(__('owners.fields.image'))
+                            ->disk('public')
                             ->directory('owners/images')
                             ->image()
-                            ->maxSize(\App\Models\Setting::getMaxUploadSizeKb())
+                            ->maxSize(Setting::getMaxUploadSizeKb())
                             ->columnSpanFull(),
                     ]),
             ]);

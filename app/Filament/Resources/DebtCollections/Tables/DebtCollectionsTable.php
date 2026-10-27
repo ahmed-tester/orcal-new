@@ -3,14 +3,13 @@
 namespace App\Filament\Resources\DebtCollections\Tables;
 
 use App\Enums\ApprovalStatus;
+use App\Filament\Components\ApprovalActions;
 use App\Filament\Resources\DebtCollections\DebtCollectionResource;
-use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -103,37 +102,7 @@ class DebtCollectionsTable
                     ]),
             ])
             ->recordActions([
-                Action::make('approve')
-                    ->label(__('debts.collections.actions.approve'))
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn ($record) => auth()->user()?->can('approve_debt_collection') && ! $record->isApproved())
-                    ->requiresConfirmation()
-                    ->action(function ($record) {
-                        $record->status = ApprovalStatus::APPROVED;
-                        $record->save();
-
-                        Notification::make()
-                            ->title(__('debts.collections.actions.approved_success'))
-                            ->success()
-                            ->send();
-                    }),
-
-                Action::make('unapprove')
-                    ->label(__('debts.collections.actions.unapprove'))
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('gray')
-                    ->visible(fn ($record) => auth()->user()?->can('approve_debt_collection') && $record->isApproved())
-                    ->requiresConfirmation()
-                    ->action(function ($record) {
-                        $record->status = ApprovalStatus::UNAPPROVED;
-                        $record->save();
-
-                        Notification::make()
-                            ->title(__('debts.collections.actions.unapproved_success'))
-                            ->warning()
-                            ->send();
-                    }),
+                ...ApprovalActions::make('approve_debt_collection', translationKey: 'debts.collections.actions'),
 
                 ActionGroup::make([
                     EditAction::make(),

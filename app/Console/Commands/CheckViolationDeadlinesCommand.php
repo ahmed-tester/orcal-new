@@ -35,7 +35,7 @@ class CheckViolationDeadlinesCommand extends Command
             $remaining = number_format($violation->remaining_amount, 2) . ' ' . __('violations.transactions.stats.unit');
 
             // Find notifiable users (Superadmins and Company Owners/Users)
-            $superAdmins = User::where('role', 'super_admin')->get();
+            $superAdmins = User::role('super_admin')->get();
             $companyUser = $company?->owner?->user;
             $notifiableUsers = $superAdmins->when($companyUser, fn ($collection) => $collection->push($companyUser))->unique('id');
 

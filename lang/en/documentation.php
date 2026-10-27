@@ -372,13 +372,13 @@ return [
         'card_leaves_title' => 'Leave Management & Balances',
         'card_leaves_en' => 'LEAVE MANAGEMENT & BALANCES',
         'card_leaves_desc' => 'Annual, sick, and emergency leave requests, statutory balance calculations per Saudi Labor Law, and approval hierarchies.',
-        
+
         // Saudi Subpage
         'saudi_title' => 'Saudi Employees Guide',
         'saudi_subtitle' => 'National talent onboarding, GOSI social insurance compliance, Wage Protection System, and organizational placement.',
         'saudi_video_title' => 'Watch Saudi Employee Onboarding Video',
         'saudi_video_desc' => 'Video demonstration covering step-by-step creation of Saudi employee records, salary breakdown, and access permissions:',
-        
+
         // Foreign Subpage
         'foreign_title' => 'Non-Saudi Employees Guide',
         'foreign_subtitle' => 'Resident staff administration, Iqama & passport expiries, Qiwa work permits, and health insurance.',
@@ -417,6 +417,7 @@ return [
         'card_assignments_desc' => 'Assigning tasks to staff, weighting scores, tracking completion rates, and connecting execution to appraisals.',
         'card_notes_title' => 'Weekly Notes',
         'card_notes_en' => 'WEEKLY OPERATIONAL NOTES',
+        'card_notes_desc' => 'Recording weekly field notes, periodic operational reports, tracking bottlenecks, and monitoring administrative recommendations.',
     ],
 
     // Contracts & Invoicing Guide

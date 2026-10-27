@@ -2,12 +2,19 @@
 
 namespace App\Models;
 
-
+use App\Enums\EmploymentType;
+use App\Enums\GeneralStatus;
+use App\Enums\UserType;
+use App\Services\CodeGeneratorService;
+use App\Services\EmployeeAgeService;
 use App\Traits\HasHijriDates;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 class Employee extends Model
 {
@@ -21,7 +28,6 @@ class Employee extends Model
             'contract_end_date',
         ];
     }
-
 
     protected $fillable = [
         'user_id',
@@ -63,15 +69,15 @@ class Employee extends Model
             'hourly_rate' => 'decimal:2',
             'daily_work_hours' => 'decimal:1',
             'weekly_work_hours' => 'decimal:1',
-            'employment_type' => \App\Enums\EmploymentType::class,
-            'status' => \App\Enums\GeneralStatus::class,
+            'employment_type' => EmploymentType::class,
+            'status' => GeneralStatus::class,
             'metadata' => 'array',
         ];
     }
 
     public static function generateNextEmployeeNumber(?int $companyId = null): string
     {
-        return \App\Services\CodeGeneratorService::generate(
+        return CodeGeneratorService::generate(
             modelClass: static::class,
             column: 'employee_number',
             prefix: 'EMP',
@@ -89,7 +95,20 @@ class Employee extends Model
         });
 
         static::saving(function (Employee $employee) {
-            $employee->basic_salary = (float)($employee->basic_salary ?? 0);
+            $employee->basic_salary = (float) ($employee->basic_salary ?? 0);
+        });
+    }
+
+    public function scopeSaudi(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->whereHas('user', fn ($sub) => $sub->whereIn('user_type', [
+                UserType::SAUDI_EMPLOYEE,
+                UserType::OWNER,
+            ]))
+                ->orWhereHas('details', fn ($sub) => $sub->where('nationality', 'like', '%سعود%')
+                    ->orWhere('nationality', 'like', '%saudi%')
+                );
         });
     }
 
@@ -128,7 +147,7 @@ class Employee extends Model
         return $this->hasOne(EmployeeDetail::class, 'employee_id');
     }
 
-    public function guarantor(): \Illuminate\Database\Eloquent\Relations\HasOneThrough
+    public function guarantor(): HasOneThrough
     {
         return $this->hasOneThrough(
             Guarantor::class,
@@ -145,42 +164,42 @@ class Employee extends Model
         return $this->hasOne(Guarantor::class, 'employee_id');
     }
 
-    public function leaves(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function leaves(): HasMany
     {
         return $this->hasMany(Leave::class);
     }
 
-    public function taskAssignments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function taskAssignments(): HasMany
     {
         return $this->hasMany(TaskAssignment::class);
     }
 
-    public function assignedWeeklyNotes(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function assignedWeeklyNotes(): HasMany
     {
         return $this->hasMany(WeeklyNote::class, 'assigned_to');
     }
 
-    public function installments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function installments(): HasMany
     {
         return $this->hasMany(Installment::class);
     }
 
-    public function installmentPayments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function installmentPayments(): HasMany
     {
         return $this->hasMany(InstallmentPayment::class);
     }
 
-    public function payrollRecords(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function payrollRecords(): HasMany
     {
         return $this->hasMany(PayrollRecord::class);
     }
 
-    public function invoices(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
     }
 
-    public function employeeRewards(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function employeeRewards(): HasMany
     {
         return $this->hasMany(EmployeeReward::class);
     }
@@ -192,6 +211,6 @@ class Employee extends Model
 
     public function getAgeAttribute(): ?int
     {
-        return $this->details?->metadata['age'] ?? \App\Services\EmployeeAgeService::calculateAge($this->details?->birth_date);
+        return $this->details?->metadata['age'] ?? EmployeeAgeService::calculateAge($this->details?->birth_date);
     }
 }

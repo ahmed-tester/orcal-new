@@ -187,4 +187,12 @@ return [
             'total_shifts_count' => 'إجمالي عدد التكليفات',
         ],
     ],
+
+    'creator_default' => 'الإدارة',
+
+    'notifications' => [
+        'new_assignment_title' => 'تم تكليفك بمهمة جديدة',
+        'new_assignment_body' => 'تم إسناد تكليف مهام جديد برقم (:number) إليك بواسطة :creator.',
+        'view_assignment' => 'عرض التكليف',
+    ],
 ];

@@ -6,6 +6,7 @@ use App\Enums\ApprovalStatus;
 use App\Filament\Components\OrgSelect;
 use App\Models\Employee;
 use App\Models\Service;
+use App\Services\CompanyFormService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -108,12 +109,11 @@ class ServiceTransactionForm
 
                         OrgSelect::company('company_id', __('services_tracking.fields.company'), ['employee_id']),
 
-                        Select::make('employee_id')
-                            ->label(__('services_tracking.fields.employee'))
-                            ->relationship('employee', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single')." #{$record->id}"))
-                            ->searchable()
-                            ->preload()
+                        CompanyFormService::makeEmployeeSelect(
+                            label: __('services_tracking.fields.employee'),
+                            required: false,
+                            companyFieldName: 'company_id',
+                        )
                             ->visible(fn (callable $get) => $get('service_target') === 'employee')
                             ->reactive()
                             ->afterStateUpdated(function ($state, callable $set) {
@@ -296,12 +296,12 @@ class ServiceTransactionForm
                             ->required()
                             ->reactive(),
 
-                        Select::make('executed_by')
-                            ->label(__('services_tracking.fields.executed_by'))
-                            ->relationship('executor', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? (__('employees.single')." #{$record->id}"))
-                            ->searchable()
-                            ->preload()
+                        CompanyFormService::makeEmployeeSelect(
+                            name: 'executed_by',
+                            label: __('services_tracking.fields.executed_by'),
+                            required: false,
+                            relationshipName: 'executor',
+                        )
                             ->default(fn () => auth()->user()?->employee?->id)
                             ->disabled(fn () => ! (auth()->user()?->isSuperAdmin() ?? false))
                             ->dehydrated(),

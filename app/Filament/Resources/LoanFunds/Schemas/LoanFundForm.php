@@ -46,7 +46,7 @@ class LoanFundForm
                             ->label(__('funds.loan_funds.fields.installment_period'))
                             ->options([
                                 'monthly' => __('funds.enums.installment_period.monthly'),
-                                'yearly'  => __('funds.enums.installment_period.yearly'),
+                                'yearly' => __('funds.enums.installment_period.yearly'),
                             ])
                             ->default('monthly')
                             ->required(),
@@ -81,12 +81,12 @@ class LoanFundForm
                             ->default(FundGeneralStatus::ACTIVE->value)
                             ->required(),
 
-                        Select::make('trustee_employee_id')
-                            ->label(__('funds.loan_funds.fields.trustee_employee'))
-                            ->relationship('trusteeEmployee', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "Employee #{$record->id}")
-                            ->searchable()
-                            ->preload(),
+                        CompanyFormService::makeEmployeeSelect(
+                            name: 'trustee_employee_id',
+                            label: __('funds.loan_funds.fields.trustee_employee'),
+                            required: false,
+                            relationshipName: 'trusteeEmployee',
+                        ),
 
                         TextInput::make('trustee_name')
                             ->label(__('funds.loan_funds.fields.trustee_name')),

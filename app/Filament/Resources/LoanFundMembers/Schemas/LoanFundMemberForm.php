@@ -5,6 +5,7 @@ namespace App\Filament\Resources\LoanFundMembers\Schemas;
 use App\Enums\FundPaymentStatus;
 use App\Models\Employee;
 use App\Models\LoanFund;
+use App\Services\CompanyFormService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -50,12 +51,10 @@ class LoanFundMemberForm
                             ->required()
                             ->reactive(),
 
-                        Select::make('employee_id')
-                            ->label(__('funds.loan_fund_members.fields.employee'))
-                            ->relationship('employee', 'id')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? "Employee #{$record->id}")
-                            ->searchable()
-                            ->preload()
+                        CompanyFormService::makeEmployeeSelect(
+                            label: __('funds.loan_fund_members.fields.employee'),
+                            required: false,
+                        )
                             ->visible(fn (callable $get) => $get('member_type') === 'employee')
                             ->reactive()
                             ->afterStateUpdated(function ($state, callable $set) {
@@ -85,7 +84,7 @@ class LoanFundMemberForm
                         Select::make('status')
                             ->label(__('funds.loan_fund_members.fields.status'))
                             ->options([
-                                'active'   => __('funds.enums.general_status.active'),
+                                'active' => __('funds.enums.general_status.active'),
                                 'inactive' => __('funds.enums.general_status.inactive'),
                             ])
                             ->default('active')
@@ -106,7 +105,7 @@ class LoanFundMemberForm
                             ->default(12)
                             ->minValue(1)
                             ->required()
-                            ->dehydrateStateUsing(fn ($state) => max(1, (int)($state ?: 12)))
+                            ->dehydrateStateUsing(fn ($state) => max(1, (int) ($state ?: 12)))
                             ->reactive()
                             ->afterStateUpdated(fn (callable $set, callable $get) => static::recalculate($set, $get)),
 
@@ -116,7 +115,7 @@ class LoanFundMemberForm
                             ->prefix('SAR')
                             ->default(0)
                             ->required()
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
                             ->reactive()
                             ->afterStateUpdated(fn (callable $set, callable $get) => static::recalculate($set, $get)),
 
@@ -126,7 +125,7 @@ class LoanFundMemberForm
                             ->prefix('SAR')
                             ->disabled()
                             ->dehydrated()
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
                             ->helperText(__('funds.loan_fund_members.helpers.total_annual_amount')),
 
                         TextInput::make('paid_amount')
@@ -134,7 +133,7 @@ class LoanFundMemberForm
                             ->numeric()
                             ->prefix('SAR')
                             ->default(0)
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
                             ->reactive()
                             ->afterStateUpdated(fn (callable $set, callable $get) => static::recalculate($set, $get)),
 
@@ -144,7 +143,7 @@ class LoanFundMemberForm
                             ->prefix('SAR')
                             ->disabled()
                             ->dehydrated()
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0))
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
                             ->helperText(__('funds.loan_fund_members.helpers.remaining_amount')),
 
                         Select::make('payment_status')
@@ -163,10 +162,10 @@ class LoanFundMemberForm
 
     public static function recalculate(callable $set, callable $get): void
     {
-        $count = max(1, (int)($get('installments_count') ?? 12));
-        $monthly = (float)($get('monthly_installment') ?? 0);
+        $count = max(1, (int) ($get('installments_count') ?? 12));
+        $monthly = (float) ($get('monthly_installment') ?? 0);
         $total = round($count * $monthly, 2);
-        $paid = (float)($get('paid_amount') ?? 0);
+        $paid = (float) ($get('paid_amount') ?? 0);
         $remaining = max(0, $total - $paid);
 
         $set('total_annual_amount', $total);
