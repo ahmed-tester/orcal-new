@@ -597,50 +597,57 @@ class CompanyFormService
         bool $required = true,
         string $relationshipName = 'employee',
         ?string $companyFieldName = null,
-        bool $saudiOnly = false
+        bool $saudiOnly = false,
+        bool $ignoreCompanyScope = false,
+        bool $foreignOnly = false
     ): Select {
         return Select::make($name)
             ->label($label ?? __('employees.single'))
             ->relationship(
                 name: $relationshipName,
                 titleAttribute: 'id',
-                modifyQueryUsing: function (Builder $query, callable $get) use ($companyFieldName, $saudiOnly) {
+                modifyQueryUsing: function (Builder $query, callable $get) use ($companyFieldName, $saudiOnly, $ignoreCompanyScope, $foreignOnly) {
                     $user = auth()->user();
-                    $companyId = $companyFieldName ? $get($companyFieldName) : null;
+                    $companyId = (! $ignoreCompanyScope && $companyFieldName) ? $get($companyFieldName) : null;
 
                     $query->with('user')
                         ->where('status', 'active');
 
                     if ($saudiOnly) {
                         $query->saudi();
+                    } elseif ($foreignOnly) {
+                        $query->foreign();
                     }
 
-                    if ($user && method_exists($user, 'canAccessAllBranches') && ! $user->canAccessAllBranches() && $user->branch_id) {
-                        $query->where('branch_id', $user->branch_id);
-                    }
+                    if (! $ignoreCompanyScope) {
+                        if ($user && method_exists($user, 'canAccessAllBranches') && ! $user->canAccessAllBranches() && $user->branch_id) {
+                            $query->where('branch_id', $user->branch_id);
+                        }
 
-                    if ($companyId) {
-                        $query->where('company_id', $companyId);
-                    } elseif ($user && ! $user->isSuperAdmin()) {
-                        $companyIds = static::getAuthorizedCompanyIds($user);
-                        $query->whereIn('company_id', ! empty($companyIds) ? $companyIds : [0]);
+                        if ($companyId) {
+                            $query->where('company_id', $companyId);
+                        } elseif ($user && ! $user->isSuperAdmin()) {
+                            $companyIds = static::getAuthorizedCompanyIds($user);
+                            $query->whereIn('company_id', ! empty($companyIds) ? $companyIds : [0]);
+                        }
                     }
                 },
             )
-            ->getSearchResultsUsing(function (Select $component, ?string $search) use ($companyFieldName, $saudiOnly) {
+            ->getSearchResultsUsing(function (Select $component, ?string $search) use ($companyFieldName, $saudiOnly, $ignoreCompanyScope, $foreignOnly) {
                 $user = auth()->user();
-                $companyId = $companyFieldName ? $component->evaluate(fn (callable $get) => $get($companyFieldName)) : null;
+                $companyId = (! $ignoreCompanyScope && $companyFieldName) ? $component->evaluate(fn (callable $get) => $get($companyFieldName)) : null;
 
                 $query = Employee::query()
                     ->where('status', 'active')
                     ->when($saudiOnly, fn ($q) => $q->saudi())
-                    ->when($user && method_exists($user, 'canAccessAllBranches') && ! $user->canAccessAllBranches() && $user->branch_id, function ($q) use ($user) {
+                    ->when($foreignOnly && ! $saudiOnly, fn ($q) => $q->foreign())
+                    ->when(! $ignoreCompanyScope && $user && method_exists($user, 'canAccessAllBranches') && ! $user->canAccessAllBranches() && $user->branch_id, function ($q) use ($user) {
                         $q->where('branch_id', $user->branch_id);
                     })
-                    ->when($companyId, function ($query, $cid) {
+                    ->when(! $ignoreCompanyScope && $companyId, function ($query, $cid) {
                         $query->where('company_id', $cid);
-                    }, function ($query) use ($user) {
-                        if ($user && ! $user->isSuperAdmin()) {
+                    }, function ($query) use ($user, $ignoreCompanyScope) {
+                        if (! $ignoreCompanyScope && $user && ! $user->isSuperAdmin()) {
                             $companyIds = static::getAuthorizedCompanyIds($user);
                             $query->whereIn('company_id', ! empty($companyIds) ? $companyIds : [0]);
                         }

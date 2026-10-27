@@ -112,6 +112,22 @@ class Employee extends Model
         });
     }
 
+    public function scopeForeign(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->whereHas('user', fn ($sub) => $sub->where('user_type', UserType::FOREIGN_EMPLOYEE))
+                ->orWhere(function (Builder $sub) {
+                    $sub->whereDoesntHave('user', fn ($u) => $u->whereIn('user_type', [
+                        UserType::SAUDI_EMPLOYEE,
+                        UserType::OWNER,
+                    ]))
+                        ->whereHas('details', fn ($d) => $d->where('nationality', 'not like', '%سعود%')
+                            ->where('nationality', 'not like', '%saudi%')
+                        );
+                });
+        });
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

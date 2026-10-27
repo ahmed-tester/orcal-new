@@ -14,7 +14,7 @@ class ForeignEmployee extends Employee
         parent::booted();
 
         static::addGlobalScope('foreign', function (Builder $builder) {
-            $builder->whereHas('user', fn ($query) => $query->where('user_type', UserType::FOREIGN_EMPLOYEE));
+            $builder->foreign();
         });
     }
 }
