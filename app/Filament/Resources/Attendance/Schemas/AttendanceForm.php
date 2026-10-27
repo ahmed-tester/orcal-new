@@ -29,6 +29,7 @@ class AttendanceForm
                         CompanyFormService::makeEmployeeSelect(
                             label: __('attendance.fields.employee'),
                             required: true,
+                            saudiOnly: true,
                         )
                             ->live()
                             ->afterStateUpdated(fn (callable $set, callable $get) => static::calculateAttendanceMetrics($set, $get)),
