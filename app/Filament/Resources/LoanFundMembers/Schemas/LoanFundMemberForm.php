@@ -7,7 +7,7 @@ use App\Enums\UserType;
 use App\Models\Employee;
 use App\Models\LoanFund;
 use App\Services\CompanyFormService;
-use App\Services\FundFormService;
+// use App\Services\FundFormService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -54,27 +54,34 @@ class LoanFundMemberForm
                             ->required()
                             ->reactive(),
 
-                        Select::make('employee_id')
-                            ->label(__('funds.loan_fund_members.fields.employee'))
-                            ->relationship(
-                                name: 'employee',
-                                modifyQueryUsing: fn (Builder $query) => $query
-                                    ->withoutGlobalScopes()
-                                    ->with(['user', 'details'])
-                                    ->where('status', 'active')
-                                    ->saudi()
-                            )
-                            ->getOptionLabelFromRecordUsing(
-                                fn ($record) => ($record->user?->name ?? "موظف #{$record->id}").($record->employee_number ? " ({$record->employee_number})" : '')
-                            )
-                            ->searchable()
-                            ->preload()
-                            ->nullable()
+                        CompanyFormService::makeEmployeeSelect(
+                            name: 'employee_id',
+                            label: __('funds.loan_fund_members.fields.employee'),
+                            required: false,
+                            saudiOnly: true,
+                            ignoreCompanyScope: true,
+                        )
                             // FundFormService::makeSaudiEmployeeSelect(
                             //     name: 'employee_id',
                             //     label: __('funds.loan_fund_members.fields.employee'),
                             //     required: false,
                             // )
+                            // Select::make('employee_id')
+                            //     ->label(__('funds.loan_fund_members.fields.employee'))
+                            //     ->relationship(
+                            //         name: 'employee',
+                            //         modifyQueryUsing: fn (Builder $query) => $query
+                            //             ->withoutGlobalScopes()
+                            //             ->with(['user', 'details'])
+                            //             ->where('status', 'active')
+                            //             ->saudi()
+                            //     )
+                            //     ->getOptionLabelFromRecordUsing(
+                            //         fn ($record) => ($record->user?->name ?? "موظف #{$record->id}").($record->employee_number ? " ({$record->employee_number})" : '')
+                            //     )
+                            //     ->searchable()
+                            //     ->preload()
+                            //     ->nullable()
                             ->visible(fn (callable $get) => $get('member_type') === 'employee')
                             ->reactive()
                             ->afterStateUpdated(function ($state, callable $set) {

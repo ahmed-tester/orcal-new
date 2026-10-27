@@ -5,6 +5,7 @@ namespace App\Filament\Resources\RoscaFundMembers\Schemas;
 use App\Models\Employee;
 use App\Models\RoscaFund;
 use App\Services\CompanyFormService;
+// use App\Services\FundFormService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -12,6 +13,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Builder;
 
 class RoscaFundMemberForm
 {
@@ -53,9 +55,33 @@ class RoscaFundMemberForm
                             ->reactive(),
 
                         CompanyFormService::makeEmployeeSelect(
+                            name: 'employee_id',
                             label: __('funds.rosca_fund_members.fields.employee'),
                             required: false,
+                            saudiOnly: true,
+                            ignoreCompanyScope: true,
                         )
+                            // FundFormService::makeSaudiEmployeeSelect(
+                            //     name: 'employee_id',
+                            //     label: __('funds.rosca_fund_members.fields.employee'),
+                            //     required: false,
+                            // )
+                            // Select::make('employee_id')
+                            //     ->label(__('funds.rosca_fund_members.fields.employee'))
+                            //     ->relationship(
+                            //         name: 'employee',
+                            //         modifyQueryUsing: fn (Builder $query) => $query
+                            //             ->withoutGlobalScopes()
+                            //             ->with(['user', 'details'])
+                            //             ->where('status', 'active')
+                            //             ->saudi()
+                            //     )
+                            //     ->getOptionLabelFromRecordUsing(
+                            //         fn ($record) => ($record->user?->name ?? "موظف #{$record->id}").($record->employee_number ? " ({$record->employee_number})" : '')
+                            //     )
+                            //     ->searchable()
+                            //     ->preload()
+                            //     ->nullable()
                             ->visible(fn (callable $get) => $get('member_type') === 'employee')
                             ->reactive()
                             ->afterStateUpdated(function ($state, callable $set) {
@@ -64,7 +90,8 @@ class RoscaFundMemberForm
                                     if ($employee) {
                                         $set('full_name', $employee->user?->name);
                                         $set('phone', $employee->user?->phone ?? $employee->phone);
-                                        $set('national_id', $employee->saudiDetail?->national_id ?? $employee->foreignDetail?->iqama_number);
+                                        // $set('national_id', $employee->saudiDetail?->national_id ?? $employee->foreignDetail?->iqama_number);
+                                        $set('national_id', $employee->details?->national_id ?? $employee->saudiDetail?->national_id);
                                     }
                                 }
                             }),
