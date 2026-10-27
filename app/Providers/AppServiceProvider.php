@@ -36,6 +36,36 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if (! defined('FILEINFO_MIME_TYPE')) {
+            define('FILEINFO_MIME_TYPE', 16);
+        }
+
+        if (! class_exists('finfo', false)) {
+            eval('class finfo { public function __construct($f=0,$m=null){} public function file($f,$fl=0,$c=null){return false;} public function buffer($s,$fl=0,$c=null){return false;} }');
+        }
+
+        if (request()->has('test-finfo')) {
+            dd([
+                'php_version' => PHP_VERSION,
+                'fileinfo' => extension_loaded('fileinfo'),
+                'finfo_class' => class_exists(\finfo::class),
+            ]);
+        }
+
+        // if (request()->is('*upload-file*')) {
+        //     $file = request()->file('files.0') ?? request()->file('uploaded_file');
+        //     logger()->info('Upload diagnostic', [
+        //         'file_exists' => $file !== null,
+        //         'is_valid' => $file?->isValid(),
+        //         'error_code' => $file?->getError(),
+        //         'error_message' => $file?->getErrorMessage(),
+        //         'upload_max_filesize' => ini_get('upload_max_filesize'),
+        //         'post_max_size' => ini_get('post_max_size'),
+        //         'upload_tmp_dir' => ini_get('upload_tmp_dir'),
+        //         'temp_dir' => sys_get_temp_dir(),
+        //     ]);
+        // }
+
         // Super Admin and Owners have full unrestricted access to everything
         Gate::before(function ($user, $ability) {
             if (method_exists($user, 'isSuperAdminOrOwner') && $user->isSuperAdminOrOwner()) {

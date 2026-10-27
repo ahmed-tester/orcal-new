@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
-
-use App\Traits\HasHijriDates;
 use App\Enums\RoscaAllocationMethod;
 use App\Services\CodeGeneratorService;
+use App\Traits\HasHijriDates;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,7 +22,6 @@ class RoscaFund extends Model
             'end_date',
         ];
     }
-
 
     protected $fillable = [
         // 'company_id',
@@ -90,12 +89,19 @@ class RoscaFund extends Model
 
     public static function calculatePool(RoscaFund $fund): void
     {
-        $count = (int)($fund->members_count ?? 0);
-        $monthly = (float)($fund->monthly_installment ?? 0);
+        $count = (int) ($fund->members_count ?? 0);
+        $monthly = (float) ($fund->monthly_installment ?? 0);
         $fund->total_pool_amount = round($count * $monthly, 2);
 
         if ($fund->start_date && $count > 0 && empty($fund->end_date)) {
-            $fund->end_date = \Carbon\Carbon::parse($fund->start_date)->addMonths($count)->toDateString();
+            $fund->end_date = Carbon::parse($fund->start_date)->addMonths($count)->toDateString();
+        }
+
+        if ($fund->assigned_manager_id) {
+            $manager = User::find($fund->assigned_manager_id);
+            $fund->manager_name = $manager?->name;
+        } else {
+            $fund->manager_name = null;
         }
     }
 

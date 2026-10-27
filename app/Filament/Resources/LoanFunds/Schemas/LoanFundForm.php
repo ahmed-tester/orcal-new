@@ -3,17 +3,12 @@
 namespace App\Filament\Resources\LoanFunds\Schemas;
 
 use App\Enums\FundGeneralStatus;
-use App\Enums\UserType;
-// use App\Filament\Components\OrgSelect;
-use App\Models\Employee;
 use App\Services\CompanyFormService;
-// use App\Services\FundFormService;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Illuminate\Database\Eloquent\Builder;
 
 class LoanFundForm
 {
@@ -36,8 +31,6 @@ class LoanFundForm
                         TextInput::make('fund_name')
                             ->label(__('funds.loan_funds.fields.fund_name'))
                             ->required(),
-
-                        // OrgSelect::company('company_id', __('funds.loan_funds.fields.company')),
 
                         TextInput::make('target_amount')
                             ->label(__('funds.loan_funds.fields.target_amount'))
@@ -94,41 +87,6 @@ class LoanFundForm
                             saudiOnly: true,
                             ignoreCompanyScope: true,
                         ),
-
-                        // FundFormService::makeSaudiEmployeeSelect(
-                        //     name: 'trustee_employee_id',
-                        //     label: __('funds.loan_funds.fields.trustee_employee'),
-                        //     required: false,
-                        //     relationshipName: 'trusteeEmployee',
-                        // ),
-
-                        // Select::make('trustee_employee_id')
-                        //     ->label(__('funds.loan_funds.fields.trustee_employee'))
-                        //     ->relationship(
-                        //         name: 'trusteeEmployee',
-                        //         modifyQueryUsing: fn (Builder $query) => $query
-                        //             ->withoutGlobalScopes()
-                        //             ->with(['user', 'details'])
-                        //             ->where('status', 'active')
-                        //             ->saudi()
-                        //     )
-                        //     ->getOptionLabelFromRecordUsing(
-                        //         fn ($record) => ($record->user?->name ?? "موظف #{$record->id}").($record->employee_number ? " ({$record->employee_number})" : '')
-                        //     )
-                        //     ->searchable()
-                        //     ->preload()
-                        //     ->nullable(),
-
-                        // CompanyFormService::makeEmployeeSelect(
-                        //     name: 'trustee_employee_id',
-                        //     label: __('funds.loan_funds.fields.trustee_employee'),
-                        //     required: false,
-                        //     relationshipName: 'trusteeEmployee',
-                        //     saudiOnly: true,
-                        // ),
-
-                        TextInput::make('trustee_name')
-                            ->label(__('funds.loan_funds.fields.trustee_name')),
                     ]),
 
                 Section::make(__('funds.loan_funds.sections.rules'))
