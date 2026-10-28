@@ -124,6 +124,59 @@
         color: #ffffff;
         box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
     }
+    .btn-print-emerald {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25);
+    }
+    .btn-print-amber {
+        background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(217, 119, 6, 0.25);
+    }
+
+    /* ─── Scope Filter Pills ─── */
+    .scope-pill-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.4rem 0.85rem;
+        border-radius: 0.65rem;
+        font-size: 0.775rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+    }
+    .scope-pill-btn-active {
+        background: #0f172a;
+        color: #ffffff;
+        border-color: #0f172a;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+    }
+    .dark .scope-pill-btn-active {
+        background: #3b82f6;
+        color: #ffffff;
+        border-color: #3b82f6;
+    }
+    .scope-pill-btn-inactive {
+        background: #ffffff;
+        color: #64748b;
+        border-color: #e2e8f0;
+    }
+    .dark .scope-pill-btn-inactive {
+        background: #1e293b;
+        color: #94a3b8;
+        border-color: #334155;
+    }
+    .scope-pill-btn-inactive:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+    }
+    .dark .scope-pill-btn-inactive:hover {
+        background: #334155;
+        color: #ffffff;
+    }
 
     /* ─── Operation Switch ─── */
     .op-switch {
@@ -611,6 +664,271 @@
     .dark .page-btn-inactive:hover {
         background: #334155;
         color: #ffffff;
+    }
+
+    /* ─── Historical Archive Styles ─── */
+    .archive-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        padding: 1.25rem 1.5rem;
+        box-shadow: 0 4px 14px -3px rgba(15, 23, 42, 0.05);
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+    .dark .archive-card {
+        background: #111827;
+        border-color: #1f2937;
+        box-shadow: 0 4px 14px -3px rgba(0, 0, 0, 0.4);
+    }
+    .archive-header-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+        border-bottom: 1px solid #f1f5f9;
+        padding-bottom: 1rem;
+    }
+    .dark .archive-header-bar {
+        border-color: #1e293b;
+    }
+    .archive-year-nav {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        background: #f1f5f9;
+        padding: 0.35rem;
+        border-radius: 0.85rem;
+        border: 1px solid #e2e8f0;
+    }
+    .dark .archive-year-nav {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    .archive-year-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.45rem 1rem;
+        border-radius: 0.65rem;
+        font-weight: 800;
+        font-size: 0.875rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .archive-year-btn-active {
+        background: #0f172a;
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.25);
+    }
+    .dark .archive-year-btn-active {
+        background: #2563eb;
+        color: #ffffff;
+    }
+    .archive-year-btn-inactive {
+        background: transparent;
+        color: #64748b;
+    }
+    .dark .archive-year-btn-inactive {
+        color: #94a3b8;
+    }
+    .archive-year-btn-inactive:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+    }
+    .dark .archive-year-btn-inactive:hover {
+        background: #334155;
+        color: #ffffff;
+    }
+
+    .archive-section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.85rem;
+    }
+    .archive-section-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1rem;
+        font-weight: 800;
+        color: #1e293b;
+    }
+    .dark .archive-section-title {
+        color: #f8fafc;
+    }
+    .archive-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+        gap: 1.15rem;
+    }
+    .archive-file-card {
+        background: #ffffff;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 1rem;
+        padding: 1.15rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.85rem;
+        transition: all 0.25s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .dark .archive-file-card {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    .archive-file-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 22px -4px rgba(15, 23, 42, 0.12);
+        border-color: #3b82f6;
+    }
+    .archive-file-card-payroll::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #1e3a8a, #3b82f6);
+    }
+    .archive-file-card-collection::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #7c3aed, #a855f7);
+    }
+    .archive-file-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+    .archive-file-icon-wrap {
+        width: 2.75rem;
+        height: 2.75rem;
+        border-radius: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .archive-file-icon-payroll {
+        background: #eff6ff;
+        color: #1e40af;
+        border: 1px solid #bfdbfe;
+    }
+    .dark .archive-file-icon-payroll {
+        background: rgba(30, 64, 175, 0.25);
+        color: #93c5fd;
+        border-color: #1e40af;
+    }
+    .archive-file-icon-collection {
+        background: #faf5ff;
+        color: #7e22ce;
+        border: 1px solid #e9d5ff;
+    }
+    .dark .archive-file-icon-collection {
+        background: rgba(126, 34, 206, 0.25);
+        color: #d8b4fe;
+        border-color: #7e22ce;
+    }
+    .archive-file-title {
+        font-weight: 800;
+        font-size: 0.95rem;
+        color: #0f172a;
+        margin-top: 0.2rem;
+    }
+    .dark .archive-file-title {
+        color: #ffffff;
+    }
+    .archive-file-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+        background: #f8fafc;
+        padding: 0.65rem 0.75rem;
+        border-radius: 0.65rem;
+        border: 1px solid #f1f5f9;
+    }
+    .dark .archive-file-stats {
+        background: #111827;
+        border-color: #1f2937;
+    }
+    .archive-stat-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+    }
+    .archive-stat-lbl {
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: #64748b;
+    }
+    .dark .archive-stat-lbl {
+        color: #94a3b8;
+    }
+    .archive-stat-val {
+        font-family: monospace;
+        font-weight: 800;
+        font-size: 0.825rem;
+        color: #0f172a;
+    }
+    .dark .archive-stat-val {
+        color: #f8fafc;
+    }
+    .archive-file-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-top: 0.25rem;
+    }
+    .btn-open-file {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        padding: 0.5rem 0.85rem;
+        border-radius: 0.65rem;
+        font-weight: 700;
+        font-size: 0.8rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: #2563eb;
+        color: #ffffff;
+    }
+    .btn-open-file:hover {
+        background: #1d4ed8;
+        transform: translateY(-1px);
+    }
+    .btn-archive-print {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem 0.65rem;
+        border-radius: 0.65rem;
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        color: #334155;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .dark .btn-archive-print {
+        background: #334155;
+        border-color: #475569;
+        color: #f8fafc;
+    }
+    .btn-archive-print:hover {
+        background: #e2e8f0;
+        color: #0f172a;
     }
 
     /* ─── Print Media Query ─── */

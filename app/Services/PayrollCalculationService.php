@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\AttendanceStatus;
-use App\Enums\InstallmentStatus;
 use App\Enums\PaymentItemCategory;
 use App\Enums\PaymentStatus;
 use App\Enums\RewardStatus;
@@ -11,7 +10,6 @@ use App\Enums\TreasuryTransactionType;
 use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\EmployeeReward;
-use App\Models\Installment;
 use App\Models\PaymentCollectionItem;
 use App\Models\PayrollPayment;
 use App\Models\PayrollRecord;
@@ -24,7 +22,7 @@ use Illuminate\Support\Facades\Log;
 class PayrollCalculationService
 {
     /**
-     * حساب جميع مستحقات واستقطاعات الموظف لشهر معين
+     * Calculate all employee dues and deductions for a given month.
      */
     public static function calculateEmployeeFinancials(?int $employeeId, ?string $monthStr = null): array
     {
@@ -54,20 +52,17 @@ class PayrollCalculationService
         $branch = $employee->branch;
         $branchConfig = AttendancePenaltyService::getBranchSettings($branch);
 
-        // 1. المكافآت المعتمدة
+        // 1. Approved rewards
         $rewards = (float) EmployeeReward::where('employee_id', $employee->id)
             ->where('status', RewardStatus::APPROVED)
             ->whereYear('reward_date', $month->year)
             ->whereMonth('reward_date', $month->month)
             ->sum('net_amount');
 
-        // 2. أقساط السلف والديون
-        $advances = (float) Installment::where('employee_id', $employee->id)
-            ->where('status', '!=', InstallmentStatus::COMPLETED)
-            ->where('remaining_amount', '>', 0)
-            ->sum('monthly_amount');
+        // 2. Loan installments and advances (separated from payroll per business rules - not deducted automatically)
+        $advanceAmount = 0.0;
 
-        // 3. الإضافي والغياب من البصمة مع سياسات الفرع
+        // 3. Overtime and absence from attendance policies
         $hourRate = $basic > 0 ? ($basic / 240) : 0;
         $dayRate = $basic > 0 ? ($basic / 30) : 0;
 
@@ -78,7 +73,7 @@ class PayrollCalculationService
         $overtimeHours = $overtimeMinutes > 0 ? ($overtimeMinutes / 60) : 0;
         $overtimeAmount = round($overtimeHours * $hourRate, 2);
 
-        // حساب خصم التأخير (بالشرائح اليومية إذا كانت مفعلة بالفرع، أو بالساعات الدقيقة إذا كانت معطلة)
+        // Calculate late deduction (daily tiers if enabled by branch, or precise hours if disabled)
         if ($branchConfig['late_deduction_enabled']) {
             $lateDeductionDays = AttendancePenaltyService::calculateMonthlyLateDeductionDays($employee, $month);
             $lateAmount = round($lateDeductionDays * $dayRate, 2);
@@ -90,7 +85,7 @@ class PayrollCalculationService
             $lateAmount = round($lateHours * $hourRate, 2);
         }
 
-        // حساب خصم الغياب (مع تطبيق معامل الفرع إن وُجد)
+        // Calculate absence deduction (applying branch multiplier if present)
         $rawAbsentDays = Attendance::where('employee_id', $employee->id)
             ->whereYear('date', $month->year)->whereMonth('date', $month->month)
             ->where('status', AttendanceStatus::ABSENT)
@@ -101,11 +96,27 @@ class PayrollCalculationService
 
         $absenceAmount = round($lateAmount + $absencePenaltyAmount, 2);
         $rewardsAmount = round($rewards, 2);
-        $advanceAmount = round($advances, 2);
+
+        // 4. Deduct prior collections recorded for the same month
+        $collections = PayrollRecord::where('employee_id', $employee->id)
+            ->where('operation_type', 'collection')
+            ->whereYear('payroll_month', $month->year)
+            ->whereMonth('payroll_month', $month->month)
+            ->get();
+
+        $collectedDeduction = (float) $collections->sum(fn ($c) => (float) ($c->paid_amount > 0 ? $c->paid_amount : $c->net_amount));
+        $currency = __('dashboard.stats.currency');
+        $colLabel = __('finance.payroll_records.fields.operation_types.collection');
+        $collectionNotes = $collections->map(function ($c) use ($currency, $colLabel) {
+            $note = trim($c->notes ?? '');
+            $amt = number_format((float) ($c->paid_amount > 0 ? $c->paid_amount : $c->net_amount), 2);
+
+            return $note ? "{$note} ({$amt} {$currency})" : "{$colLabel} ({$amt} {$currency})";
+        })->filter()->implode(' | ');
 
         $additions = round($overtimeAmount + $rewardsAmount, 2);
-        $deductions = round($advanceAmount + $absenceAmount, 2);
-        $net = round($basic + $additions - $deductions, 2);
+        $deductions = round($absenceAmount + $collectedDeduction, 2);
+        $net = round(max(0, $basic + $additions - $deductions), 2);
 
         return [
             'company_id' => $employee->company_id,
@@ -115,6 +126,12 @@ class PayrollCalculationService
             'additional_amount' => $additions,
             'advance_deduction' => $advanceAmount,
             'absence_deduction' => $absenceAmount,
+            'collected_deduction' => $collectedDeduction,
+            'collection_notes' => $collectionNotes,
+            'metadata' => array_filter([
+                'collected_deduction' => $collectedDeduction,
+                'collection_notes' => $collectionNotes,
+            ]),
             'deduction_amount' => $deductions,
             'net_amount' => $net,
             'remaining_amount' => $net,
@@ -149,6 +166,25 @@ class PayrollCalculationService
      */
     public static function syncTotalsForRecord(PayrollRecord $record): void
     {
+        // For collections: net amount is manually entered, clear salary component fields and skip recalculation
+        if ($record->operation_type === 'collection') {
+            $paid = (float) ($record->paid_amount ?? 0);
+            $net = (float) ($record->net_amount ?? 0);
+            $record->basic_salary = 0;
+            $record->overtime_amount = 0;
+            $record->rewards_amount = 0;
+            $record->additional_amount = 0;
+            $record->advance_deduction = 0;
+            $record->absence_deduction = 0;
+            $record->deduction_amount = 0;
+            $record->remaining_amount = round(max(0, $net - $paid), 2);
+            $record->payment_status = ($paid >= $net && $net > 0)
+                ? PaymentStatus::PAID
+                : ($paid > 0 ? PaymentStatus::PARTIALLY_PAID : PaymentStatus::UNPAID);
+
+            return;
+        }
+
         $basic = (float) ($record->basic_salary ?? 0);
         $overtime = (float) ($record->overtime_amount ?? 0);
         $rewards = (float) ($record->rewards_amount ?? 0);
@@ -162,7 +198,8 @@ class PayrollCalculationService
 
         $advance = (float) ($record->advance_deduction ?? 0);
         $absence = (float) ($record->absence_deduction ?? 0);
-        $sumDeductions = round($advance + $absence, 2);
+        $collected = (float) ($record->metadata['collected_deduction'] ?? 0);
+        $sumDeductions = round($advance + $absence + $collected, 2);
         if ($sumDeductions > 0 || ! isset($record->deduction_amount)) {
             $record->deduction_amount = $sumDeductions;
         } else {
@@ -189,6 +226,43 @@ class PayrollCalculationService
             $paid = (float) ($existing->paid_amount ?? 0.0);
             $recordNumber = $existing->record_number;
             $notes = $existing->notes ?? '';
+
+            if ($existing->operation_type === 'collection') {
+                $net = (float) $existing->net_amount;
+                $remaining = (float) ($existing->remaining_amount ?? max(0.0, $net - $paid));
+
+                return [
+                    'basic_salary' => 0.0,
+                    'additional_amount' => 0.0,
+                    'deduction_amount' => 0.0,
+                    'collected_deduction' => 0.0,
+                    'collection_notes' => '',
+                    'net_amount' => $net,
+                    'paid_amount' => $paid,
+                    'remaining_amount' => $remaining,
+                    'payment_status' => $existing->payment_status,
+                    'record_number' => $recordNumber,
+                    'notes' => $notes,
+                ];
+            }
+
+            $collectedDeduction = (float) ($existing->metadata['collected_deduction'] ?? 0);
+            $collectionNotes = $existing->metadata['collection_notes'] ?? '';
+            $totals = static::computeTotals($basic, $additional, $deductions, $paid);
+
+            return [
+                'basic_salary' => $basic,
+                'additional_amount' => $additional,
+                'deduction_amount' => $deductions,
+                'collected_deduction' => $collectedDeduction,
+                'collection_notes' => $collectionNotes,
+                'net_amount' => $totals['net_amount'],
+                'paid_amount' => $paid,
+                'remaining_amount' => $totals['remaining_amount'],
+                'payment_status' => $totals['payment_status'],
+                'record_number' => $recordNumber,
+                'notes' => $notes,
+            ];
         } else {
             $financials = static::calculateEmployeeFinancials($emp->id, $payrollMonth);
             $basic = (float) ($emp->basic_salary ?? 0.0);
@@ -197,25 +271,29 @@ class PayrollCalculationService
             $paid = 0.0;
             $recordNumber = null;
             $notes = '';
+            $collectedDeduction = (float) ($financials['collected_deduction'] ?? 0);
+            $collectionNotes = $financials['collection_notes'] ?? '';
+
+            $totals = static::computeTotals($basic, $additional, $deductions, $paid);
+
+            return [
+                'basic_salary' => $basic,
+                'additional_amount' => $additional,
+                'deduction_amount' => $deductions,
+                'collected_deduction' => $collectedDeduction,
+                'collection_notes' => $collectionNotes,
+                'net_amount' => $totals['net_amount'],
+                'paid_amount' => $paid,
+                'remaining_amount' => $totals['remaining_amount'],
+                'payment_status' => $totals['payment_status'],
+                'record_number' => $recordNumber,
+                'notes' => $notes,
+            ];
         }
-
-        $totals = static::computeTotals($basic, $additional, $deductions, $paid);
-
-        return [
-            'basic_salary' => $basic,
-            'additional_amount' => $additional,
-            'deduction_amount' => $deductions,
-            'net_amount' => $totals['net_amount'],
-            'paid_amount' => $paid,
-            'remaining_amount' => $totals['remaining_amount'],
-            'payment_status' => $totals['payment_status'],
-            'record_number' => $recordNumber,
-            'notes' => $notes,
-        ];
     }
 
     /**
-     * قاعدة التحقق من عدم تكرار مسير الراتب
+     * Validation rule to prevent duplicate payroll/collection records.
      */
     public static function uniquePayrollRule(callable $get, $record): Closure
     {
@@ -318,7 +396,7 @@ class PayrollCalculationService
     }
 
     /**
-     * Reverse a single disbursement payment by generating an offsetting TreasuryTransaction (الحركة العكسية).
+     * Reverse a single disbursement payment by generating an offsetting TreasuryTransaction.
      */
     public static function reverseDisbursementPayment(
         PayrollPayment $payment,

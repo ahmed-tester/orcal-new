@@ -265,20 +265,38 @@ class SmartFileImport extends Page implements HasForms
             return;
         }
 
-        $state = Cache::get($this->runCacheKey($this->runId));
-
-        if (! is_array($state)) {
-            $this->isProcessing = false;
-            $this->runId = null;
-
-            Notification::make()
-                ->title(__('smart_import.notifications.error_title'))
-                ->body(__('smart_import.notifications.generic_error'))
-                ->danger()
-                ->send();
-
-            return;
+        // Re-entrancy guard: a Gemini batch can take 30-80s while the page polls
+        // more frequently. Without this guard the poll re-invokes the batch while
+        // it is in flight, running the same pages twice and corrupting the state.
+        if (! Cache::add($this->batchLockKey($this->runId), 1, now()->addMinutes(5))) {
+            return; // a batch is already running for this run; wait for the next poll
         }
+
+        try {
+            $state = Cache::get($this->runCacheKey($this->runId));
+
+            if (! is_array($state)) {
+                $this->isProcessing = false;
+                $this->runId = null;
+
+                Notification::make()
+                    ->title(__('smart_import.notifications.error_title'))
+                    ->body(__('smart_import.notifications.generic_error'))
+                    ->danger()
+                    ->send();
+
+                return;
+            }
+
+            $this->runBatch($state);
+        } finally {
+            Cache::forget($this->batchLockKey($this->runId));
+        }
+    }
+
+    protected function runBatch(array $state): void
+    {
+        $processor = new GeminiProcessorService;
 
         $processor = new GeminiProcessorService;
 
@@ -465,6 +483,11 @@ class SmartFileImport extends Page implements HasForms
     protected function runCacheKey(string $runId): string
     {
         return 'smart-import-run:'.$runId;
+    }
+
+    protected function batchLockKey(string $runId): string
+    {
+        return 'smart-import-batch-lock:'.$runId;
     }
 
     /**

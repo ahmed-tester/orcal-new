@@ -4,12 +4,12 @@ namespace App\Services\AI\Tools;
 
 use App\Enums\InstallmentPaymentSource;
 use App\Enums\InstallmentStatus;
-use App\Models\Company;
 use App\Models\Employee;
 use App\Models\Installment;
 use App\Models\InstallmentPayment;
 use App\Services\AI\Contracts\GeminiToolInterface;
 use App\Services\AI\EmployeeNameMatcher;
+use App\Services\CompanyFormService;
 
 class CreateInstallmentPaymentTool implements GeminiToolInterface
 {
@@ -22,13 +22,21 @@ class CreateInstallmentPaymentTool implements GeminiToolInterface
     {
         return [
             'name' => $this->getName(),
-            'description' => 'تسجيل سند سداد أو دفعة مسددة لقسط/كفالة/سلفة لموظف مسجل مسبقاً، مع تحديث الرصيد المتبقي تلقائياً. لا تنشئ موظفاً ولا قسطاً جديداً.',
+            'description' => 'تسجيل سند سداد أو دفعة مسددة لقسط/كفالة/سلفة قائمة لموظف. يتم استدعاؤها فقط عندما يكون هناك مبلغ مسدد أكبر من الصفر (المبلغ المسدد > 0). لا تستدعِها إذا كان المبلغ 0 أو فارغاً. إذا لم يكن الموظف مسجلاً يتم إنشاؤه تلقائياً، ولكن يجب أن يكون له قسط مسجل مسبقاً لربط السداد به.',
             'parameters' => [
                 'type' => 'OBJECT',
                 'properties' => [
                     'employee_identifier' => [
                         'type' => 'STRING',
-                        'description' => 'اسم الموظف أو رقمه الوظيفي أو رقم الهوية/الإقامة',
+                        'description' => 'اسم الموظف كما هو في الكشف (إذا كان ثنائي اللغة بالعربي والإنجليزي مثل "محمد حسين MOHAMMAD HOSSAIN" استخرجه كاملاً باللغتين دون حذف أي جزء)، أو رقمه الوظيفي أو رقم الهوية/الإقامة',
+                    ],
+                    'employee_name_ar' => [
+                        'type' => 'STRING',
+                        'description' => 'اسم الموظف باللغة العربية إن وجد في الكشف (مثال: محمد حسين)',
+                    ],
+                    'employee_name_en' => [
+                        'type' => 'STRING',
+                        'description' => 'اسم الموظف باللغة الإنجليزية إن وجد في الكشف (مثال: MOHAMMAD HOSSAIN)',
                     ],
                     'amount' => [
                         'type' => 'NUMBER',
@@ -71,7 +79,17 @@ class CreateInstallmentPaymentTool implements GeminiToolInterface
     public function execute(array $arguments): array
     {
         try {
-            $identifier = trim($arguments['employee_identifier'] ?? '');
+            $identifier = trim($arguments['employee_identifier'] ?? $arguments['name'] ?? '');
+            $explicitNameAr = trim($arguments['employee_name_ar'] ?? $arguments['name_ar'] ?? '');
+            $explicitNameEn = trim($arguments['employee_name_en'] ?? $arguments['name_en'] ?? '');
+
+            if ($explicitNameAr !== '' && ! str_contains($identifier, $explicitNameAr)) {
+                $identifier = trim($identifier.' '.$explicitNameAr);
+            }
+            if ($explicitNameEn !== '' && ! str_contains(strtolower($identifier), strtolower($explicitNameEn))) {
+                $identifier = trim($identifier.' '.$explicitNameEn);
+            }
+
             $amount = (float) ($arguments['amount'] ?? 0);
             $date = trim($arguments['payment_date'] ?? date('Y-m-d'));
             $installmentDate = trim($arguments['installment_date'] ?? '');
@@ -80,28 +98,52 @@ class CreateInstallmentPaymentTool implements GeminiToolInterface
             $operatorName = trim($arguments['operator_name'] ?? $arguments['executed_by'] ?? '');
             $desc = trim($arguments['description'] ?? '');
 
-            if (empty($identifier)) {
+            if (empty($identifier) && empty($explicitNameAr) && empty($explicitNameEn)) {
                 return ['success' => false, 'message' => 'اسم أو معرف الموظف مطلوب لتسجيل السداد.'];
             }
 
             if ($amount <= 0) {
-                return ['success' => false, 'message' => 'يجب أن يكون المبلغ المسدد أكبر من الصفر.'];
+                return ['success' => false, 'message' => 'تم تخطي السطر لأن المبلغ المسدد يساوي صفراً أو غير محدد.'];
             }
 
-            // 1. الموظف يجب أن يكون مسجلاً مسبقاً — لا يتم إنشاء موظفين من ملف مستورد.
-            $employee = $this->findEmployee($identifier);
+            // 1. Resolve or create employee
+            $employee = EmployeeNameMatcher::findOrCreate(
+                $identifier,
+                $arguments['company_id'] ?? null,
+                $companyName,
+                $explicitNameAr !== '' ? $explicitNameAr : null,
+                $explicitNameEn !== '' ? $explicitNameEn : null
+            );
 
-            if (! $employee) {
-                return [
-                    'success' => false,
-                    'message' => __('smart_import.service.employee_not_found', ['name' => $identifier]),
-                ];
+            // 2. Resolve candidates to pay against (specific installment or FIFO waterfall over open installments)
+            if ($installmentNumber !== '') {
+                $target = Installment::where('employee_id', $employee->id)
+                    ->where('installment_number', $installmentNumber)
+                    ->first();
+                $candidates = $target ? collect([$target]) : collect();
+            } else {
+                // Fetch open installments with remaining balance, prioritizing explicit installmentDate, then oldest first (FIFO)
+                $candidates = Installment::where('employee_id', $employee->id)
+                    ->where('remaining_amount', '>', 0)
+                    ->when($installmentDate !== '', function ($q) use ($installmentDate) {
+                        $q->orderByRaw('CASE WHEN installment_date = ? THEN 0 ELSE 1 END', [$installmentDate]);
+                    })
+                    ->orderBy('installment_date', 'asc')
+                    ->orderBy('id', 'asc')
+                    ->get();
+
+                if ($candidates->isEmpty()) {
+                    // Fallback to latest installment if all are closed or overpaid
+                    $fallback = Installment::where('employee_id', $employee->id)
+                        ->when($installmentDate !== '', fn ($q) => $q->orderByRaw('CASE WHEN installment_date = ? THEN 0 ELSE 1 END', [$installmentDate]))
+                        ->orderByDesc('installment_date')
+                        ->orderByDesc('id')
+                        ->first();
+                    $candidates = $fallback ? collect([$fallback]) : collect();
+                }
             }
 
-            // 2. القسط المستهدف: بالرقم، أو بتاريخ القسط، أو آخر قسط مفتوح للموظف.
-            $installment = $this->findInstallment($employee, $installmentNumber, $installmentDate);
-
-            if (! $installment) {
+            if ($candidates->isEmpty()) {
                 return [
                     'success' => false,
                     'message' => __('smart_import.service.installment_not_found', [
@@ -111,51 +153,87 @@ class CreateInstallmentPaymentTool implements GeminiToolInterface
                 ];
             }
 
-            // 3. تسوية منفذ العملية إن وجد
+            // 3. Resolve operator
             $executedById = $this->resolveOperator($operatorName);
 
-            // 4. منع التكرار: نفس القسط + المبلغ + التاريخ + البيان
-            $duplicateQuery = InstallmentPayment::where('installment_id', $installment->id)
-                ->where('amount', $amount)
-                ->whereDate('payment_date', $date);
+            // 4. Distribute payment across candidates (FIFO Waterfall)
+            $remainingToPay = $amount;
+            $paymentsCreated = [];
+            $alreadyRecorded = 0;
 
-            if ($desc !== '') {
-                $duplicateQuery->where('description', $desc);
+            foreach ($candidates as $idx => $inst) {
+                if ($remainingToPay <= 0) {
+                    break;
+                }
+
+                $isLast = ($idx === $candidates->count() - 1);
+                $remOnInst = (float) $inst->remaining_amount;
+                $portion = ($isLast || $remOnInst <= 0) ? $remainingToPay : min($remainingToPay, $remOnInst);
+
+                if ($portion <= 0) {
+                    continue;
+                }
+
+                $duplicateQuery = InstallmentPayment::where('installment_id', $inst->id)
+                    ->where('amount', $portion)
+                    ->whereDate('payment_date', $date);
+
+                if ($desc !== '') {
+                    $duplicateQuery->where('description', $desc);
+                }
+
+                $duplicate = $duplicateQuery->first();
+                if ($duplicate) {
+                    $alreadyRecorded++;
+                    $remainingToPay -= $portion;
+
+                    continue;
+                }
+
+                $companyId = $inst->company_id
+                    ?: $this->resolveCompanyId($arguments['company_id'] ?? null, $companyName, $employee);
+
+                $payment = InstallmentPayment::create([
+                    'company_id' => $companyId,
+                    'employee_id' => $employee->id,
+                    'installment_id' => $inst->id,
+                    'payment_type' => $inst->transaction_type ?? 'installment',
+                    'payment_date' => $date,
+                    'amount' => $portion,
+                    'payment_source' => InstallmentPaymentSource::CASH,
+                    'executed_by' => $executedById ?: auth()->user()?->employee?->id,
+                    'description' => $desc !== '' ? $desc : "سداد قسط للموظف {$employee->user?->name}",
+                ]);
+
+                $paymentsCreated[] = $payment;
+                $remainingToPay -= $portion;
             }
 
-            $duplicate = $duplicateQuery->first();
+            if (empty($paymentsCreated)) {
+                if ($alreadyRecorded > 0) {
+                    return [
+                        'success' => false,
+                        'message' => "تنبيه (مكرر): تم تخطي سند السداد للموظف ({$employee->user?->name}) بمبلغ ".number_format($amount, 2).' ر.س لأنه مسجل مسبقاً لمنع الازدواجية.',
+                    ];
+                }
 
-            if ($duplicate) {
                 return [
                     'success' => false,
-                    'message' => "تنبيه (مكرر): سند سداد للموظف ({$employee->user?->name}) بمبلغ ".number_format($amount, 2)." ر.س مسجل مسبقاً برقم #{$duplicate->voucher_number}، تم تخطيه.",
+                    'message' => "تعذر توزيع مبلغ السداد للموظف ({$employee->user?->name}).",
                 ];
             }
 
-            // 5. تسجيل سند السداد
-            $companyId = $installment->company_id
-                ?: $this->resolveCompanyId($arguments['company_id'] ?? null, $companyName, $employee);
-
-            $payment = InstallmentPayment::create([
-                'company_id' => $companyId,
-                'employee_id' => $employee->id,
-                'installment_id' => $installment->id,
-                'payment_type' => $installment->transaction_type ?? 'installment',
-                'payment_date' => $date,
-                'amount' => $amount,
-                'payment_source' => InstallmentPaymentSource::CASH,
-                'executed_by' => $executedById ?: auth()->user()?->employee?->id,
-                'description' => $desc !== '' ? $desc : "سداد قسط للموظف {$employee->user?->name}",
-            ]);
+            $vouchers = collect($paymentsCreated)->pluck('voucher_number')->filter()->implode(', ');
+            $instNumbers = collect($paymentsCreated)->map(fn ($p) => $p->installment?->installment_number)->filter()->unique()->implode(', ');
 
             return [
                 'success' => true,
-                'message' => "تم تسجيل سند سداد بنجاح للموظف ({$employee->user?->name}) بمبلغ ".number_format($amount, 2)." ر.س برقم #{$payment->voucher_number}",
-                'record_name' => $employee->user?->name ?? "سند #{$payment->id}",
+                'message' => "تم تسجيل سند سداد بنجاح للموظف ({$employee->user?->name}) بمبلغ ".number_format($amount, 2)." ر.س (سند #{$vouchers})",
+                'record_name' => $employee->user?->name ?? "سند #{$vouchers}",
                 'details' => [
                     'amount' => number_format($amount, 2).' ر.س',
-                    'voucher_number' => $payment->voucher_number,
-                    'installment_number' => $installment->installment_number,
+                    'voucher_number' => $vouchers,
+                    'installment_number' => $instNumbers,
                 ],
             ];
         } catch (\Throwable $e) {
@@ -203,17 +281,20 @@ class CreateInstallmentPaymentTool implements GeminiToolInterface
      * Resolve the target company: explicit selection > exact/partial name match >
      * the employee's own company. Companies are never created from a file here.
      */
+    /**
+     * Company fallback for payments: never leaves the row companyless —
+     * resolves by name and creates the company if it does not exist yet.
+     */
     protected function resolveCompanyId(mixed $explicitCompanyId, string $companyName, Employee $employee): ?int
     {
-        if (! empty($explicitCompanyId) && Company::whereKey($explicitCompanyId)->exists()) {
-            return (int) $explicitCompanyId;
-        }
-
         if ($companyName !== '') {
-            $company = Company::where('trade_name', 'like', "%{$companyName}%")->first();
+            $companyRes = CompanyFormService::resolveOrCreateCompanyByName(
+                $companyName,
+                ! empty($explicitCompanyId) ? (int) $explicitCompanyId : null
+            );
 
-            if ($company) {
-                return $company->id;
+            if (! empty($companyRes['company_id'])) {
+                return (int) $companyRes['company_id'];
             }
         }
 

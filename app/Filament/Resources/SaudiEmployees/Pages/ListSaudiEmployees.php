@@ -6,6 +6,7 @@ use App\Enums\UserType;
 use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Models\Employee;
+use App\Services\CompanyFormService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
@@ -42,8 +43,8 @@ class ListSaudiEmployees extends ListRecords
         $baseQuery = Employee::query();
         $user = auth()->user();
         if ($user && ! $user->isSuperAdmin() && ! $user->hasRole('Super Admin')) {
-            $companyIds = \App\Services\CompanyFormService::getAuthorizedCompanyIds($user);
-            if (!empty($companyIds)) {
+            $companyIds = CompanyFormService::getAuthorizedCompanyIds($user);
+            if (! empty($companyIds)) {
                 $baseQuery->whereIn('company_id', $companyIds);
             }
         }

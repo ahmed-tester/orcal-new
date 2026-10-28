@@ -8,10 +8,8 @@
         @include('filament.resources.payroll-records.pages.partials.header-tabs')
 
         @if($pageViewTab === 'records')
-            {{-- Standard Filament Table --}}
-            <div>
-                {{ $this->table }}
-            </div>
+            {{-- Historical Archive View (Folder Files & Table) --}}
+            @include('filament.resources.payroll-records.pages.partials.history-archive')
         @else
             {{-- Interactive Sheet View --}}
             <div id="printable-sheet" style="display: flex; flex-direction: column; gap: 1.25rem;">

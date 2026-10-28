@@ -29,6 +29,7 @@ class PayrollSheetService
         $operationType = $filters['operationType'] ?? 'payroll';
         $employeeScope = $filters['employeeScope'] ?? 'all';
         $selectedEmployeeId = $filters['selectedEmployeeId'] ?? null;
+        $paymentScope = $filters['paymentScope'] ?? 'all';
         $payrollMonth = $filters['payrollMonth'] ?? now()->format('Y-m');
         $searchQuery = trim($filters['searchQuery'] ?? '');
         $user = auth()->user();
@@ -94,7 +95,7 @@ class PayrollSheetService
         $year = $monthDate->year;
         $month = $monthDate->month;
 
-        $rows = [];
+        $allRows = [];
         $totalBasic = 0.0;
         $totalAdditional = 0.0;
         $totalDeduction = 0.0;
@@ -119,18 +120,6 @@ class PayrollSheetService
 
             if ($operationType === 'collection') {
                 if (! $existing && ! ($employeeScope === 'specific' && $selectedEmployeeId == $emp->id)) {
-                    continue;
-                }
-            }
-
-            if ($operationType === 'payroll' && ! $existing) {
-                $hasCollection = PayrollRecord::where('employee_id', $emp->id)
-                    ->where('operation_type', 'collection')
-                    ->whereYear('payroll_month', $year)
-                    ->whereMonth('payroll_month', $month)
-                    ->exists();
-
-                if ($hasCollection) {
                     continue;
                 }
             }
@@ -164,13 +153,7 @@ class PayrollSheetService
 
             $effectivePaid = $currentChecked ? $net : $paid;
             $effectiveRemaining = $currentChecked ? 0.0 : $remaining;
-
-            $totalBasic += $basic;
-            $totalAdditional += $additional;
-            $totalDeduction += $deductions;
-            $totalNet += $net;
-            $totalPaid += $effectivePaid;
-            $totalPending += $effectiveRemaining;
+            $isRowPaid = ($currentChecked || $isPaid || ($effectiveRemaining <= 0 && $net > 0));
 
             $iqamaNumber = $emp->details?->iqama_number ?: $emp->details?->national_id ?: '—';
             $iqamaExpiryGregorian = $emp->details?->iqama_expiry ? Carbon::parse($emp->details->iqama_expiry)->format('Y/m/d') : '—';
@@ -186,7 +169,7 @@ class PayrollSheetService
             }
             $otherAmount = ! empty($otherParts) ? implode(' / ', $otherParts) : '—';
 
-            $rows[] = [
+            $allRows[] = [
                 'employee_id' => $emp->id,
                 'name' => $emp->user?->name ?? 'موظف #'.$emp->id,
                 'email' => $emp->user?->email,
@@ -211,13 +194,50 @@ class PayrollSheetService
                 'original_payment_status' => $paymentStatus,
                 'record_number' => $recordNumber,
                 'existing_id' => $existing?->id,
+                'is_paid' => $isRowPaid,
             ];
+        }
+
+        $allRows = $allRows ?? [];
+        $countAll = count($allRows);
+        $countPaid = 0;
+        $countUnpaid = 0;
+        foreach ($allRows as $r) {
+            if ($r['is_paid']) {
+                $countPaid++;
+            } else {
+                $countUnpaid++;
+            }
+        }
+
+        $rows = [];
+        foreach ($allRows as $r) {
+            if ($paymentScope === 'paid' && ! $r['is_paid']) {
+                continue;
+            }
+            if ($paymentScope === 'unpaid' && $r['is_paid']) {
+                continue;
+            }
+
+            $rows[] = $r;
+
+            $totalBasic += (float) ($r['basic_salary'] ?? 0);
+            $totalAdditional += (float) ($r['additional_amount'] ?? 0);
+            $totalDeduction += (float) ($r['deduction_amount'] ?? 0);
+            $totalNet += (float) ($r['net_amount'] ?? 0);
+            $totalPaid += (float) ($r['paid_amount'] ?? 0);
+            $totalPending += (float) ($r['remaining_amount'] ?? 0);
         }
 
         return [
             'rows' => $rows,
             'checkedEmployees' => $checkedEmployees,
             'notes' => $notes,
+            'counts' => [
+                'all'    => $countAll,
+                'paid'   => $countPaid,
+                'unpaid' => $countUnpaid,
+            ],
             'totals' => [
                 'totalEmployees' => count($rows),
                 'totalBasicAmount' => round($totalBasic, 2),
@@ -275,6 +295,9 @@ class PayrollSheetService
                 $record->rewards_amount = (float) ($financials['rewards_amount'] ?? 0);
                 $record->advance_deduction = (float) ($financials['advance_deduction'] ?? 0);
                 $record->absence_deduction = (float) ($financials['absence_deduction'] ?? 0);
+                if (! empty($financials['metadata'])) {
+                    $record->metadata = array_merge($record->metadata ?? [], $financials['metadata']);
+                }
                 $record->net_amount = $netAmount;
                 $record->notes = $notes[$empId] ?? null;
 
@@ -411,6 +434,29 @@ class PayrollSheetService
             return null;
         }
 
+        if ($operationType === 'collection') {
+            return PayrollRecord::create([
+                'company_id' => $emp->company_id,
+                'employee_id' => $emp->id,
+                'operation_type' => 'collection',
+                'payroll_month' => $c->copy()->startOfMonth()->toDateString(),
+                'record_date' => now()->toDateString(),
+                'basic_salary' => 0,
+                'overtime_amount' => 0,
+                'rewards_amount' => 0,
+                'additional_amount' => 0,
+                'advance_deduction' => 0,
+                'absence_deduction' => 0,
+                'deduction_amount' => 0,
+                'net_amount' => 0,
+                'paid_amount' => 0,
+                'remaining_amount' => 0,
+                'payment_status' => PaymentStatus::UNPAID,
+                'notes' => $note,
+                'created_by' => auth()->id(),
+            ]);
+        }
+
         $fin = PayrollCalculationService::resolveEmployeePayrollData($emp, null, $payrollMonth);
         $financials = PayrollCalculationService::calculateEmployeeFinancials($emp->id, $payrollMonth);
 
@@ -427,6 +473,7 @@ class PayrollSheetService
             'advance_deduction' => (float) ($financials['advance_deduction'] ?? 0),
             'absence_deduction' => (float) ($financials['absence_deduction'] ?? 0),
             'deduction_amount' => $fin['deduction_amount'],
+            'metadata' => $financials['metadata'] ?? null,
             'net_amount' => $fin['net_amount'],
             'paid_amount' => $fin['paid_amount'],
             'remaining_amount' => $fin['remaining_amount'],
@@ -462,5 +509,146 @@ class PayrollSheetService
         if ($record) {
             $record->delete();
         }
+    }
+
+    /**
+     * Retrieve all available fiscal years present in payroll records.
+     */
+    public static function getAvailablePayrollYears(?int $companyId = null, ?array $companyIds = null): array
+    {
+        $query = PayrollRecord::query();
+
+        $user = auth()->user();
+        if ($user && ! $user->isSuperAdmin()) {
+            $authorizedIds = CompanyFormService::getAuthorizedCompanyIds($user);
+            if (! empty($authorizedIds)) {
+                $query->whereIn('company_id', $authorizedIds);
+            }
+        }
+
+        if ($companyId) {
+            $query->where('company_id', $companyId);
+        } elseif (! empty($companyIds)) {
+            $query->whereIn('company_id', $companyIds);
+        }
+
+        $years = $query->selectRaw('DISTINCT YEAR(payroll_month) as yr')
+            ->whereNotNull('payroll_month')
+            ->pluck('yr')
+            ->map(fn ($y) => (int) $y)
+            ->filter(fn ($y) => $y > 2000)
+            ->values()
+            ->toArray();
+
+        $currentYear = (int) now()->format('Y');
+        if (! in_array($currentYear, $years)) {
+            $years[] = $currentYear;
+        }
+
+        rsort($years);
+
+        return array_values(array_unique($years));
+    }
+
+    /**
+     * Retrieve aggregated monthly folder files for a given fiscal year and operation type.
+     */
+    public static function getArchivedMonthsSummary(
+        int $year,
+        string $operationType = 'payroll',
+        ?int $companyId = null,
+        ?array $companyIds = null
+    ): array {
+        $query = PayrollRecord::query()
+            ->where('operation_type', $operationType)
+            ->whereYear('payroll_month', $year);
+
+        $user = auth()->user();
+        if ($user && ! $user->isSuperAdmin()) {
+            $authorizedIds = CompanyFormService::getAuthorizedCompanyIds($user);
+            if (! empty($authorizedIds)) {
+                $query->whereIn('company_id', $authorizedIds);
+            }
+        }
+
+        if ($companyId) {
+            $query->where('company_id', $companyId);
+        } elseif (! empty($companyIds)) {
+            $query->whereIn('company_id', $companyIds);
+        }
+
+        $records = $query->selectRaw('
+            MONTH(payroll_month) as m,
+            DATE_FORMAT(payroll_month, "%Y-%m") as month_key,
+            COUNT(id) as total_employees,
+            SUM(net_amount) as total_net,
+            SUM(paid_amount) as total_paid,
+            SUM(remaining_amount) as total_remaining,
+            SUM(CASE WHEN payment_status = "paid" OR remaining_amount <= 0 THEN 1 ELSE 0 END) as paid_count
+        ')
+            ->groupBy('m', 'month_key')
+            ->orderBy('m', 'asc')
+            ->get();
+
+        $result = [];
+        foreach ($records as $rec) {
+            $m = (int) $rec->m;
+            $monthKey = $rec->month_key;
+            $monthName = self::getArabicMonthName($m);
+            $totalEmployees = (int) $rec->total_employees;
+            $totalNet = (float) $rec->total_net;
+            $totalPaid = (float) $rec->total_paid;
+            $totalRemaining = (float) $rec->total_remaining;
+            $paidCount = (int) $rec->paid_count;
+            $unpaidCount = max(0, $totalEmployees - $paidCount);
+
+            $completionRate = $totalNet > 0 ? round(($totalPaid / $totalNet) * 100, 1) : ($paidCount > 0 ? 100 : 0);
+            $isFullyPaid = ($totalRemaining <= 0 && $totalNet > 0) || ($paidCount === $totalEmployees && $totalEmployees > 0);
+
+            $opLabel = $operationType === 'payroll' ? 'مسير رواتب' : 'كشف تحصيل';
+            $title = "{$opLabel} شهر {$monthName} {$year}";
+
+            $result[] = [
+                'month_num'            => $m,
+                'month_key'            => $monthKey,
+                'month_name'           => $monthName,
+                'year'                 => $year,
+                'title'                => $title,
+                'operation_type'       => $operationType,
+                'total_employees'      => $totalEmployees,
+                'total_net'            => $totalNet,
+                'total_paid'           => $totalPaid,
+                'total_remaining'      => $totalRemaining,
+                'paid_count'           => $paidCount,
+                'unpaid_count'         => $unpaidCount,
+                'completion_rate'      => $completionRate,
+                'is_fully_paid'        => $isFullyPaid,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Map integer month (1..12) to Arabic month name.
+     */
+    public static function getArabicMonthName(int $month): string
+    {
+        $months = [
+            1  => 'يناير',
+            2  => 'فبراير',
+            3  => 'مارس',
+            4  => 'أبريل',
+            5  => 'مايو',
+            6  => 'يونيو',
+            7  => 'يوليو',
+            8  => 'أغسطس',
+            9  => 'سبتمبر',
+            10 => 'أكتوبر',
+            11 => 'نوفمبر',
+            12 => 'ديسمبر',
+        ];
+
+        return $months[$month] ?? (string) $month;
     }
 }

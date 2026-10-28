@@ -4,10 +4,13 @@ namespace App\Filament\Resources\ForeignEmployees\Pages;
 
 use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Models\User;
+use App\Services\EmployeeAgeService;
+use App\Services\GuarantorService;
 use App\Services\PhoneService;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class EditForeignEmployee extends EditRecord
 {
@@ -47,7 +50,7 @@ class EditForeignEmployee extends EditRecord
             $data['gender'] = $details->gender;
             $data['marital_status'] = $details->marital_status;
             $data['birth_date'] = $details->birth_date?->format('Y-m-d');
-            $data['age'] = \App\Services\EmployeeAgeService::calculateAge($details->birth_date);
+            $data['age'] = EmployeeAgeService::calculateAge($details->birth_date);
             $data['city'] = $details->city;
             $data['address'] = $details->address;
             $data['iqama_file'] = $details->iqama_file;
@@ -70,6 +73,8 @@ class EditForeignEmployee extends EditRecord
             }
         }
 
+        $data['name_en'] = $employee->metadata['name_en'] ?? null;
+
         return $data;
     }
 
@@ -78,19 +83,30 @@ class EditForeignEmployee extends EditRecord
         $employee = $this->record;
         $userId = $employee->user_id;
 
-        if (!empty($data['user_email'])) {
+        if (array_key_exists('name_en', $data)) {
+            $metadata = $employee->metadata ?? [];
+            if (! empty($data['name_en'])) {
+                $metadata['name_en'] = trim($data['name_en']);
+            } else {
+                unset($metadata['name_en']);
+            }
+            $data['metadata'] = $metadata;
+            unset($data['name_en']);
+        }
+
+        if (! empty($data['user_email'])) {
             $email = trim($data['user_email']);
             if (User::where('email', $email)->where('id', '!=', $userId)->exists()) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'user_email' => __('employees.fields.errors.email_exists'),
                 ]);
             }
         }
 
-        if (!empty($data['user_phone'])) {
+        if (! empty($data['user_phone'])) {
             $normalizedPhone = PhoneService::normalize($data['user_phone']);
             if ($normalizedPhone && User::where('phone', $normalizedPhone)->where('id', '!=', $userId)->exists()) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'user_phone' => __('validation.unique', ['attribute' => __('employees.fields.phone')]),
                 ]);
             }
@@ -110,7 +126,7 @@ class EditForeignEmployee extends EditRecord
                 'email' => $data['user_email'] ?? $employee->user->email,
                 'phone' => PhoneService::normalize($data['user_phone'] ?? $employee->user->phone),
             ];
-            if (!empty($data['user_password'])) {
+            if (! empty($data['user_password'])) {
                 $userUpdate['password'] = Hash::make($data['user_password']);
             }
             $employee->user->update($userUpdate);
@@ -120,7 +136,7 @@ class EditForeignEmployee extends EditRecord
             }
         }
 
-        $guarantor = \App\Services\GuarantorService::resolveGuarantor($data, $employee->company_id);
+        $guarantor = GuarantorService::resolveGuarantor($data, $employee->company_id);
 
         $guarantorOption = $data['guarantor_option'] ?? null;
         $guarantorId = match ($guarantorOption) {
@@ -146,13 +162,13 @@ class EditForeignEmployee extends EditRecord
                 'gender' => $data['gender'] ?? 'male',
                 'marital_status' => $data['marital_status'] ?? null,
                 'birth_date' => $data['birth_date'] ?? null,
-                'metadata' => !empty($data['birth_date']) ? ['age' => \App\Services\EmployeeAgeService::calculateAge($data['birth_date'])] : null,
+                'metadata' => ! empty($data['birth_date']) ? ['age' => EmployeeAgeService::calculateAge($data['birth_date'])] : null,
                 'city' => $data['city'] ?? null,
                 'address' => $data['address'] ?? null,
-                'iqama_file'            => is_array($data['iqama_file'] ?? null)
+                'iqama_file' => is_array($data['iqama_file'] ?? null)
                                             ? collect($data['iqama_file'])->first()
                                             : ($data['iqama_file'] ?? null),
-                'passport_file'         => is_array($data['passport_file'] ?? null)
+                'passport_file' => is_array($data['passport_file'] ?? null)
                                             ? collect($data['passport_file'])->first()
                                             : ($data['passport_file'] ?? null),
             ]

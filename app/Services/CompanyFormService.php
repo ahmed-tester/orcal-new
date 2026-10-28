@@ -672,6 +672,7 @@ class CompanyFormService
             ->with('user')
             ->where(function (Builder $q) use ($search) {
                 $q->where('employee_number', 'like', "%{$search}%")
+                    ->orWhere('metadata->name_en', 'like', "%{$search}%")
                     ->orWhereHas('user', fn ($sub) => $sub->where('name', 'like', "%{$search}%"));
             })
             ->limit(50)

@@ -14,6 +14,15 @@
                     ({{ count($employeeRows) }} {{ __('finance.payroll_records.sheet.employees_unit') }})
                 </span>
             @endif
+            @if($paymentScope === 'paid')
+                <span style="font-size: 0.725rem; font-weight: 700; padding: 0.15rem 0.6rem; border-radius: 9999px; background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;">
+                    ✓ {{ $operationType === 'payroll' ? __('finance.payroll_records.sheet.scope_paid_payroll') : __('finance.payroll_records.sheet.scope_paid_collection') }}
+                </span>
+            @elseif($paymentScope === 'unpaid')
+                <span style="font-size: 0.725rem; font-weight: 700; padding: 0.15rem 0.6rem; border-radius: 9999px; background: #fef3c7; color: #b45309; border: 1px solid #fde68a;">
+                    ⏳ {{ $operationType === 'payroll' ? __('finance.payroll_records.sheet.scope_unpaid_payroll') : __('finance.payroll_records.sheet.scope_unpaid_collection') }}
+                </span>
+            @endif
         </div>
         <div style="font-size: 0.75rem; color: #64748b; display: flex; align-items: center; gap: 0.35rem;">
             <span>ℹ️</span>

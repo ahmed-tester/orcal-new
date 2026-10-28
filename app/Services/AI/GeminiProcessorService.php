@@ -921,6 +921,24 @@ class GeminiProcessorService
             ]),
         ]];
 
+        // For batches that do not start at page 1, attach page 1 as a reference
+        // page so the model always sees the statement's column headers and can
+        // tell the installments (debt) column apart from the settled column.
+        if ($from > 1) {
+            $reference = $this->renderPdfPages($fullPath, 1, 1);
+            if (! empty($reference[0])) {
+                $parts[] = [
+                    'text' => __('smart_import.service.reference_page_notice'),
+                ];
+                $parts[] = [
+                    'inline_data' => [
+                        'mime_type' => 'application/pdf',
+                        'data' => $reference[0],
+                    ],
+                ];
+            }
+        }
+
         foreach ($this->renderPdfPages($fullPath, $from, $to) as $pageData) {
             $parts[] = [
                 'inline_data' => [

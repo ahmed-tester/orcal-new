@@ -4,11 +4,12 @@ namespace App\Services\AI\Tools;
 
 use App\Enums\GeneralStatus;
 use App\Enums\UserType;
-use App\Models\Company;
 use App\Models\Employee;
 use App\Models\EmployeeDetail;
 use App\Models\User;
 use App\Services\AI\Contracts\GeminiToolInterface;
+use App\Services\AI\EmployeeNameMatcher;
+use App\Services\CompanyFormService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -33,7 +34,15 @@ class CreateEmployeeTool implements GeminiToolInterface
                 'properties' => [
                     'name' => [
                         'type' => 'STRING',
-                        'description' => 'الاسم الكامل للموظف',
+                        'description' => 'الاسم الكامل للموظف باللغة العربية (أو الاسم الأساسي)',
+                    ],
+                    'name_en' => [
+                        'type' => 'STRING',
+                        'description' => 'الاسم الكامل للموظف باللغة الإنجليزية إن وُجد في الملف (اختياري)',
+                    ],
+                    'company_name' => [
+                        'type' => 'STRING',
+                        'description' => 'اسم المؤسسة أو الشركة التابع لها الموظف إن وُجدت في الملف (اختياري)',
                     ],
                     'national_id' => [
                         'type' => 'STRING',
@@ -71,12 +80,38 @@ class CreateEmployeeTool implements GeminiToolInterface
     public function execute(array $arguments): array
     {
         $name = trim($arguments['name'] ?? '');
+        $nameEn = trim($arguments['name_en'] ?? '');
         $nationalId = trim($arguments['national_id'] ?? '');
         $phone = trim($arguments['phone'] ?? '');
         $email = trim($arguments['email'] ?? '');
         $salary = isset($arguments['basic_salary']) ? (float) $arguments['basic_salary'] : 0.0;
         $nationality = trim($arguments['nationality'] ?? '');
         $iqamaNumber = trim($arguments['iqama_number'] ?? '');
+
+        // Always split and clean bilingual names (handles attached texts like "MOHAMMED SAHIDمحمد شاهد")
+        $bilingual = EmployeeNameMatcher::splitBilingualName($name);
+        if ($bilingual['arabic'] !== '' && $bilingual['latin'] !== '') {
+            $name = $bilingual['arabic'];
+            if (empty($nameEn)) {
+                $nameEn = $bilingual['latin'];
+            }
+        } elseif ($bilingual['arabic'] === '' && $bilingual['latin'] !== '' && empty($nameEn)) {
+            $nameEn = $bilingual['latin'];
+        }
+
+        // English-only rows: keep the Latin name as the primary user name
+        // instead of rejecting the whole row.
+        if ($name === '' && $nameEn !== '') {
+            $name = $nameEn;
+        }
+
+        // Clean $nameEn if it accidentally contained Arabic letters
+        if (! empty($nameEn)) {
+            $enBilingual = EmployeeNameMatcher::splitBilingualName($nameEn);
+            if ($enBilingual['latin'] !== '') {
+                $nameEn = $enBilingual['latin'];
+            }
+        }
 
         if (empty($name)) {
             return [
@@ -85,9 +120,12 @@ class CreateEmployeeTool implements GeminiToolInterface
             ];
         }
 
-        return DB::transaction(function () use ($name, $nationalId, $phone, $email, $salary, $nationality, $iqamaNumber) {
-            $companyId = auth()->user()?->company_id ?? Company::first()?->id;
+        $companyName = trim($arguments['company_name'] ?? '');
+        $fallbackCompanyId = ! empty($arguments['company_id']) ? (int) $arguments['company_id'] : null;
+        $companyRes = CompanyFormService::resolveOrCreateCompanyByName($companyName, $fallbackCompanyId);
+        $companyId = $companyRes['company_id'];
 
+        return DB::transaction(function () use ($name, $nameEn, $nationalId, $phone, $email, $salary, $nationality, $iqamaNumber, $companyId) {
             // 1. تحديد نوع الموظف بذكاء (سعودي أم غير سعودي)
             $userType = UserType::detect(
                 nationalId: $nationalId ?: null,
@@ -113,6 +151,7 @@ class CreateEmployeeTool implements GeminiToolInterface
                 'company_id' => $companyId,
                 'basic_salary' => $salary,
                 'status' => GeneralStatus::ACTIVE,
+                'metadata' => ! empty($nameEn) ? ['name_en' => $nameEn] : null,
             ]);
 
             // 3. إنشاء تفاصيل الموظف (الهوية / الإقامة / الجنسية)

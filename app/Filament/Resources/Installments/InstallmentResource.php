@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Installments;
 
 use App\Filament\Resources\Installments\Pages\CreateInstallment;
 use App\Filament\Resources\Installments\Pages\EditInstallment;
+use App\Filament\Resources\Installments\Pages\InstallmentsSummary;
 use App\Filament\Resources\Installments\Pages\ListInstallments;
 use App\Filament\Resources\Installments\Schemas\InstallmentForm;
 use App\Filament\Resources\Installments\Tables\InstallmentsTable;
@@ -57,9 +58,10 @@ class InstallmentResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => ListInstallments::route('/'),
+            'index' => InstallmentsSummary::route('/'),
+            'detailed' => ListInstallments::route('/detailed'),
             'create' => CreateInstallment::route('/create'),
-            'edit'   => EditInstallment::route('/{record}/edit'),
+            'edit' => EditInstallment::route('/{record}/edit'),
         ];
     }
 }

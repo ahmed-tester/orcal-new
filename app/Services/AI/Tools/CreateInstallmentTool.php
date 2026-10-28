@@ -3,12 +3,12 @@
 namespace App\Services\AI\Tools;
 
 use App\Enums\InstallmentStatus;
-use App\Models\Company;
 use App\Models\Employee;
 use App\Models\Installment;
 use App\Models\InstallmentType;
 use App\Services\AI\Contracts\GeminiToolInterface;
 use App\Services\AI\EmployeeNameMatcher;
+use App\Services\CompanyFormService;
 
 class CreateInstallmentTool implements GeminiToolInterface
 {
@@ -27,7 +27,15 @@ class CreateInstallmentTool implements GeminiToolInterface
                 'properties' => [
                     'employee_identifier' => [
                         'type' => 'STRING',
-                        'description' => 'اسم الموظف أو رقم الهوية/الإقامة أو الرقم الوظيفي',
+                        'description' => 'اسم الموظف كما هو في الكشف (إذا كان ثنائي اللغة بالعربي والإنجليزي مثل "محمد حسين MOHAMMAD HOSSAIN" استخرجه كاملاً باللغتين دون حذف أي جزء)، أو رقم الهوية/الإقامة',
+                    ],
+                    'employee_name_ar' => [
+                        'type' => 'STRING',
+                        'description' => 'اسم الموظف باللغة العربية إن وجد في الكشف (مثال: محمد حسين)',
+                    ],
+                    'employee_name_en' => [
+                        'type' => 'STRING',
+                        'description' => 'اسم الموظف باللغة الإنجليزية إن وجد في الكشف (مثال: MOHAMMAD HOSSAIN)',
                     ],
                     'total_amount' => [
                         'type' => 'NUMBER',
@@ -74,7 +82,17 @@ class CreateInstallmentTool implements GeminiToolInterface
     public function execute(array $arguments): array
     {
         try {
-            $identifier = trim($arguments['employee_identifier'] ?? '');
+            $identifier = trim($arguments['employee_identifier'] ?? $arguments['name'] ?? '');
+            $explicitNameAr = trim($arguments['employee_name_ar'] ?? $arguments['name_ar'] ?? '');
+            $explicitNameEn = trim($arguments['employee_name_en'] ?? $arguments['name_en'] ?? '');
+
+            if ($explicitNameAr !== '' && ! str_contains($identifier, $explicitNameAr)) {
+                $identifier = trim($identifier.' '.$explicitNameAr);
+            }
+            if ($explicitNameEn !== '' && ! str_contains(strtolower($identifier), strtolower($explicitNameEn))) {
+                $identifier = trim($identifier.' '.$explicitNameEn);
+            }
+
             $totalAmount = (float) ($arguments['total_amount'] ?? 0);
             $monthsCount = max(1, (int) ($arguments['months_count'] ?? 1));
             $downPayment = (float) ($arguments['down_payment'] ?? 0);
@@ -84,35 +102,51 @@ class CreateInstallmentTool implements GeminiToolInterface
             $typeName = trim($arguments['installment_type'] ?? 'كفالات');
             $desc = trim($arguments['description'] ?? '');
 
-            if (empty($identifier)) {
+            if (empty($identifier) && empty($explicitNameAr) && empty($explicitNameEn)) {
                 return ['success' => false, 'message' => 'اسم أو معرف الموظف مطلوب للقسط.'];
             }
 
             if ($totalAmount <= 0) {
-                return ['success' => false, 'message' => 'يجب أن يكون مبلغ القسط أكبر من الصفر.'];
+                return ['success' => false, 'message' => 'تم تخطي السطر لأن مبلغ القسط يساوي صفراً أو غير محدد.'];
             }
 
-            // 1. العثور على الموظف أو إنشاؤه تلقائياً إن لم يكن مسجلاً
-            $employee = EmployeeNameMatcher::findOrCreate($identifier, $arguments['company_id'] ?? null, $companyName);
+            // 1. Resolve or CREATE the company first. A statement whose company is
+            //    missing must always get a real company record — never a silent
+            //    fallback under an unrelated company.
+            $explicitCompanyId = ! empty($arguments['company_id']) ? (int) $arguments['company_id'] : null;
+            $companyId = null;
+            if ($companyName !== '') {
+                $companyRes = CompanyFormService::resolveOrCreateCompanyByName($companyName, $explicitCompanyId);
+                $companyId = ! empty($companyRes['company_id']) ? (int) $companyRes['company_id'] : null;
+            }
+
+            // 2. Employee exists → attach the installment to him; missing → create him.
+            $employee = EmployeeNameMatcher::findOrCreate(
+                $identifier,
+                $companyId ?? $explicitCompanyId,
+                null,
+                $explicitNameAr !== '' ? $explicitNameAr : null,
+                $explicitNameEn !== '' ? $explicitNameEn : null
+            );
             $isNewEmployee = $employee->wasRecentlyCreated;
 
-            // 2. المؤسسة: المحددة من الشاشة، أو المطابقة بالاسم، أو مؤسسة الموظف.
-            $companyId = $this->resolveCompanyId($arguments['company_id'] ?? null, $companyName, $employee);
+            // 3. Company: statement company, otherwise the employee's own company.
+            $companyId ??= $employee->company_id ?? $explicitCompanyId;
+
             if ($companyId && $employee->company_id !== $companyId) {
                 $employee->update(['company_id' => $companyId]);
             }
 
-            // 3. تسوية منفذ العملية إن وجد
+            // 4. Resolve operator
             $executedById = $this->resolveOperator($operatorName);
 
-            // 4. العثور على نوع القسط أو إنشاؤه
+            // 5. Resolve or create installment type
             $type = InstallmentType::firstOrCreate(
                 ['company_id' => $companyId, 'name' => $typeName ?: 'كفالات'],
                 ['category' => 'advances', 'status' => 'active']
             );
 
-            // 5. منع التكرار: نفس الموظف + المبلغ + التاريخ + النوع + البيان
-            //    (البيان ضروري لأن الكشف قد يحتوي شهرين بنفس المبلغ والتاريخ).
+            // 6. Prevent duplicates: same employee + amount + date + type + description
             $duplicateQuery = Installment::where('employee_id', $employee->id)
                 ->where('total_amount', $totalAmount)
                 ->whereDate('installment_date', $date)
@@ -131,7 +165,7 @@ class CreateInstallmentTool implements GeminiToolInterface
                 ];
             }
 
-            // 6. إنشاء القسط
+            // 7. Create installment
             $installment = Installment::create([
                 'company_id' => $companyId,
                 'employee_id' => $employee->id,
@@ -164,56 +198,6 @@ class CreateInstallmentTool implements GeminiToolInterface
                 'message' => 'حدث خطأ أثناء حفظ القسط: '.$e->getMessage(),
             ];
         }
-    }
-
-    /**
-     * Resolve the target company: explicit selection > exact/partial name match >
-     * the employee's own company.
-     */
-    protected function resolveCompanyId(mixed $explicitCompanyId, string $companyName, ?Employee $employee = null): ?int
-    {
-        if (! empty($explicitCompanyId) && Company::whereKey($explicitCompanyId)->exists()) {
-            return (int) $explicitCompanyId;
-        }
-
-        if ($companyName !== '') {
-            $company = Company::where('trade_name', 'like', "%{$companyName}%")->first();
-
-            if ($company) {
-                return $company->id;
-            }
-        }
-
-        return $employee?->company_id ?? Company::first()?->id;
-    }
-
-    /**
-     * Find an existing employee by id, employee number, or name. Never creates one.
-     */
-    protected function findEmployee(string $identifier): ?Employee
-    {
-        if ($identifier === '') {
-            return null;
-        }
-
-        if (is_numeric($identifier)) {
-            $employee = Employee::where(fn ($q) => $q->where('id', $identifier)->orWhere('employee_number', $identifier))
-                ->orWhereHas('saudiDetail', fn ($q) => $q->where('national_id', $identifier))
-                ->orWhereHas('foreignDetail', fn ($q) => $q->where('iqama_number', $identifier))
-                ->first();
-
-            if ($employee) {
-                return $employee;
-            }
-        }
-
-        // Direct exact match on User name
-        $direct = Employee::whereHas('user', fn ($q) => $q->where('name', $identifier))->first();
-        if ($direct) {
-            return $direct;
-        }
-
-        return EmployeeNameMatcher::find($identifier);
     }
 
     protected function resolveOperator(string $operatorName): ?int

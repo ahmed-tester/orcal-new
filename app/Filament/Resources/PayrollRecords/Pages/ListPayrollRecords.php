@@ -48,6 +48,12 @@ class ListPayrollRecords extends ListRecords
     public string $employeeScope = 'all';
     public int|string|null $selectedEmployeeId = null;
 
+    // Payment Scope: 'all' (الكل) | 'paid' (تم الصرف / التحصيل) | 'unpaid' (لم يتم الصرف / متبقي)
+    public string $paymentScope = 'all';
+    public int $countAll = 0;
+    public int $countPaid = 0;
+    public int $countUnpaid = 0;
+
     // Date & Search Filters
     public string $payrollMonth;
     public ?string $dateFrom = null;
@@ -75,11 +81,17 @@ class ListPayrollRecords extends ListRecords
     public int $totalSheetPages = 1;
     public array $paginatedRows = [];
 
+    // Historical Archive Properties
+    public int $archiveYear = 2026;
+    public string $archiveViewMode = 'folders'; // 'folders' | 'table'
+    public string $archiveOperationType = 'all'; // 'all' | 'payroll' | 'collection'
+
     public function mount(): void
     {
         parent::mount();
 
         $this->payrollMonth = now()->format('Y-m');
+        $this->archiveYear = (int) now()->format('Y');
         $this->dateFrom = now()->startOfMonth()->toDateString();
         $this->dateTo = now()->endOfMonth()->toDateString();
 
@@ -381,6 +393,7 @@ class ListPayrollRecords extends ListRecords
                 'operationType'       => $this->operationType,
                 'employeeScope'       => $this->employeeScope,
                 'selectedEmployeeId'  => $this->selectedEmployeeId,
+                'paymentScope'        => $this->paymentScope,
                 'payrollMonth'        => $this->payrollMonth,
                 'searchQuery'         => $this->searchQuery,
             ],
@@ -392,6 +405,9 @@ class ListPayrollRecords extends ListRecords
         $this->employeeRows          = $result['rows'];
         $this->checkedEmployees      = $result['checkedEmployees'];
         $this->notes                 = $result['notes'];
+        $this->countAll              = $result['counts']['all'] ?? count($result['rows']);
+        $this->countPaid             = $result['counts']['paid'] ?? 0;
+        $this->countUnpaid           = $result['counts']['unpaid'] ?? 0;
         $this->totalEmployees        = $result['totals']['totalEmployees'];
         $this->totalBasicAmount      = $result['totals']['totalBasicAmount'];
         $this->totalAdditionalAmount = $result['totals']['totalAdditionalAmount'];
@@ -403,9 +419,26 @@ class ListPayrollRecords extends ListRecords
         $this->recalculatePagination();
     }
 
-    public function setOperationTypeAndPrint(string $type): void
+    public function setPaymentScope(string $scope): void
+    {
+        $this->paymentScope = in_array($scope, ['all', 'paid', 'unpaid']) ? $scope : 'all';
+        $this->sheetPage = 1;
+        $this->loadSheet();
+    }
+
+    public function printWithScope(string $paymentScope = 'all'): void
+    {
+        $this->paymentScope = in_array($paymentScope, ['all', 'paid', 'unpaid']) ? $paymentScope : 'all';
+        $this->printReportType = $this->operationType;
+        $this->sheetPerPage = 'all';
+        $this->loadSheet();
+        $this->js('window.print()');
+    }
+
+    public function setOperationTypeAndPrint(string $type, string $paymentScope = 'all'): void
     {
         $this->operationType = in_array($type, ['payroll', 'collection']) ? $type : 'payroll';
+        $this->paymentScope = in_array($paymentScope, ['all', 'paid', 'unpaid']) ? $paymentScope : 'all';
         $this->printReportType = $this->operationType;
         $this->sheetPerPage = 'all';
         $this->loadSheet();
@@ -505,6 +538,66 @@ class ListPayrollRecords extends ListRecords
             ->send();
 
         $this->loadSheet();
+    }
+
+    public function setArchiveYear(int $year): void
+    {
+        $this->archiveYear = $year;
+    }
+
+    public function setArchiveOperationType(string $type): void
+    {
+        $this->archiveOperationType = in_array($type, ['all', 'payroll', 'collection']) ? $type : 'all';
+    }
+
+    public function toggleArchiveViewMode(string $mode): void
+    {
+        $this->archiveViewMode = in_array($mode, ['folders', 'table']) ? $mode : 'folders';
+    }
+
+    public function openArchivedMonth(string $month, string $operationType = 'payroll'): void
+    {
+        $this->payrollMonth = $month;
+        $this->operationType = $operationType;
+        $this->paymentScope = 'all';
+        $this->pageViewTab = 'sheet';
+        $this->loadSheet();
+    }
+
+    public function printArchivedMonth(string $month, string $operationType = 'payroll', string $paymentScope = 'all'): void
+    {
+        $this->payrollMonth = $month;
+        $this->operationType = $operationType;
+        $this->paymentScope = $paymentScope;
+        $this->printReportType = $operationType;
+        $this->sheetPerPage = 'all';
+        $this->loadSheet();
+        $this->js('window.print()');
+    }
+
+    public function getArchiveYearsProperty(): array
+    {
+        return PayrollSheetService::getAvailablePayrollYears($this->selectedCompanyId, $this->selectedCompanyIds);
+    }
+
+    public function getArchivedPayrollMonthsProperty(): array
+    {
+        return PayrollSheetService::getArchivedMonthsSummary(
+            year: $this->archiveYear,
+            operationType: 'payroll',
+            companyId: $this->selectedCompanyId,
+            companyIds: $this->selectedCompanyIds
+        );
+    }
+
+    public function getArchivedCollectionMonthsProperty(): array
+    {
+        return PayrollSheetService::getArchivedMonthsSummary(
+            year: $this->archiveYear,
+            operationType: 'collection',
+            companyId: $this->selectedCompanyId,
+            companyIds: $this->selectedCompanyIds
+        );
     }
 
     protected function getHeaderActions(): array
