@@ -74,6 +74,11 @@ return [
         'notification_notes' => 'Notice: Debt due date reached — please follow up for collection',
     ],
 
+    'actions' => [
+        'print_voucher' => 'Print Debt Voucher',
+        'save_and_print' => 'Save & Print Debt Voucher',
+    ],
+
     'table_heading' => 'Public Debts — :count debts',
 
     // Collections
@@ -96,6 +101,8 @@ return [
             'executed_by' => 'Collected By',
         ],
         'actions' => [
+            'print_voucher' => 'Print Voucher PDF',
+            'save_and_print' => 'Save & Print Voucher',
             'approve' => 'Approve Voucher',
             'unapprove' => 'Unapprove Voucher',
             'approved_success' => 'Debt collection voucher approved successfully.',

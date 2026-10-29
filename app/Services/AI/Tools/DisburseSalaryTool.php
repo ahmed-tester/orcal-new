@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\PayrollPayment;
 use App\Models\PayrollRecord;
 use App\Services\AI\Contracts\GeminiToolInterface;
+use App\Services\AI\EmployeeNameMatcher;
 use App\Services\PayrollCalculationService;
 use Carbon\Carbon;
 
@@ -28,31 +29,31 @@ class DisburseSalaryTool implements GeminiToolInterface
                 'properties' => [
                     'employee_identifier' => [
                         'type' => 'STRING',
-                        'description' => 'اسم الموظف أو رقم الهوية الوطنية أو رقم الإقامة أو الرقم الوظيفي أو الجوال'
+                        'description' => 'اسم الموظف أو رقم الهوية الوطنية أو رقم الإقامة أو الرقم الوظيفي أو الجوال',
                     ],
                     'amount' => [
                         'type' => 'NUMBER',
-                        'description' => 'المبلغ المصروف فعلياً بالريال السعودي'
+                        'description' => 'المبلغ المصروف فعلياً بالريال السعودي',
                     ],
                     'payroll_month' => [
                         'type' => 'STRING',
-                        'description' => 'شهر المسير المراد صرفه بصيغة YYYY-MM (مثال: 2026-10). إذا لم يحدد يُصرف لأقرب مسير مفتوح به رصيد مستحق.'
+                        'description' => 'شهر المسير المراد صرفه بصيغة YYYY-MM (مثال: 2026-10). إذا لم يحدد يُصرف لأقرب مسير مفتوح به رصيد مستحق.',
                     ],
                     'payment_date' => [
                         'type' => 'STRING',
-                        'description' => 'تاريخ الصرف الفعلي بصيغة YYYY-MM-DD (الافتراضي تاريخ اليوم)'
+                        'description' => 'تاريخ الصرف الفعلي بصيغة YYYY-MM-DD (الافتراضي تاريخ اليوم)',
                     ],
                     'payment_method' => [
                         'type' => 'STRING',
-                        'description' => 'طريقة الصرف: bank_transfer (تحويل بنكي) أو cash (نقداً) أو cheque (شيك)'
+                        'description' => 'طريقة الصرف: bank_transfer (تحويل بنكي) أو cash (نقداً) أو cheque (شيك)',
                     ],
                     'notes' => [
                         'type' => 'STRING',
-                        'description' => 'رقم الحوالة البنكية أو ملاحظات الصرف'
-                    ]
+                        'description' => 'رقم الحوالة البنكية أو ملاحظات الصرف',
+                    ],
                 ],
-                'required' => ['employee_identifier', 'amount']
-            ]
+                'required' => ['employee_identifier', 'amount'],
+            ],
         ];
     }
 
@@ -60,10 +61,10 @@ class DisburseSalaryTool implements GeminiToolInterface
     {
         try {
             $identifier = trim($arguments['employee_identifier'] ?? '');
-            $amount = (float)($arguments['amount'] ?? 0);
-            $monthStr = !empty($arguments['payroll_month']) ? trim($arguments['payroll_month']) : null;
-            $paymentDate = !empty($arguments['payment_date']) ? Carbon::parse($arguments['payment_date'])->toDateString() : date('Y-m-d');
-            $paymentMethod = !empty($arguments['payment_method']) ? trim($arguments['payment_method']) : 'bank_transfer';
+            $amount = (float) ($arguments['amount'] ?? 0);
+            $monthStr = ! empty($arguments['payroll_month']) ? trim($arguments['payroll_month']) : null;
+            $paymentDate = ! empty($arguments['payment_date']) ? Carbon::parse($arguments['payment_date'])->toDateString() : date('Y-m-d');
+            $paymentMethod = ! empty($arguments['payment_method']) ? trim($arguments['payment_method']) : 'bank_transfer';
             $notes = trim($arguments['notes'] ?? '');
 
             if (empty($identifier)) {
@@ -77,7 +78,7 @@ class DisburseSalaryTool implements GeminiToolInterface
             $companyId = auth()->user()?->company_id ?? Company::first()?->id ?? 1;
 
             $employee = $this->resolveEmployee($identifier, $companyId);
-            if (!$employee) {
+            if (! $employee) {
                 return [
                     'success' => false,
                     'message' => "تعذر العثور على الموظف ({$identifier}) في النظام لإتمام عملية الصرف.",
@@ -102,18 +103,18 @@ class DisburseSalaryTool implements GeminiToolInterface
             }
 
             // إذا لم يتم العثور على مسير، يتم إنشاء مسير للشهر تلقائياً لحفظ الصرف داخله
-            if (!$record) {
+            if (! $record) {
                 $targetMonth = $monthStr ? Carbon::parse($monthStr)->startOfMonth()->toDateString() : Carbon::parse($paymentDate)->startOfMonth()->toDateString();
-                $basicSalary = (float)$employee->basic_salary > 0 ? (float)$employee->basic_salary : $amount;
+                $basicSalary = (float) $employee->basic_salary > 0 ? (float) $employee->basic_salary : $amount;
 
                 $record = PayrollRecord::create([
-                    'company_id'     => $companyId,
-                    'employee_id'    => $employee->id,
-                    'payroll_month'  => $targetMonth,
-                    'record_date'    => $paymentDate,
-                    'basic_salary'   => $basicSalary,
+                    'company_id' => $companyId,
+                    'employee_id' => $employee->id,
+                    'payroll_month' => $targetMonth,
+                    'record_date' => $paymentDate,
+                    'basic_salary' => $basicSalary,
                     'operation_type' => 'payroll',
-                    'notes'          => 'تم إنشاؤه تلقائياً أثناء استيراد صرف الراتب',
+                    'notes' => 'تم إنشاؤه تلقائياً أثناء استيراد صرف الراتب',
                 ]);
             }
 
@@ -126,7 +127,7 @@ class DisburseSalaryTool implements GeminiToolInterface
             if ($duplicatePayment) {
                 return [
                     'success' => false,
-                    'message' => "تنبيه (مكرر): تم صرف مبلغ (" . number_format($amount, 2) . " ر.س) للموظف ({$employee->user?->name}) بتاريخ ({$paymentDate}) مسبقاً بسند رقم #{$duplicatePayment->payment_number}، تم تخطيه لمنع ازدواجية الصرف.",
+                    'message' => 'تنبيه (مكرر): تم صرف مبلغ ('.number_format($amount, 2)." ر.س) للموظف ({$employee->user?->name}) بتاريخ ({$paymentDate}) مسبقاً بسند رقم #{$duplicatePayment->payment_number}، تم تخطيه لمنع ازدواجية الصرف.",
                 ];
             }
 
@@ -143,54 +144,36 @@ class DisburseSalaryTool implements GeminiToolInterface
             $employeeName = $employee->user?->name ?? "موظف #{$employee->id}";
             $monthDisplay = Carbon::parse($freshRecord->payroll_month)->format('Y-m');
 
-            $methodName = match($paymentMethod) {
+            $methodName = match ($paymentMethod) {
                 'bank_transfer' => 'تحويل بنكي',
-                'cash'          => 'نقداً',
-                'cheque'        => 'شيك',
-                default         => $paymentMethod
+                'cash' => 'نقداً',
+                'cheque' => 'شيك',
+                default => $paymentMethod
             };
 
             return [
                 'success' => true,
-                'message' => "تم صرف مبلغ (" . number_format($amount, 2) . " ر.س) للموظف ({$employeeName}) عن شهر ({$monthDisplay}) بنجاح بسند رقم #{$payment->payment_number} عبر ({$methodName}). المتبقي: " . number_format($freshRecord->remaining_amount, 2) . " ر.س",
+                'message' => 'تم صرف مبلغ ('.number_format($amount, 2)." ر.س) للموظف ({$employeeName}) عن شهر ({$monthDisplay}) بنجاح بسند رقم #{$payment->payment_number} عبر ({$methodName}). المتبقي: ".number_format($freshRecord->remaining_amount, 2).' ر.س',
                 'record_name' => "صرف راتب: {$employeeName}",
                 'details' => [
-                    'المبلغ المصروف'  => number_format($amount, 2) . ' ر.س',
-                    'سند الصرف'       => $payment->payment_number,
-                    'تاريخ الصرف'     => $paymentDate,
-                    'طريقة الصرف'     => $methodName,
-                    'شهر الاستحقاق'   => $monthDisplay,
-                    'المتبقي للصرف'   => number_format($freshRecord->remaining_amount, 2) . ' ر.س',
-                ]
+                    'المبلغ المصروف' => number_format($amount, 2).' ر.س',
+                    'سند الصرف' => $payment->payment_number,
+                    'تاريخ الصرف' => $paymentDate,
+                    'طريقة الصرف' => $methodName,
+                    'شهر الاستحقاق' => $monthDisplay,
+                    'المتبقي للصرف' => number_format($freshRecord->remaining_amount, 2).' ر.س',
+                ],
             ];
         } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'message' => 'حدث خطأ أثناء صرف الراتب: ' . $e->getMessage(),
+                'message' => 'حدث خطأ أثناء صرف الراتب: '.$e->getMessage(),
             ];
         }
     }
 
     protected function resolveEmployee(string $identifier, ?int $companyId = null): ?Employee
     {
-        $query = Employee::query();
-        if ($companyId) {
-            $query->where('company_id', $companyId);
-        }
-
-        if (is_numeric($identifier)) {
-            $emp = (clone $query)->where('id', $identifier)->first();
-            if ($emp) return $emp;
-        }
-
-        $emp = (clone $query)->where('employee_number', $identifier)->first();
-        if ($emp) return $emp;
-
-        $emp = (clone $query)->whereHas('saudiDetail', fn($q) => $q->where('national_id', $identifier))
-            ->orWhereHas('foreignDetail', fn($q) => $q->where('iqama_number', $identifier))
-            ->first();
-        if ($emp) return $emp;
-
-        return (clone $query)->whereHas('user', fn($q) => $q->where('name', 'like', "%{$identifier}%")->orWhere('phone', 'like', "%{$identifier}%"))->first();
+        return EmployeeNameMatcher::resolveEmployee($identifier, $companyId);
     }
 }

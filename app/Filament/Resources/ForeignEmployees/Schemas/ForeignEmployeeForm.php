@@ -2,6 +2,11 @@
 
 namespace App\Filament\Resources\ForeignEmployees\Schemas;
 
+use App\Models\Company;
+use App\Models\Employee;
+use App\Models\Setting;
+use App\Models\User;
+use App\Services\CompanyFormService;
 use App\Services\EmployeeAgeService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
@@ -12,6 +17,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Spatie\Permission\Models\Role;
 
 class ForeignEmployeeForm
 {
@@ -26,14 +32,19 @@ class ForeignEmployeeForm
                     ->columns(3)
                     ->schema([
                         TextInput::make('user_name')
-                            ->label(__('employees.fields.name_foreign'))
+                            ->label(__('employees.fields.name_ar'))
+                            ->placeholder(__('employees.placeholders.name'))
                             ->required(),
+
+                        TextInput::make('name_en')
+                            ->label(__('employees.fields.name_en'))
+                            ->placeholder(__('employees.placeholders.name_en')),
 
                         TextInput::make('user_email')
                             ->label(__('employees.fields.email'))
                             ->email()
                             ->required()
-                            ->unique(\App\Models\User::class, 'email', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
+                            ->unique(User::class, 'email', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
                                 return $record?->user_id ? $rule->ignore($record->user_id) : $rule;
                             }),
 
@@ -41,7 +52,7 @@ class ForeignEmployeeForm
                             ->nullable()
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn ($state, callable $set) => $set('user_phone', PhoneService::normalize($state) ?? $state))
-                            ->unique(\App\Models\User::class, 'phone', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
+                            ->unique(User::class, 'phone', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
                                 return $record?->user_id ? $rule->ignore($record->user_id) : $rule;
                             }),
 
@@ -138,11 +149,12 @@ class ForeignEmployeeForm
                             ->label(__('guarantors.fields.guarantor_company'))
                             ->placeholder(__('guarantors.placeholders.guarantor_company'))
                             ->options(function () {
-                                $authorized = \App\Services\CompanyFormService::getAuthorizedCompanyIds();
-                                $query = \App\Models\Company::query();
-                                if (!empty($authorized)) {
+                                $authorized = CompanyFormService::getAuthorizedCompanyIds();
+                                $query = Company::query();
+                                if (! empty($authorized)) {
                                     $query->whereIn('id', $authorized);
                                 }
+
                                 return $query->orderBy('trade_name')->pluck('trade_name', 'id')->toArray();
                             })
                             ->searchable()
@@ -166,7 +178,7 @@ class ForeignEmployeeForm
                             ->placeholder(__('guarantors.placeholders.employee_select'))
                             ->options(function ($get, $record) {
                                 $guarantorCompanyId = $get('guarantor_company_id');
-                                $query = \App\Models\Employee::query()
+                                $query = Employee::query()
                                     ->with(['user', 'details', 'company'])
                                     ->where('status', 'active');
 
@@ -179,8 +191,8 @@ class ForeignEmployeeForm
                                 } else {
                                     $user = auth()->user();
                                     if ($user && ! $user->isSuperAdmin()) {
-                                        $authorized = \App\Services\CompanyFormService::getAuthorizedCompanyIds($user);
-                                        if (!empty($authorized)) {
+                                        $authorized = CompanyFormService::getAuthorizedCompanyIds($user);
+                                        if (! empty($authorized)) {
                                             $query->whereIn('company_id', $authorized);
                                         }
                                     }
@@ -190,7 +202,8 @@ class ForeignEmployeeForm
                                     $name = $emp->user?->name ?? $emp->employee_number ?? "#{$emp->id}";
                                     $idNum = $emp->details?->national_id ?? $emp->details?->iqama_number;
                                     $companyName = (! $guarantorCompanyId && $emp->company) ? " [{$emp->company->trade_name}]" : '';
-                                    $label = $name . ($idNum ? " ({$idNum})" : '') . $companyName;
+                                    $label = $name.($idNum ? " ({$idNum})" : '').$companyName;
+
                                     return [$emp->id => $label];
                                 });
                             })
@@ -206,9 +219,10 @@ class ForeignEmployeeForm
                                     $set('guarantor_nationality', null);
                                     $set('guarantor_job_title', null);
                                     $set('guarantor_address', null);
+
                                     return;
                                 }
-                                $emp = \App\Models\Employee::with(['user', 'details', 'jobTitle', 'company'])->find($state);
+                                $emp = Employee::with(['user', 'details', 'jobTitle', 'company'])->find($state);
                                 if ($emp) {
                                     if ($emp->company_id && ! $get('guarantor_company_id')) {
                                         $set('guarantor_company_id', $emp->company_id);
@@ -276,10 +290,10 @@ class ForeignEmployeeForm
                     ->icon('heroicon-o-briefcase')
                     ->columns(3)
                     ->schema([
-                        \App\Services\CompanyFormService::makeCompanySelect(),
-                        \App\Services\CompanyFormService::makeBranchSelect(),
-                        \App\Services\CompanyFormService::makeDepartmentSelect(),
-                        \App\Services\CompanyFormService::makeJobTitleSelect(),
+                        CompanyFormService::makeCompanySelect(),
+                        CompanyFormService::makeBranchSelect(),
+                        CompanyFormService::makeDepartmentSelect(),
+                        CompanyFormService::makeJobTitleSelect(),
 
                         Select::make('employment_type')
                             ->label(__('employees.fields.employment_type'))
@@ -323,7 +337,7 @@ class ForeignEmployeeForm
                             ->numeric()
                             ->prefix(__('employees.fields.currency_sar'))
                             ->default(0)
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0)),
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0)),
 
                         TextInput::make('bank_iban')
                             ->label(__('employees.fields.bank_iban')),
@@ -347,24 +361,24 @@ class ForeignEmployeeForm
                         FileUpload::make('iqama_file')
                             ->label(__('employees.fields.iqama_file'))
                             ->directory('employees/iqamas')
-                            ->acceptedFileTypes(\App\Models\Setting::getAllowedUploadMimeTypes())
-                            ->maxSize(\App\Models\Setting::getMaxUploadSizeKb())
+                            ->acceptedFileTypes(Setting::getAllowedUploadMimeTypes())
+                            ->maxSize(Setting::getMaxUploadSizeKb())
                             ->openable()
                             ->downloadable(),
 
                         FileUpload::make('passport_file')
                             ->label(__('employees.fields.passport_file'))
                             ->directory('employees/passports')
-                            ->acceptedFileTypes(\App\Models\Setting::getAllowedUploadMimeTypes())
-                            ->maxSize(\App\Models\Setting::getMaxUploadSizeKb())
+                            ->acceptedFileTypes(Setting::getAllowedUploadMimeTypes())
+                            ->maxSize(Setting::getMaxUploadSizeKb())
                             ->openable()
                             ->downloadable(),
 
                         FileUpload::make('contract_file')
                             ->label(__('employees.fields.contract_file'))
                             ->directory('employees/contracts')
-                            ->acceptedFileTypes(\App\Models\Setting::getAllowedUploadMimeTypes())
-                            ->maxSize(\App\Models\Setting::getMaxUploadSizeKb())
+                            ->acceptedFileTypes(Setting::getAllowedUploadMimeTypes())
+                            ->maxSize(Setting::getMaxUploadSizeKb())
                             ->openable()
                             ->downloadable(),
 
@@ -381,7 +395,7 @@ class ForeignEmployeeForm
                     ->schema([
                         Select::make('roles')
                             ->label(__('employees.fields.role_label'))
-                            ->options(fn () => \Spatie\Permission\Models\Role::where('name', '!=', 'Super Admin')->pluck('name', 'name'))
+                            ->options(fn () => Role::where('name', '!=', 'Super Admin')->pluck('name', 'name'))
                             ->multiple()
                             ->searchable()
                             ->preload()

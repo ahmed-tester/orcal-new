@@ -116,12 +116,13 @@ return [
     'service' => [
         'no_api_key' => 'Gemini API key is not configured. Please add it from System Settings (AI group) or in .env',
         'file_not_found' => 'The specified file does not exist on the server.',
-        'instruction_prompt' => 'You are an intelligent, highly accurate assistant responsible for reading documents and extracting data completely. Crucial instruction for multi-page or large documents (e.g. employee rosters with dozens or hundreds of rows): You must thoroughly read all pages from the very first page to the last page, and extract every single employee/record without skipping or stopping at page 1. Call the appropriate function for every record found in the entire document until 100% complete. Strict requirement: DO NOT return free text, explanations or summaries; return ONLY function calls for every single row.',
+        'instruction_prompt' => 'You are an intelligent, highly accurate assistant responsible for reading documents and extracting data completely. Crucial instruction for multi-page or large documents (e.g. employee rosters with dozens or hundreds of rows): You must thoroughly read all pages from the very first page to the last page, and extract every single employee/record without skipping or stopping at page 1. Call the appropriate function for every record found in the entire document until 100% complete. Strict requirement: DO NOT return free text, explanations or summaries; return ONLY function calls for every single row. Special rule for employee names: If the document contains the employee name in both Arabic and English, extract the Arabic name in the (name) argument and the English name in the (name_en) argument. Crucial accounting rule for statements with two amount columns (Charges/Installments column vs Paid/Settled column): 1) When a row has an amount in the Paid/Settled column or the description is (تسديد أقساط / payment), you MUST call create_installment_payment exclusively; NEVER call create_installment_record for paid rows. 2) When a row has an amount in the Charges/Installments column and paid is 0, call create_installment_record.',
         'company_context_instruction' => 'Important note on establishments/companies: If the file mentions the company or establishment name for each employee or record, extract it accurately and pass it in (company_name). If no company is mentioned for an employee, leave it empty. If a new company is mentioned that is not in the list, extract its name exactly as written. Currently registered companies in the system include: [:companies].',
         'file_content_prefix' => "File content:\n",
         'text_batch_notice' => 'Strict notice: this batch contains (:count) data rows. You must extract and call the appropriate function for all (:count) rows completely without stopping early or omitting any row.',
         'pdf_page_notice' => 'You are now reading pages (:from) to (:to) out of (:total) pages in this document. Strict warning: These pages contain a complete list of records; you must extract and invoke the appropriate function for all records and rows across all of these pages without exception and without stopping after just one record or a sample.',
         'pdf_page_failed' => 'Could not read :failed page(s) out of :total (remaining pages were processed). Results may be incomplete — retry, or upload the missing pages in a separate file.',
+        'reference_page_notice' => 'The following page is NOT part of the extraction range: it is a reference page (page 1 of the statement) attached so you know the table column definitions (such as the installments column versus the settled amount column). You are strictly forbidden from extracting records or calling any function for this reference page or repeating its rows; your range is exclusively the pages mentioned above.',
         'employee_not_found' => 'Employee (:name) was not found in the system. Add the employee first, then try again.',
         'installment_not_found' => 'No matching installment was found for employee (:name) dated (:date) to record this payment against. Create the installment first or correct the row data.',
         'connection_failed' => 'Failed to connect to Gemini API: :error',
@@ -192,7 +193,8 @@ return [
     'tools' => [
         'create_saudi_employee' => [
             'description' => 'Add a Saudi-national employee only, with strict National ID validation (10 digits starting with 1).',
-            'name_desc' => 'Full name of the Saudi employee',
+            'name_desc' => 'Full name of the Saudi employee in Arabic (or primary name)',
+            'name_en_desc' => 'Full name of the Saudi employee in English if present in the document (optional)',
             'company_name_desc' => 'Company or establishment name for the Saudi employee if present in the document/table (optional)',
             'national_id_desc' => 'Saudi National ID number (10 digits starting with 1)',
             'phone_desc' => 'Employee mobile number',
@@ -212,7 +214,8 @@ return [
         ],
         'create_foreign_employee' => [
             'description' => 'Add a resident (non-Saudi) employee with strict Iqama validation (10 digits starting with 2) and a non-Saudi nationality.',
-            'name_desc' => 'Full name of the resident employee',
+            'name_desc' => 'Full name of the resident employee in Arabic (or primary name)',
+            'name_en_desc' => 'Full name of the resident employee in English if present in the document (optional)',
             'company_name_desc' => 'Company or establishment name for the resident employee if present in the document/table (optional)',
             'iqama_desc' => 'Iqama number in Saudi Arabia (10 digits starting with 2)',
             'nationality_desc' => 'Resident employee nationality (e.g. Egyptian, Indian, Yemeni, Filipino, Pakistani... cannot be Saudi)',

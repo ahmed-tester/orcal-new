@@ -143,30 +143,6 @@ class CreateLeaveTool implements GeminiToolInterface
 
     protected function resolveEmployee(string $identifier, ?int $companyId = null): ?Employee
     {
-        $query = Employee::query();
-        if ($companyId) {
-            $query->where('company_id', $companyId);
-        }
-
-        if (is_numeric($identifier)) {
-            $emp = (clone $query)->where('id', $identifier)->first();
-            if ($emp) {
-                return $emp;
-            }
-        }
-
-        $emp = (clone $query)->where('employee_number', $identifier)->first();
-        if ($emp) {
-            return $emp;
-        }
-
-        $emp = (clone $query)->whereHas('saudiDetail', fn ($q) => $q->where('national_id', $identifier))
-            ->orWhereHas('foreignDetail', fn ($q) => $q->where('iqama_number', $identifier))
-            ->first();
-        if ($emp) {
-            return $emp;
-        }
-
-        return (clone $query)->whereHas('user', fn ($q) => $q->where('name', 'like', "%{$identifier}%")->orWhere('phone', 'like', "%{$identifier}%"))->first();
+        return EmployeeNameMatcher::resolveEmployee($identifier, $companyId);
     }
 }

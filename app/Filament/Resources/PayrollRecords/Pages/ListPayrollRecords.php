@@ -2,12 +2,11 @@
 
 namespace App\Filament\Resources\PayrollRecords\Pages;
 
-use App\Enums\PaymentStatus;
 use App\Filament\Resources\PayrollRecords\PayrollRecordResource;
 use App\Models\Company;
 use App\Models\Employee;
-use App\Models\PayrollRecord;
-use App\Services\PayrollCalculationService;
+use App\Models\Guarantor;
+use App\Services\CompanyFormService;
 use App\Services\PayrollSheetService;
 use Carbon\Carbon;
 use Filament\Actions\CreateAction;
@@ -16,7 +15,6 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class ListPayrollRecords extends ListRecords
 {
@@ -38,48 +36,83 @@ class ListPayrollRecords extends ListRecords
 
     // Mode 4: By Guarantor / Sponsor (Guarantor Table)
     public int|string|null $selectedGuarantorId = null;
+
     public ?string $selectedGuarantor = null;
 
     // Operation Type: 'payroll' (رواتب) or 'collection' (تحصيل)
     public string $operationType = 'payroll';
+
     public string $printReportType = 'payroll';
 
     // Employee Scope: 'all' (جميع موظفي المنشأة) or 'specific' (موظف معين)
     public string $employeeScope = 'all';
+
     public int|string|null $selectedEmployeeId = null;
+
+    // Payment Scope: 'all' (الكل) | 'paid' (تم الصرف / التحصيل) | 'unpaid' (لم يتم الصرف / متبقي)
+    public string $paymentScope = 'all';
+
+    public int $countAll = 0;
+
+    public int $countPaid = 0;
+
+    public int $countUnpaid = 0;
 
     // Date & Search Filters
     public string $payrollMonth;
+
     public ?string $dateFrom = null;
+
     public ?string $dateTo = null;
+
     public string $searchQuery = '';
 
     // Sheet Data
     public array $employeeRows = [];
+
     public array $checkedEmployees = []; // [emp_id => bool] - Checkbox (تم التحصيل / الصرف)
+
     public array $notes = [];            // [emp_id => string]
+
     public array $deletedEmployeeIds = []; // [emp_id] - Employees deleted from this sheet
 
     // Summary Statistics
     public int $totalEmployees = 0;
+
     public float $totalBasicAmount = 0.0;
+
     public float $totalAdditionalAmount = 0.0;
+
     public float $totalDeductionAmount = 0.0;
+
     public float $totalNetAmount = 0.0;
+
     public float $totalPaidAmount = 0.0;
+
     public float $totalPendingAmount = 0.0;
 
     // Pagination for Custom Sheet
     public int $sheetPage = 1;
+
     public int|string $sheetPerPage = 25;
+
     public int $totalSheetPages = 1;
+
     public array $paginatedRows = [];
+
+    // Historical Archive Properties
+    public int $archiveYear = 2026;
+
+    public string $archiveViewMode = 'folders'; // 'folders' | 'table'
+
+    public string $archiveOperationType = 'all'; // 'all' | 'payroll' | 'collection'
 
     public function mount(): void
     {
         parent::mount();
 
         $this->payrollMonth = now()->format('Y-m');
+        $this->archiveYear = (int) now()->format('Y');
         $this->dateFrom = now()->startOfMonth()->toDateString();
         $this->dateTo = now()->endOfMonth()->toDateString();
 
@@ -90,20 +123,20 @@ class ListPayrollRecords extends ListRecords
 
         $requestedCompanyId = (int) request()->query('company_id');
         $user = auth()->user();
-        $authorizedCompanyIds = $user ? \App\Services\CompanyFormService::getAuthorizedCompanyIds($user) : [];
+        $authorizedCompanyIds = $user ? CompanyFormService::getAuthorizedCompanyIds($user) : [];
 
         if ($requestedCompanyId > 0 && (empty($authorizedCompanyIds) || in_array($requestedCompanyId, $authorizedCompanyIds))) {
             $this->selectedCompanyId = $requestedCompanyId;
             $this->selectedCompanyIds = [$requestedCompanyId];
         } else {
-            $firstCompanyId = !empty($authorizedCompanyIds) ? reset($authorizedCompanyIds) : Company::value('id');
+            $firstCompanyId = ! empty($authorizedCompanyIds) ? reset($authorizedCompanyIds) : Company::value('id');
             if ($firstCompanyId) {
                 $this->selectedCompanyId = $firstCompanyId;
                 $this->selectedCompanyIds = [$firstCompanyId];
             }
         }
 
-        $firstGuarantor = \App\Models\Guarantor::where('status', 'active')->first();
+        $firstGuarantor = Guarantor::where('status', 'active')->first();
         if ($firstGuarantor) {
             $this->selectedGuarantorId = $firstGuarantor->id;
             $this->selectedGuarantor = $firstGuarantor->name;
@@ -126,10 +159,11 @@ class ListPayrollRecords extends ListRecords
                     ->options(function () {
                         $user = auth()->user();
                         $query = Company::orderBy('trade_name');
-                        if ($user && !$user->isSuperAdmin()) {
-                            $authorized = \App\Services\CompanyFormService::getAuthorizedCompanyIds($user);
-                            $query->whereIn('id', !empty($authorized) ? $authorized : [0]);
+                        if ($user && ! $user->isSuperAdmin()) {
+                            $authorized = CompanyFormService::getAuthorizedCompanyIds($user);
+                            $query->whereIn('id', ! empty($authorized) ? $authorized : [0]);
                         }
+
                         return $query->pluck('trade_name', 'id');
                     })
                     ->multiple()
@@ -237,7 +271,7 @@ class ListPayrollRecords extends ListRecords
 
     public function selectAllCompanies(): void
     {
-        $this->selectedCompanyIds = $this->companies->pluck('id')->map(fn($id) => (int) $id)->toArray();
+        $this->selectedCompanyIds = $this->companies->pluck('id')->map(fn ($id) => (int) $id)->toArray();
         $this->form->fill(['selectedCompanyIds' => $this->selectedCompanyIds]);
         $this->loadSheet();
     }
@@ -263,7 +297,7 @@ class ListPayrollRecords extends ListRecords
     {
         if ($this->selectedGuarantorId !== null && $this->selectedGuarantorId !== '') {
             $this->selectedGuarantorId = (int) $this->selectedGuarantorId;
-            $this->selectedGuarantor = \App\Models\Guarantor::find($this->selectedGuarantorId)?->name;
+            $this->selectedGuarantor = Guarantor::find($this->selectedGuarantorId)?->name;
         } else {
             $this->selectedGuarantorId = null;
             $this->selectedGuarantor = null;
@@ -320,7 +354,8 @@ class ListPayrollRecords extends ListRecords
                 $c = Carbon::parse($this->payrollMonth);
                 $this->dateFrom = $c->copy()->startOfMonth()->toDateString();
                 $this->dateTo = $c->copy()->endOfMonth()->toDateString();
-            } catch (\Exception) {}
+            } catch (\Exception) {
+            }
         }
         $this->loadSheet();
     }
@@ -340,18 +375,19 @@ class ListPayrollRecords extends ListRecords
     {
         $user = auth()->user();
         $query = Company::orderBy('trade_name');
-        if ($user && !$user->isSuperAdmin()) {
-            $authorized = \App\Services\CompanyFormService::getAuthorizedCompanyIds($user);
-            $query->whereIn('id', !empty($authorized) ? $authorized : [0]);
+        if ($user && ! $user->isSuperAdmin()) {
+            $authorized = CompanyFormService::getAuthorizedCompanyIds($user);
+            $query->whereIn('id', ! empty($authorized) ? $authorized : [0]);
         }
+
         return $query->get(['id', 'trade_name']);
     }
 
     public function getGuarantorsProperty(): Collection
     {
-        return \App\Models\Guarantor::where(function ($q) {
-                $q->where('status', 'active')->orWhereNull('status');
-            })
+        return Guarantor::where(function ($q) {
+            $q->where('status', 'active')->orWhereNull('status');
+        })
             ->orderBy('name')
             ->get(['id', 'name', 'national_id', 'phone', 'type', 'company_id']);
     }
@@ -362,7 +398,7 @@ class ListPayrollRecords extends ListRecords
 
         if ($this->filterMode === 'single_company' && $this->selectedCompanyId) {
             $query->where('company_id', $this->selectedCompanyId);
-        } elseif ($this->filterMode === 'multiple_companies' && !empty($this->selectedCompanyIds)) {
+        } elseif ($this->filterMode === 'multiple_companies' && ! empty($this->selectedCompanyIds)) {
             $query->whereIn('company_id', $this->selectedCompanyIds);
         }
 
@@ -373,48 +409,71 @@ class ListPayrollRecords extends ListRecords
     {
         $result = PayrollSheetService::buildSheetData(
             filters: [
-                'filterMode'          => $this->filterMode,
-                'selectedCompanyId'   => $this->selectedCompanyId,
-                'selectedCompanyIds'  => $this->selectedCompanyIds,
+                'filterMode' => $this->filterMode,
+                'selectedCompanyId' => $this->selectedCompanyId,
+                'selectedCompanyIds' => $this->selectedCompanyIds,
                 'selectedGuarantorId' => $this->selectedGuarantorId,
-                'selectedGuarantor'   => $this->selectedGuarantor,
-                'operationType'       => $this->operationType,
-                'employeeScope'       => $this->employeeScope,
-                'selectedEmployeeId'  => $this->selectedEmployeeId,
-                'payrollMonth'        => $this->payrollMonth,
-                'searchQuery'         => $this->searchQuery,
+                'selectedGuarantor' => $this->selectedGuarantor,
+                'operationType' => $this->operationType,
+                'employeeScope' => $this->employeeScope,
+                'selectedEmployeeId' => $this->selectedEmployeeId,
+                'paymentScope' => $this->paymentScope,
+                'payrollMonth' => $this->payrollMonth,
+                'searchQuery' => $this->searchQuery,
             ],
             deletedEmployeeIds: $this->deletedEmployeeIds,
             checkedEmployees: $this->checkedEmployees,
             notes: $this->notes,
         );
 
-        $this->employeeRows          = $result['rows'];
-        $this->checkedEmployees      = $result['checkedEmployees'];
-        $this->notes                 = $result['notes'];
-        $this->totalEmployees        = $result['totals']['totalEmployees'];
-        $this->totalBasicAmount      = $result['totals']['totalBasicAmount'];
+        $this->employeeRows = $result['rows'];
+        $this->checkedEmployees = $result['checkedEmployees'];
+        $this->notes = $result['notes'];
+        $this->countAll = $result['counts']['all'] ?? count($result['rows']);
+        $this->countPaid = $result['counts']['paid'] ?? 0;
+        $this->countUnpaid = $result['counts']['unpaid'] ?? 0;
+        $this->totalEmployees = $result['totals']['totalEmployees'];
+        $this->totalBasicAmount = $result['totals']['totalBasicAmount'];
         $this->totalAdditionalAmount = $result['totals']['totalAdditionalAmount'];
-        $this->totalDeductionAmount  = $result['totals']['totalDeductionAmount'];
-        $this->totalNetAmount        = $result['totals']['totalNetAmount'];
-        $this->totalPaidAmount       = $result['totals']['totalPaidAmount'];
-        $this->totalPendingAmount    = $result['totals']['totalPendingAmount'];
+        $this->totalDeductionAmount = $result['totals']['totalDeductionAmount'];
+        $this->totalNetAmount = $result['totals']['totalNetAmount'];
+        $this->totalPaidAmount = $result['totals']['totalPaidAmount'];
+        $this->totalPendingAmount = $result['totals']['totalPendingAmount'];
 
         $this->recalculatePagination();
     }
 
-    public function setOperationTypeAndPrint(string $type): void
+    public function setPaymentScope(string $scope): void
     {
-        $this->operationType = in_array($type, ['payroll', 'collection']) ? $type : 'payroll';
+        $this->paymentScope = in_array($scope, ['all', 'paid', 'unpaid']) ? $scope : 'all';
+        $this->sheetPage = 1;
+        $this->loadSheet();
+    }
+
+    public function printWithScope(string $paymentScope = 'all'): void
+    {
+        $this->paymentScope = in_array($paymentScope, ['all', 'paid', 'unpaid']) ? $paymentScope : 'all';
         $this->printReportType = $this->operationType;
         $this->sheetPerPage = 'all';
+        $this->pageViewTab = 'sheet';
+        $this->loadSheet();
+        $this->js('window.print()');
+    }
+
+    public function setOperationTypeAndPrint(string $type, string $paymentScope = 'all'): void
+    {
+        $this->operationType = in_array($type, ['payroll', 'collection']) ? $type : 'payroll';
+        $this->paymentScope = in_array($paymentScope, ['all', 'paid', 'unpaid']) ? $paymentScope : 'all';
+        $this->printReportType = $this->operationType;
+        $this->sheetPerPage = 'all';
+        $this->pageViewTab = 'sheet';
         $this->loadSheet();
         $this->js('window.print()');
     }
 
     public function toggleEmployeeCheck(int $employeeId): void
     {
-        $this->checkedEmployees[$employeeId] = !($this->checkedEmployees[$employeeId] ?? false);
+        $this->checkedEmployees[$employeeId] = ! ($this->checkedEmployees[$employeeId] ?? false);
 
         $totals = PayrollSheetService::applyEmployeeCheck($this->employeeRows, $this->checkedEmployees, $employeeId);
         $this->totalPaidAmount = $totals['totalPaidAmount'];
@@ -443,6 +502,7 @@ class ListPayrollRecords extends ListRecords
                 ->title(__('finance.payroll_records.sheet.empty_save_warning'))
                 ->warning()
                 ->send();
+
             return;
         }
 
@@ -476,7 +536,7 @@ class ListPayrollRecords extends ListRecords
             note: $this->notes[$employeeId] ?? null
         );
 
-        if (!$record) {
+        if (! $record) {
             return null;
         }
 
@@ -492,7 +552,7 @@ class ListPayrollRecords extends ListRecords
             recordId: $recordId
         );
 
-        if (!in_array($employeeId, $this->deletedEmployeeIds)) {
+        if (! in_array($employeeId, $this->deletedEmployeeIds)) {
             $this->deletedEmployeeIds[] = $employeeId;
         }
 
@@ -505,6 +565,72 @@ class ListPayrollRecords extends ListRecords
             ->send();
 
         $this->loadSheet();
+    }
+
+    public function setArchiveYear(int $year): void
+    {
+        $this->archiveYear = (int) $year;
+    }
+
+    public function updatedArchiveYear(): void
+    {
+        $this->archiveYear = (int) $this->archiveYear;
+    }
+
+    public function setArchiveOperationType(string $type): void
+    {
+        $this->archiveOperationType = in_array($type, ['all', 'payroll', 'collection']) ? $type : 'all';
+    }
+
+    public function toggleArchiveViewMode(string $mode): void
+    {
+        $this->archiveViewMode = in_array($mode, ['folders', 'table']) ? $mode : 'folders';
+    }
+
+    public function openArchivedMonth(string $month, string $operationType = 'payroll'): void
+    {
+        $this->payrollMonth = $month;
+        $this->operationType = $operationType;
+        $this->paymentScope = 'all';
+        $this->pageViewTab = 'sheet';
+        $this->loadSheet();
+    }
+
+    public function printArchivedMonth(string $month, string $operationType = 'payroll', string $paymentScope = 'all'): void
+    {
+        $this->payrollMonth = $month;
+        $this->operationType = $operationType;
+        $this->paymentScope = $paymentScope;
+        $this->printReportType = $operationType;
+        $this->sheetPerPage = 'all';
+        $this->pageViewTab = 'sheet';
+        $this->loadSheet();
+        $this->js('window.print()');
+    }
+
+    public function getArchiveYearsProperty(): array
+    {
+        return PayrollSheetService::getAvailablePayrollYears($this->selectedCompanyId, $this->selectedCompanyIds);
+    }
+
+    public function getArchivedPayrollMonthsProperty(): array
+    {
+        return PayrollSheetService::getArchivedMonthsSummary(
+            year: $this->archiveYear,
+            operationType: 'payroll',
+            companyId: $this->selectedCompanyId,
+            companyIds: $this->selectedCompanyIds
+        );
+    }
+
+    public function getArchivedCollectionMonthsProperty(): array
+    {
+        return PayrollSheetService::getArchivedMonthsSummary(
+            year: $this->archiveYear,
+            operationType: 'collection',
+            companyId: $this->selectedCompanyId,
+            companyIds: $this->selectedCompanyIds
+        );
     }
 
     protected function getHeaderActions(): array

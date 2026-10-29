@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\EmployeeDetail;
 use App\Models\User;
 use App\Services\AI\Contracts\GeminiToolInterface;
+use App\Services\AI\EmployeeNameMatcher;
 use App\Services\CompanyFormService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -39,6 +40,10 @@ class CreateSaudiEmployeeTool implements GeminiToolInterface
                     'name' => [
                         'type' => 'STRING',
                         'description' => __('smart_import.tools.create_saudi_employee.name_desc'),
+                    ],
+                    'name_en' => [
+                        'type' => 'STRING',
+                        'description' => __('smart_import.tools.create_saudi_employee.name_en_desc'),
                     ],
                     'company_name' => [
                         'type' => 'STRING',
@@ -77,12 +82,38 @@ class CreateSaudiEmployeeTool implements GeminiToolInterface
     public function execute(array $arguments): array
     {
         $name = trim($arguments['name'] ?? '');
+        $nameEn = trim($arguments['name_en'] ?? '');
         $nationalId = preg_replace('/[^0-9]/', '', $arguments['national_id'] ?? '');
         $phone = trim($arguments['phone'] ?? '');
         $email = trim($arguments['email'] ?? '');
         $salary = isset($arguments['basic_salary']) ? (float) $arguments['basic_salary'] : 0.0;
         $city = trim($arguments['city'] ?? '');
         $birthDate = trim($arguments['birth_date'] ?? '');
+
+        // Always split and clean bilingual names (handles attached texts like "MOHAMMED SAHIDمحمد شاهد")
+        $bilingual = EmployeeNameMatcher::splitBilingualName($name);
+        if ($bilingual['arabic'] !== '' && $bilingual['latin'] !== '') {
+            $name = $bilingual['arabic'];
+            if (empty($nameEn)) {
+                $nameEn = $bilingual['latin'];
+            }
+        } elseif ($bilingual['arabic'] === '' && $bilingual['latin'] !== '' && empty($nameEn)) {
+            $nameEn = $bilingual['latin'];
+        }
+
+        // English-only rows: keep the Latin name as the primary user name
+        // instead of rejecting the whole row.
+        if ($name === '' && $nameEn !== '') {
+            $name = $nameEn;
+        }
+
+        // Clean $nameEn if it accidentally contained Arabic letters
+        if (! empty($nameEn)) {
+            $enBilingual = EmployeeNameMatcher::splitBilingualName($nameEn);
+            if ($enBilingual['latin'] !== '') {
+                $nameEn = $enBilingual['latin'];
+            }
+        }
 
         // 1. Validate employee name
         if (empty($name)) {
@@ -159,7 +190,7 @@ class CreateSaudiEmployeeTool implements GeminiToolInterface
         }
 
         try {
-            return DB::transaction(function () use ($name, $nationalId, $phone, $email, $salary, $city, $birthDate, $arguments) {
+            return DB::transaction(function () use ($name, $nameEn, $nationalId, $phone, $email, $salary, $city, $birthDate, $arguments) {
                 $companyName = trim($arguments['company_name'] ?? '');
                 $fallbackCompanyId = ! empty($arguments['company_id']) ? (int) $arguments['company_id'] : null;
                 $companyRes = CompanyFormService::resolveOrCreateCompanyByName($companyName, $fallbackCompanyId);
@@ -189,6 +220,7 @@ class CreateSaudiEmployeeTool implements GeminiToolInterface
                     'company_id' => $companyId,
                     'basic_salary' => $salary,
                     'status' => GeneralStatus::ACTIVE,
+                    'metadata' => ! empty($nameEn) ? ['name_en' => $nameEn] : null,
                 ]);
 
                 EmployeeDetail::create([

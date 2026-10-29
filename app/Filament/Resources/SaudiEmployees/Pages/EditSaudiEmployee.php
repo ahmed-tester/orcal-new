@@ -4,10 +4,12 @@ namespace App\Filament\Resources\SaudiEmployees\Pages;
 
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Models\User;
+use App\Services\EmployeeAgeService;
 use App\Services\PhoneService;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class EditSaudiEmployee extends EditRecord
 {
@@ -37,8 +39,10 @@ class EditSaudiEmployee extends EditRecord
             $data['national_id'] = $details->national_id;
             $data['address'] = $details->address;
             $data['birth_date'] = $details->birth_date?->format('Y-m-d');
-            $data['age'] = \App\Services\EmployeeAgeService::calculateAge($details->birth_date);
+            $data['age'] = EmployeeAgeService::calculateAge($details->birth_date);
         }
+
+        $data['name_en'] = $employee->metadata['name_en'] ?? null;
 
         return $data;
     }
@@ -48,19 +52,30 @@ class EditSaudiEmployee extends EditRecord
         $employee = $this->record;
         $userId = $employee->user_id;
 
-        if (!empty($data['user_email'])) {
+        if (array_key_exists('name_en', $data)) {
+            $metadata = $employee->metadata ?? [];
+            if (! empty($data['name_en'])) {
+                $metadata['name_en'] = trim($data['name_en']);
+            } else {
+                unset($metadata['name_en']);
+            }
+            $data['metadata'] = $metadata;
+            unset($data['name_en']);
+        }
+
+        if (! empty($data['user_email'])) {
             $email = trim($data['user_email']);
             if (User::where('email', $email)->where('id', '!=', $userId)->exists()) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'user_email' => __('employees.fields.errors.email_exists'),
                 ]);
             }
         }
 
-        if (!empty($data['user_phone'])) {
+        if (! empty($data['user_phone'])) {
             $normalizedPhone = PhoneService::normalize($data['user_phone']);
             if ($normalizedPhone && User::where('phone', $normalizedPhone)->where('id', '!=', $userId)->exists()) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'user_phone' => __('validation.unique', ['attribute' => __('employees.fields.phone')]),
                 ]);
             }
@@ -77,11 +92,11 @@ class EditSaudiEmployee extends EditRecord
         if ($employee->user) {
             $userUpdate = [
                 'name' => $data['user_name'] ?? $employee->user->name,
-                'email' => !empty($data['user_email']) ? $data['user_email'] : $employee->user->email,
+                'email' => ! empty($data['user_email']) ? $data['user_email'] : $employee->user->email,
                 'phone' => PhoneService::normalize($data['user_phone'] ?? $employee->user->phone),
             ];
 
-            if (!empty($data['user_password'])) {
+            if (! empty($data['user_password'])) {
                 $userUpdate['password'] = Hash::make($data['user_password']);
             }
 
@@ -98,7 +113,7 @@ class EditSaudiEmployee extends EditRecord
                 'nationality' => 'saudi',
                 'national_id' => $data['national_id'] ?? null,
                 'birth_date' => $data['birth_date'] ?? null,
-                'metadata' => !empty($data['birth_date']) ? ['age' => \App\Services\EmployeeAgeService::calculateAge($data['birth_date'])] : null,
+                'metadata' => ! empty($data['birth_date']) ? ['age' => EmployeeAgeService::calculateAge($data['birth_date'])] : null,
                 'address' => $data['address'] ?? null,
             ]
         );

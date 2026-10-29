@@ -5,6 +5,7 @@ namespace App\Filament\Resources\DebtCollections\Tables;
 use App\Enums\ApprovalStatus;
 use App\Filament\Components\ApprovalActions;
 use App\Filament\Resources\DebtCollections\DebtCollectionResource;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -104,7 +105,19 @@ class DebtCollectionsTable
             ->recordActions([
                 ...ApprovalActions::make('approve_debt_collection', translationKey: 'debts.collections.actions'),
 
+                Action::make('print_voucher')
+                    ->label(__('debts.collections.actions.print_voucher'))
+                    ->icon('heroicon-o-printer')
+                    ->color('warning')
+                    ->url(fn ($record) => route('system.print', ['type' => 'debt-collection', 'id' => $record->id]))
+                    ->openUrlInNewTab(),
+
                 ActionGroup::make([
+                    Action::make('print_voucher_menu')
+                        ->label(__('debts.collections.actions.print_voucher'))
+                        ->icon('heroicon-o-printer')
+                        ->url(fn ($record) => route('system.print', ['type' => 'debt-collection', 'id' => $record->id]))
+                        ->openUrlInNewTab(),
                     EditAction::make(),
                     DeleteAction::make(),
                 ])
