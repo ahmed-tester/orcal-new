@@ -1,3 +1,5 @@
+
+text/x-generic SmartFileImport.php ( PHP script, UTF-8 Unicode text )
 <?php
 
 namespace App\Filament\Pages;
