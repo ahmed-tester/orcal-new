@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\LoanFunds\Tables;
 
-use App\Filament\Components\OrgSelect;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -29,8 +28,6 @@ class LoanFundsTable
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
-
-                OrgSelect::tableColumnCompany('company.trade_name', __('funds.loan_funds.fields.company')),
 
                 TextColumn::make('target_amount')
                     ->label(__('funds.loan_funds.fields.target_amount'))

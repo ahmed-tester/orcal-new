@@ -12,10 +12,29 @@
 
         <div style="text-align: center;">
             <div style="font-size: 18px; font-weight: 900; color: #2e3882; text-decoration: underline;">
-                {{ $operationType === 'payroll' ? __('finance.payroll_records.sheet.print_payroll_title') : __('finance.payroll_records.sheet.print_collection_title') }}
+                @if($operationType === 'payroll')
+                    @if($paymentScope === 'paid')
+                        {{ __('finance.payroll_records.sheet.print_payroll_paid_title') }}
+                    @elseif($paymentScope === 'unpaid')
+                        {{ __('finance.payroll_records.sheet.print_payroll_unpaid_title') }}
+                    @else
+                        {{ __('finance.payroll_records.sheet.print_payroll_title') }}
+                    @endif
+                @else
+                    @if($paymentScope === 'paid')
+                        {{ __('finance.payroll_records.sheet.print_collection_paid_title') }}
+                    @elseif($paymentScope === 'unpaid')
+                        {{ __('finance.payroll_records.sheet.print_collection_unpaid_title') }}
+                    @else
+                        {{ __('finance.payroll_records.sheet.print_collection_title') }}
+                    @endif
+                @endif
             </div>
             <div style="font-size: 11px; font-weight: bold; color: #334155; margin-top: 4px;">
                 {{ __('finance.payroll_records.sheet.print_month_label', ['month' => $payrollMonth]) }}
+                @if(!empty($employeeRows))
+                    <span style="color: #64748b;">— ({{ count($employeeRows) }} {{ __('finance.payroll_records.sheet.employees_unit') }})</span>
+                @endif
             </div>
         </div>
 

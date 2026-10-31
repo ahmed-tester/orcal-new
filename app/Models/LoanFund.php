@@ -14,7 +14,7 @@ class LoanFund extends Model
     use HasFactory;
 
     protected $fillable = [
-        'company_id',
+        // 'company_id',
         'fund_number',
         'fund_name',
         'target_amount',
@@ -52,16 +52,17 @@ class LoanFund extends Model
     protected static function booted(): void
     {
         static::creating(function (LoanFund $fund) {
-            if (empty($fund->company_id)) {
-                $fund->company_id = auth()->user()?->company_id ?? auth()->user()?->employee?->company_id;
-            }
+            // if (empty($fund->company_id)) {
+            //     $fund->company_id = auth()->user()?->company_id ?? auth()->user()?->employee?->company_id;
+            // }
 
             if (empty($fund->fund_number)) {
                 $fund->fund_number = CodeGeneratorService::generate(
                     modelClass: static::class,
                     column: 'fund_number',
                     prefix: 'LF',
-                    companyId: $fund->company_id,
+                    // companyId: $fund->company_id,
+                    companyId: null,
                 );
             }
 
@@ -71,10 +72,17 @@ class LoanFund extends Model
         });
 
         static::saving(function (LoanFund $fund) {
-            $fund->target_amount = (float)($fund->target_amount ?? 0);
-            $fund->max_loan_limit = (float)($fund->max_loan_limit ?? 0);
-            $fund->default_installments_count = max(1, (int)($fund->default_installments_count ?: 12));
-            $fund->max_repayment_months = max(1, (int)($fund->max_repayment_months ?: 12));
+            $fund->target_amount = (float) ($fund->target_amount ?? 0);
+            $fund->max_loan_limit = (float) ($fund->max_loan_limit ?? 0);
+            $fund->default_installments_count = max(1, (int) ($fund->default_installments_count ?: 12));
+            $fund->max_repayment_months = max(1, (int) ($fund->max_repayment_months ?: 12));
+
+            if ($fund->trustee_employee_id) {
+                $employee = Employee::with('user')->find($fund->trustee_employee_id);
+                $fund->trustee_name = $employee?->user?->name;
+            } else {
+                $fund->trustee_name = null;
+            }
         });
     }
 

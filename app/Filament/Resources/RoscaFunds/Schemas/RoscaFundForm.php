@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\RoscaFunds\Schemas;
 
 use App\Enums\RoscaAllocationMethod;
-use App\Filament\Components\OrgSelect;
+use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -31,8 +31,6 @@ class RoscaFundForm
                         TextInput::make('fund_name')
                             ->label(__('funds.rosca_funds.fields.fund_name'))
                             ->required(),
-
-                        OrgSelect::company('company_id', __('funds.rosca_funds.fields.company')),
 
                         DatePicker::make('start_date')
                             ->label(__('funds.rosca_funds.fields.start_date'))
@@ -82,10 +80,10 @@ class RoscaFundForm
                         Select::make('status')
                             ->label(__('funds.rosca_funds.fields.status'))
                             ->options([
-                                'draft'     => __('funds.enums.general_status.draft'),
-                                'active'    => __('funds.enums.general_status.active'),
+                                'draft' => __('funds.enums.general_status.draft'),
+                                'active' => __('funds.enums.general_status.active'),
                                 'completed' => __('funds.enums.general_status.completed'),
-                                'closed'    => __('funds.enums.general_status.closed'),
+                                'closed' => __('funds.enums.general_status.closed'),
                             ])
                             ->default('active')
                             ->required(),
@@ -93,25 +91,29 @@ class RoscaFundForm
 
                 Section::make(__('funds.rosca_funds.sections.management'))
                     ->icon('heroicon-o-shield-check')
-                    ->columns(2)
+                    ->columns(1)
                     ->schema([
                         Select::make('assigned_manager_id')
                             ->label(__('funds.rosca_funds.fields.assigned_manager'))
-                            ->relationship('assignedManager', 'name')
+                            ->relationship(
+                                name: 'assignedManager',
+                                titleAttribute: 'name',
+                                modifyQueryUsing: fn ($query) => $query
+                                    ->with('employee')
+                                    ->whereHas('employee', fn ($q) => $q->withoutGlobalScopes()->where('status', 'active')->saudi())
+                            )
+                            ->getOptionLabelFromRecordUsing(
+                                fn ($record) => $record->name.($record->employee?->employee_number ? " ({$record->employee->employee_number})" : '')
+                            )
                             ->searchable()
                             ->preload(),
 
-                        TextInput::make('manager_name')
-                            ->label(__('funds.rosca_funds.fields.manager_name')),
-
                         Textarea::make('rules_and_conditions')
                             ->label(__('funds.rosca_funds.fields.rules_and_conditions'))
-                            ->columnSpanFull()
                             ->rows(4),
 
                         Textarea::make('notes')
                             ->label(__('funds.rosca_funds.fields.notes'))
-                            ->columnSpanFull()
                             ->rows(2),
                     ]),
             ]);
@@ -119,15 +121,15 @@ class RoscaFundForm
 
     public static function recalculatePool(callable $set, callable $get): void
     {
-        $count = max(1, (int)($get('members_count') ?? 0));
-        $monthly = (float)($get('monthly_installment') ?? 0);
+        $count = max(1, (int) ($get('members_count') ?? 0));
+        $monthly = (float) ($get('monthly_installment') ?? 0);
         $total = round($count * $monthly, 2);
 
         $set('total_pool_amount', $total);
 
         $startDate = $get('start_date');
         if ($startDate && $count > 0) {
-            $set('end_date', \Carbon\Carbon::parse($startDate)->addMonths($count)->toDateString());
+            $set('end_date', Carbon::parse($startDate)->addMonths($count)->toDateString());
         }
     }
 }

@@ -1,3 +1,5 @@
+
+text/x-generic SmartFileImport.php ( PHP script, UTF-8 Unicode text )
 <?php
 
 namespace App\Filament\Pages;
@@ -112,6 +114,93 @@ class SmartFileImport extends Page implements HasForms
             'target_tool' => 'all',
             'company_id' => null,
         ]);
+
+        SmartImportLogger::info('page.mounted', [
+            'user_id' => auth()->id(),
+            'user_name' => auth()->user()?->name,
+            'user_email' => auth()->user()?->email,
+            'ip' => request()->ip(),
+            'user_agent' => Str::limit(request()->userAgent() ?? '', 100),
+        ]);
+
+        $this->restorePendingRunIfAvailable();
+    }
+
+    public function updated($property, $value = null): void
+    {
+        if (str_starts_with((string) $property, 'data.')) {
+            $field = substr((string) $property, 5);
+            $context = [
+                'field' => $field,
+                'value' => is_scalar($value) ? $value : (is_array($value) ? array_keys($value) : gettype($value)),
+                'user_id' => auth()->id(),
+            ];
+
+            if ($field === 'uploaded_file' && is_string($value) && $value !== '') {
+                $disk = Storage::disk('public');
+                $context['exists_on_disk'] = $disk->exists($value);
+                if ($context['exists_on_disk']) {
+                    $context['size_bytes'] = $disk->size($value);
+                    $context['size_kb'] = round($context['size_bytes'] / 1024, 2);
+                }
+            }
+
+            SmartImportLogger::info('page.form_field_updated', $context);
+        }
+    }
+
+    /**
+     * Restore pending or recently completed extraction run if browser was refreshed or reconnected.
+     */
+    protected function restorePendingRunIfAvailable(): void
+    {
+        $userId = auth()->id();
+        $activeRunId = Cache::get($this->userActiveRunKey($userId));
+        if (! $activeRunId) {
+            SmartImportLogger::info('page.no_active_run_to_restore', [
+                'user_id' => $userId,
+            ]);
+
+            return;
+        }
+
+        $state = Cache::get($this->runCacheKey($activeRunId));
+        if (! is_array($state)) {
+            SmartImportLogger::warning('page.active_run_cache_missing', [
+                'user_id' => $userId,
+                'run_id' => $activeRunId,
+            ]);
+            Cache::forget($this->userActiveRunKey($userId));
+
+            return;
+        }
+
+        SmartImportLogger::info('page.run_restored_from_cache', [
+            'user_id' => $userId,
+            'run_id' => $activeRunId,
+            'status' => $state['status'] ?? 'unknown',
+            'target_tool' => $state['target_tool'] ?? null,
+            'processed_pages' => $state['processed_pages'] ?? 0,
+            'total_pages' => $state['total_pages'] ?? 0,
+            'records_count' => count($state['records'] ?? []),
+            'has_analysis' => ! empty($state['analysis']),
+        ]);
+
+        if (($state['status'] ?? null) === 'completed' && ! empty($state['analysis'])) {
+            $this->runId = $activeRunId;
+            $this->pendingAnalysis = $state['analysis'];
+            $this->alternativeTool = $state['analysis']['first_tool'] ?? 'create_saudi_employee';
+            $this->selectedCompanyId = $state['company_id'] ?? null;
+            $this->processedPages = $state['total_pages'] ?? 0;
+            $this->totalPages = $state['total_pages'] ?? 0;
+            $this->isProcessing = false;
+        } elseif (($state['status'] ?? null) === 'in_progress' || empty($state['status'])) {
+            $this->runId = $activeRunId;
+            $this->processedPages = $state['processed_pages'] ?? 0;
+            $this->totalPages = $state['total_pages'] ?? 0;
+            $this->selectedCompanyId = $state['company_id'] ?? null;
+            $this->isProcessing = true;
+        }
     }
 
     public function form(Schema $schema): Schema
@@ -164,7 +253,21 @@ class SmartFileImport extends Page implements HasForms
 
     public function processFile(): void
     {
+        SmartImportLogger::info('page.process_file_clicked', [
+            'user_id' => auth()->id(),
+            'is_processing' => $this->isProcessing,
+            'is_confirming' => $this->isConfirming,
+            'current_run_id' => $this->runId,
+            'form_state' => $this->form->getState(),
+        ]);
+
         if ($this->isProcessing || $this->isConfirming) {
+            SmartImportLogger::warning('page.process_blocked_already_running', [
+                'is_processing' => $this->isProcessing,
+                'is_confirming' => $this->isConfirming,
+                'run_id' => $this->runId,
+            ]);
+
             return;
         }
 
@@ -174,6 +277,10 @@ class SmartFileImport extends Page implements HasForms
         $companyId = $formData['company_id'] ?? $this->selectedCompanyId ?? null;
 
         if (! $filePath) {
+            SmartImportLogger::warning('page.process_blocked_no_file_uploaded', [
+                'form_data' => $formData,
+            ]);
+
             Notification::make()
                 ->title(__('smart_import.notifications.select_file'))
                 ->warning()
@@ -202,9 +309,42 @@ class SmartFileImport extends Page implements HasForms
         $ranges = [];
         $totalPages = 0;
         $fullPath = Storage::disk('public')->path($filePath);
+        $fileExists = file_exists($fullPath);
+        $fileSize = $fileExists ? filesize($fullPath) : 0;
+        $extension = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
 
-        if (strtolower(pathinfo($fullPath, PATHINFO_EXTENSION)) === 'pdf') {
+        SmartImportLogger::info('import.start_run_pre_check', [
+            'file_path' => $filePath,
+            'full_path' => $fullPath,
+            'file_exists' => $fileExists,
+            'file_size_kb' => round($fileSize / 1024, 2),
+            'extension' => $extension,
+            'target_tool' => $targetTool,
+            'company_id' => $this->selectedCompanyId,
+        ]);
+
+        if (! $fileExists) {
+            SmartImportLogger::error('import.file_missing_on_disk', [
+                'file_path' => $filePath,
+                'full_path' => $fullPath,
+            ]);
+
+            Notification::make()
+                ->title(__('smart_import.notifications.error_title'))
+                ->body(__('smart_import.service.file_not_found'))
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        if ($extension === 'pdf') {
             $totalPages = $processor->getPdfPageCount($fullPath) ?? 0;
+
+            SmartImportLogger::info('import.pdf_page_count_detected', [
+                'full_path' => $fullPath,
+                'total_pages' => $totalPages,
+            ]);
 
             if ($totalPages > 1) {
                 for ($from = 1; $from <= $totalPages; $from += GeminiProcessorService::PDF_PAGES_PER_BATCH) {
@@ -232,9 +372,12 @@ class SmartFileImport extends Page implements HasForms
             'total_pages' => $totalPages,
             'processed_pages' => 0,
             'started_at' => microtime(true),
+            'status' => 'in_progress',
         ];
 
         Cache::put($this->runCacheKey($state['id']), $state, now()->addHours(2));
+        Cache::put($this->userActiveRunKey(auth()->id()), $state['id'], now()->addHours(2));
+        Cache::forget($this->batchLockKey($state['id']));
 
         SmartImportLogger::info('import.run_started', [
             'run' => $state['id'],
@@ -265,30 +408,79 @@ class SmartFileImport extends Page implements HasForms
             return;
         }
 
-        $state = Cache::get($this->runCacheKey($this->runId));
+        $runId = $this->runId;
 
-        if (! is_array($state)) {
-            $this->isProcessing = false;
-            $this->runId = null;
-
-            Notification::make()
-                ->title(__('smart_import.notifications.error_title'))
-                ->body(__('smart_import.notifications.generic_error'))
-                ->danger()
-                ->send();
+        // Re-entrancy guard: a Gemini batch can take 15-30s while the page polls
+        // every few seconds. Without this guard the poll re-invokes the batch while
+        // it is in flight, running the same pages twice and corrupting the state.
+        if (! Cache::add($this->batchLockKey($runId), 1, now()->addMinutes(2))) {
+            SmartImportLogger::info('import.batch_locked_waiting_next_poll', [
+                'run' => $runId,
+                'poll_time' => now()->toIso8601String(),
+            ]);
 
             return;
         }
 
+        try {
+            $state = Cache::get($this->runCacheKey($runId));
+
+            if (! is_array($state)) {
+                SmartImportLogger::error('import.state_missing_from_cache', [
+                    'run' => $runId,
+                    'user_id' => auth()->id(),
+                ]);
+
+                $this->isProcessing = false;
+                $this->runId = null;
+                Cache::forget($this->userActiveRunKey(auth()->id()));
+
+                Notification::make()
+                    ->title(__('smart_import.notifications.error_title'))
+                    ->body(__('smart_import.notifications.generic_error'))
+                    ->danger()
+                    ->send();
+
+                return;
+            }
+
+            if (($state['status'] ?? null) === 'completed') {
+                SmartImportLogger::info('import.poll_found_completed_run', [
+                    'run' => $runId,
+                    'records' => count($state['records'] ?? []),
+                ]);
+
+                $this->applyCompletedRun($state);
+
+                return;
+            }
+
+            $this->runBatch($state);
+        } finally {
+            Cache::forget($this->batchLockKey($runId));
+        }
+    }
+
+    protected function runBatch(array $state): void
+    {
         $processor = new GeminiProcessorService;
 
         // Non-paginated files (spreadsheets, images, single-page PDFs) are
         // analyzed in one pass, exactly as before.
         if (empty($state['ranges'])) {
+            SmartImportLogger::info('import.single_pass_started', [
+                'run' => $state['id'],
+                'file' => $state['file_path'],
+                'tools' => $state['tools'] === null ? 'auto' : implode(',', $state['tools']),
+            ]);
+
             try {
                 $analysis = $processor->analyzeFile($state['file_path'], $state['disk'], $state['tools']);
             } catch (\Throwable $e) {
-                Log::error('[SmartImport] Analysis failed: '.$e->getMessage());
+                SmartImportLogger::error('import.single_pass_crashed', [
+                    'run' => $state['id'],
+                    'error' => $e->getMessage(),
+                ]);
                 $analysis = ['success' => false, 'message' => $e->getMessage()];
             }
 
@@ -320,7 +512,6 @@ class SmartFileImport extends Page implements HasForms
                 ['run' => $state['id'], 'batch' => $state['index'] + 1],
             );
         } catch (\Throwable $e) {
-            Log::error('[SmartImport] PDF batch crashed: '.$e->getMessage());
             SmartImportLogger::error('import.batch_crashed', [
                 'run' => $state['id'],
                 'batch' => $state['index'] + 1,
@@ -342,10 +533,19 @@ class SmartFileImport extends Page implements HasForms
         if (empty($batch['success'])) {
             $state['failed_pages'] += $pageCount;
             $state['errors'][] = $batch['message'] ?? __('smart_import.service.unknown_failure');
-            Log::warning('[SmartImport] PDF batch failed: '.end($state['errors']));
+            SmartImportLogger::warning('import.batch_reported_failure', [
+                'run' => $state['id'],
+                'batch' => $state['index'] + 1,
+                'error' => end($state['errors']),
+            ]);
 
             // If quota is exhausted on the API key, abort immediately to avoid wasting user's time
             if (! empty($batch['quota_exceeded'])) {
+                SmartImportLogger::warning('import.batch_quota_exhausted_aborting', [
+                    'run' => $state['id'],
+                    'batch' => $state['index'] + 1,
+                ]);
+
                 $analysis = $processor->buildAnalysisResult(
                     $state['file_path'],
                     $state['disk'],
@@ -393,7 +593,9 @@ class SmartFileImport extends Page implements HasForms
      */
     protected function completeRun(array $state, array $analysis): void
     {
-        Cache::forget($this->runCacheKey($state['id']));
+        $state['status'] = 'completed';
+        $state['analysis'] = $analysis;
+        Cache::put($this->runCacheKey($state['id']), $state, now()->addHours(2));
 
         SmartImportLogger::info('import.run_finished', [
             'run' => $state['id'],
@@ -407,11 +609,26 @@ class SmartFileImport extends Page implements HasForms
             'seconds_total' => isset($state['started_at']) ? round(microtime(true) - $state['started_at'], 1) : null,
         ]);
 
-        $this->runId = null;
+        $this->applyCompletedRun($state);
+    }
+
+    protected function applyCompletedRun(array $state): void
+    {
+        $analysis = $state['analysis'] ?? [];
         $this->isProcessing = false;
         $this->processedPages = $state['total_pages'] ?? $this->processedPages;
 
         if (empty($analysis['success'])) {
+            SmartImportLogger::warning('import.run_completed_with_error', [
+                'run' => $state['id'],
+                'message' => $analysis['message'] ?? 'Unknown error',
+                'errors' => $state['errors'] ?? [],
+            ]);
+
+            $this->runId = null;
+            Cache::forget($this->runCacheKey($state['id']));
+            Cache::forget($this->userActiveRunKey(auth()->id()));
+
             Notification::make()
                 ->title(__('smart_import.notifications.error_title'))
                 ->body($analysis['message'] ?? __('smart_import.notifications.generic_error'))
@@ -423,6 +640,11 @@ class SmartFileImport extends Page implements HasForms
         }
 
         if (! empty($analysis['warning'])) {
+            SmartImportLogger::warning('import.run_completed_with_warning', [
+                'run' => $state['id'],
+                'warning' => $analysis['warning'],
+            ]);
+
             Notification::make()
                 ->title(__('smart_import.notifications.error_title'))
                 ->body($analysis['warning'])
@@ -433,6 +655,13 @@ class SmartFileImport extends Page implements HasForms
 
         // Smart auto-detection: show the preview so the user can confirm or re-route.
         if (($state['target_tool'] ?? 'all') === 'all') {
+            SmartImportLogger::info('import.showing_auto_detection_preview', [
+                'run' => $state['id'],
+                'first_tool' => $analysis['first_tool'] ?? null,
+                'total_count' => $analysis['total_count'] ?? 0,
+                'tools_summary' => $analysis['tools_summary'] ?? [],
+            ]);
+
             $this->pendingAnalysis = $analysis;
             $this->alternativeTool = $analysis['first_tool'] ?? 'create_saudi_employee';
 
@@ -455,16 +684,43 @@ class SmartFileImport extends Page implements HasForms
             $extraContext['company_id'] = (int) $state['company_id'];
         }
 
+        SmartImportLogger::info('import.direct_tool_execution_started', [
+            'run' => $state['id'],
+            'target_tool' => $state['target_tool'] ?? 'unknown',
+            'records_count' => count($analysis['records'] ?? []),
+            'company_id' => $state['company_id'] ?? null,
+        ]);
+
         $result = (new GeminiProcessorService)->executeExtractedRecords($analysis['records'], $extraContext);
+
+        SmartImportLogger::info('import.direct_tool_execution_finished', [
+            'run' => $state['id'],
+            'success' => $result['success'] ?? false,
+            'message' => $result['message'] ?? null,
+        ]);
+
+        Cache::forget($this->runCacheKey($state['id']));
+        Cache::forget($this->userActiveRunKey(auth()->id()));
+        $this->runId = null;
 
         $this->processingReport = $result;
 
         $this->sendExecutionNotification($result);
     }
 
-    protected function runCacheKey(string $runId): string
+    protected function runCacheKey(?string $runId): string
     {
-        return 'smart-import-run:'.$runId;
+        return 'smart-import-run:'.($runId ?? 'unknown');
+    }
+
+    protected function userActiveRunKey(int|string|null $userId): string
+    {
+        return 'smart-import-user-active-run:'.($userId ?? 'guest');
+    }
+
+    protected function batchLockKey(?string $runId): string
+    {
+        return 'smart-import-batch-lock:'.($runId ?? 'unknown');
     }
 
     /**
@@ -472,7 +728,18 @@ class SmartFileImport extends Page implements HasForms
      */
     public function confirmAndInsert(): void
     {
+        SmartImportLogger::info('page.confirm_and_insert_clicked', [
+            'user_id' => auth()->id(),
+            'run_id' => $this->runId,
+            'records_count' => count($this->pendingAnalysis['records'] ?? []),
+            'selected_company_id' => $this->selectedCompanyId,
+        ]);
+
         if (empty($this->pendingAnalysis) || empty($this->pendingAnalysis['records'])) {
+            SmartImportLogger::warning('page.confirm_and_insert_blocked_no_records', [
+                'run_id' => $this->runId,
+            ]);
+
             Notification::make()
                 ->title(__('smart_import.notifications.generic_error'))
                 ->danger()
@@ -491,6 +758,18 @@ class SmartFileImport extends Page implements HasForms
 
         $result = $processor->executeExtractedRecords($this->pendingAnalysis['records'], $extraContext);
 
+        SmartImportLogger::info('page.confirm_and_insert_finished', [
+            'run_id' => $this->runId,
+            'success' => $result['success'] ?? false,
+            'message' => $result['message'] ?? null,
+        ]);
+
+        if ($this->runId) {
+            Cache::forget($this->runCacheKey($this->runId));
+        }
+        Cache::forget($this->userActiveRunKey(auth()->id()));
+        $this->runId = null;
+
         $this->isConfirming = false;
         $this->pendingAnalysis = null;
         $this->processingReport = $result;
@@ -503,7 +782,18 @@ class SmartFileImport extends Page implements HasForms
      */
     public function applyAlternativeTool(): void
     {
+        SmartImportLogger::info('page.apply_alternative_tool_clicked', [
+            'user_id' => auth()->id(),
+            'alternative_tool' => $this->alternativeTool,
+            'file_path' => $this->pendingAnalysis['file_path'] ?? null,
+        ]);
+
         if (empty($this->alternativeTool) || empty($this->pendingAnalysis['file_path'])) {
+            SmartImportLogger::warning('page.apply_alternative_tool_blocked_missing_data', [
+                'alternative_tool' => $this->alternativeTool,
+                'has_file' => ! empty($this->pendingAnalysis['file_path']),
+            ]);
+
             Notification::make()
                 ->title(__('smart_import.confirmation.select_alt_warning'))
                 ->warning()
@@ -526,6 +816,16 @@ class SmartFileImport extends Page implements HasForms
      */
     public function cancelPendingAnalysis(): void
     {
+        SmartImportLogger::info('page.cancel_pending_analysis_clicked', [
+            'user_id' => auth()->id(),
+            'run_id' => $this->runId,
+        ]);
+
+        if ($this->runId) {
+            Cache::forget($this->runCacheKey($this->runId));
+        }
+        Cache::forget($this->userActiveRunKey(auth()->id()));
+        $this->runId = null;
         $this->pendingAnalysis = null;
         $this->alternativeTool = null;
     }

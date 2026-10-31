@@ -1,10 +1,10 @@
 {{-- 5. Pagination Bar (no-print) --}}
 @if(count($employeeRows) > 0)
-    <div class="no-print" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; padding: 0.75rem 1rem; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.75rem; margin-top: 0.75rem;">
+    <div class="payroll-pagination no-print">
         {{-- Entries Per Page Selector --}}
-        <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: #475569;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.825rem; color: #475569;">
             <span>{{ __('finance.payroll_records.sheet.pagination_show') }}</span>
-            <select wire:model.live="sheetPerPage" class="form-select" style="width: auto; padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+            <select wire:model.live="sheetPerPage" class="form-select" style="width: auto; padding: 0.35rem 0.65rem; font-size: 0.8rem; border-radius: 0.5rem;">
                 <option value="15">15</option>
                 <option value="25">25</option>
                 <option value="50">50</option>
@@ -12,8 +12,8 @@
                 <option value="all">{{ __('finance.payroll_records.sheet.pagination_all', ['count' => count($employeeRows)]) }}</option>
             </select>
             <span>{{ __('finance.payroll_records.sheet.pagination_per_page') }}</span>
-            <span style="color: #94a3b8; margin: 0 0.25rem;">|</span>
-            <span>{{ __('finance.payroll_records.sheet.pagination_total_employees', ['count' => count($employeeRows)]) }}</span>
+            <span style="color: #cbd5e1; margin: 0 0.25rem;">|</span>
+            <span style="font-weight: 600;">{{ __('finance.payroll_records.sheet.pagination_total_employees', ['count' => count($employeeRows)]) }}</span>
         </div>
 
         {{-- Pagination Controls --}}
@@ -23,8 +23,8 @@
                     type="button"
                     wire:click="previousSheetPage"
                     @disabled($sheetPage <= 1)
-                    class="tab-btn {{ $sheetPage <= 1 ? 'tab-btn-inactive' : 'tab-btn-active' }}"
-                    style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 0.5rem;"
+                    class="page-btn page-btn-inactive"
+                    style="{{ $sheetPage <= 1 ? 'opacity: 0.5; cursor: not-allowed;' : '' }}"
                 >
                     {{ __('finance.payroll_records.sheet.pagination_prev') }}
                 </button>
@@ -34,8 +34,7 @@
                         <button
                             type="button"
                             wire:click="setSheetPage({{ $p }})"
-                            class="tab-btn {{ $p === $sheetPage ? 'tab-btn-active' : 'tab-btn-inactive' }}"
-                            style="padding: 0.35rem 0.7rem; font-size: 0.8rem; border-radius: 0.5rem; min-width: 32px; text-align: center;"
+                            class="page-btn {{ $p === $sheetPage ? 'page-btn-active' : 'page-btn-inactive' }}"
                         >
                             {{ $p }}
                         </button>
@@ -46,13 +45,13 @@
                     type="button"
                     wire:click="nextSheetPage"
                     @disabled($sheetPage >= $totalSheetPages)
-                    class="tab-btn {{ $sheetPage >= $totalSheetPages ? 'tab-btn-inactive' : 'tab-btn-active' }}"
-                    style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 0.5rem;"
+                    class="page-btn page-btn-inactive"
+                    style="{{ $sheetPage >= $totalSheetPages ? 'opacity: 0.5; cursor: not-allowed;' : '' }}"
                 >
                     {{ __('finance.payroll_records.sheet.pagination_next') }}
                 </button>
 
-                <span style="font-size: 0.75rem; color: #64748b; margin-right: 0.5rem;">
+                <span style="font-size: 0.75rem; color: #64748b; margin-right: 0.5rem; font-weight: 600;">
                     {{ __('finance.payroll_records.sheet.pagination_page_info', ['page' => $sheetPage, 'total' => $totalSheetPages]) }}
                 </span>
             </div>

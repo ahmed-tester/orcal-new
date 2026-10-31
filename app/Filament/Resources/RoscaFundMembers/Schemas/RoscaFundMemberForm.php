@@ -53,8 +53,11 @@ class RoscaFundMemberForm
                             ->reactive(),
 
                         CompanyFormService::makeEmployeeSelect(
+                            name: 'employee_id',
                             label: __('funds.rosca_fund_members.fields.employee'),
                             required: false,
+                            saudiOnly: true,
+                            ignoreCompanyScope: true,
                         )
                             ->visible(fn (callable $get) => $get('member_type') === 'employee')
                             ->reactive()
@@ -64,7 +67,7 @@ class RoscaFundMemberForm
                                     if ($employee) {
                                         $set('full_name', $employee->user?->name);
                                         $set('phone', $employee->user?->phone ?? $employee->phone);
-                                        $set('national_id', $employee->saudiDetail?->national_id ?? $employee->foreignDetail?->iqama_number);
+                                        $set('national_id', $employee->details?->national_id ?? $employee->saudiDetail?->national_id);
                                     }
                                 }
                             }),

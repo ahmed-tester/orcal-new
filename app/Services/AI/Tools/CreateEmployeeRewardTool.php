@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Employee;
 use App\Models\EmployeeReward;
 use App\Services\AI\Contracts\GeminiToolInterface;
+use App\Services\AI\EmployeeNameMatcher;
 
 class CreateEmployeeRewardTool implements GeminiToolInterface
 {
@@ -25,27 +26,27 @@ class CreateEmployeeRewardTool implements GeminiToolInterface
                 'properties' => [
                     'employee_identifier' => [
                         'type' => 'STRING',
-                        'description' => 'اسم الموظف أو رقم الهوية أو الرقم الوظيفي'
+                        'description' => 'اسم الموظف أو رقم الهوية أو الرقم الوظيفي',
                     ],
                     'amount' => [
                         'type' => 'NUMBER',
-                        'description' => 'مبلغ المكافأة بالريال السعودي'
+                        'description' => 'مبلغ المكافأة بالريال السعودي',
                     ],
                     'reward_date' => [
                         'type' => 'STRING',
-                        'description' => 'تاريخ استحقاق المكافأة بصيغة YYYY-MM-DD'
+                        'description' => 'تاريخ استحقاق المكافأة بصيغة YYYY-MM-DD',
                     ],
                     'reason' => [
                         'type' => 'STRING',
-                        'description' => 'سبب أو مناسبة المكافأة (مثال: تميز في العمل، إنجاز مشروع، إكرامية عيد)'
+                        'description' => 'سبب أو مناسبة المكافأة (مثال: تميز في العمل، إنجاز مشروع، إكرامية عيد)',
                     ],
                     'hours_count' => [
                         'type' => 'NUMBER',
-                        'description' => 'عدد الساعات الإضافية المرتبطة بالمكافأة إن وجدت'
-                    ]
+                        'description' => 'عدد الساعات الإضافية المرتبطة بالمكافأة إن وجدت',
+                    ],
                 ],
-                'required' => ['employee_identifier', 'amount']
-            ]
+                'required' => ['employee_identifier', 'amount'],
+            ],
         ];
     }
 
@@ -53,10 +54,10 @@ class CreateEmployeeRewardTool implements GeminiToolInterface
     {
         try {
             $identifier = trim($arguments['employee_identifier'] ?? '');
-            $amount = (float)($arguments['amount'] ?? 0);
+            $amount = (float) ($arguments['amount'] ?? 0);
             $date = trim($arguments['reward_date'] ?? date('Y-m-d'));
             $reason = trim($arguments['reason'] ?? '');
-            $hours = (float)($arguments['hours_count'] ?? 0);
+            $hours = (float) ($arguments['hours_count'] ?? 0);
 
             if (empty($identifier)) {
                 return ['success' => false, 'message' => 'اسم أو معرف الموظف مطلوب للمكافأة.'];
@@ -69,7 +70,7 @@ class CreateEmployeeRewardTool implements GeminiToolInterface
             $companyId = auth()->user()?->company_id ?? Company::first()?->id ?? 1;
 
             $employee = $this->resolveEmployee($identifier, $companyId);
-            if (!$employee) {
+            if (! $employee) {
                 return [
                     'success' => false,
                     'message' => "تعذر العثور على الموظف ({$identifier}) في النظام لإدراج المكافأة.",
@@ -85,7 +86,7 @@ class CreateEmployeeRewardTool implements GeminiToolInterface
             if ($existing) {
                 return [
                     'success' => false,
-                    'message' => "تنبيه (مكرر): مكافأة للموظف ({$employee->user?->name}) بمبلغ " . number_format($amount, 2) . " ر.س مسجلة مسبقاً برقم #{$existing->reward_number}، تم تخطيها.",
+                    'message' => "تنبيه (مكرر): مكافأة للموظف ({$employee->user?->name}) بمبلغ ".number_format($amount, 2)." ر.س مسجلة مسبقاً برقم #{$existing->reward_number}، تم تخطيها.",
                 ];
             }
 
@@ -103,42 +104,24 @@ class CreateEmployeeRewardTool implements GeminiToolInterface
 
             return [
                 'success' => true,
-                'message' => "تم تسجيل مكافأة جديدة للموظف ({$employee->user?->name}) بمبلغ " . number_format($amount, 2) . " ر.س برقم #{$reward->reward_number}",
+                'message' => "تم تسجيل مكافأة جديدة للموظف ({$employee->user?->name}) بمبلغ ".number_format($amount, 2)." ر.س برقم #{$reward->reward_number}",
                 'record_name' => $employee->user?->name ?? "مكافأة #{$reward->id}",
                 'details' => [
-                    'amount' => number_format($amount, 2) . ' ر.س',
+                    'amount' => number_format($amount, 2).' ر.س',
                     'date' => $date,
                     'reason' => $reason ?: 'مكافأة تميز',
-                ]
+                ],
             ];
         } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'message' => 'حدث خطأ أثناء حفظ المكافأة: ' . $e->getMessage(),
+                'message' => 'حدث خطأ أثناء حفظ المكافأة: '.$e->getMessage(),
             ];
         }
     }
 
     protected function resolveEmployee(string $identifier, ?int $companyId = null): ?Employee
     {
-        $query = Employee::query();
-        if ($companyId) {
-            $query->where('company_id', $companyId);
-        }
-
-        if (is_numeric($identifier)) {
-            $emp = (clone $query)->where('id', $identifier)->first();
-            if ($emp) return $emp;
-        }
-
-        $emp = (clone $query)->where('employee_number', $identifier)->first();
-        if ($emp) return $emp;
-
-        $emp = (clone $query)->whereHas('saudiDetail', fn($q) => $q->where('national_id', $identifier))
-            ->orWhereHas('foreignDetail', fn($q) => $q->where('iqama_number', $identifier))
-            ->first();
-        if ($emp) return $emp;
-
-        return (clone $query)->whereHas('user', fn($q) => $q->where('name', 'like', "%{$identifier}%")->orWhere('phone', 'like', "%{$identifier}%"))->first();
+        return EmployeeNameMatcher::resolveEmployee($identifier, $companyId);
     }
 }

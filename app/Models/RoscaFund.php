@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
-
-use App\Traits\HasHijriDates;
 use App\Enums\RoscaAllocationMethod;
 use App\Services\CodeGeneratorService;
+use App\Traits\HasHijriDates;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,9 +23,8 @@ class RoscaFund extends Model
         ];
     }
 
-
     protected $fillable = [
-        'company_id',
+        // 'company_id',
         'fund_number',
         'fund_name',
         'start_date',
@@ -66,16 +65,17 @@ class RoscaFund extends Model
     protected static function booted(): void
     {
         static::creating(function (RoscaFund $fund) {
-            if (empty($fund->company_id)) {
-                $fund->company_id = auth()->user()?->company_id ?? auth()->user()?->employee?->company_id;
-            }
+            // if (empty($fund->company_id)) {
+            //     $fund->company_id = auth()->user()?->company_id ?? auth()->user()?->employee?->company_id;
+            // }
 
             if (empty($fund->fund_number)) {
                 $fund->fund_number = CodeGeneratorService::generate(
                     modelClass: static::class,
                     column: 'fund_number',
                     prefix: 'RF',
-                    companyId: $fund->company_id,
+                    // companyId: $fund->company_id,
+                    companyId: null,
                 );
             }
 
@@ -89,12 +89,19 @@ class RoscaFund extends Model
 
     public static function calculatePool(RoscaFund $fund): void
     {
-        $count = (int)($fund->members_count ?? 0);
-        $monthly = (float)($fund->monthly_installment ?? 0);
+        $count = (int) ($fund->members_count ?? 0);
+        $monthly = (float) ($fund->monthly_installment ?? 0);
         $fund->total_pool_amount = round($count * $monthly, 2);
 
         if ($fund->start_date && $count > 0 && empty($fund->end_date)) {
-            $fund->end_date = \Carbon\Carbon::parse($fund->start_date)->addMonths($count)->toDateString();
+            $fund->end_date = Carbon::parse($fund->start_date)->addMonths($count)->toDateString();
+        }
+
+        if ($fund->assigned_manager_id) {
+            $manager = User::find($fund->assigned_manager_id);
+            $fund->manager_name = $manager?->name;
+        } else {
+            $fund->manager_name = null;
         }
     }
 

@@ -23,4 +23,21 @@ class EditInstallmentPayment extends EditRecord
             DeleteAction::make(),
         ];
     }
+
+    protected function getFormActions(): array
+    {
+        return [
+            $this->getSaveFormAction(),
+            Action::make('saveAndPrint')
+                ->label(__('finance.installment_payments.actions.save_and_print'))
+                ->icon('heroicon-o-printer')
+                ->color('success')
+                ->action(function () {
+                    $this->save(shouldRedirect: false);
+                    $url = route('system.print', ['type' => 'installment-payment', 'id' => $this->record->id]);
+                    $this->js("window.open('{$url}', '_blank');");
+                }),
+            $this->getCancelFormAction(),
+        ];
+    }
 }

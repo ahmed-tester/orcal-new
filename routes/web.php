@@ -46,6 +46,10 @@ Route::middleware('auth')->group(function () {
 
     // Universal Dynamic Print Route
     Route::get('/print/{type}/{id}', [\App\Http\Controllers\UniversalPrintController::class, 'print'])->name('system.print');
+
+    // Individual Payroll Records Print & PDF Routes
+    Route::get('/payroll-records/{record}/print', [\App\Http\Controllers\PayrollRecordPrintController::class, 'print'])->name('payroll-records.print');
+    Route::get('/payroll-records/{record}/pdf',   [\App\Http\Controllers\PayrollRecordPrintController::class, 'pdf'])->name('payroll-records.pdf');
 });
 
 // ─── ZKTeco Biometric ADMS / Push Protocol Routes ───────────────────────────

@@ -22,6 +22,8 @@ return [
 
     'fields' => [
         'name' => 'Employee Name',
+        'name_ar' => 'Employee Name (Arabic)',
+        'name_en' => 'Employee Name (English)',
         'name_saudi' => 'Full Employee Name',
         'name_foreign' => 'Resident Employee Name',
         'email' => 'Email Address',
@@ -167,6 +169,7 @@ return [
 
     'placeholders' => [
         'name' => 'Enter employee name',
+        'name_en' => 'Enter English name (e.g. Mohammed Ali)',
         'address' => 'National or detailed address',
     ],
 ];

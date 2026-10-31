@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\LoanFunds\Schemas;
 
 use App\Enums\FundGeneralStatus;
-use App\Filament\Components\OrgSelect;
 use App\Services\CompanyFormService;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -32,8 +31,6 @@ class LoanFundForm
                         TextInput::make('fund_name')
                             ->label(__('funds.loan_funds.fields.fund_name'))
                             ->required(),
-
-                        OrgSelect::company('company_id', __('funds.loan_funds.fields.company')),
 
                         TextInput::make('target_amount')
                             ->label(__('funds.loan_funds.fields.target_amount'))
@@ -87,10 +84,9 @@ class LoanFundForm
                             label: __('funds.loan_funds.fields.trustee_employee'),
                             required: false,
                             relationshipName: 'trusteeEmployee',
+                            saudiOnly: true,
+                            ignoreCompanyScope: true,
                         ),
-
-                        TextInput::make('trustee_name')
-                            ->label(__('funds.loan_funds.fields.trustee_name')),
                     ]),
 
                 Section::make(__('funds.loan_funds.sections.rules'))

@@ -539,6 +539,11 @@ class GeminiProcessorService
         $duplicateCount = 0;
         $errorCount = 0;
 
+        SmartImportLogger::info('import.execution_started', [
+            'records_count' => count($records),
+            'extra_context' => $extraContext,
+        ]);
+
         $duplicateKeywords = __('smart_import.service.duplicate_keywords');
         if (! is_array($duplicateKeywords)) {
             $duplicateKeywords = ['Duplicate', 'Already'];
@@ -610,20 +615,18 @@ class GeminiProcessorService
         $totalCount = count($executedResults);
         $failedCount = $duplicateCount + $errorCount;
 
-        if ($failedCount > 0) {
-            SmartImportLogger::info('import.execution', [
-                'total' => $totalCount,
-                'success' => $successCount,
-                'duplicate' => $duplicateCount,
-                'error' => $errorCount,
-                'failures' => collect($executedResults)
-                    ->where('status', 'error')
-                    ->take(50)
-                    ->map(fn (array $row): string => trim($row['title']).' :: '.($row['result']['message'] ?? ''))
-                    ->values()
-                    ->all(),
-            ]);
-        }
+        SmartImportLogger::info('import.execution', [
+            'total' => $totalCount,
+            'success' => $successCount,
+            'duplicate' => $duplicateCount,
+            'error' => $errorCount,
+            'failures' => collect($executedResults)
+                ->where('status', 'error')
+                ->take(50)
+                ->map(fn (array $row): string => trim($row['title']).' :: '.($row['result']['message'] ?? ''))
+                ->values()
+                ->all(),
+        ]);
 
         if ($successCount > 0 && $failedCount === 0) {
             $summaryMessage = __('smart_import.service.all_success', ['count' => $successCount]);
@@ -920,6 +923,24 @@ class GeminiProcessorService
                 'total' => $totalPages,
             ]),
         ]];
+
+        // For batches that do not start at page 1, attach page 1 as a reference
+        // page so the model always sees the statement's column headers and can
+        // tell the installments (debt) column apart from the settled column.
+        if ($from > 1) {
+            $reference = $this->renderPdfPages($fullPath, 1, 1);
+            if (! empty($reference[0])) {
+                $parts[] = [
+                    'text' => __('smart_import.service.reference_page_notice'),
+                ];
+                $parts[] = [
+                    'inline_data' => [
+                        'mime_type' => 'application/pdf',
+                        'data' => $reference[0],
+                    ],
+                ];
+            }
+        }
 
         foreach ($this->renderPdfPages($fullPath, $from, $to) as $pageData) {
             $parts[] = [

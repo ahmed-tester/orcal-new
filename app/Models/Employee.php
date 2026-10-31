@@ -225,6 +225,22 @@ class Employee extends Model
         return $this->user?->name ?? $this->employee_number ?? "موظف #{$this->id}";
     }
 
+    public function getNameEnAttribute(): ?string
+    {
+        return $this->metadata['name_en'] ?? null;
+    }
+
+    public function setNameEnAttribute(?string $value): void
+    {
+        $meta = $this->metadata ?? [];
+        if ($value !== null && trim($value) !== '') {
+            $meta['name_en'] = trim($value);
+        } else {
+            unset($meta['name_en']);
+        }
+        $this->metadata = $meta;
+    }
+
     public function getAgeAttribute(): ?int
     {
         return $this->details?->metadata['age'] ?? EmployeeAgeService::calculateAge($this->details?->birth_date);

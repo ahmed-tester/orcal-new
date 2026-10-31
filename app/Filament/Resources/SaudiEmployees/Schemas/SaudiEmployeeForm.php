@@ -2,8 +2,12 @@
 
 namespace App\Filament\Resources\SaudiEmployees\Schemas;
 
+use App\Models\Owner;
+use App\Models\User;
+use App\Services\CompanyFormService;
 use App\Services\EmployeeAgeService;
 use App\Services\PhoneService;
+use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
@@ -11,6 +15,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Spatie\Permission\Models\Role;
 
 class SaudiEmployeeForm
 {
@@ -36,9 +41,10 @@ class SaudiEmployeeForm
 
                         Select::make('selected_owner_id')
                             ->label(__('employees.fields.selected_owner'))
-                            ->options(fn () => \App\Models\Owner::with('user')->get()->mapWithKeys(function ($owner) {
+                            ->options(fn () => Owner::with('user')->get()->mapWithKeys(function ($owner) {
                                 $name = $owner->user?->name ?? '—';
                                 $nid = $owner->national_id ? " ({$owner->national_id})" : '';
+
                                 return [$owner->id => "{$name}{$nid}"];
                             }))
                             ->searchable()
@@ -49,16 +55,16 @@ class SaudiEmployeeForm
                                 if (! $state) {
                                     return;
                                 }
-                                $owner = \App\Models\Owner::with('user')->find($state);
+                                $owner = Owner::with('user')->find($state);
                                 if ($owner) {
                                     $set('user_name', $owner->user?->name);
                                     $set('user_email', $owner->user?->email);
                                     $set('national_id', $owner->national_id);
                                     $set('user_phone', $owner->user?->phone);
                                     if ($owner->birth_date) {
-                                        $bdate = $owner->birth_date instanceof \Carbon\Carbon ? $owner->birth_date->format('Y-m-d') : (string)$owner->birth_date;
+                                        $bdate = $owner->birth_date instanceof Carbon ? $owner->birth_date->format('Y-m-d') : (string) $owner->birth_date;
                                         $set('birth_date', $bdate);
-                                        $set('age', \App\Services\EmployeeAgeService::calculateAge($bdate));
+                                        $set('age', EmployeeAgeService::calculateAge($bdate));
                                     }
                                     if ($owner->address) {
                                         $set('address', $owner->address);
@@ -71,20 +77,25 @@ class SaudiEmployeeForm
                             ->columnSpanFull(),
 
                         TextInput::make('user_name')
-                            ->label(__('employees.fields.name'))
+                            ->label(__('employees.fields.name_ar'))
                             ->placeholder(__('employees.placeholders.name'))
                             ->required(),
+
+                        TextInput::make('name_en')
+                            ->label(__('employees.fields.name_en'))
+                            ->placeholder(__('employees.placeholders.name_en')),
 
                         TextInput::make('user_email')
                             ->label(__('employees.fields.email'))
                             ->email()
                             ->placeholder('example@orcal.sa')
-                            ->unique(\App\Models\User::class, 'email', ignoreRecord: false, modifyRuleUsing: function ($rule, callable $get, $record) {
+                            ->unique(User::class, 'email', ignoreRecord: false, modifyRuleUsing: function ($rule, callable $get, $record) {
                                 $userId = $record?->user_id;
                                 if (! $userId && $get('registration_source') === 'from_owner' && $get('selected_owner_id')) {
-                                    $owner = \App\Models\Owner::find($get('selected_owner_id'));
+                                    $owner = Owner::find($get('selected_owner_id'));
                                     $userId = $owner?->user_id;
                                 }
+
                                 return $userId ? $rule->ignore($userId) : $rule;
                             }),
 
@@ -97,12 +108,13 @@ class SaudiEmployeeForm
                         PhoneService::makeFormField('user_phone', __('employees.fields.phone'), required: true)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn ($state, callable $set) => $set('user_phone', PhoneService::normalize($state) ?? $state))
-                            ->unique(\App\Models\User::class, 'phone', ignoreRecord: false, modifyRuleUsing: function ($rule, callable $get, $record) {
+                            ->unique(User::class, 'phone', ignoreRecord: false, modifyRuleUsing: function ($rule, callable $get, $record) {
                                 $userId = $record?->user_id;
                                 if (! $userId && $get('registration_source') === 'from_owner' && $get('selected_owner_id')) {
-                                    $owner = \App\Models\Owner::find($get('selected_owner_id'));
+                                    $owner = Owner::find($get('selected_owner_id'));
                                     $userId = $owner?->user_id;
                                 }
+
                                 return $userId ? $rule->ignore($userId) : $rule;
                             }),
 
@@ -118,7 +130,7 @@ class SaudiEmployeeForm
                             ->suffix(__('employees.fields.currency_sar'))
                             ->default(0)
                             ->required()
-                            ->dehydrateStateUsing(fn ($state) => (float)($state ?? 0)),
+                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0)),
 
                         TextInput::make('bank_iban')
                             ->label(__('employees.fields.bank_iban'))
@@ -136,10 +148,10 @@ class SaudiEmployeeForm
                     ->icon('heroicon-o-briefcase')
                     ->columns(3)
                     ->schema([
-                        \App\Services\CompanyFormService::makeCompanySelect(),
-                        \App\Services\CompanyFormService::makeBranchSelect(),
-                        \App\Services\CompanyFormService::makeDepartmentSelect(),
-                        \App\Services\CompanyFormService::makeJobTitleSelect(),
+                        CompanyFormService::makeCompanySelect(),
+                        CompanyFormService::makeBranchSelect(),
+                        CompanyFormService::makeDepartmentSelect(),
+                        CompanyFormService::makeJobTitleSelect(),
 
                         Select::make('employment_type')
                             ->label(__('employees.fields.employment_type'))
@@ -180,7 +192,7 @@ class SaudiEmployeeForm
                     ->schema([
                         Select::make('roles')
                             ->label(__('employees.fields.role_label'))
-                            ->options(fn () => \Spatie\Permission\Models\Role::where('name', '!=', 'Super Admin')->pluck('name', 'name'))
+                            ->options(fn () => Role::where('name', '!=', 'Super Admin')->pluck('name', 'name'))
                             ->multiple()
                             ->searchable()
                             ->preload()

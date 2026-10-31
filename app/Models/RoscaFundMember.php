@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-
 use App\Traits\HasHijriDates;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,7 +19,6 @@ class RoscaFundMember extends Model
             'payout_date',
         ];
     }
-
 
     protected $fillable = [
         'rosca_fund_id',
@@ -67,7 +65,7 @@ class RoscaFundMember extends Model
                 if ($employee) {
                     $member->full_name = $member->full_name ?: ($employee->user?->name ?? $employee->id);
                     $member->phone = $member->phone ?: ($employee->user?->phone ?? $employee->phone);
-                    $member->national_id = $member->national_id ?: ($employee->saudiDetail?->national_id ?? $employee->foreignDetail?->iqama_number);
+                    $member->national_id = $member->national_id ?: ($employee->details?->national_id ?? $employee->saudiDetail?->national_id);
                 }
             }
 
@@ -88,9 +86,9 @@ class RoscaFundMember extends Model
 
     public static function calculateMemberTotals(RoscaFundMember $member): void
     {
-        $member->installments_count = max(1, (int)($member->installments_count ?: 1));
-        $member->monthly_installment = (float)($member->monthly_installment ?? 0);
-        $member->paid_amount = (float)($member->paid_amount ?? 0);
+        $member->installments_count = max(1, (int) ($member->installments_count ?: 1));
+        $member->monthly_installment = (float) ($member->monthly_installment ?? 0);
+        $member->paid_amount = (float) ($member->paid_amount ?? 0);
 
         $count = $member->installments_count;
         $monthly = $member->monthly_installment;

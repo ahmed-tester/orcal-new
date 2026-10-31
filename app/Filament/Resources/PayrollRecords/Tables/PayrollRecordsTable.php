@@ -150,6 +150,12 @@ class PayrollRecordsTable
             ->recordActions([
                 static::getPaySalaryAction(),
                 ActionGroup::make([
+                    \Filament\Actions\Action::make('print')
+                        ->label(__('finance.payroll_records.actions.print_record'))
+                        ->icon('heroicon-o-printer')
+                        ->color('info')
+                        ->url(fn (\App\Models\PayrollRecord $record) => route('payroll-records.print', $record))
+                        ->openUrlInNewTab(),
                     EditAction::make(),
                     DeleteAction::make(),
                 ])

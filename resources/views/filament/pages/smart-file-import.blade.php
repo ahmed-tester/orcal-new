@@ -1681,7 +1681,7 @@
 
             <!-- Live progress while page batches are being analyzed -->
             @if ($isProcessing)
-                <div class="ai-processing-state-card" wire:poll.1200ms="processNextBatch">
+                <div class="ai-processing-state-card" wire:poll.3s="processNextBatch">
                     <div class="ai-loading-top-bar">
                         <div class="ai-badge-active">
                             <span class="ai-badge-live-pulse"></span>
@@ -1809,7 +1809,11 @@
                             </button>
 
                             <div x-show="openPreview" x-cloak class="ai-preview-container">
-                                @foreach($pendingAnalysis['records'] as $pRecord)
+                                @php
+                                    $previewRecords = array_slice($pendingAnalysis['records'] ?? [], 0, 30);
+                                    $remainingRecordsCount = max(0, ($totalCount ?? count($pendingAnalysis['records'] ?? [])) - 30);
+                                @endphp
+                                @foreach($previewRecords as $pRecord)
                                     <div class="ai-preview-card">
                                         <div class="ai-preview-card-header">
                                             <div class="ai-preview-card-title">
@@ -1864,6 +1868,12 @@
                                         </div>
                                     </div>
                                 @endforeach
+
+                                @if($remainingRecordsCount > 0)
+                                    <div class="col-span-full py-2.5 px-4 rounded-xl bg-indigo-50/90 border border-indigo-200 text-indigo-800 text-center font-bold text-xs dark:bg-indigo-950/50 dark:border-indigo-800 dark:text-indigo-300">
+                                        ✨ بالإضافة إلى {{ $remainingRecordsCount }} سجل آخر سيتم حفظها وإدراجها بالكامل فور الضغط على زر التأكيد أدناه.
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     @endif
@@ -2142,8 +2152,12 @@
 
                     <!-- قائمة السجلات التفصيلية المنظمة -->
                     @if(!empty($processingReport['results']))
+                        @php
+                            $displayedResults = array_slice($processingReport['results'] ?? [], 0, 50);
+                            $remainingResultsCount = max(0, count($processingReport['results'] ?? []) - 50);
+                        @endphp
                         <div class="records-list-grid">
-                            @foreach($processingReport['results'] as $item)
+                            @foreach($displayedResults as $item)
                                 @php
                                     $itemStatus = $item['status'] ?? 'success';
                                     $category = $item['category'] ?? __('smart_import.categories.default');
@@ -2259,6 +2273,12 @@
                                     </div>
                                 </div>
                             @endforeach
+
+                            @if($remainingResultsCount > 0)
+                                <div class="col-span-full py-3 px-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-center font-bold text-xs dark:bg-slate-900 dark:border-slate-800 dark:text-slate-300">
+                                    📋 تم إدراج وحفظ جميع الـ {{ count($processingReport['results']) }} سجل بنجاح في قاعدة البيانات (تم عرض أول 50 سجلاً لتسريع استجابة الصفحة).
+                                </div>
+                            @endif
                         </div>
                     @endif
                 </div>

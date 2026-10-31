@@ -74,6 +74,11 @@ return [
         'notification_notes' => 'تنبيه: حل موعد استحقاق الدين — يرجى التواصل للتحصيل',
     ],
 
+    'actions' => [
+        'print_voucher' => 'طباعة سند الدين',
+        'save_and_print' => 'حفظ وطباعة سند الدين',
+    ],
+
     'table_heading' => 'سجل الديون العامة — :count دين',
 
     // Collections
@@ -96,6 +101,8 @@ return [
             'executed_by' => 'المحصل المسجل',
         ],
         'actions' => [
+            'print_voucher' => 'طباعة السند PDF',
+            'save_and_print' => 'حفظ وطباعة السند',
             'approve' => 'اعتماد السند',
             'unapprove' => 'إلغاء الاعتماد',
             'approved_success' => 'تم اعتماد سند تحصيل الدين بنجاح',

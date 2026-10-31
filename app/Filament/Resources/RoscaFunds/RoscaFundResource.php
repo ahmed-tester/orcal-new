@@ -7,7 +7,7 @@ use App\Filament\Resources\RoscaFunds\Pages\EditRoscaFund;
 use App\Filament\Resources\RoscaFunds\Pages\ListRoscaFunds;
 use App\Filament\Resources\RoscaFunds\Schemas\RoscaFundForm;
 use App\Filament\Resources\RoscaFunds\Tables\RoscaFundsTable;
-use App\Filament\Traits\HasCompanyScope;
+// use App\Filament\Traits\HasCompanyScope;
 use App\Models\RoscaFund;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -16,7 +16,7 @@ use Filament\Tables\Table;
 
 class RoscaFundResource extends Resource
 {
-    use HasCompanyScope;
+    // use HasCompanyScope;
 
     protected static ?string $model = RoscaFund::class;
 
