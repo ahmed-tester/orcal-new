@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Filament\Navigation\OrderedNavigationManager;
 use App\Interfaces\SmsServiceInterface;
 use App\Models\Attendance;
 use App\Models\AttendanceDevice;
@@ -84,6 +85,7 @@ use App\Services\HijriDateService;
 use App\Services\Notifications\SmsService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Navigation\NavigationManager;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -98,10 +100,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-
         $this->app->singleton(
             SmsServiceInterface::class,
             SmsService::class
+        );
+
+        $this->app->scoped(
+            NavigationManager::class,
+            OrderedNavigationManager::class,
+        );
+
+        $this->app->scoped(
+            NavigationManager::class,
+            OrderedNavigationManager::class,
         );
     }
 

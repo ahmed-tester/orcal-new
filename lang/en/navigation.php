@@ -13,7 +13,7 @@ return [
     'funds_group' => 'Mutual Funds & Societies',
     'support_group' => 'Support & Helpdesk',
     'system_group' => 'Administration & Permissions',
-    'faq_group'    => 'FAQ & Support',
+    'faq_group' => 'FAQ & Support',
     'tickets' => 'Support Tickets',
     'saudi_employees' => 'Saudi Employees',
     'foreign_employees' => 'Resident Employees (Non-Saudi)',
@@ -28,17 +28,14 @@ return [
     'services_group' => 'Services & Customers',
     'customers' => 'Customers',
     'services' => 'Price List',
-    'invoices_group' => 'Invoices & Billing',
     'invoices' => 'Invoices',
     'invoice_types' => 'Invoice Types',
     'offers' => 'Price Offers',
 
-    'tasks_group' => 'Tasks & Operations',
     'tasks' => 'Tasks Catalog',
     'task_assignments' => 'Task Assignments & Tracking',
     'weekly_notes' => 'Weekly Notes',
 
-    'finance_group' => 'Finance & Accounting',
     'payment_collection_items' => 'Payment & Collection Items',
     'pos_devices' => 'POS Devices & Networks',
     'treasury_transactions' => 'Treasury & Vouchers',
@@ -56,9 +53,9 @@ return [
     'violation_regulations' => 'Violations Regulations',
 
     'manage_translations' => 'Manage Translations',
-    'smart_file_import'  => 'Attachments & AI Import',
-    'settings'           => 'System Settings',
-    'system_logs'        => 'System Logs (Log Viewer)',
+    'smart_file_import' => 'Attachments & AI Import',
+    'settings' => 'System Settings',
+    'system_logs' => 'System Logs (Log Viewer)',
 
     // Group 8: FAQ & Support
     'faqs' => 'Frequently Asked Questions',
@@ -74,8 +71,10 @@ return [
     // Support & Guide
     'system_documentation' => 'System & Modules User Guide',
 
+    // Public Finance
+    'public_finance_and_services' => 'Public Finance & Services',
+
     // Official Letters
-    'letters_group'    => 'Official Letters & Correspondence',
+    'letters_group' => 'Official Letters & Correspondence',
     'official_letters' => 'Official Letters',
 ];
-

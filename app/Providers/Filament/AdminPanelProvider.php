@@ -2,22 +2,28 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Auth\Login;
+use App\Filament\Widgets\FinancialStatsOverviewWidget;
+use App\Filament\Widgets\NotificationsBannerWidget;
+use App\Filament\Widgets\StatsOverviewWidget;
+use App\Models\Setting;
+use App\Services\NavigationOrderService;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationItem;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\View\PanelsRenderHook;
-use Filament\Widgets\AccountWidget;
-use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
@@ -28,8 +34,8 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('')
-            ->brandName(fn () => rescue(fn () => \App\Models\Setting::getActive('site_name') ?: \App\Models\Setting::getActive('system_name'), 'مجموعة فواز القابضة', false) ?: 'مجموعة فواز القابضة')
-            ->login(\App\Filament\Pages\Auth\Login::class)
+            ->brandName(fn () => rescue(fn () => Setting::getActive('site_name') ?: Setting::getActive('system_name'), 'مجموعة فواز القابضة', false) ?: 'مجموعة فواز القابضة')
+            ->login(Login::class)
             ->profile()
             ->colors([
                 'primary' => Color::hex('#082c50ff'),
@@ -48,41 +54,15 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::SIDEBAR_NAV_START,
                 fn () => view('filament.sidebar-search')
             )
-            ->navigationGroups([
-                \Filament\Navigation\NavigationGroup::make()
-                    ->label(fn () => __('navigation.system_group')),
-                \Filament\Navigation\NavigationGroup::make()
-                    ->label(fn () => __('navigation.org_group')),
-                \Filament\Navigation\NavigationGroup::make()
-                    ->label(fn () => __('navigation.hr_group')),
-                \Filament\Navigation\NavigationGroup::make()
-                    ->label(fn () => __('navigation.finance_group')),
-                \Filament\Navigation\NavigationGroup::make()
-                    ->label(fn () => __('navigation.public_finance_and_services')),
-                \Filament\Navigation\NavigationGroup::make()
-                    ->label(fn () => __('navigation.tasks_group')),
-                \Filament\Navigation\NavigationGroup::make()
-                    ->label(fn () => __('navigation.contracts_group')),
-                \Filament\Navigation\NavigationGroup::make()
-                    ->label(fn () => __('navigation.violations_group')),
-                \Filament\Navigation\NavigationGroup::make()
-                    ->label(fn () => __('navigation.funds_group')),
-                \Filament\Navigation\NavigationGroup::make()
-                    ->label(fn () => __('navigation.letters_group')),
-                \Filament\Navigation\NavigationGroup::make()
-                    ->label(fn () => __('navigation.reports_group')),
-                \Filament\Navigation\NavigationGroup::make()
-                    ->label(fn () => __('navigation.faq_group')),
-                \Filament\Navigation\NavigationGroup::make()
-                    ->label(fn () => __('navigation.support_group')),
-            ])
+            ->navigationGroups(NavigationOrderService::navigationGroups())
             ->navigationItems([
-                \Filament\Navigation\NavigationItem::make(fn () => __('navigation.system_logs') ?: 'سجل الأخطاء والعمليات')
-                    ->url(fn (): string => \Illuminate\Support\Facades\Route::has('log-viewer.index') ? route('log-viewer.index') : '#')
+                NavigationItem::make(fn () => __('navigation.system_logs') ?: 'سجل الأخطاء والعمليات')
+                    ->key('system_logs')
+                    ->url(fn (): string => Route::has('log-viewer.index') ? route('log-viewer.index') : '#')
                     ->icon('heroicon-o-bug-ant')
                     ->group(fn () => __('navigation.system_group'))
                     ->sort(99)
-                    ->visible(fn (): bool => \Illuminate\Support\Facades\Route::has('log-viewer.index') && (auth()->user()?->isSuperAdminOrOwner() ?? false)),
+                    ->visible(fn (): bool => Route::has('log-viewer.index') && (auth()->user()?->isSuperAdminOrOwner() ?? false)),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
@@ -90,9 +70,9 @@ class AdminPanelProvider extends PanelProvider
                 Dashboard::class,
             ])
             ->widgets([
-                \App\Filament\Widgets\NotificationsBannerWidget::class,
-                \App\Filament\Widgets\FinancialStatsOverviewWidget::class,
-                \App\Filament\Widgets\StatsOverviewWidget::class,
+                NotificationsBannerWidget::class,
+                FinancialStatsOverviewWidget::class,
+                StatsOverviewWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
