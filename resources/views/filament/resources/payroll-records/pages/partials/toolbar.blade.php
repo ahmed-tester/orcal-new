@@ -32,7 +32,37 @@
         </button>
     </div>
 
-    <div style="display: flex; gap: 0.5rem; align-items: center;">
+    <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+        {{-- Bulk Basic Salary Input & Tool --}}
+        @if($operationType === 'payroll')
+        <div style="display: flex; gap: 0.4rem; align-items: center; background: #f8fafc; padding: 0.25rem 0.65rem; border-radius: 0.75rem; border: 1px solid #cbd5e1;" class="dark:bg-slate-800 dark:border-slate-700">
+            <label style="font-size: 0.75rem; font-weight: 700; color: #475569; white-space: nowrap;" class="dark:text-slate-300">
+                💵 {{ __('finance.payroll_records.sheet.bulk_salary_title') }}:
+            </label>
+            <input
+                type="number"
+                step="0.01"
+                min="0"
+                wire:model.defer="bulkBasicSalary"
+                placeholder="{{ __('finance.payroll_records.sheet.bulk_salary_placeholder') }}"
+                style="width: 140px; padding: 0.35rem 0.5rem; font-size: 0.775rem; font-family: monospace; font-weight: 700; border: 1px solid #cbd5e1; border-radius: 0.5rem; background: #ffffff;"
+                class="dark:bg-slate-900 dark:border-slate-600 dark:text-white"
+            />
+            <button
+                type="button"
+                wire:click="applyBulkBasicSalary"
+                wire:loading.attr="disabled"
+                style="padding: 0.35rem 0.75rem; font-size: 0.75rem; font-weight: 700; border-radius: 0.5rem; background: #0284c7; color: #ffffff; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem; transition: background 0.15s ease;"
+                onmouseover="this.style.background='#0369a1'"
+                onmouseout="this.style.background='#0284c7'"
+                title="{{ __('finance.payroll_records.sheet.bulk_salary_apply') }}"
+            >
+                <x-heroicon-m-sparkles style="width: 0.85rem; height: 0.85rem;" />
+                <span>{{ __('finance.payroll_records.sheet.bulk_salary_apply') }}</span>
+            </button>
+        </div>
+        @endif
+
         <button
             type="button"
             wire:click="savePayrollSheet"

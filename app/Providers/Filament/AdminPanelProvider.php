@@ -17,6 +17,7 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\Tables\View\TablesRenderHook;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -43,6 +44,10 @@ class AdminPanelProvider extends PanelProvider
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->renderHook(
+                PanelsRenderHook::PAGE_HEADER_ACTIONS_BEFORE,
+                fn () => view('filament.back-button')
+            )
+            ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn () => view('filament.custom-sidebar')
             )
@@ -53,6 +58,10 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::SIDEBAR_NAV_START,
                 fn () => view('filament.sidebar-search')
+            )
+            ->renderHook(
+                TablesRenderHook::TOOLBAR_AFTER,
+                fn () => view('filament.global-table-scrollbar')
             )
             ->navigationGroups(NavigationOrderService::navigationGroups())
             ->navigationItems([

@@ -8,25 +8,48 @@
             <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.15rem;">{{ __('finance.payroll_records.sheet.filter_subheading') }}</div>
         </div>
 
-        {{-- Operation Type Switch (رواتب / تحصيل) --}}
-        <div class="op-switch">
-            <span style="font-size: 0.75rem; font-weight: 700; color: #64748b; padding: 0 0.4rem;">{{ __('finance.payroll_records.sheet.operation_label') }}</span>
-            <button
-                type="button"
-                wire:click="setOperationType('payroll')"
-                class="op-btn {{ $operationType === 'payroll' ? 'op-btn-payroll' : 'op-btn-inactive' }}"
-            >
-                <x-heroicon-s-banknotes style="width: 1rem; height: 1rem;" />
-                <span>{{ __('finance.payroll_records.sheet.badge_payroll') }}</span>
-            </button>
-            <button
-                type="button"
-                wire:click="setOperationType('collection')"
-                class="op-btn {{ $operationType === 'collection' ? 'op-btn-collection' : 'op-btn-inactive' }}"
-            >
-                <x-heroicon-s-arrow-down-tray style="width: 1rem; height: 1rem;" />
-                <span>{{ __('finance.payroll_records.sheet.badge_collection') }}</span>
-            </button>
+        <div style="display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap;">
+            {{-- Nationality Scope Switch (سعوديون وملاك / أجانب) --}}
+            <div class="op-switch">
+                <span style="font-size: 0.75rem; font-weight: 700; color: #64748b; padding: 0 0.4rem;">{{ __('finance.payroll_records.sheet.nationality_label') }}</span>
+                <button
+                    type="button"
+                    wire:click="setNationalityScope('saudi')"
+                    class="op-btn {{ $nationalityScope === 'saudi' ? 'op-btn-saudi' : 'op-btn-inactive' }}"
+                >
+                    <x-heroicon-s-user-group style="width: 1rem; height: 1rem;" />
+                    <span>{{ __('finance.payroll_records.sheet.badge_saudi') }}</span>
+                </button>
+                <button
+                    type="button"
+                    wire:click="setNationalityScope('foreign')"
+                    class="op-btn {{ $nationalityScope === 'foreign' ? 'op-btn-foreign' : 'op-btn-inactive' }}"
+                >
+                    <x-heroicon-s-globe-alt style="width: 1rem; height: 1rem;" />
+                    <span>{{ __('finance.payroll_records.sheet.badge_foreign') }}</span>
+                </button>
+            </div>
+
+            {{-- Operation Type Switch (رواتب / تحصيل) --}}
+            <div class="op-switch">
+                <span style="font-size: 0.75rem; font-weight: 700; color: #64748b; padding: 0 0.4rem;">{{ __('finance.payroll_records.sheet.operation_label') }}</span>
+                <button
+                    type="button"
+                    wire:click="setOperationType('payroll')"
+                    class="op-btn {{ $operationType === 'payroll' ? 'op-btn-payroll' : 'op-btn-inactive' }}"
+                >
+                    <x-heroicon-s-banknotes style="width: 1rem; height: 1rem;" />
+                    <span>{{ __('finance.payroll_records.sheet.badge_payroll') }}</span>
+                </button>
+                <button
+                    type="button"
+                    wire:click="setOperationType('collection')"
+                    class="op-btn {{ $operationType === 'collection' ? 'op-btn-collection' : 'op-btn-inactive' }}"
+                >
+                    <x-heroicon-s-arrow-down-tray style="width: 1rem; height: 1rem;" />
+                    <span>{{ __('finance.payroll_records.sheet.badge_collection') }}</span>
+                </button>
+            </div>
         </div>
     </div>
 

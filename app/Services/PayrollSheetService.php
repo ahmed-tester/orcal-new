@@ -32,12 +32,20 @@ class PayrollSheetService
         $paymentScope = $filters['paymentScope'] ?? 'all';
         $payrollMonth = $filters['payrollMonth'] ?? now()->format('Y-m');
         $searchQuery = trim($filters['searchQuery'] ?? '');
+        $nationalityScope = $filters['nationalityScope'] ?? 'saudi';
         $user = auth()->user();
 
         $query = Employee::query()
             ->where('status', 'active')
             ->whereHas('company')
             ->with(['user', 'company', 'branch', 'details.guarantor']);
+
+        // Scope by Nationality (Saudi/Owner vs Foreign)
+        if ($nationalityScope === 'foreign') {
+            $query->foreign();
+        } else {
+            $query->saudi();
+        }
 
         if ($user && ! $user->isSuperAdmin()) {
             $authorizedIds = CompanyFormService::getAuthorizedCompanyIds($user);
@@ -141,12 +149,8 @@ class PayrollSheetService
 
             $isPaid = ($paymentStatus === PaymentStatus::PAID || ($remaining <= 0 && $net > 0));
 
-            if (! isset($checkedEmployees[$emp->id])) {
+            if (! array_key_exists($emp->id, $checkedEmployees)) {
                 $checkedEmployees[$emp->id] = $isPaid;
-            } else {
-                if ($existing && $isPaid) {
-                    $checkedEmployees[$emp->id] = true;
-                }
             }
 
             $currentChecked = $checkedEmployees[$emp->id] ?? false;
@@ -361,10 +365,12 @@ class PayrollSheetService
                     $row['paid_amount'] = $net;
                     $row['remaining_amount'] = 0.0;
                     $row['payment_status'] = PaymentStatus::PAID;
+                    $row['is_paid'] = true;
                 } else {
                     $row['paid_amount'] = (float) ($row['original_paid_amount'] ?? 0.0);
                     $row['remaining_amount'] = (float) ($row['original_remaining_amount'] ?? $net);
                     $row['payment_status'] = $row['original_payment_status'] ?? PaymentStatus::UNPAID;
+                    $row['is_paid'] = false;
                 }
             }
             $totalPaid += (float) $row['paid_amount'];
@@ -392,10 +398,12 @@ class PayrollSheetService
                 $row['paid_amount'] = $net;
                 $row['remaining_amount'] = 0.0;
                 $row['payment_status'] = PaymentStatus::PAID;
+                $row['is_paid'] = true;
             } else {
                 $row['paid_amount'] = (float) ($row['original_paid_amount'] ?? 0.0);
                 $row['remaining_amount'] = (float) ($row['original_remaining_amount'] ?? $net);
                 $row['payment_status'] = $row['original_payment_status'] ?? PaymentStatus::UNPAID;
+                $row['is_paid'] = false;
             }
             $totalPaid += (float) $row['paid_amount'];
             $totalPending += (float) $row['remaining_amount'];
@@ -605,8 +613,10 @@ class PayrollSheetService
             $completionRate = $totalNet > 0 ? round(($totalPaid / $totalNet) * 100, 1) : ($paidCount > 0 ? 100 : 0);
             $isFullyPaid = ($totalRemaining <= 0 && $totalNet > 0) || ($paidCount === $totalEmployees && $totalEmployees > 0);
 
-            $opLabel = $operationType === 'payroll' ? 'مسير رواتب' : 'كشف تحصيل';
-            $title = "{$opLabel} شهر {$monthName} {$year}";
+            $opLabel = $operationType === 'payroll'
+                ? __('finance.payroll_records.sheet.op_payroll')
+                : __('finance.payroll_records.sheet.op_collection');
+            $title = "{$opLabel} {$monthName} {$year}";
 
             $result[] = [
                 'month_num'            => $m,

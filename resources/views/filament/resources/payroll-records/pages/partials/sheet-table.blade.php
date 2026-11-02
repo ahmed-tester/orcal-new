@@ -1,10 +1,14 @@
 {{-- 4. Interactive Data Table --}}
-<div class="payroll-table-wrap">
+<div class="payroll-table-wrap" id="payroll-table-container">
     {{-- Table Top Header Bar --}}
     <div class="payroll-table-header-bar">
         <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap;">
             <span style="font-weight: 800; font-size: 0.925rem; color: #0f172a;" class="dark:text-white">
-                {{ $operationType === 'payroll' ? __('finance.payroll_records.sheet.title_payroll', ['month' => $payrollMonth]) : __('finance.payroll_records.sheet.title_collection', ['month' => $payrollMonth]) }}
+                @if($nationalityScope === 'foreign')
+                    {{ $operationType === 'payroll' ? __('finance.payroll_records.sheet.title_payroll_foreign', ['month' => $payrollMonth]) : __('finance.payroll_records.sheet.title_collection_foreign', ['month' => $payrollMonth]) }}
+                @else
+                    {{ $operationType === 'payroll' ? __('finance.payroll_records.sheet.title_payroll_saudi', ['month' => $payrollMonth]) : __('finance.payroll_records.sheet.title_collection_saudi', ['month' => $payrollMonth]) }}
+                @endif
             </span>
             <span style="font-size: 0.725rem; font-weight: 700; padding: 0.15rem 0.6rem; border-radius: 9999px; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">
                 {{ $payrollMonth }}
@@ -24,171 +28,288 @@
                 </span>
             @endif
         </div>
+
+        {{-- Quick Horizontal Scroll Controls --}}
+        <div class="no-print" style="display: flex; align-items: center; gap: 0.35rem;">
+            <button
+                type="button"
+                onclick="scrollPayrollTable('right')"
+                style="padding: 0.25rem 0.65rem; font-size: 0.75rem; font-weight: 700; border-radius: 0.5rem; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem;"
+                title="{{ __('finance.payroll_records.sheet.scroll_right') }}"
+            >
+                <span>{{ __('finance.payroll_records.sheet.scroll_right') }}</span>
+            </button>
+            <button
+                type="button"
+                onclick="scrollPayrollTable('left')"
+                style="padding: 0.25rem 0.65rem; font-size: 0.75rem; font-weight: 700; border-radius: 0.5rem; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; cursor: pointer; display: inline-flex; align-items: center; gap: 0.25rem;"
+                title="{{ __('finance.payroll_records.sheet.scroll_left') }}"
+            >
+                <span>{{ __('finance.payroll_records.sheet.scroll_left') }}</span>
+            </button>
+        </div>
     </div>
 
-    {{-- The Table --}}
-    <table class="payroll-table">
-        <thead>
-            <tr>
-                <th style="text-align: center; width: 45px;">{{ __('finance.payroll_records.sheet.serial') }}</th>
-                <th style="text-align: right; min-width: 160px;">{{ __('finance.payroll_records.sheet.col_name') }}</th>
-                <th style="text-align: center; width: 110px;">{{ __('finance.payroll_records.sheet.col_identity') }}</th>
-                <th style="text-align: center; min-width: 110px;">{{ __('finance.payroll_records.sheet.col_company') }}</th>
-                <th style="text-align: center; width: 90px;">{{ __('finance.payroll_records.sheet.col_basic') }}</th>
-                <th style="text-align: center; width: 80px;">{{ __('finance.payroll_records.sheet.col_additions') }}</th>
-                <th style="text-align: center; width: 80px;">{{ __('finance.payroll_records.sheet.col_deductions') }}</th>
-                <th style="text-align: center; width: 100px;">{{ __('finance.payroll_records.sheet.col_net') }}</th>
-                <th style="text-align: center; width: 95px; color: #86efac;">{{ __('finance.payroll_records.sheet.col_paid') }}</th>
-                <th style="text-align: center; width: 95px; color: #fde047;">{{ __('finance.payroll_records.sheet.col_remaining') }}</th>
-                <th style="text-align: center; width: 100px;">{{ __('finance.payroll_records.sheet.col_phone') }}</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($paginatedRows as $index => $row)
-                @php
-                    $empId = $row['employee_id'];
-                    $serialNumber = ($sheetPerPage === 'all' ? 0 : ($sheetPage - 1) * (int)$sheetPerPage) + $index + 1;
-                    $basicAmount = (float) ($row['basic_salary'] ?? 0);
-                    $additionAmount = (float) ($row['additional_amount'] ?? 0);
-                    $deductionAmount = (float) ($row['deduction_amount'] ?? 0);
-                    $netAmount = (float) ($row['net_amount'] ?? 0);
-                    $paidAmount = (float) ($row['paid_amount'] ?? 0);
-                    $remainingAmount = (float) ($row['remaining_amount'] ?? 0);
-                    $isFullyPaid = ($remainingAmount <= 0 && $netAmount > 0);
-                    $isPartiallyPaid = (!$isFullyPaid && $paidAmount > 0);
-                @endphp
-                <tr style="{{ $isFullyPaid ? 'background: #f0fdf4;' : ($isPartiallyPaid ? 'background: #fffbeb;' : '') }}">
-                    {{-- 1. Serial Number --}}
-                    <td
-                        style="text-align: center; font-weight: 800; font-family: monospace; cursor: pointer; color: #64748b;"
-                        wire:click="openEmployeeRecord({{ $empId }})"
-                        title="{{ __('finance.payroll_records.sheet.open_title') }}"
-                    >
-                        {{ $serialNumber }}.
-                    </td>
+    {{-- Top Scrollbar Track (Synchronized with table scroll) --}}
+    <div id="payroll-top-scroll" class="no-print" style="overflow-x: auto; overflow-y: hidden; height: 18px; background: #e2e8f0; border-bottom: 2px solid #cbd5e1; border-top: 1px solid #e2e8f0;">
+        <div id="payroll-top-scroll-inner" style="height: 1px;"></div>
+    </div>
 
-                    {{-- 2. Employee Name --}}
-                    <td
-                        style="text-align: right; cursor: pointer;"
-                        wire:click="openEmployeeRecord({{ $empId }})"
-                        title="{{ __('finance.payroll_records.sheet.open_title') }}"
-                    >
-                        <div style="font-weight: 800; font-size: 0.85rem; color: #2563eb; display: flex; align-items: center; justify-content: space-between; gap: 0.35rem;">
-                            <span style="display: inline-flex; align-items: center; gap: 0.25rem;">
-                                {{ $row['name'] }}
-                                <x-heroicon-m-arrow-top-right-on-square style="width: 0.85rem; height: 0.85rem; color: #3b82f6;" class="no-print" />
-                            </span>
-                        </div>
-                        <div class="no-print" style="font-size: 0.7rem; color: #64748b; margin-top: 0.15rem; display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
-                            <span style="font-family: monospace; background: #e2e8f0; padding: 0.05rem 0.3rem; border-radius: 0.25rem; font-weight: 600;">🆔 {{ $row['employee_number'] }}</span>
-                            @if(!empty($row['record_number']))
-                                <span style="color: #2563eb; font-weight: 700; direction: ltr; display: inline-block;">{{ $row['record_number'] }}</span>
-                            @endif
-                        </div>
-                    </td>
+    {{-- Inner scrollable table wrap --}}
+    <div id="payroll-table-scroll" style="overflow-x: auto;">
+        <table class="payroll-table" id="payroll-main-table">
+            <thead>
+                <tr>
+                    <th style="text-align: center; width: 45px;">{{ __('finance.payroll_records.sheet.serial') }}</th>
+                    <th style="text-align: right; min-width: 180px;">{{ __('finance.payroll_records.sheet.col_name') }}</th>
+                    <th style="text-align: center; width: 110px;">{{ __('finance.payroll_records.sheet.col_identity') }}</th>
+                    <th style="text-align: center; min-width: 110px;">{{ __('finance.payroll_records.sheet.col_company') }}</th>
+                    <th style="text-align: center; width: 105px;">{{ __('finance.payroll_records.sheet.col_basic') }}</th>
+                    <th style="text-align: center; width: 80px;">{{ __('finance.payroll_records.sheet.col_additions') }}</th>
+                    <th style="text-align: center; width: 80px;">{{ __('finance.payroll_records.sheet.col_deductions') }}</th>
+                    <th style="text-align: center; width: 100px;">{{ __('finance.payroll_records.sheet.col_net') }}</th>
+                    <th style="text-align: center; width: 95px; color: #86efac;">{{ __('finance.payroll_records.sheet.col_paid') }}</th>
+                    <th style="text-align: center; width: 95px; color: #fde047;">{{ __('finance.payroll_records.sheet.col_remaining') }}</th>
+                    <th style="text-align: center; width: 100px;">{{ __('finance.payroll_records.sheet.col_phone') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($paginatedRows as $index => $row)
+                    @php
+                        $empId = $row['employee_id'];
+                        $serialNumber = ($sheetPerPage === 'all' ? 0 : ($sheetPage - 1) * (int)$sheetPerPage) + $index + 1;
+                        $basicAmount = (float) ($row['basic_salary'] ?? 0);
+                        $additionAmount = (float) ($row['additional_amount'] ?? 0);
+                        $deductionAmount = (float) ($row['deduction_amount'] ?? 0);
+                        $netAmount = (float) ($row['net_amount'] ?? 0);
+                        $paidAmount = (float) ($row['paid_amount'] ?? 0);
+                        $remainingAmount = (float) ($row['remaining_amount'] ?? 0);
+                        $isFullyPaid = ($remainingAmount <= 0 && $netAmount > 0);
+                        $isPartiallyPaid = (!$isFullyPaid && $paidAmount > 0);
+                    @endphp
+                    <tr style="{{ $isFullyPaid ? 'background: #f0fdf4;' : ($isPartiallyPaid ? 'background: #fffbeb;' : '') }}">
+                        {{-- 1. Serial Number --}}
+                        <td
+                            style="text-align: center; font-weight: 800; font-family: monospace; cursor: pointer; color: #64748b;"
+                            wire:click="openEmployeeRecord({{ $empId }})"
+                            title="{{ __('finance.payroll_records.sheet.open_title') }}"
+                        >
+                            {{ $serialNumber }}.
+                        </td>
 
-                    {{-- 3. National ID / Iqama Number --}}
-                    <td
-                        style="text-align: center; cursor: pointer;"
-                        wire:click="openEmployeeRecord({{ $empId }})"
-                        title="{{ __('finance.payroll_records.sheet.open_title') }}"
-                    >
-                        <div style="font-family: monospace; font-weight: 700; color: #1e293b;" class="dark:text-white">{{ $row['iqama_number'] }}</div>
-                        @if(!empty($row['iqama_expiry_gregorian']) && $row['iqama_expiry_gregorian'] !== '—')
-                            <div style="font-size: 0.68rem; color: #64748b; font-family: monospace;">
-                                {{ __('finance.payroll_records.sheet.expiry_prefix') }} {{ $row['iqama_expiry_gregorian'] }}
+                        {{-- 2. Employee Name with Checkbox --}}
+                        <td style="text-align: right;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input
+                                    type="checkbox"
+                                    class="no-print"
+                                    wire:click.stop="toggleEmployeeCheck({{ $empId }})"
+                                    @checked($checkedEmployees[$empId] ?? false)
+                                    style="width: 1.15rem; height: 1.15rem; border-radius: 0.25rem; accent-color: #16a34a; cursor: pointer; flex-shrink: 0;"
+                                    title="{{ ($checkedEmployees[$empId] ?? false) ? __('finance.payroll_records.sheet.mark_unpaid') : __('finance.payroll_records.sheet.mark_paid') }}"
+                                />
+                                {{-- Print checkmark: Only for paid rows in paid/all scope. In unpaid scope or unpaid row: NO mark! --}}
+                                @if(($checkedEmployees[$empId] ?? false) && $paymentScope !== 'unpaid')
+                                    <span class="print-only" style="display: none; font-size: 0.95rem; color: #16a34a; font-weight: 900; margin-left: 0.25rem;">✓</span>
+                                @endif
+                                <div style="flex: 1; min-width: 0;">
+                                    <div
+                                        style="font-weight: 800; font-size: 0.85rem; color: #2563eb; display: flex; align-items: center; justify-content: space-between; gap: 0.35rem; cursor: pointer;"
+                                        wire:click="openEmployeeRecord({{ $empId }})"
+                                        title="{{ __('finance.payroll_records.sheet.open_title') }}"
+                                    >
+                                        <span style="display: inline-flex; align-items: center; gap: 0.25rem;">
+                                            {{ $row['name'] }}
+                                            <x-heroicon-m-arrow-top-right-on-square style="width: 0.85rem; height: 0.85rem; color: #3b82f6;" class="no-print" />
+                                        </span>
+                                    </div>
+                                    <div class="no-print" style="font-size: 0.7rem; color: #64748b; margin-top: 0.15rem; display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap;">
+                                        <span style="font-family: monospace; background: #e2e8f0; padding: 0.05rem 0.3rem; border-radius: 0.25rem; font-weight: 600;">🆔 {{ $row['employee_number'] }}</span>
+                                        @if(!empty($row['record_number']))
+                                            <span style="color: #2563eb; font-weight: 700; direction: ltr; display: inline-block;">{{ $row['record_number'] }}</span>
+                                        @endif
+                                    </div>
+                                </div>
                             </div>
-                        @endif
-                    </td>
+                        </td>
 
-                    {{-- 4. Company --}}
-                    <td style="text-align: center; font-size: 0.8rem; font-weight: 600; color: #334155;" class="dark:text-slate-300">
-                        {{ $row['company_name'] }}
-                    </td>
+                        {{-- 3. National ID / Iqama Number --}}
+                        <td
+                            style="text-align: center; cursor: pointer;"
+                            wire:click="openEmployeeRecord({{ $empId }})"
+                            title="{{ __('finance.payroll_records.sheet.open_title') }}"
+                        >
+                            <div style="font-family: monospace; font-weight: 700; color: #1e293b;" class="dark:text-white">{{ $row['iqama_number'] }}</div>
+                            @if(!empty($row['iqama_expiry_gregorian']) && $row['iqama_expiry_gregorian'] !== '—')
+                                <div style="font-size: 0.68rem; color: #64748b; font-family: monospace;">
+                                    {{ __('finance.payroll_records.sheet.expiry_prefix') }} {{ $row['iqama_expiry_gregorian'] }}
+                                </div>
+                            @endif
+                        </td>
 
-                    {{-- 5. Basic Salary --}}
-                    <td style="text-align: center; font-family: monospace; font-weight: 700; font-size: 0.825rem; color: #334155;" class="dark:text-slate-300">
-                        {{ number_format($basicAmount, 2) }}
-                    </td>
+                        {{-- 4. Company --}}
+                        <td style="text-align: center; font-size: 0.8rem; font-weight: 600; color: #334155;" class="dark:text-slate-300">
+                            {{ $row['company_name'] }}
+                        </td>
 
-                    {{-- 6. Additions --}}
-                    <td style="text-align: center; font-family: monospace; font-weight: 700; font-size: 0.825rem; color: {{ $additionAmount > 0 ? '#15803d' : '#94a3b8' }};">
-                        {{ $additionAmount > 0 ? '+' . number_format($additionAmount, 2) : '—' }}
-                    </td>
+                        {{-- 5. Basic Salary (Editable on sheet) --}}
+                        <td style="text-align: center;">
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="no-print"
+                                value="{{ $basicAmount }}"
+                                wire:change="updateRowBasicSalary({{ $empId }}, $event.target.value)"
+                                style="width: 85px; text-align: center; font-family: monospace; font-weight: 700; font-size: 0.825rem; border: 1px solid #cbd5e1; border-radius: 0.35rem; padding: 0.2rem 0.35rem; background: #ffffff;"
+                                title="{{ __('finance.payroll_records.sheet.tip') }}"
+                            />
+                            <span class="print-only" style="display: none; font-family: monospace; font-weight: 700; font-size: 0.825rem; color: #334155;">
+                                {{ number_format($basicAmount, 2) }}
+                            </span>
+                        </td>
 
-                    {{-- 7. Deductions --}}
-                    <td style="text-align: center; font-family: monospace; font-weight: 700; font-size: 0.825rem; color: {{ $deductionAmount > 0 ? '#b91c1c' : '#94a3b8' }};">
-                        {{ $deductionAmount > 0 ? '-' . number_format($deductionAmount, 2) : '—' }}
-                    </td>
+                        {{-- 6. Additions --}}
+                        <td style="text-align: center; font-family: monospace; font-weight: 700; font-size: 0.825rem; color: {{ $additionAmount > 0 ? '#15803d' : '#94a3b8' }};">
+                            {{ $additionAmount > 0 ? '+' . number_format($additionAmount, 2) : '—' }}
+                        </td>
 
-                    {{-- 8. Net Amount --}}
-                    <td
-                        style="text-align: center; font-family: monospace; font-weight: 900; font-size: 0.875rem; color: #0f172a; background: rgba(241, 245, 249, 0.7); cursor: pointer;"
-                        wire:click="openEmployeeRecord({{ $empId }})"
-                        title="{{ __('finance.payroll_records.sheet.open_title') }}"
-                        class="dark:text-white"
-                    >
-                        {{ number_format($netAmount, 2) }}
-                    </td>
+                        {{-- 7. Deductions --}}
+                        <td style="text-align: center; font-family: monospace; font-weight: 700; font-size: 0.825rem; color: {{ $deductionAmount > 0 ? '#b91c1c' : '#94a3b8' }};">
+                            {{ $deductionAmount > 0 ? '-' . number_format($deductionAmount, 2) : '—' }}
+                        </td>
 
-                    {{-- 9. Paid Amount --}}
-                    <td style="text-align: center; font-family: monospace; font-weight: 900; font-size: 0.875rem; color: #15803d; background: rgba(240, 253, 244, 0.7);">
-                        {{ number_format($paidAmount, 2) }}
-                    </td>
+                        {{-- 8. Net Amount --}}
+                        <td
+                            style="text-align: center; font-family: monospace; font-weight: 900; font-size: 0.875rem; color: #0f172a; background: rgba(241, 245, 249, 0.7); cursor: pointer;"
+                            wire:click="openEmployeeRecord({{ $empId }})"
+                            title="{{ __('finance.payroll_records.sheet.open_title') }}"
+                            class="dark:text-white"
+                        >
+                            {{ number_format($netAmount, 2) }}
+                        </td>
 
-                    {{-- 10. Remaining Amount --}}
-                    <td style="text-align: center; font-family: monospace; font-weight: 900; font-size: 0.875rem; color: {{ $remainingAmount > 0 ? '#d97706' : '#94a3b8' }}; background: {{ $remainingAmount > 0 ? 'rgba(254, 243, 199, 0.5)' : 'transparent' }};">
-                        {{ number_format($remainingAmount, 2) }}
-                    </td>
+                        {{-- 9. Paid Amount --}}
+                        <td style="text-align: center; font-family: monospace; font-weight: 900; font-size: 0.875rem; color: #15803d; background: rgba(240, 253, 244, 0.7);">
+                            {{ number_format($paidAmount, 2) }}
+                        </td>
 
-                    {{-- 11. Phone --}}
-                    <td style="text-align: center; font-family: monospace; direction: ltr; font-size: 0.775rem; color: #475569;">
-                        {{ $row['phone'] }}
-                    </td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="11" style="text-align: center; padding: 3.5rem 1rem; color: #94a3b8;">
-                        <div style="font-weight: 800; font-size: 1rem; color: #475569;" class="dark:text-slate-300">
-                            {{ __('finance.payroll_records.sheet.empty_heading') }}
-                        </div>
-                        <div style="font-size: 0.775rem; margin-top: 0.35rem; color: #94a3b8;">
-                            {{ __('finance.payroll_records.sheet.empty_subheading') }}
-                        </div>
-                    </td>
-                </tr>
-            @endforelse
-        </tbody>
-        @if(!empty($employeeRows))
-            <tfoot>
-                <tr>
-                    <td colspan="4" style="text-align: right; padding: 0.85rem 1rem; font-size: 0.875rem; color: #0f172a;" class="dark:text-white">
-                        <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
-                            <span>📊</span>
-                            <span>{{ __('finance.payroll_records.sheet.total_general', ['count' => count($employeeRows)]) }}</span>
-                        </span>
-                    </td>
-                    <td style="text-align: center; font-family: monospace; font-size: 0.85rem; color: #334155; font-weight: 800;" class="dark:text-slate-200">
-                        {{ number_format($totalBasicAmount ?? $this->totalBasicAmount ?? 0, 2) }}
-                    </td>
-                    <td style="text-align: center; font-family: monospace; font-size: 0.85rem; color: #15803d; font-weight: 800;">
-                        {{ number_format($totalAdditionalAmount ?? $this->totalAdditionalAmount ?? 0, 2) }}
-                    </td>
-                    <td style="text-align: center; font-family: monospace; font-size: 0.85rem; color: #b91c1c; font-weight: 800;">
-                        {{ number_format($totalDeductionAmount ?? $this->totalDeductionAmount ?? 0, 2) }}
-                    </td>
-                    <td style="text-align: center; font-family: monospace; font-size: 0.9rem; color: #0f172a; font-weight: 900; background: #e2e8f0;" class="dark:bg-slate-700 dark:text-white">
-                        {{ number_format($totalNetAmount ?? $this->totalNetAmount ?? 0, 2) }}
-                    </td>
-                    <td style="text-align: center; font-family: monospace; font-size: 0.9rem; color: #15803d; font-weight: 900; background: #dcfce7;" class="dark:bg-emerald-950 dark:text-emerald-300">
-                        {{ number_format($totalPaidAmount ?? $this->totalPaidAmount ?? 0, 2) }}
-                    </td>
-                    <td style="text-align: center; font-family: monospace; font-size: 0.9rem; color: #b45309; font-weight: 900; background: #fef3c7;" class="dark:bg-amber-950 dark:text-amber-300">
-                        {{ number_format($totalPendingAmount ?? $this->totalPendingAmount ?? 0, 2) }}
-                    </td>
-                    <td></td>
-                </tr>
-            </tfoot>
-        @endif
-    </table>
+                        {{-- 10. Remaining Amount --}}
+                        <td style="text-align: center; font-family: monospace; font-weight: 900; font-size: 0.875rem; color: {{ $remainingAmount > 0 ? '#d97706' : '#94a3b8' }}; background: {{ $remainingAmount > 0 ? 'rgba(254, 243, 199, 0.5)' : 'transparent' }};">
+                            {{ number_format($remainingAmount, 2) }}
+                        </td>
+
+                        {{-- 11. Phone --}}
+                        <td style="text-align: center; font-family: monospace; direction: ltr; font-size: 0.775rem; color: #475569;">
+                            {{ $row['phone'] }}
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="11" style="text-align: center; padding: 3.5rem 1rem; color: #94a3b8;">
+                            <div style="font-weight: 800; font-size: 1rem; color: #475569;" class="dark:text-slate-300">
+                                {{ __('finance.payroll_records.sheet.empty_heading') }}
+                            </div>
+                            <div style="font-size: 0.775rem; margin-top: 0.35rem; color: #94a3b8;">
+                                {{ __('finance.payroll_records.sheet.empty_subheading') }}
+                            </div>
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+            @if(!empty($employeeRows))
+                <tfoot>
+                    <tr>
+                        <td colspan="4" style="text-align: right; padding: 0.85rem 1rem; font-size: 0.875rem; color: #0f172a;" class="dark:text-white">
+                            <span style="display: inline-flex; align-items: center; gap: 0.35rem;">
+                                <span>📊</span>
+                                <span>{{ __('finance.payroll_records.sheet.total_general', ['count' => count($employeeRows)]) }}</span>
+                            </span>
+                        </td>
+                        <td style="text-align: center; font-family: monospace; font-size: 0.85rem; color: #334155; font-weight: 800;" class="dark:text-slate-200">
+                            {{ number_format($totalBasicAmount ?? $this->totalBasicAmount ?? 0, 2) }}
+                        </td>
+                        <td style="text-align: center; font-family: monospace; font-size: 0.85rem; color: #15803d; font-weight: 800;">
+                            {{ number_format($totalAdditionalAmount ?? $this->totalAdditionalAmount ?? 0, 2) }}
+                        </td>
+                        <td style="text-align: center; font-family: monospace; font-size: 0.85rem; color: #b91c1c; font-weight: 800;">
+                            {{ number_format($totalDeductionAmount ?? $this->totalDeductionAmount ?? 0, 2) }}
+                        </td>
+                        <td style="text-align: center; font-family: monospace; font-size: 0.9rem; color: #0f172a; font-weight: 900; background: #e2e8f0;" class="dark:bg-slate-700 dark:text-white">
+                            {{ number_format($totalNetAmount ?? $this->totalNetAmount ?? 0, 2) }}
+                        </td>
+                        <td style="text-align: center; font-family: monospace; font-size: 0.9rem; color: #15803d; font-weight: 900; background: #dcfce7;" class="dark:bg-emerald-950 dark:text-emerald-300">
+                            {{ number_format($totalPaidAmount ?? $this->totalPaidAmount ?? 0, 2) }}
+                        </td>
+                        <td style="text-align: center; font-family: monospace; font-size: 0.9rem; color: #b45309; font-weight: 900; background: #fef3c7;" class="dark:bg-amber-950 dark:text-amber-300">
+                            {{ number_format($totalPendingAmount ?? $this->totalPendingAmount ?? 0, 2) }}
+                        </td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            @endif
+        </table>
+    </div>
 </div>
+
+<script>
+    let payrollActiveSource = null;
+    let payrollRafId = null;
+
+    function syncPayrollScroll(source, target) {
+        if (payrollActiveSource && payrollActiveSource !== source) return;
+        payrollActiveSource = source;
+
+        if (payrollRafId) {
+            cancelAnimationFrame(payrollRafId);
+        }
+
+        payrollRafId = requestAnimationFrame(() => {
+            target.scrollLeft = source.scrollLeft;
+            payrollRafId = requestAnimationFrame(() => {
+                payrollActiveSource = null;
+            });
+        });
+    }
+
+    function syncPayrollScrollbars() {
+        const topScroll = document.getElementById('payroll-top-scroll');
+        const topInner = document.getElementById('payroll-top-scroll-inner');
+        const tableScroll = document.getElementById('payroll-table-scroll');
+        const mainTable = document.getElementById('payroll-main-table');
+
+        if (!topScroll || !topInner || !tableScroll || !mainTable) return;
+
+        topInner.style.width = mainTable.scrollWidth + 'px';
+
+        topScroll.onscroll = function () {
+            syncPayrollScroll(topScroll, tableScroll);
+        };
+
+        tableScroll.onscroll = function () {
+            syncPayrollScroll(tableScroll, topScroll);
+        };
+
+        topScroll.onwheel = function (e) {
+            if (e.deltaY && !e.deltaX) {
+                e.preventDefault();
+                tableScroll.scrollLeft += e.deltaY;
+            }
+        };
+    }
+
+    function scrollPayrollTable(direction) {
+        const tableScroll = document.getElementById('payroll-table-scroll');
+        if (!tableScroll) return;
+        const offset = direction === 'left' ? -350 : 350;
+        tableScroll.scrollBy({ left: offset, behavior: 'smooth' });
+    }
+
+    document.addEventListener('DOMContentLoaded', syncPayrollScrollbars);
+    document.addEventListener('livewire:navigated', syncPayrollScrollbars);
+    if (window.Livewire) {
+        window.Livewire.hook('morph.updated', () => {
+            setTimeout(syncPayrollScrollbars, 60);
+        });
+    }
+</script>
