@@ -5,6 +5,7 @@ namespace App\Filament\Resources\TreasuryTransactions;
 use App\Filament\Resources\TreasuryTransactions\Pages\CreateTreasuryTransaction;
 use App\Filament\Resources\TreasuryTransactions\Pages\EditTreasuryTransaction;
 use App\Filament\Resources\TreasuryTransactions\Pages\ListTreasuryTransactions;
+use App\Filament\Resources\TreasuryTransactions\Pages\TreasurySummary;
 use App\Filament\Resources\TreasuryTransactions\Schemas\TreasuryTransactionForm;
 use App\Filament\Resources\TreasuryTransactions\Tables\TreasuryTransactionsTable;
 use App\Filament\Traits\HasCompanyScope;
@@ -64,9 +65,10 @@ class TreasuryTransactionResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => ListTreasuryTransactions::route('/'),
+            'index' => TreasurySummary::route('/'),
+            'detailed' => ListTreasuryTransactions::route('/detailed'),
             'create' => CreateTreasuryTransaction::route('/create'),
-            'edit'   => EditTreasuryTransaction::route('/{record}/edit'),
+            'edit' => EditTreasuryTransaction::route('/{record}/edit'),
         ];
     }
 }

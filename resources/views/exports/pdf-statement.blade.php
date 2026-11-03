@@ -194,7 +194,8 @@
         <tbody>
             @forelse($records as $index => $item)
                 @php
-                    $isIncoming = in_array(strtolower($item['type'] ?? ''), ['incoming', 'وارد', 'قبض']);
+                    $rawType = is_object($item['type'] ?? null) && isset($item['type']->value) ? $item['type']->value : (string)($item['type'] ?? '');
+                    $isIncoming = in_array(strtolower($rawType), ['incoming', 'وارد', 'قبض']);
                     $amount = (float)($item['amount'] ?? 0);
                 @endphp
                 <tr>
@@ -212,7 +213,7 @@
                             <span style="color: #991b1b; font-weight: bold;">صرف</span>
                         @endif
                     </td>
-                    <td style="text-align: right; padding-right: 6px;">{{ $item['description'] ?? '—' }}</td>
+                    <td style="text-align: right; padding-right: 6px;">{{ str_replace(['Salary Payment', 'Salary Collection', 'salary_payment', 'salary_collection'], ['تسليم رواتب', 'تحصيل رواتب', 'تسليم رواتب', 'تحصيل رواتب'], (string)($item['description'] ?? '—')) }}</td>
                     <td class="incoming">{{ $isIncoming ? number_format($amount, 2) : '—' }}</td>
                     <td class="outgoing">{{ !$isIncoming ? number_format($amount, 2) : '—' }}</td>
                     <td style="font-weight: bold;">{{ isset($item['balance_after']) ? number_format((float)$item['balance_after'], 2) : '—' }}</td>

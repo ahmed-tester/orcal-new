@@ -15,7 +15,9 @@ class FinancialStatsOverviewWidget extends BaseWidget
 {
     protected static ?int $sort = 2;
 
-    protected ?string $pollingInterval = '30s';
+    protected static bool $isLazy = false;
+
+    protected ?string $pollingInterval = '10s';
 
     protected function getStats(): array
     {
@@ -29,46 +31,56 @@ class FinancialStatsOverviewWidget extends BaseWidget
         $currency = __('dashboard.stats.currency');
 
         // 1. Current Treasury Balance (Sum of latest running balances for all scoped companies)
-        $totalTreasuryBalance = 0;
+        $totalTreasuryBalance = 0.0;
         if (! empty($companyIds)) {
-            foreach ($companyIds as $cId) {
-                $latestTx = TreasuryTransaction::where('company_id', $cId)->orderByDesc('id')->first();
-                $totalTreasuryBalance += $latestTx ? (float) $latestTx->balance_after : 0.0;
+            $latestTxIds = TreasuryTransaction::whereIn('company_id', $companyIds)
+                ->selectRaw('MAX(id) as id')
+                ->groupBy('company_id')
+                ->pluck('id');
+
+            if ($latestTxIds->isNotEmpty()) {
+                $totalTreasuryBalance = (float) TreasuryTransaction::whereIn('id', $latestTxIds)->sum('balance_after');
             }
         } else {
             $latestTx = TreasuryTransaction::orderByDesc('id')->first();
             $totalTreasuryBalance = $latestTx ? (float) $latestTx->balance_after : 0.0;
         }
 
-        $firstComp = ! empty($companyIds) ? Company::find($companyIds[0]) : null;
-        $singleCompanyName = $firstComp?->trade_name ?: $firstComp?->name ?: __('dashboard.stats.treasury_balance_desc');
-
-        $treasuryDescription = match (true) {
-            count($companyIds) === 1 => $singleCompanyName,
-            count($companyIds) > 1 => __('dashboard.stats.treasury_balance_scoped', ['count' => count($companyIds)]),
-            default => __('dashboard.stats.treasury_balance_desc'),
-        };
+        $treasuryDescription = __('dashboard.stats.treasury_balance_desc');
+        if (count($companyIds) === 1) {
+            $comp = Company::find($companyIds[0]);
+            $treasuryDescription = $comp?->trade_name ?: $comp?->name ?: $treasuryDescription;
+        } elseif (count($companyIds) > 1) {
+            $treasuryDescription = __('dashboard.stats.treasury_balance_scoped', ['count' => count($companyIds)]);
+        }
 
         // 2. Total Invoiced & Daily Sales
-        $invoicesPaid = Invoice::when(! empty($companyIds), fn ($q) => $q->whereIn('company_id', $companyIds))->sum('paid_amount');
-        $dailySales = DailyJournal::when(! empty($companyIds), fn ($q) => $q->whereIn('company_id', $companyIds))->sum('sales');
-        $totalRevenue = (float) $invoicesPaid + (float) $dailySales;
+        $invoicesPaid = (float) Invoice::when(! empty($companyIds), fn ($q) => $q->whereIn('company_id', $companyIds))->sum('paid_amount');
+        $dailySales = (float) DailyJournal::when(! empty($companyIds), fn ($q) => $q->whereIn('company_id', $companyIds))->sum('sales');
+        $totalRevenue = $invoicesPaid + $dailySales;
 
         // 3. Current Payroll Records (رواتب فقط للشهر الحالي)
-        $payrollBaseQuery = PayrollRecord::when(! empty($companyIds), fn ($q) => $q->whereIn('company_id', $companyIds))
-            ->where('operation_type', 'payroll')
-            ->whereMonth('payroll_month', now()->month)
-            ->whereYear('payroll_month', now()->year);
+        $startOfMonth = now()->startOfMonth()->toDateString();
+        $endOfMonth = now()->endOfMonth()->toDateString();
 
-        $payrollTotalNet = (float) (clone $payrollBaseQuery)->sum('net_amount');
-        $payrollPaid = (float) (clone $payrollBaseQuery)->sum('paid_amount');
+        $payrollAggregates = PayrollRecord::when(! empty($companyIds), fn ($q) => $q->whereIn('company_id', $companyIds))
+            ->where('operation_type', 'payroll')
+            ->whereBetween('payroll_month', [$startOfMonth, $endOfMonth])
+            ->selectRaw('COALESCE(SUM(net_amount), 0) as total_net, COALESCE(SUM(paid_amount), 0) as total_paid')
+            ->first();
+
+        $payrollTotalNet = (float) ($payrollAggregates?->total_net ?? 0);
+        $payrollPaid = (float) ($payrollAggregates?->total_paid ?? 0);
         $payrollRemaining = max(0, $payrollTotalNet - $payrollPaid);
 
         // 4. Installments & Advances Portfolio
-        $installmentsQuery = Installment::when(! empty($companyIds), fn ($q) => $q->whereIn('company_id', $companyIds));
-        $installmentsTotal = (float) $installmentsQuery->sum('total_amount');
-        $installmentsPaid = (float) $installmentsQuery->sum('paid_amount');
-        $installmentsRemaining = (float) $installmentsQuery->sum('remaining_amount');
+        $installmentAggregates = Installment::when(! empty($companyIds), fn ($q) => $q->whereIn('company_id', $companyIds))
+            ->selectRaw('COALESCE(SUM(total_amount), 0) as total_amount, COALESCE(SUM(paid_amount), 0) as total_paid, COALESCE(SUM(remaining_amount), 0) as total_remaining')
+            ->first();
+
+        $installmentsTotal = (float) ($installmentAggregates?->total_amount ?? 0);
+        $installmentsPaid = (float) ($installmentAggregates?->total_paid ?? 0);
+        $installmentsRemaining = (float) ($installmentAggregates?->total_remaining ?? 0);
 
         return [
             Stat::make(__('dashboard.stats.treasury_balance'), number_format($totalTreasuryBalance, 2).' '.$currency)
