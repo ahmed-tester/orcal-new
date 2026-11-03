@@ -217,10 +217,10 @@
                 {{-- Payment Collection Item --}}
                 <div style="flex: 1.2; min-width: 160px;">
                     <label class="report-filter-label">{{ __('finance.treasury_transactions.fields.payment_collection_item') }}</label>
-                    <select wire:model.live="paymentCollectionItemId" class="report-filter-input">
+                    <select wire:model.live="paymentItem" class="report-filter-input">
                         <option value="">{{ __('finance.treasury_transactions.summary.filters.all_items') }}</option>
-                        @foreach($this->paymentItems as $item)
-                            <option value="{{ $item->id }}">{{ $item->sub_item }}</option>
+                        @foreach($this->paymentItems as $subItem)
+                            <option value="{{ $subItem }}">{{ $subItem }}</option>
                         @endforeach
                     </select>
                 </div>

@@ -28,7 +28,7 @@ class TreasurySummary extends Page
 
     public ?string $transactionType = null;
 
-    public ?int $paymentCollectionItemId = null;
+    public ?string $paymentItem = null;
 
     public ?string $dateFrom = null;
 
@@ -50,7 +50,7 @@ class TreasurySummary extends Page
         'search' => ['except' => ''],
         'companyId' => ['except' => null],
         'transactionType' => ['except' => null],
-        'paymentCollectionItemId' => ['except' => null],
+        'paymentItem' => ['except' => null],
         'dateFrom' => ['except' => null],
         'dateTo' => ['except' => null],
         'perPage' => ['except' => 15],
@@ -126,8 +126,15 @@ class TreasurySummary extends Page
 
     public function updated($property): void
     {
-        if (in_array($property, ['search', 'companyId', 'transactionType', 'paymentCollectionItemId', 'dateFrom', 'dateTo', 'perPage'], true)) {
+        if (in_array($property, ['search', 'companyId', 'transactionType', 'paymentItem', 'dateFrom', 'dateTo', 'perPage'], true)) {
             $this->resetPage();
+        }
+    }
+
+    public function updatedCompanyId(): void
+    {
+        if ($this->paymentItem && ! in_array($this->paymentItem, $this->paymentItems->toArray(), true)) {
+            $this->paymentItem = null;
         }
     }
 
@@ -145,7 +152,7 @@ class TreasurySummary extends Page
 
     public function resetFilters(): void
     {
-        $this->reset(['search', 'companyId', 'transactionType', 'paymentCollectionItemId', 'dateFrom', 'dateTo']);
+        $this->reset(['search', 'companyId', 'transactionType', 'paymentItem', 'dateFrom', 'dateTo']);
         $this->resetPage();
     }
 
@@ -154,7 +161,7 @@ class TreasurySummary extends Page
         return trim((string) $this->search) !== ''
             || $this->companyId !== null
             || $this->transactionType !== null
-            || $this->paymentCollectionItemId !== null
+            || $this->paymentItem !== null
             || $this->dateFrom !== null
             || $this->dateTo !== null;
     }
@@ -228,7 +235,7 @@ class TreasurySummary extends Page
             'search' => $this->search,
             'company_id' => $this->companyId,
             'transaction_type' => $this->transactionType,
-            'payment_collection_item_id' => $this->paymentCollectionItemId,
+            'payment_item' => $this->paymentItem,
             'date_from' => $this->dateFrom,
             'date_to' => $this->dateTo,
         ];
@@ -265,12 +272,20 @@ class TreasurySummary extends Page
     public function getPaymentItemsProperty()
     {
         $query = PaymentCollectionItem::query();
-        $companyIds = CompanyFormService::getAuthorizedCompanyIds();
 
-        if (! empty($companyIds)) {
-            $query->whereIn('company_id', $companyIds);
+        if ($this->companyId) {
+            $query->where('company_id', $this->companyId);
+        } else {
+            $companyIds = CompanyFormService::getAuthorizedCompanyIds();
+            if (! empty($companyIds)) {
+                $query->whereIn('company_id', $companyIds);
+            }
         }
 
-        return $query->orderBy('sub_item')->get();
+        return $query->whereNotNull('sub_item')
+            ->where('sub_item', '!=', '')
+            ->distinct()
+            ->orderBy('sub_item')
+            ->pluck('sub_item');
     }
 }

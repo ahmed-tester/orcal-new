@@ -61,6 +61,13 @@ class TreasurySummaryService
             $query->where('payment_collection_item_id', (int) $filters['payment_collection_item_id']);
         }
 
+        if (! empty($filters['payment_item'])) {
+            $item = trim((string) $filters['payment_item']);
+            $query->whereHas('paymentCollectionItem', function (Builder $itemQ) use ($item) {
+                $itemQ->where('sub_item', $item);
+            });
+        }
+
         if (! empty($filters['date_from'])) {
             $query->whereDate('transaction_date', '>=', $filters['date_from']);
         }
