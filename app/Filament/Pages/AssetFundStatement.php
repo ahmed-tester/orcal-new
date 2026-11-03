@@ -106,17 +106,50 @@ class AssetFundStatement extends Page
         return $query->orderBy('voucher_date')->get();
     }
 
-    public function getSummaryProperty(): array
+    public function getDepositVouchersProperty(): Collection
     {
-        $vouchers = $this->vouchers;
+        return $this->vouchers->filter(fn ($v) => ($v->type?->value ?? $v->type) === 'deposit')->values();
+    }
 
-        $deposits    = $vouchers->filter(fn ($v) => ($v->type?->value ?? $v->type) === 'deposit')->sum('total_amount');
-        $withdrawals = $vouchers->filter(fn ($v) => ($v->type?->value ?? $v->type) === 'withdrawal')->sum('total_amount');
+    public function getWithdrawalVouchersProperty(): Collection
+    {
+        return $this->vouchers->filter(fn ($v) => ($v->type?->value ?? $v->type) === 'withdrawal')->values();
+    }
+
+    public function getDepositsSummaryProperty(): array
+    {
+        $deposits = $this->deposit_vouchers;
 
         return [
-            'total_deposits'    => (float) $deposits,
-            'total_withdrawals' => (float) $withdrawals,
-            'net_balance'       => (float) ($deposits - $withdrawals),
+            'gross_amount'         => (float) $deposits->sum('gross_amount'),
+            'tax_amount'           => (float) $deposits->sum('tax_amount'),
+            'net_after_tax'        => (float) $deposits->sum('net_after_tax'),
+            'retention_amount'     => (float) $deposits->sum('retention_amount'),
+            'fund_share_amount'    => (float) $deposits->sum('fund_share_amount'),
+            'net_after_deductions' => (float) $deposits->sum('total_amount'),
+        ];
+    }
+
+    public function getWithdrawalsSummaryProperty(): array
+    {
+        $withdrawals = $this->withdrawal_vouchers;
+
+        return [
+            'amount_without_tax' => (float) $withdrawals->sum('amount_without_tax'),
+            'tax_amount'         => (float) $withdrawals->sum('tax_amount'),
+            'total_amount'       => (float) $withdrawals->sum('total_amount'),
+        ];
+    }
+
+    public function getSummaryProperty(): array
+    {
+        $depositsTotal    = (float) $this->deposit_vouchers->sum('total_amount');
+        $withdrawalsTotal = (float) $this->withdrawal_vouchers->sum('total_amount');
+
+        return [
+            'total_deposits'    => $depositsTotal,
+            'total_withdrawals' => $withdrawalsTotal,
+            'net_balance'       => $depositsTotal - $withdrawalsTotal,
         ];
     }
 
@@ -129,7 +162,7 @@ class AssetFundStatement extends Page
 
     public function applyFilter(): void
     {
-        // Livewire reactive — no extra logic needed
+        // Livewire reactive
     }
 
     public function exportPdf(): void
@@ -148,4 +181,3 @@ class AssetFundStatement extends Page
         $this->js("window.open('/asset-fund-statement/pdf?" . $params . "', '_blank')");
     }
 }
-

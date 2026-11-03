@@ -46,21 +46,48 @@ class AssetFundStatementController extends Controller
 
         $vouchers = $query->orderBy('voucher_date')->get();
 
-        $totalDeposits    = $vouchers->filter(fn ($v) => $v->type?->value === 'deposit')->sum('total_amount');
-        $totalWithdrawals = $vouchers->filter(fn ($v) => $v->type?->value === 'withdrawal')->sum('total_amount');
+        $depositVouchers    = $vouchers->filter(fn ($v) => $v->type?->value === 'deposit')->values();
+        $withdrawalVouchers = $vouchers->filter(fn ($v) => $v->type?->value === 'withdrawal')->values();
+
+        $depositsSummary = [
+            'gross_amount'         => (float) $depositVouchers->sum('gross_amount'),
+            'tax_amount'           => (float) $depositVouchers->sum('tax_amount'),
+            'net_after_tax'        => (float) $depositVouchers->sum('net_after_tax'),
+            'retention_amount'     => (float) $depositVouchers->sum('retention_amount'),
+            'fund_share_amount'    => (float) $depositVouchers->sum('fund_share_amount'),
+            'net_after_deductions' => (float) $depositVouchers->sum('total_amount'),
+        ];
+
+        $withdrawalsSummary = [
+            'amount_without_tax' => (float) $withdrawalVouchers->sum('amount_without_tax'),
+            'tax_amount'         => (float) $withdrawalVouchers->sum('tax_amount'),
+            'total_amount'       => (float) $withdrawalVouchers->sum('total_amount'),
+        ];
+
+        $totalDeposits    = (float) $depositVouchers->sum('total_amount');
+        $totalWithdrawals = (float) $withdrawalVouchers->sum('total_amount');
         $netBalance       = $totalDeposits - $totalWithdrawals;
 
         $summary = [
-            'total_deposits'    => (float) $totalDeposits,
-            'total_withdrawals' => (float) $totalWithdrawals,
-            'net_balance'       => (float) $netBalance,
+            'total_deposits'    => $totalDeposits,
+            'total_withdrawals' => $totalWithdrawals,
+            'net_balance'       => $netBalance,
         ];
 
-        $mpdf = $this->buildPdf($fund, $vouchers, $summary, [
-            'date_from'   => $dateFrom,
-            'date_to'     => $dateTo,
-            'filter_type' => $filterType,
-        ]);
+        $mpdf = $this->buildPdf(
+            fund: $fund,
+            vouchers: $vouchers,
+            depositVouchers: $depositVouchers,
+            withdrawalVouchers: $withdrawalVouchers,
+            depositsSummary: $depositsSummary,
+            withdrawalsSummary: $withdrawalsSummary,
+            summary: $summary,
+            filters: [
+                'date_from'   => $dateFrom,
+                'date_to'     => $dateTo,
+                'filter_type' => $filterType,
+            ]
+        );
 
         $filename = 'asset-fund-statement-' . $fund->fund_number . '.pdf';
 
@@ -70,18 +97,26 @@ class AssetFundStatementController extends Controller
         ]);
     }
 
-    private function buildPdf(AssetFund $fund, $vouchers, array $summary, array $filters): Mpdf
-    {
+    private function buildPdf(
+        AssetFund $fund,
+        $vouchers,
+        $depositVouchers,
+        $withdrawalVouchers,
+        array $depositsSummary,
+        array $withdrawalsSummary,
+        array $summary,
+        array $filters
+    ): Mpdf {
         $defaultConfig = (new ConfigVariables())->getDefaults();
         $defaultFonts  = (new FontVariables())->getDefaults();
 
         $mpdf = new Mpdf([
             'mode'             => 'utf-8',
-            'format'           => 'A4',
-            'margin_top'       => 15,
-            'margin_bottom'    => 15,
-            'margin_left'      => 12,
-            'margin_right'     => 12,
+            'format'           => 'A4-L',
+            'margin_top'       => 10,
+            'margin_bottom'    => 10,
+            'margin_left'      => 8,
+            'margin_right'     => 8,
             'default_font'     => 'dejavusans',
             'autoScriptToLang' => true,
             'autoLangToFont'   => true,
@@ -96,7 +131,17 @@ class AssetFundStatementController extends Controller
         $mpdf->autoScriptToLang = true;
         $mpdf->autoLangToFont   = true;
 
-        $html = view('pdf.asset-fund-statement', compact('fund', 'vouchers', 'summary', 'filters'))->render();
+        $html = view('pdf.asset-fund-statement', compact(
+            'fund',
+            'vouchers',
+            'depositVouchers',
+            'withdrawalVouchers',
+            'depositsSummary',
+            'withdrawalsSummary',
+            'summary',
+            'filters'
+        ))->render();
+
         $html = preg_replace('/^\xEF\xBB\xBF/', '', $html);
 
         $mpdf->WriteHTML($html);
@@ -104,4 +149,3 @@ class AssetFundStatementController extends Controller
         return $mpdf;
     }
 }
-

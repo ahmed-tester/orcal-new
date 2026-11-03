@@ -39,6 +39,38 @@ class AssetFundVouchersTable
                     ->date()
                     ->sortable(),
 
+                TextColumn::make('contractor_name')
+                    ->label(__('asset_funds.asset_fund_vouchers.fields.contractor_name'))
+                    ->searchable()
+                    ->toggleable()
+                    ->placeholder('—'),
+
+                TextColumn::make('party_display')
+                    ->label(__('asset_funds.statement.cols.company'))
+                    ->getStateUsing(fn ($record) => $record->party_name ?: ($record->company?->trade_name ?? $record->company?->name ?? '—'))
+                    ->searchable(query: function ($query, string $search) {
+                        $query->where('party_name', 'like', "%{$search}%")
+                              ->orWhereHas('company', fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('trade_name', 'like', "%{$search}%"));
+                    }),
+
+                TextColumn::make('tax_invoice_number')
+                    ->label(__('asset_funds.asset_fund_vouchers.fields.tax_invoice_number'))
+                    ->searchable()
+                    ->toggleable()
+                    ->placeholder('—'),
+
+                TextColumn::make('gross_amount')
+                    ->label(__('asset_funds.asset_fund_vouchers.fields.gross_amount'))
+                    ->money('SAR')
+                    ->sortable()
+                    ->toggleable(),
+
+                TextColumn::make('tax_amount')
+                    ->label(__('asset_funds.asset_fund_vouchers.fields.tax_amount'))
+                    ->money('SAR')
+                    ->sortable()
+                    ->toggleable(),
+
                 TextColumn::make('total_amount')
                     ->label(__('asset_funds.asset_fund_vouchers.fields.total_amount'))
                     ->money('SAR')
@@ -46,13 +78,10 @@ class AssetFundVouchersTable
                     ->color(fn ($record) => $record->type?->value === AssetFundVoucherType::DEPOSIT->value ? 'success' : 'danger')
                     ->weight('bold'),
 
-                TextColumn::make('party_display')
-                    ->label(__('asset_funds.asset_fund_vouchers.fields.party_name'))
-                    ->getStateUsing(fn ($record) => $record->party_name ?: ($record->company?->trade_name ?? $record->company?->name ?? '—')),
-
                 TextColumn::make('notes')
                     ->label(__('asset_funds.asset_fund_vouchers.fields.notes'))
-                    ->limit(50)
+                    ->limit(40)
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->placeholder('—'),
             ])
             ->filters([
@@ -78,4 +107,3 @@ class AssetFundVouchersTable
             ]);
     }
 }
-

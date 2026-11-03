@@ -2,7 +2,7 @@
     <style>
         .af-stmt-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 0.875rem; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.05); margin-bottom: 1.25rem; }
         .dark .af-stmt-card { background: #1e293b; border-color: #334155; }
-        .af-stmt-title { font-size: 1.25rem; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: .5rem; margin-bottom: .25rem; }
+        .af-stmt-title { font-size: 1.25rem; font-weight: 800; color: #082c50; display: flex; align-items: center; gap: .5rem; margin-bottom: .25rem; }
         .dark .af-stmt-title { color: #f8fafc; }
         .af-stmt-subtitle { font-size: .85rem; color: #64748b; margin-bottom: 1.25rem; }
         .af-filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
@@ -28,22 +28,23 @@
         .af-sum-label { font-size: .75rem; font-weight: 700; color: #475569; }
         .dark .af-sum-label { color: #94a3b8; }
         .af-sum-value { font-size: 1.4rem; font-weight: 900; }
-        .af-table { width: 100%; border-collapse: collapse; }
-        .af-table th { background: #f1f5f9; padding: .6rem 1rem; font-size: .8rem; font-weight: 700; color: #334155; border-bottom: 2px solid #e2e8f0; text-align: right; }
-        .dark .af-table th { background: #0f172a; color: #cbd5e1; border-color: #334155; }
-        .af-table td { padding: .65rem 1rem; font-size: .875rem; border-bottom: 1px solid #f1f5f9; color: #0f172a; }
-        .dark .af-table td { border-color: #1e293b; color: #e2e8f0; }
+        .af-table-wrapper { overflow-x: auto; margin-bottom: 1.5rem; border-radius: 0.5rem; border: 1px solid #cbd5e1; }
+        .af-table { width: 100%; border-collapse: collapse; font-size: .8125rem; }
+        .af-table th { background: #e2e8f0; padding: .6rem .65rem; font-size: .75rem; font-weight: 800; color: #1e293b; border: 1px solid #cbd5e1; text-align: center; white-space: normal; }
+        .dark .af-table th { background: #334155; color: #f8fafc; border-color: #475569; }
+        .af-table td { padding: .55rem .65rem; border: 1px solid #e2e8f0; text-align: center; color: #0f172a; }
+        .dark .af-table td { border-color: #334155; color: #e2e8f0; }
         .af-table tr:hover td { background: #f8fafc; }
         .dark .af-table tr:hover td { background: #1e293b; }
-        .badge { display: inline-flex; align-items: center; gap: .25rem; padding: .2rem .65rem; border-radius: 9999px; font-size: .75rem; font-weight: 700; }
-        .badge-green { background: #dcfce7; color: #15803d; }
-        .badge-red { background: #fee2e2; color: #dc2626; }
-        .amount-in { color: #16a34a; font-weight: 700; }
-        .amount-out { color: #dc2626; font-weight: 700; }
-        .no-data { text-align: center; padding: 2.5rem; color: #94a3b8; font-size: .9rem; }
+        .af-table tfoot td { font-weight: 800; background: #f1f5f9; border-top: 2px solid #94a3b8; }
+        .dark .af-table tfoot td { background: #1e293b; }
+        .table-section-title { font-size: 1.05rem; font-weight: 800; margin-bottom: .6rem; display: flex; align-items: center; gap: .5rem; }
+        .title-deposits { color: #15803d; }
+        .title-withdrawals { color: #b91c1c; }
+        .no-data { text-align: center; padding: 1.5rem; color: #94a3b8; font-size: .875rem; }
     </style>
 
-    {{-- Header --}}
+    {{-- Filter Header --}}
     <div class="af-stmt-card">
         <div class="af-stmt-title">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:1.5rem;height:1.5rem;color:#082c50">
@@ -99,8 +100,8 @@
         @endif
     </div>
 
-    @if ($this->fund_id && $this->vouchers->count() > 0)
-        {{-- ملخص --}}
+    @if ($this->fund_id)
+        {{-- بطاقات الملخص المالي --}}
         @php $summary = $this->summary; @endphp
         <div class="af-summary-grid">
             <div class="af-sum-card deposits">
@@ -119,55 +120,150 @@
             </div>
         </div>
 
-        {{-- جدول الحركات --}}
-        <div class="af-stmt-card" style="overflow-x:auto;">
-            <table class="af-table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>{{ __('asset_funds.asset_fund_vouchers.fields.voucher_number') }}</th>
-                        <th>{{ __('asset_funds.asset_fund_vouchers.fields.voucher_date') }}</th>
-                        <th>{{ __('asset_funds.asset_fund_vouchers.fields.type') }}</th>
-                        <th>{{ __('asset_funds.asset_fund_vouchers.fields.party_name') }}</th>
-                        <th>{{ __('asset_funds.asset_fund_vouchers.fields.notes') }}</th>
-                        <th>{{ __('asset_funds.asset_fund_vouchers.fields.total_amount') }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($this->vouchers as $i => $voucher)
-                        <tr>
-                            <td>{{ $i + 1 }}</td>
-                            <td><span style="font-weight:700;color:#082c50">{{ $voucher->voucher_number }}</span></td>
-                            <td>{{ $voucher->voucher_date?->format('Y/m/d') }}</td>
-                            <td>
-                                @if ($voucher->type?->value === 'deposit')
-                                    <span class="badge badge-green">⬇ {{ $voucher->type?->getLabel() }}</span>
-                                @else
-                                    <span class="badge badge-red">⬆ {{ $voucher->type?->getLabel() }}</span>
-                                @endif
-                            </td>
-                            <td>
-                                {{ $voucher->party_name ?? $voucher->company?->name ?? '—' }}
-                            </td>
-                            <td>{{ Str::limit($voucher->notes, 60) ?? '—' }}</td>
-                            <td class="{{ $voucher->type?->value === 'deposit' ? 'amount-in' : 'amount-out' }}">
-                                {{ $voucher->type?->value === 'deposit' ? '+' : '-' }}
-                                {{ number_format($voucher->total_amount, 2) }}
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
+        {{-- 1. جدول سند مدخلات ( إيداع ) --}}
+        @if ($this->filter_type === 'all' || $this->filter_type === 'deposit')
+            <div class="af-stmt-card">
+                <div class="table-section-title title-deposits">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:1.25rem;height:1.25rem"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" /></svg>
+                    {{ __('asset_funds.statement.deposits_table_title') }}
+                </div>
 
-    @elseif ($this->fund_id)
-        <div class="af-stmt-card">
-            <p class="no-data">{{ __('asset_funds.statement.no_results') }}</p>
-        </div>
+                @if ($this->deposit_vouchers->count() > 0)
+                    @php $depSum = $this->deposits_summary; @endphp
+                    <div class="af-table-wrapper">
+                        <table class="af-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:30px">{{ __('asset_funds.statement.cols.serial') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.contractor') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.company') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.gross_amount') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.tax_amount') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.net_after_tax') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.retention_pct') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.fund_share_pct') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.net_after_deductions') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.date') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.invoice_no') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.notes') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($this->deposit_vouchers as $i => $row)
+                                    <tr>
+                                        <td>{{ $i + 1 }}</td>
+                                        <td>{{ $row->contractor_name ?: '—' }}</td>
+                                        <td>{{ $row->party_name ?: ($row->company?->trade_name ?? $row->company?->name ?? '—') }}</td>
+                                        <td style="font-weight:700">{{ $row->gross_amount !== null ? number_format($row->gross_amount, 2) : '—' }}</td>
+                                        <td>{{ $row->tax_amount !== null ? number_format($row->tax_amount, 2) : '0.00' }}</td>
+                                        <td style="font-weight:700">{{ $row->net_after_tax !== null ? number_format($row->net_after_tax, 2) : '—' }}</td>
+                                        <td>
+                                            @if ($row->retention_amount > 0)
+                                                {{ number_format($row->retention_amount, 2) }}
+                                                @if ($row->retention_percentage)
+                                                    <small style="color:#64748b">({{ (float) $row->retention_percentage }}%)</small>
+                                                @endif
+                                            @else
+                                                0
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if ($row->fund_share_amount > 0)
+                                                {{ number_format($row->fund_share_amount, 2) }}
+                                                @if ($row->fund_share_percentage)
+                                                    <small style="color:#64748b">({{ (float) $row->fund_share_percentage }}%)</small>
+                                                @endif
+                                            @else
+                                                0
+                                            @endif
+                                        </td>
+                                        <td style="font-weight:800;color:#16a34a">{{ number_format($row->total_amount, 2) }}</td>
+                                        <td>{{ $row->voucher_date?->format('Y/m/d') }}</td>
+                                        <td><span style="font-weight:700;color:#082c50">{{ $row->tax_invoice_number ?: '—' }}</span></td>
+                                        <td>{{ $row->notes ?: '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3">{{ __('asset_funds.statement.cols.totals') }}</td>
+                                    <td>{{ number_format($depSum['gross_amount'], 2) }}</td>
+                                    <td>{{ number_format($depSum['tax_amount'], 2) }}</td>
+                                    <td>{{ number_format($depSum['net_after_tax'], 2) }}</td>
+                                    <td>{{ number_format($depSum['retention_amount'], 2) }}</td>
+                                    <td>{{ number_format($depSum['fund_share_amount'], 2) }}</td>
+                                    <td style="color:#16a34a">{{ number_format($depSum['net_after_deductions'], 2) }}</td>
+                                    <td colspan="3"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                @else
+                    <p class="no-data">{{ __('asset_funds.statement.no_deposits') }}</p>
+                @endif
+            </div>
+        @endif
+
+        {{-- 2. جدول سند سحب ( صرف ) --}}
+        @if ($this->filter_type === 'all' || $this->filter_type === 'withdrawal')
+            <div class="af-stmt-card">
+                <div class="table-section-title title-withdrawals">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:1.25rem;height:1.25rem"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" /></svg>
+                    {{ __('asset_funds.statement.withdrawals_table_title') }}
+                </div>
+
+                @if ($this->withdrawal_vouchers->count() > 0)
+                    @php $wthSum = $this->withdrawals_summary; @endphp
+                    <div class="af-table-wrapper">
+                        <table class="af-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:30px">{{ __('asset_funds.statement.cols.serial') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.payee') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.reason') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.amount_without_tax') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.tax_amount_opt') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.gross_amount') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.date') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.voucher_no') }}</th>
+                                    <th>{{ __('asset_funds.statement.cols.notes') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($this->withdrawal_vouchers as $i => $row)
+                                    <tr>
+                                        <td>{{ $i + 1 }}</td>
+                                        <td style="font-weight:700">{{ $row->party_name ?: '—' }}</td>
+                                        <td>{{ $row->expense_reason ?: '—' }}</td>
+                                        <td style="font-weight:700">{{ $row->amount_without_tax !== null ? number_format($row->amount_without_tax, 2) : '—' }}</td>
+                                        <td>{{ $row->tax_amount !== null ? number_format($row->tax_amount, 2) : '0.00' }}</td>
+                                        <td style="font-weight:800;color:#dc2626">{{ number_format($row->total_amount, 2) }}</td>
+                                        <td>{{ $row->voucher_date?->format('Y/m/d') }}</td>
+                                        <td><span style="font-weight:700;color:#082c50">{{ $row->voucher_number }}</span></td>
+                                        <td>{{ $row->notes ?: '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3">{{ __('asset_funds.statement.cols.totals') }}</td>
+                                    <td>{{ number_format($wthSum['amount_without_tax'], 2) }}</td>
+                                    <td>{{ number_format($wthSum['tax_amount'], 2) }}</td>
+                                    <td style="color:#dc2626">{{ number_format($wthSum['total_amount'], 2) }}</td>
+                                    <td colspan="3"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                @else
+                    <p class="no-data">{{ __('asset_funds.statement.no_withdrawals') }}</p>
+                @endif
+            </div>
+        @endif
+
     @else
         <div class="af-stmt-card">
             <p class="no-data">{{ __('asset_funds.statement.please_select_fund') }}</p>
         </div>
     @endif
 </x-filament-panels::page>
-
