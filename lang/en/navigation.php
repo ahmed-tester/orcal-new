@@ -77,4 +77,9 @@ return [
     // Official Letters
     'letters_group' => 'Official Letters & Correspondence',
     'official_letters' => 'Official Letters',
+
+    // Asset Funds
+    'asset_funds'          => 'Asset Funds',
+    'asset_fund_vouchers'  => 'Deposit & Withdrawal Vouchers',
+    'asset_fund_statement' => 'Fund Movement Statement',
 ];

@@ -50,6 +50,11 @@ Route::middleware('auth')->group(function () {
     // Individual Payroll Records Print & PDF Routes
     Route::get('/payroll-records/{record}/print', [\App\Http\Controllers\PayrollRecordPrintController::class, 'print'])->name('payroll-records.print');
     Route::get('/payroll-records/{record}/pdf',   [\App\Http\Controllers\PayrollRecordPrintController::class, 'pdf'])->name('payroll-records.pdf');
+
+    // Asset Fund Statement PDF
+    Route::get('/asset-fund-statement/pdf', [\App\Http\Controllers\AssetFundStatementController::class, 'pdf'])->name('asset-fund.statement.pdf');
+
+
 });
 
 // ─── ZKTeco Biometric ADMS / Push Protocol Routes ───────────────────────────

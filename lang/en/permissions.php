@@ -289,4 +289,17 @@ return [
     'create_faq' => 'Create FAQ',
     'update_faq' => 'Update FAQ',
     'delete_faq' => 'Delete FAQ',
+
+    // Asset Funds
+    'view_any_asset_fund' => 'View Asset Funds',
+    'create_asset_fund' => 'Create Asset Fund',
+    'update_asset_fund' => 'Update Asset Fund',
+    'delete_asset_fund' => 'Delete Asset Fund',
+
+    'view_any_asset_fund_voucher' => 'View Asset Fund Vouchers',
+    'create_asset_fund_voucher' => 'Create Asset Fund Voucher',
+    'update_asset_fund_voucher' => 'Update Asset Fund Voucher',
+    'delete_asset_fund_voucher' => 'Delete Asset Fund Voucher',
+
+    'view_asset_fund_statement' => 'View Asset Fund Statement',
 ];

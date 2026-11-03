@@ -755,6 +755,10 @@
         background: rgba(217, 119, 6, 0.12);
         color: #d97706;
     }
+        .bg-icon-indigo {
+        background: rgba(79, 70, 229, 0.12);
+        color: #4f46e5;
+    }
     .bg-icon-purple {
         background: rgba(124, 58, 237, 0.12);
         color: #7c3aed;
@@ -872,9 +876,9 @@
 
 <div class="carnet-wrapper">
 
-    @if(empty($activeSub) || !in_array($activeSub, ['payroll', 'payroll-records', 'collection-payroll', 'treasury', 'treasury-transactions', 'installments', 'installment-payments', 'rewards']))
+    @if(empty($activeSub) || !in_array($activeSub, ['payroll', 'payroll-records', 'collection-payroll', 'treasury', 'treasury-transactions', 'installments', 'installment-payments', 'rewards', 'asset-funds', 'asset_funds', 'asset-fund-vouchers', 'asset-fund-statement']))
         <!-- ==========================================================================
-             الواجهة الرئيسية لقسم المحاسبة والمالية (Finance Hub)
+             الواجهة الرئيسية لقسم المحاسبة والمالية 
              ========================================================================== -->
 
         <!-- ترويسة رئيسية للقسم -->
@@ -903,7 +907,6 @@
 
                 <div class="carnet-card-middle">
                     <h3 style="color: #047857;">{{ __('documentation.finance_guide.card_payroll_title') }}</h3>
-                    <span class="carnet-card-en-title">{{ __('documentation.finance_guide.card_payroll_en') }}</span>
                     <p class="carnet-card-desc">
                         {{ __('documentation.finance_guide.card_payroll_desc') }}
                     </p>
@@ -935,7 +938,6 @@
 
                 <div class="carnet-card-middle">
                     <h3 style="color: #0284c7;">{{ __('documentation.finance_guide.card_treasury_title') }}</h3>
-                    <span class="carnet-card-en-title">{{ __('documentation.finance_guide.card_treasury_en') }}</span>
                     <p class="carnet-card-desc">
                         {{ __('documentation.finance_guide.card_treasury_desc') }}
                     </p>
@@ -967,7 +969,6 @@
 
                 <div class="carnet-card-middle">
                     <h3 style="color: #d97706;">{{ __('documentation.finance_guide.card_installments_title') }}</h3>
-                    <span class="carnet-card-en-title">{{ __('documentation.finance_guide.card_installments_en') }}</span>
                     <p class="carnet-card-desc">
                         {{ __('documentation.finance_guide.card_installments_desc') }}
                     </p>
@@ -999,7 +1000,6 @@
 
                 <div class="carnet-card-middle">
                     <h3 style="color: #7c3aed;">{{ __('documentation.finance_guide.card_rewards_title') }}</h3>
-                    <span class="carnet-card-en-title">{{ __('documentation.finance_guide.card_rewards_en') }}</span>
                     <p class="carnet-card-desc">
                         {{ __('documentation.finance_guide.card_rewards_desc') }}
                     </p>
@@ -1010,6 +1010,37 @@
                         <span>عرض الفيديو والدليل التفصيلي ➔</span>
                     </button>
                     <a href="/employee-rewards" class="carnet-btn-screen-direct">
+                        <span>الانتقال للشاشة بالنظام ⇦</span>
+                    </a>
+                </div>
+            </div>
+
+                    <!-- 5. صناديق الأصول وسندات الإيداع والسحب وكشف الحساب - Featured Card -->
+            <div class="carnet-grand-card featured" style="border-top: 4px solid #4f46e5;">
+                <div class="carnet-card-top">
+                    <div class="carnet-card-icon-wrap bg-icon-indigo">
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                        </svg>
+                    </div>
+                    <div class="carnet-card-badges">
+                        <span class="carnet-card-badge-pill pill-video">🎬 فيديو مسجل</span>
+                        <span class="carnet-card-badge-pill pill-info">كشف حركة فوري</span>
+                    </div>
+                </div>
+
+                <div class="carnet-card-middle">
+                    <h3 style="color: #4f46e5;">{{ __('documentation.finance_guide.card_asset_funds_title') }}</h3>
+                    <p class="carnet-card-desc">
+                        {{ __('documentation.finance_guide.card_asset_funds_desc') }}
+                    </p>
+                </div>
+
+                <div class="carnet-card-actions">
+                    <button type="button" wire:click="setSub('asset-funds')" class="carnet-btn-open-guide" style="background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);">
+                        <span>عرض الفيديو والدليل التفصيلي ➔</span>
+                    </button>
+                    <a href="/asset-funds" class="carnet-btn-screen-direct">
                         <span>الانتقال للشاشة بالنظام ⇦</span>
                     </a>
                 </div>
@@ -1041,6 +1072,9 @@
                 </button>
                 <button type="button" wire:click="setSub('rewards')" class="carnet-sub-tab-pill {{ $activeSub === 'rewards' ? 'active' : '' }}">
                     <span>⭐ المكافآت والحوافز</span>
+                </button>
+                <button type="button" wire:click="setSub('asset-funds')" class="carnet-sub-tab-pill {{ in_array($activeSub, ['asset-funds', 'asset_funds', 'asset-fund-vouchers', 'asset-fund-statement']) ? 'active' : '' }}">
+                    <span>🗄️ صندوق الأصول</span>
                 </button>
             </div>
         </div>
@@ -3046,6 +3080,579 @@
                 </section>
 
             </main>
+        @elseif(in_array($activeSub, ['asset-funds', 'asset_funds', 'asset-fund-vouchers', 'asset-fund-statement']))
+        <!-- ==========================================================================
+             الصفحة المنفصلة التوضيحية: صندوق الأصول
+             شرح مبسّط موجّه لمدير النظام
+             ========================================================================== -->
+
+        <!-- 1. شريط الأدوات العلوي -->
+        <div class="carnet-top-bar">
+            <div class="carnet-title-box">
+                <div class="carnet-logo-icon" style="background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);">
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                    </svg>
+                </div>
+                <div class="carnet-title-text">
+                    <h1>شرح صندوق الأصول</h1>
+                    <p>دليل مبسّط لمدير النظام: كيف تُنشئ صندوقاً، وتسجّل سندات الإيداع والسحب، وتستخرج كشف الحركة وتطبعه.</p>
+                </div>
+            </div>
+
+            <div class="carnet-actions-box">
+                <input
+                    type="search"
+                    id="carnetSearchInput"
+                    class="carnet-search-input"
+                    placeholder="ابحث في دليل صندوق الأصول..."
+                    onkeyup="filterCarnetContent()"
+                >
+                <button type="button" onclick="copyCarnetShareLink('asset-funds')" class="carnet-btn-action">
+                    <span>🔗</span>
+                    <span>نسخ الرابط</span>
+                </button>
+                <button type="button" onclick="window.print()" class="carnet-btn-action">
+                    <span>🖨️</span>
+                    <span>طباعة الدليل</span>
+                </button>
+                <a href="/asset-funds" class="carnet-btn-action" style="background: #4f46e5; color: #ffffff; border-color: #4f46e5;">
+                    <span>فتح شاشة الصناديق ⇦</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- 2. شريط التبويبات الثانوية -->
+        <nav class="carnet-secondary-tabs">
+            <a href="#sec-video" class="carnet-tab-link">
+                <span>🎬</span>
+                <span>فيديو الشرح (finance_assets)</span>
+            </a>
+            <a href="#sec-idea-af" class="carnet-tab-link">
+                <span>💡</span>
+                <span>فكرة الصندوق</span>
+            </a>
+            <a href="#sec-create-af" class="carnet-tab-link">
+                <span>🗂️</span>
+                <span>إنشاء الصندوق</span>
+            </a>
+            <a href="#sec-voucher-af" class="carnet-tab-link">
+                <span>🧾</span>
+                <span>سندات الإيداع والسحب</span>
+            </a>
+            <a href="#sec-statement-af" class="carnet-tab-link">
+                <span>📊</span>
+                <span>كشف الحركة والطباعة</span>
+            </a>
+            <a href="#sec-tips-af" class="carnet-tab-link">
+                <span>🔐</span>
+                <span>الصلاحيات والقواعد</span>
+            </a>
+            <a href="#sec-faq-af" class="carnet-tab-link">
+                <span>❓</span>
+                <span>الأسئلة الشائعة</span>
+            </a>
+        </nav>
+
+        <!-- 3. المحتوى والفهرس الجانبي -->
+        <div class="carnet-content-grid">
+
+            <!-- الفهرس الجانبي -->
+            <aside class="carnet-index-card">
+                <div class="carnet-index-heading">
+                    <span>📑</span>
+                    <span>فهرس دليل صندوق الأصول</span>
+                </div>
+                <ul class="carnet-index-list">
+                    <li class="carnet-index-item">
+                        <a href="#sec-video">
+                            <span class="icon">🎬</span>
+                            <span>فيديو الشرح (finance_assets)</span>
+                        </a>
+                    </li>
+                    <li class="carnet-index-item">
+                        <a href="#sec-idea-af">
+                            <span class="icon">💡</span>
+                            <span>ما هو صندوق الأصول؟</span>
+                        </a>
+                    </li>
+                    <li class="carnet-index-item">
+                        <a href="#sec-create-af">
+                            <span class="icon">🗂️</span>
+                            <span>خطوات إنشاء صندوق</span>
+                        </a>
+                    </li>
+                    <li class="carnet-index-item">
+                        <a href="#sec-voucher-af">
+                            <span class="icon">🧾</span>
+                            <span>تسجيل سند إيداع أو سحب</span>
+                        </a>
+                    </li>
+                    <li class="carnet-index-item">
+                        <a href="#sec-statement-af">
+                            <span class="icon">📊</span>
+                            <span>كشف الحركة وطباعته</span>
+                        </a>
+                    </li>
+                    <li class="carnet-index-item">
+                        <a href="#sec-tips-af">
+                            <span class="icon">🔐</span>
+                            <span>الصلاحيات والقواعد المهمة</span>
+                        </a>
+                    </li>
+                    <li class="carnet-index-item">
+                        <a href="#sec-faq-af">
+                            <span class="icon">❓</span>
+                            <span>الأسئلة الشائعة</span>
+                        </a>
+                    </li>
+                </ul>
+            </aside>
+
+            <main class="carnet-main-flow">
+
+                <!-- القسم: فيديو شرح صندوق الأصول وحركة السندات finance_assets.mp4 -->
+                <section id="sec-video" class="carnet-searchable-section">
+                    <div class="carnet-video-head">
+                        <span class="carnet-play-badge" style="background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);">▶</span>
+                        <h2>{{ __('documentation.finance_guide.asset_funds_video_title') }}</h2>
+                    </div>
+                    <p class="carnet-video-subtitle">
+                        {{ __('documentation.finance_guide.asset_funds_video_desc') }}
+                    </p>
+
+                    <div class="carnet-video-box">
+                        <video controls preload="metadata" class="carnet-video-element" id="playerAssetFunds">
+                            <source src="{{ asset('vidoes/finance_assets.mp4') }}" type="video/mp4">
+                            <source src="/vidoes/finance_assets.mp4" type="video/mp4">
+                            <source src="{{ asset('videos/finance_assets.mp4') }}" type="video/mp4">
+                            <source src="/videos/finance_assets.mp4" type="video/mp4">
+                            <source src="{{ asset('vidoes/finance_assets') }}" type="video/mp4">
+                            <source src="/vidoes/finance_assets" type="video/mp4">
+                            <source src="{{ asset('videos/finance_assets') }}" type="video/mp4">
+                            <source src="/videos/finance_assets" type="video/mp4">
+                            <source src="{{ asset('vidoes/finance-assets.mp4') }}" type="video/mp4">
+                            <source src="/vidoes/finance-assets.mp4" type="video/mp4">
+                            <source src="{{ asset('videos/finance-assets.mp4') }}" type="video/mp4">
+                            <source src="/videos/finance-assets.mp4" type="video/mp4">
+                            متصفحك لا يدعم تشغيل الفيديو المباشر، يرجى استخدام متصفح حديث.
+                        </video>
+                        <div class="carnet-video-caption">
+                            <span>📹 فيديو توضيحي مسجل من واقع شاشات النظام</span>
+                            <span>مسار الفيديو: <code>/vidoes/finance_assets.mp4</code></span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- القسم 1: فكرة الصندوق -->
+                <section id="sec-idea-af" class="carnet-card carnet-searchable-section">
+                    <div class="carnet-card-title-group">
+                        <span class="carnet-card-icon-badge" style="background: rgba(79, 70, 229, 0.15); color: #4f46e5;">💡</span>
+                        <h2 class="carnet-card-title">ما هو صندوق الأصول؟</h2>
+                    </div>
+                    <p class="carnet-card-text">
+                        صندوق الأصول هو <strong>حساب مستقل داخل النظام</strong> تُحفظ فيه مبالغ محتجزة إلى وقت الحاجة إليها، وليس حساباً للتداول اليومي ولا يرتبط بالخزينة العامة. يُستخدم لتجميع مبالغ مثل: فائض مبيعات، مبالغ مخصّصة لمؤسسة أو إدارة معيّنة، أو مبالغ زكاة وضريبة محجوزة حتى يتم سدادها.
+                    </p>
+                    <div class="carnet-tips-box" style="margin-top: 14px;">
+                        <div class="carnet-tip-item" style="border-color: #16a34a; background: #f0fdf4; color: #14532d;">
+                            <span>⬇️</span>
+                            <div>
+                                <strong>سند إيداع:</strong>
+                                يُسجَّل عند إضافة مبلغ إلى الصندوق، و<strong>يزيد الرصيد</strong> مباشرة.
+                            </div>
+                        </div>
+                        <div class="carnet-tip-item" style="border-color: #dc2626; background: #fef2f2; color: #7f1d1d;">
+                            <span>⬆️</span>
+                            <div>
+                                <strong>سند سحب:</strong>
+                                يُسجَّل عند إخراج مبلغ من الصندوق، و<strong>ينقص الرصيد</strong> مباشرة.
+                            </div>
+                        </div>
+                        <div class="carnet-tip-item" style="border-color: #4f46e5; background: #eef2ff; color: #312e81;">
+                            <span>🧮</span>
+                            <div>
+                                <strong>الرصيد الحالي:</strong>
+                                يُحسب تلقائياً = مجموع الإيداعات ناقص مجموع السحوبات. لا يُدخَل يدوياً أبداً، ويتحدّث فور حفظ أي سند.
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- القسم 2: إنشاء الصندوق -->
+                <section id="sec-create-af" class="carnet-card carnet-searchable-section">
+                    <div class="carnet-card-title-group">
+                        <span class="carnet-card-icon-badge" style="background: rgba(79, 70, 229, 0.15); color: #4f46e5;">🗂️</span>
+                        <h2 class="carnet-card-title">خطوات إنشاء صندوق جديد</h2>
+                    </div>
+                    <p class="carnet-card-text" style="margin-bottom: 18px;">
+                        من القائمة الجانبية افتح <strong>المالية العامة والخدمات</strong> ثم <strong>صناديق الأصول</strong>، واضغط زر <strong>جديد</strong>، ثم اتبع الخطوات التالية:
+                    </p>
+
+                    <div class="carnet-workflow-box">
+                        <div class="carnet-step-card">
+                            <div class="carnet-step-number">1</div>
+                            <div class="carnet-step-content">
+                                <h3>اسم الصندوق وتاريخ الإنشاء</h3>
+                                <p>اكتب اسماً واضحاً يدل على الغرض من الصندوق، مثل «صندوق فائض مبيعات الفرع». تاريخ الإنشاء يُقترح تلقائياً بتاريخ اليوم ويمكن تغييره.</p>
+                            </div>
+                        </div>
+                        <div class="carnet-step-card">
+                            <div class="carnet-step-number">2</div>
+                            <div class="carnet-step-content">
+                                <h3>حالة الصندوق</h3>
+                                <p>اختر <strong>نشط</strong> إذا كان الصندوق يعمل، أو <strong>مغلق</strong> إذا توقف العمل عليه. الصندوق المغلق يبقى محفوظاً بكامل حركاته لكنه لا يظهر في قائمة اختيار الصناديق عند تسجيل سند جديد.</p>
+                            </div>
+                        </div>
+                        <div class="carnet-step-card">
+                            <div class="carnet-step-number">3</div>
+                            <div class="carnet-step-content">
+                                <h3>النبذة وشروط الإيداع والسحب</h3>
+                                <p>اكتب نبذة تعريفية عن وظيفة الصندوق، ثم اكتب شروط الإيداع والسحب بلسان واضح — فهي المرجع الذي يعود إليه المحاسب عند تنفيذ أي حركة.</p>
+                            </div>
+                        </div>
+                        <div class="carnet-step-card">
+                            <div class="carnet-step-number">4</div>
+                            <div class="carnet-step-content">
+                                <h3>مدير الصندوق ومحاسبه</h3>
+                                <p>اختر المدير والمحاسب من قائمة الموظفين السعوديين المسجلين في النظام. اختيارهما هنا يمنحهما صلاحية الدخول على الصندوق وسنداته وكشفه تلقائياً. الحقلان اختياريان ويمكن إضافتهما لاحقاً.</p>
+                            </div>
+                        </div>
+                        <div class="carnet-step-card">
+                            <div class="carnet-step-number">5</div>
+                            <div class="carnet-step-content">
+                                <h3>الحفظ</h3>
+                                <p>بعد الحفظ يُولّد النظام رقم الصندوق تلقائياً ويعرضه في أعلى النموذج وفي قائمة الصناديق.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="carnet-field-grid" style="margin-top: 20px;">
+                        <div class="carnet-field-card">
+                            <div class="carnet-field-header">
+                                <span class="carnet-field-code">رقم الصندوق</span>
+                                <span class="carnet-field-badge badge-calc">يُولّد تلقائياً</span>
+                            </div>
+                            <div class="carnet-field-body">
+                                <p>رقم متسلسل فريد يُنشئه النظام بعد الحفظ، ولا يمكن تعديله يدوياً.</p>
+                            </div>
+                        </div>
+                        <div class="carnet-field-card">
+                            <div class="carnet-field-header">
+                                <span class="carnet-field-code">اسم الصندوق</span>
+                                <span class="carnet-field-badge badge-req">مطلوب</span>
+                            </div>
+                            <div class="carnet-field-body">
+                                <p>الاسم الذي يظهر في القوائم والكشوف المطبوعة.</p>
+                            </div>
+                        </div>
+                        <div class="carnet-field-card">
+                            <div class="carnet-field-header">
+                                <span class="carnet-field-code">تاريخ الإنشاء</span>
+                                <span class="carnet-field-badge badge-req">مطلوب</span>
+                            </div>
+                            <div class="carnet-field-body">
+                                <p>تاريخ بداية الصندوق، ويظهر في رأس كشف الحركة المطبوع.</p>
+                            </div>
+                        </div>
+                        <div class="carnet-field-card">
+                            <div class="carnet-field-header">
+                                <span class="carnet-field-code">الحالة</span>
+                                <span class="carnet-field-badge badge-req">مطلوب</span>
+                            </div>
+                            <div class="carnet-field-body">
+                                <p>نشط أو مغلق. الحالة لا تحذف أي بيانات، بل تمنع فقط تسجيل سندات جديدة على الصندوق المغلق.</p>
+                            </div>
+                        </div>
+                        <div class="carnet-field-card">
+                            <div class="carnet-field-header">
+                                <span class="carnet-field-code">مدير الصندوق ومحاسبه</span>
+                                <span class="carnet-field-badge badge-opt">اختياري</span>
+                            </div>
+                            <div class="carnet-field-body">
+                                <p>يُختاران من الموظفين السعوديين، ويُحفظ اسم كل منهما على الصندوق تلقائياً، وتُمنح لهما صلاحية الوصول الخاصة بالصندوق.</p>
+                            </div>
+                        </div>
+                        <div class="carnet-field-card">
+                            <div class="carnet-field-header">
+                                <span class="carnet-field-code">النبذة والشروط والملاحظات</span>
+                                <span class="carnet-field-badge badge-opt">اختياري</span>
+                            </div>
+                            <div class="carnet-field-body">
+                                <p>نصوص حرة توضّح هدف الصندوق وقواعد الإيداع والسحب فيه.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- القسم 3: سندات الإيداع والسحب -->
+                <section id="sec-voucher-af" class="carnet-card carnet-searchable-section">
+                    <div class="carnet-card-title-group">
+                        <span class="carnet-card-icon-badge" style="background: rgba(79, 70, 229, 0.15); color: #4f46e5;">🧾</span>
+                        <h2 class="carnet-card-title">تسجيل سند إيداع أو سحب</h2>
+                    </div>
+                    <p class="carnet-card-text" style="margin-bottom: 18px;">
+                        كل حركة على الصندوق تُسجَّل من شاشة <strong>سندات الإيداع والسحب</strong> بزر <strong>جديد</strong>. الشاشة واحدة للنوعين، والفرق فقط في نوع السند الذي تختاره.
+                    </p>
+
+                    <div class="carnet-workflow-box">
+                        <div class="carnet-step-card">
+                            <div class="carnet-step-number">1</div>
+                            <div class="carnet-step-content">
+                                <h3>اختر الصندوق</h3>
+                                <p>تظهر في القائمة <strong>الصناديق النشطة فقط</strong>. إذا لم تجد صندوقك، فتأكد أولاً من أن حالته «نشط» في شاشة الصناديق.</p>
+                            </div>
+                        </div>
+                        <div class="carnet-step-card">
+                            <div class="carnet-step-number">2</div>
+                            <div class="carnet-step-content">
+                                <h3>حدد نوع السند والتاريخ</h3>
+                                <p><strong>إيداع</strong> لمبلغ يدخل الصندوق، أو <strong>سحب</strong> لمبلغ يخرج منه. ثم حدد تاريخ السند (اليوم افتراضياً).</p>
+                            </div>
+                        </div>
+                        <div class="carnet-step-card">
+                            <div class="carnet-step-number">3</div>
+                            <div class="carnet-step-content">
+                                <h3>حدد مصدر أو وجهة المبلغ</h3>
+                                <p>اختر <strong>ربط بمنشأة</strong> لتختار المنشأة من القائمة، أو <strong>إدخال حر</strong> لتكتب اسم الطرف أو الجهة بنفسك. لا يمكن استخدام الخيارين معاً: اختيار أحدهما يُخفي الآخر تلقائياً.</p>
+                            </div>
+                        </div>
+                        <div class="carnet-step-card">
+                            <div class="carnet-step-number">4</div>
+                            <div class="carnet-step-content">
+                                <h3>أدخل بنود المبلغ ثم احفظ</h3>
+                                <p>أضف بنداً لكل جزء من المبلغ، واكتب بيانه والمبلغ والنسبة إن لزم. مجموع كل بند وإجمالي السند يُحسبان تلقائياً أثناء الإدخال.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px; padding: 20px 22px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 14px;">
+                        <h3 style="font-size: 15.5px; font-weight: 900; color: #312e81; margin: 0 0 10px 0;">مثال عملي على حساب المبلغ</h3>
+                        <p style="font-size: 13.5px; line-height: 1.9; color: #3730a3; margin: 0;">
+                            البند الأول: الإجمالي 1,000 + أخرى 1 بمبلغ 100 + أخرى 2 بمبلغ 50 ← مجموع البند = <strong>1,150 ريال</strong>.<br>
+                            البند الثاني: الإجمالي 500 فقط ← مجموع البند = <strong>500 ريال</strong>.<br>
+                            إجمالي السند = 1,150 + 500 = <strong>1,650 ريال</strong>، وينعكس هذا المبلغ على رصيد الصندوق فور الحفظ.
+                        </p>
+                    </div>
+
+                    <div class="carnet-tips-box" style="margin-top: 18px;">
+                        <div class="carnet-tip-item" style="border-color: #4f46e5;">
+                            <span>🔒</span>
+                            <div>
+                                <strong>إجمالي السند للقراءة فقط:</strong>
+                                لا يمكن كتابته يدوياً، فهو ناتج جمع البنود. إذا أردت تغيير المبلغ فعدّل البنود نفسها.
+                            </div>
+                        </div>
+                        <div class="carnet-tip-item" style="border-color: #4f46e5;">
+                            <span>💡</span>
+                            <div>
+                                <strong>حقل النسبة للتوضيح فقط:</strong>
+                                النسبة المئوية لا تدخل في حساب المبلغ، والحساب يعتمد على الإجمالي وأخرى 1 وأخرى 2 فقط.
+                            </div>
+                        </div>
+                        <div class="carnet-tip-item" style="border-color: #4f46e5;">
+                            <span>📝</span>
+                            <div>
+                                <strong>اكتب البيان بوضوح:</strong>
+                                استخدم حقل الملاحظات لذكر سبب الإيداع أو وجهة السحب، لأن هذا النص يظهر في كشف الحركة وفي النسخة المطبوعة.
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- القسم 4: كشف الحركة والطباعة -->
+                <section id="sec-statement-af" class="carnet-card carnet-searchable-section">
+                    <div class="carnet-card-title-group">
+                        <span class="carnet-card-icon-badge" style="background: rgba(79, 70, 229, 0.15); color: #4f46e5;">📊</span>
+                        <h2 class="carnet-card-title">كشف حركة الصندوق وطباعته</h2>
+                    </div>
+                    <p class="carnet-card-text" style="margin-bottom: 18px;">
+                        شاشة <strong>كشف حركة الصندوق</strong> تعرض كل حركات الصندوق خلال فترة تحددها، وتُستخدم للمراجعة والتسليم والطباعة.
+                    </p>
+
+                    <div class="carnet-workflow-box">
+                        <div class="carnet-step-card">
+                            <div class="carnet-step-number">1</div>
+                            <div class="carnet-step-content">
+                                <h3>اختر الصندوق</h3>
+                                <p>لن تظهر أي نتيجة قبل اختيار الصندوق. القائمة تعرض الصناديق المتاحة لك حسب صلاحياتك.</p>
+                            </div>
+                        </div>
+                        <div class="carnet-step-card">
+                            <div class="carnet-step-number">2</div>
+                            <div class="carnet-step-content">
+                                <h3>حدد الفترة ونوع العمليات</h3>
+                                <p>«من تاريخ» و«إلى تاريخ» لتحديد الفترة، ونوع العمليات: الكل، أو الواردات فقط، أو المصروفات فقط. النتائج تتحدّث فوراً دون زر تنفيذ.</p>
+                            </div>
+                        </div>
+                        <div class="carnet-step-card">
+                            <div class="carnet-step-number">3</div>
+                            <div class="carnet-step-content">
+                                <h3>راجع الملخص والجدول</h3>
+                                <p>ثلاث بطاقات في الأعلى: إجمالي الواردات، إجمالي المصروفات، والرصيد الصافي للفترة المحددة. ثم جدول الحركات بالتاريخ والنوع والجهة والمبلغ.</p>
+                            </div>
+                        </div>
+                        <div class="carnet-step-card">
+                            <div class="carnet-step-number">4</div>
+                            <div class="carnet-step-content">
+                                <h3>اطبع الكشف</h3>
+                                <p>اضغط زر <strong>طباعة</strong> ليُفتح الكشف في نافذة جديدة جاهزاً للطباعة أو الحفظ، ويحتوي بيانات الصندوق والفترة والجدول والملخص.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="carnet-tips-box" style="margin-top: 18px;">
+                        <div class="carnet-tip-item" style="border-color: #4f46e5;">
+                            <span>📌</span>
+                            <div>
+                                <strong>الملخص يخص الفترة المختارة:</strong>
+                                الأرقام في البطاقات والكشف المطبوع تخص الفترة المفلترة فقط، وليست رصيد الصندوق الكلي.
+                            </div>
+                        </div>
+                        <div class="carnet-tip-item" style="border-color: #4f46e5;">
+                            <span>🖨️</span>
+                            <div>
+                                <strong>الطباعة بالعربية:</strong>
+                                الكشف يخرج بالعربية ومن اليمين إلى اليسار، بنفس أسماء الصناديق والملاحظات المسجلة في النظام.
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- القسم 5: الصلاحيات والقواعد -->
+                <section id="sec-tips-af" class="carnet-card carnet-searchable-section">
+                    <div class="carnet-card-title-group">
+                        <span class="carnet-card-icon-badge" style="background: rgba(79, 70, 229, 0.15); color: #4f46e5;">🔐</span>
+                        <h2 class="carnet-card-title">الصلاحيات والقواعد المهمة</h2>
+                    </div>
+
+                    <div class="carnet-tips-box">
+                        <div class="carnet-tip-item" style="border-color: #4f46e5;">
+                            <span>👤</span>
+                            <div>
+                                <strong>مدير الصندوق ومحاسبه:</strong>
+                                من يُختار في بيانات الصندوق يدخل على صندوقه وسنداته وكشفه تلقائياً دون منحه صلاحيات إضافية.
+                            </div>
+                        </div>
+                        <div class="carnet-tip-item" style="border-color: #4f46e5;">
+                            <span>👑</span>
+                            <div>
+                                <strong>المالك والمدير الأعلى للنظام:</strong>
+                                يرى ويتحكم في كل الصناديق بلا استثناء.
+                            </div>
+                        </div>
+                        <div class="carnet-tip-item" style="border-color: #4f46e5;">
+                            <span>🎛️</span>
+                            <div>
+                                <strong>باقي المستخدمين:</strong>
+                                يصلون حسب الصلاحيات الممنوحة لهم من شاشة الأدوار: استعراض الصناديق، إنشاء صندوق، تعديل، حذف، وإدارة السندات، واستعراض الكشف.
+                            </div>
+                        </div>
+                        <div class="carnet-tip-item" style="border-color: #f59e0b; background: #fffbeb; color: #78350f;">
+                            <span>⚠️</span>
+                            <div>
+                                <strong>الرصيد قد يصبح سالباً:</strong>
+                                النظام لا يمنع حالياً تسجيل سحب أكبر من رصيد الصندوق، ويظهر الرصيد بالأحمر في هذه الحالة. راجع الشروط جيداً قبل السحب.
+                            </div>
+                        </div>
+                        <div class="carnet-tip-item" style="border-color: #dc2626; background: #fef2f2; color: #7f1d1d;">
+                            <span>🗑️</span>
+                            <div>
+                                <strong>حذف الصندوق يحذف كل سنداته:</strong>
+                                إذا توقف العمل على صندوق فالأفضل تحويل حالته إلى «مغلق» بدلاً من حذفه، حتى تبقى حركاته محفوظة للمراجعة.
+                            </div>
+                        </div>
+                        <div class="carnet-tip-item" style="border-color: #16a34a; background: #f0fdf4; color: #14532d;">
+                            <span>🔄</span>
+                            <div>
+                                <strong>الرصيد يتحدّث تلقائياً:</strong>
+                                أي إضافة أو تعديل أو حذف لسند ينعكس فوراً على رصيد الصندوق وعلى عمود «الرصيد الحالي» في شاشة الصناديق.
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- القسم 6: الأسئلة الشائعة -->
+                <section id="sec-faq-af" class="carnet-card carnet-searchable-section">
+                    <div class="carnet-card-title-group">
+                        <span class="carnet-card-icon-badge" style="background: rgba(79, 70, 229, 0.15); color: #4f46e5;">❓</span>
+                        <h2 class="carnet-card-title">الأسئلة الشائعة</h2>
+                    </div>
+
+                    <div class="carnet-faq-accordion">
+                        <details class="carnet-faq-item">
+                            <summary class="carnet-faq-summary">
+                                <span>أين أجد صندوق الأصول في القائمة؟</span>
+                                <span>▼</span>
+                            </summary>
+                            <div class="carnet-faq-body">
+                                من القائمة الجانبية: <strong>المالية العامة والخدمات</strong>، ثم <strong>صناديق الأصول</strong> لإدارة الصناديق، و<strong>سندات الإيداع والسحب</strong> لتسجيل الحركات، و<strong>كشف حركة الصندوق</strong> للاستعراض والطباعة.
+                            </div>
+                        </details>
+
+                        <details class="carnet-faq-item">
+                            <summary class="carnet-faq-summary">
+                                <span>لماذا لا يظهر الصندوق عند تسجيل سند؟</span>
+                                <span>▼</span>
+                            </summary>
+                            <div class="carnet-faq-body">
+                                قائمة السندات تعرض الصناديق النشطة فقط. افتح شاشة الصناديق وتأكد من أن حالة الصندوق «نشط»، ثم أعد المحاولة.
+                            </div>
+                        </details>
+
+                        <details class="carnet-faq-item">
+                            <summary class="carnet-faq-summary">
+                                <span>كيف أعرف رصيد الصندوق الآن؟</span>
+                                <span>▼</span>
+                            </summary>
+                            <div class="carnet-faq-body">
+                                عمود <strong>الرصيد الحالي</strong> في شاشة الصناديق يعرض الرصيد لحظياً. وللتفصيل استخدم كشف الحركة واختر الفترة المطلوبة.
+                            </div>
+                        </details>
+
+                        <details class="carnet-faq-item">
+                            <summary class="carnet-faq-summary">
+                                <span>هل يمكن تعديل سند بعد حفظه؟</span>
+                                <span>▼</span>
+                            </summary>
+                            <div class="carnet-faq-body">
+                                نعم، من زر التعديل في شاشة السندات. بعد التعديل يعيد النظام حساب إجمالي السند ورصيد الصندوق تلقائياً. احرص على مراجعة الكشف بعد أي تعديل.
+                            </div>
+                        </details>
+
+                        <details class="carnet-faq-item">
+                            <summary class="carnet-faq-summary">
+                                <span>هل حركات الصندوق تؤثر على الخزينة العامة؟</span>
+                                <span>▼</span>
+                            </summary>
+                            <div class="carnet-faq-body">
+                                لا. صندوق الأصول مستقل تماماً عن الخزينة، ولا يُنشئ أي حركة خزينة أو سند صرف. هو حساب حفظ وتجميع فقط.
+                            </div>
+                        </details>
+
+                        <details class="carnet-faq-item">
+                            <summary class="carnet-faq-summary">
+                                <span>هل يمكن طباعة سند الإيداع أو السحب؟</span>
+                                <span>▼</span>
+                            </summary>
+                            <div class="carnet-faq-body">
+                                الطباعة المتاحة حالياً هي <strong>كشف حركة الصندوق</strong>. أما طباعة سند منفرد للإيداع أو السحب فغير متاحة في هذه النسخة، ويمكن الاعتماد على سطر السند داخل الكشف المطبوع للتوثيق.
+                            </div>
+                        </details>
+
+                        <details class="carnet-faq-item">
+                            <summary class="carnet-faq-summary">
+                                <span>ماذا يحدث عند حذف سند؟</span>
+                                <span>▼</span>
+                            </summary>
+                            <div class="carnet-faq-body">
+                                يُحذف السند نهائياً ويُعاد حساب رصيد الصندوق فوراً. لا يوجد سجل تدقيق للسندات المحذوفة، لذلك احتفظ بالكشف المطبوع أو أرسله بالبريد قبل الحذف إذا كان مطلوباً للتوثيق.
+                            </div>
+                        </details>
+                    </div>
+                </section>
+
+            </main>
+        </div>
         @endif
 
     @endif
