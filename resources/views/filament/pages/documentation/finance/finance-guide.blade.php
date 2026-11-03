@@ -19,51 +19,92 @@
 
     /* Hero Box for Finance Hub */
     .carnet-hub-hero-box {
-        background: linear-gradient(135deg, #065f46 0%, #047857 50%, #059669 100%);
-        border-radius: 20px;
-        padding: 36px 32px;
+        background: linear-gradient(135deg, #044e39 0%, #065f46 40%, #047857 80%, #059669 100%);
+        border-radius: 22px;
+        padding: 34px 34px 28px 34px;
         color: #ffffff;
         margin-bottom: 28px;
-        box-shadow: 0 10px 25px -5px rgba(5, 150, 105, 0.35);
+        box-shadow: 0 14px 34px -8px rgba(4, 120, 87, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.15);
         position: relative;
         overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .carnet-hub-hero-box::before {
+        content: '';
+        position: absolute;
+        top: -60px;
+        left: -40px;
+        width: 240px;
+        height: 240px;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.18) 0%, transparent 70%);
+        border-radius: 50%;
+        pointer-events: none;
     }
     .carnet-hub-hero-box::after {
         content: '';
         position: absolute;
-        top: -40%;
-        left: -10%;
-        width: 320px;
-        height: 320px;
-        background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 70%);
+        bottom: -70px;
+        right: 15%;
+        width: 220px;
+        height: 220px;
+        background: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, transparent 70%);
         border-radius: 50%;
         pointer-events: none;
     }
+    .carnet-hub-hero-content {
+        position: relative;
+        z-index: 2;
+    }
     .carnet-hub-badge {
-        display: inline-block;
-        background: rgba(255, 255, 255, 0.2);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255, 255, 255, 0.15);
         backdrop-filter: blur(8px);
         padding: 6px 14px;
         border-radius: 50px;
         font-size: 13px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
+        font-weight: 800;
+        letter-spacing: 0.3px;
         margin-bottom: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        color: #ffffff;
     }
     .carnet-hub-hero-box h2 {
         font-size: 26px;
         font-weight: 900;
         margin: 0 0 10px 0;
         line-height: 1.3;
+        color: #ffffff;
+        letter-spacing: -0.01em;
     }
     .carnet-hub-hero-box p {
-        font-size: 15px;
-        line-height: 1.7;
-        margin: 0;
-        max-width: 850px;
-        opacity: 0.95;
-        font-weight: 400;
+        font-size: 14.5px;
+        line-height: 1.75;
+        margin: 0 0 18px 0;
+        max-width: 900px;
+        color: rgba(255, 255, 255, 0.92);
+        font-weight: 500;
+    }
+    .carnet-hub-hero-chips {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding-top: 14px;
+        border-top: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .carnet-hub-hero-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12.5px;
+        font-weight: 700;
+        background: rgba(0, 0, 0, 0.16);
+        color: #ffffff;
+        padding: 5px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
     }
 
     /* Sub-Header Navigation Bar */
@@ -691,77 +732,140 @@
         background: #1e293b;
     }
 
-    /* Grand Cards Grid (Hub) */
+    /* Grand Cards Grid (Hub) - Modern Dynamic Responsive Grid */
     .carnet-grand-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 24px;
+        margin-bottom: 24px;
     }
+    
+    /* Top 2 Major Pillars (span 3 = 50% each on desktop) */
+    .carnet-grand-card.col-span-3 {
+        grid-column: span 3;
+    }
+    
+    /* Bottom 3 Modules (span 2 = 33.33% each on desktop) */
+    .carnet-grand-card.col-span-2 {
+        grid-column: span 2;
+    }
+
+    @media (max-width: 1200px) {
+        .carnet-grand-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        .carnet-grand-card.col-span-3,
+        .carnet-grand-card.col-span-2 {
+            grid-column: span 1;
+        }
+        .carnet-grand-card.last-module {
+            grid-column: span 2;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .carnet-grand-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        .carnet-grand-card.col-span-3,
+        .carnet-grand-card.col-span-2,
+        .carnet-grand-card.last-module {
+            grid-column: span 1;
+        }
+    }
+
     .carnet-grand-card {
         background: #ffffff;
-        border-radius: 16px;
-        padding: 22px;
+        border-radius: 20px;
+        padding: 26px 26px 22px 26px;
         border: 1px solid #e2e8f0;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
         position: relative;
+        overflow: hidden;
+    }
+    .carnet-grand-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 0;
+        height: 4px;
+        background: var(--card-accent, #059669);
+        border-radius: 20px 20px 0 0;
     }
     .carnet-grand-card:hover {
         transform: translateY(-4px);
-        box-shadow: 0 12px 24px -6px rgba(0,0,0,0.08);
-        border-color: #047857;
+        box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.09);
+        border-color: var(--card-border-hover, #059669);
     }
     .dark .carnet-grand-card {
         background: #1e293b;
         border-color: #334155;
     }
     .dark .carnet-grand-card:hover {
-        border-color: #059669;
-        box-shadow: 0 12px 24px -6px rgba(0,0,0,0.3);
+        box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.35);
+        border-color: var(--card-border-hover, #059669);
     }
-    .carnet-grand-card.featured {
-        border-top: 4px solid #047857;
-    }
+
     .carnet-card-top {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 14px;
+        margin-bottom: 16px;
     }
     .carnet-card-icon-wrap {
-        width: 44px;
-        height: 44px;
-        border-radius: 12px;
+        width: 50px;
+        height: 50px;
+        border-radius: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+        transition: transform 0.25s ease;
+    }
+    .carnet-grand-card:hover .carnet-card-icon-wrap {
+        transform: scale(1.06);
     }
     .carnet-card-icon-wrap svg {
-        width: 24px;
-        height: 24px;
+        width: 26px !important;
+        height: 26px !important;
+        min-width: 26px !important;
+        min-height: 26px !important;
+        max-width: 26px !important;
+        max-height: 26px !important;
     }
+
     .bg-icon-emerald {
-        background: rgba(4, 120, 87, 0.12);
-        color: #047857;
+        background: rgba(5, 150, 105, 0.12);
+        color: #059669;
+        border: 1px solid rgba(5, 150, 105, 0.22);
     }
     .bg-icon-sky {
         background: rgba(2, 132, 199, 0.12);
         color: #0284c7;
+        border: 1px solid rgba(2, 132, 199, 0.22);
     }
     .bg-icon-amber {
         background: rgba(217, 119, 6, 0.12);
         color: #d97706;
-    }
-        .bg-icon-indigo {
-        background: rgba(79, 70, 229, 0.12);
-        color: #4f46e5;
+        border: 1px solid rgba(217, 119, 6, 0.22);
     }
     .bg-icon-purple {
         background: rgba(124, 58, 237, 0.12);
         color: #7c3aed;
+        border: 1px solid rgba(124, 58, 237, 0.22);
+    }
+    .bg-icon-indigo {
+        background: rgba(79, 70, 229, 0.12);
+        color: #4f46e5;
+        border: 1px solid rgba(79, 70, 229, 0.22);
     }
 
     .carnet-card-badges {
@@ -771,106 +875,233 @@
         flex-wrap: wrap;
     }
     .carnet-card-badge-pill {
-        font-size: 11px;
+        font-size: 11.5px;
         font-weight: 700;
-        padding: 3px 8px;
-        border-radius: 6px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        letter-spacing: 0.2px;
     }
     .pill-video {
-        background: #fee2e2;
+        background: #fef2f2;
         color: #dc2626;
+        border: 1px solid #fee2e2;
     }
-    .pill-info {
-        background: #e0f2fe;
-        color: #0369a1;
+    .dark .pill-video {
+        background: rgba(220, 38, 38, 0.15);
+        color: #f87171;
+        border-color: rgba(220, 38, 38, 0.3);
     }
     .pill-success {
-        background: #d1fae5;
-        color: #065f46;
+        background: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+    }
+    .dark .pill-success {
+        background: rgba(5, 150, 105, 0.15);
+        color: #34d399;
+        border-color: rgba(5, 150, 105, 0.3);
+    }
+    .pill-info {
+        background: #f0f9ff;
+        color: #0284c7;
+        border: 1px solid #bae6fd;
+    }
+    .dark .pill-info {
+        background: rgba(2, 132, 199, 0.15);
+        color: #38bdf8;
+        border-color: rgba(2, 132, 199, 0.3);
     }
     .pill-warning {
-        background: #fef3c7;
-        color: #92400e;
+        background: #fffbeb;
+        color: #b45309;
+        border: 1px solid #fde68a;
+    }
+    .dark .pill-warning {
+        background: rgba(217, 119, 6, 0.15);
+        color: #fbbf24;
+        border-color: rgba(217, 119, 6, 0.3);
+    }
+    .pill-purple {
+        background: #faf5ff;
+        color: #7c3aed;
+        border: 1px solid #e9d5ff;
+    }
+    .dark .pill-purple {
+        background: rgba(124, 58, 237, 0.15);
+        color: #c084fc;
+        border-color: rgba(124, 58, 237, 0.3);
+    }
+    .pill-indigo {
+        background: #eef2ff;
+        color: #4338ca;
+        border: 1px solid #c7d2fe;
+    }
+    .dark .pill-indigo {
+        background: rgba(79, 70, 229, 0.15);
+        color: #818cf8;
+        border-color: rgba(79, 70, 229, 0.3);
     }
 
+    .carnet-card-middle {
+        margin-bottom: 16px;
+    }
     .carnet-card-middle h3 {
-        font-size: 17px;
+        font-size: 19px;
         font-weight: 800;
-        margin: 0 0 4px 0;
+        margin: 0 0 3px 0;
         color: #0f172a;
+        line-height: 1.35;
+        transition: color 0.2s ease;
     }
     .dark .carnet-card-middle h3 {
         color: #f8fafc;
     }
     .carnet-card-en-title {
-        font-size: 11.5px;
-        font-weight: 700;
+        font-size: 11px;
+        font-weight: 800;
         color: #94a3b8;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.8px;
         text-transform: uppercase;
         display: block;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
+    }
+    .dark .carnet-card-en-title {
+        color: #64748b;
     }
     .carnet-card-desc {
-        font-size: 13px;
-        line-height: 1.6;
-        color: #64748b;
-        margin: 0 0 16px 0;
+        font-size: 13.5px;
+        line-height: 1.65;
+        color: #475569;
+        margin: 0 0 14px 0;
+        font-weight: 400;
     }
     .dark .carnet-card-desc {
+        color: #cbd5e1;
+    }
+
+    .carnet-card-features {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+    }
+    .carnet-feat-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11.5px;
+        font-weight: 700;
+        padding: 4px 9px;
+        border-radius: 8px;
+        background: #f8fafc;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+    }
+    .carnet-feat-chip svg {
+        width: 12px !important;
+        height: 12px !important;
+        min-width: 12px !important;
+        min-height: 12px !important;
+        max-width: 12px !important;
+        max-height: 12px !important;
+        color: #059669;
+    }
+    .dark .carnet-feat-chip {
+        background: #0f172a;
         color: #94a3b8;
+        border-color: #334155;
     }
 
     .carnet-card-actions {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         margin-top: auto;
+        padding-top: 16px;
+        border-top: 1px dashed #e2e8f0;
     }
+    .dark .carnet-card-actions {
+        border-top-color: #334155;
+    }
+
     .carnet-btn-open-guide {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 6px;
-        padding: 9px 14px;
-        background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+        padding: 10px 14px;
         color: #ffffff;
         font-size: 12.5px;
-        font-weight: 700;
-        border-radius: 10px;
+        font-weight: 800;
+        border-radius: 12px;
         border: none;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         text-decoration: none;
-        flex: 1;
-        box-shadow: 0 4px 10px rgba(4, 120, 87, 0.25);
+        flex: 1.35;
+        white-space: nowrap;
     }
     .carnet-btn-open-guide:hover {
-        background: linear-gradient(135deg, #065f46 0%, #047857 100%);
         transform: translateY(-2px);
+        filter: brightness(1.08);
     }
+
+    .btn-gradient-emerald {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+    }
+    .btn-gradient-sky {
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+    }
+    .btn-gradient-amber {
+        background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+        box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);
+    }
+    .btn-gradient-purple {
+        background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+    }
+    .btn-gradient-indigo {
+        background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+    }
+
     .carnet-btn-screen-direct {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 9px 14px;
-        background: #f1f5f9;
+        gap: 6px;
+        padding: 10px 12px;
+        background: #f8fafc;
         color: #334155;
-        font-size: 12.5px;
+        font-size: 12px;
         font-weight: 700;
-        border-radius: 10px;
+        border-radius: 12px;
         text-decoration: none;
         transition: all 0.2s ease;
         border: 1px solid #e2e8f0;
+        flex: 1;
+        white-space: nowrap;
     }
     .carnet-btn-screen-direct:hover {
-        background: #e2e8f0;
+        background: #f1f5f9;
+        border-color: #cbd5e1;
         color: #0f172a;
+        transform: translateY(-2px);
     }
     .dark .carnet-btn-screen-direct {
-        background: #334155;
+        background: #0f172a;
         color: #e2e8f0;
+        border-color: #334155;
+    }
+    .dark .carnet-btn-screen-direct:hover {
+        background: #1e293b;
         border-color: #475569;
+        color: #ffffff;
     }
 </style>
 
@@ -883,16 +1114,24 @@
 
         <!-- ترويسة رئيسية للقسم -->
         <div class="carnet-hub-hero-box">
-            <span class="carnet-hub-badge">💰 {{ __('documentation.finance_guide.tag') }}</span>
-            <h2>{{ __('documentation.finance_guide.hub_heading') }}</h2>
-            <p>{{ __('documentation.finance_guide.hub_note') }}</p>
+            <div class="carnet-hub-hero-content">
+                <span class="carnet-hub-badge">💰 {{ __('documentation.finance_guide.tag') }}</span>
+                <h2>{{ __('documentation.finance_guide.hub_heading') }}</h2>
+                <p>{{ __('documentation.finance_guide.hub_note') }}</p>
+                <div class="carnet-hub-hero-chips">
+                    <span class="carnet-hub-hero-chip">🎬 5 شروحات فيديو تفاعلية</span>
+                    <span class="carnet-hub-hero-chip">⚡ ربط مباشر مع شاشات النظام</span>
+                    <span class="carnet-hub-hero-chip">🛡️ متوافق مع نظام حماية الأجور (WPS)</span>
+                    <span class="carnet-hub-hero-chip">🏦 قيود وسندات فورية</span>
+                </div>
+            </div>
         </div>
 
-        <!-- شبكة البطاقات الكبرى لإدارة المحاسبة والمالية -->
+        <!-- شبكة البطاقات الكبرى لإدارة المحاسبة والعمليات المالية -->
         <div class="carnet-grand-grid">
 
-            <!-- 1. مسيرات التحصيل والرواتب (Collection & Payroll Runs) - Featured Card -->
-            <div class="carnet-grand-card featured" style="border-top: 4px solid #059669;">
+            <!-- 1. مسيرات التحصيل والرواتب (Collection & Payroll Runs) - Major Pillar (Span 3) -->
+            <div class="carnet-grand-card col-span-3 carnet-card-payroll" style="--card-accent: linear-gradient(90deg, #059669, #10b981); --card-border-hover: #10b981;">
                 <div class="carnet-card-top">
                     <div class="carnet-card-icon-wrap bg-icon-emerald">
                         <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -906,24 +1145,40 @@
                 </div>
 
                 <div class="carnet-card-middle">
-                    <h3 style="color: #047857;">{{ __('documentation.finance_guide.card_payroll_title') }}</h3>
+                    <h3>{{ __('documentation.finance_guide.card_payroll_title') }}</h3>
                     <p class="carnet-card-desc">
                         {{ __('documentation.finance_guide.card_payroll_desc') }}
                     </p>
+                    <div class="carnet-card-features">
+                        <span class="carnet-feat-chip">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            مسيرات الرواتب الشهرية
+                        </span>
+                        <span class="carnet-feat-chip">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            نظام حماية الأجور
+                        </span>
+                        <span class="carnet-feat-chip">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            استقطاع السلف والغياب
+                        </span>
+                    </div>
                 </div>
 
                 <div class="carnet-card-actions">
-                    <button type="button" wire:click="setSub('payroll')" class="carnet-btn-open-guide" style="background: linear-gradient(135deg, #059669 0%, #047857 100%);">
-                        <span>عرض الفيديو والدليل التفصيلي ➔</span>
+                    <button type="button" wire:click="setSub('payroll')" class="carnet-btn-open-guide btn-gradient-emerald">
+                        <span>عرض الشرح والدليل</span>
+                        <span>➔</span>
                     </button>
                     <a href="/payroll-records" class="carnet-btn-screen-direct">
-                        <span>الانتقال للشاشة بالنظام ⇦</span>
+                        <span>الانتقال للشاشة</span>
+                        <span>⇦</span>
                     </a>
                 </div>
             </div>
 
-            <!-- 2. الخزنة وحركة الصندوق (Treasury) - Featured Card -->
-            <div class="carnet-grand-card featured" style="border-top: 4px solid #0284c7;">
+            <!-- 2. الخزنة وحركة الصندوق (Treasury) - Major Pillar (Span 3) -->
+            <div class="carnet-grand-card col-span-3 carnet-card-treasury" style="--card-accent: linear-gradient(90deg, #0284c7, #38bdf8); --card-border-hover: #38bdf8;">
                 <div class="carnet-card-top">
                     <div class="carnet-card-icon-wrap bg-icon-sky">
                         <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -937,24 +1192,40 @@
                 </div>
 
                 <div class="carnet-card-middle">
-                    <h3 style="color: #0284c7;">{{ __('documentation.finance_guide.card_treasury_title') }}</h3>
+                    <h3>{{ __('documentation.finance_guide.card_treasury_title') }}</h3>
                     <p class="carnet-card-desc">
                         {{ __('documentation.finance_guide.card_treasury_desc') }}
                     </p>
+                    <div class="carnet-card-features">
+                        <span class="carnet-feat-chip">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            سندات القبض والصرف
+                        </span>
+                        <span class="carnet-feat-chip">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            أرصدة الخزن النقدية
+                        </span>
+                        <span class="carnet-feat-chip">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            الإيداعات والتحويلات
+                        </span>
+                    </div>
                 </div>
 
                 <div class="carnet-card-actions">
-                    <button type="button" wire:click="setSub('treasury')" class="carnet-btn-open-guide" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
-                        <span>عرض الفيديو والدليل التفصيلي ➔</span>
+                    <button type="button" wire:click="setSub('treasury')" class="carnet-btn-open-guide btn-gradient-sky">
+                        <span>عرض الشرح والدليل</span>
+                        <span>➔</span>
                     </button>
                     <a href="/treasury-transactions" class="carnet-btn-screen-direct">
-                        <span>الانتقال للشاشة بالنظام ⇦</span>
+                        <span>الانتقال للشاشة</span>
+                        <span>⇦</span>
                     </a>
                 </div>
             </div>
 
-            <!-- 3. الأقساط والسلف (Installments & Advances) - Featured Card -->
-            <div class="carnet-grand-card featured" style="border-top: 4px solid #d97706;">
+            <!-- 3. الأقساط والسلف (Installments & Advances) - Supporting Module (Span 2) -->
+            <div class="carnet-grand-card col-span-2 carnet-card-installments" style="--card-accent: linear-gradient(90deg, #d97706, #fbbf24); --card-border-hover: #fbbf24;">
                 <div class="carnet-card-top">
                     <div class="carnet-card-icon-wrap bg-icon-amber">
                         <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -968,24 +1239,36 @@
                 </div>
 
                 <div class="carnet-card-middle">
-                    <h3 style="color: #d97706;">{{ __('documentation.finance_guide.card_installments_title') }}</h3>
+                    <h3>{{ __('documentation.finance_guide.card_installments_title') }}</h3>
                     <p class="carnet-card-desc">
                         {{ __('documentation.finance_guide.card_installments_desc') }}
                     </p>
+                    <div class="carnet-card-features">
+                        <span class="carnet-feat-chip">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            جدولة السلف والأقساط
+                        </span>
+                        <span class="carnet-feat-chip">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            اقتطاع آلي من الراتب
+                        </span>
+                    </div>
                 </div>
 
                 <div class="carnet-card-actions">
-                    <button type="button" wire:click="setSub('installments')" class="carnet-btn-open-guide" style="background: linear-gradient(135deg, #d97706 0%, #b45309 100%);">
-                        <span>عرض الفيديو والدليل التفصيلي ➔</span>
+                    <button type="button" wire:click="setSub('installments')" class="carnet-btn-open-guide btn-gradient-amber">
+                        <span>عرض الشرح والدليل</span>
+                        <span>➔</span>
                     </button>
                     <a href="/installments" class="carnet-btn-screen-direct">
-                        <span>الانتقال للشاشة بالنظام ⇦</span>
+                        <span>الانتقال للشاشة</span>
+                        <span>⇦</span>
                     </a>
                 </div>
             </div>
 
-            <!-- 4. المكافآت والحوافز (Rewards) - Featured Card -->
-            <div class="carnet-grand-card featured" style="border-top: 4px solid #7c3aed;">
+            <!-- 4. المكافآت والحوافز (Rewards) - Supporting Module (Span 2) -->
+            <div class="carnet-grand-card col-span-2 carnet-card-rewards" style="--card-accent: linear-gradient(90deg, #7c3aed, #a855f7); --card-border-hover: #a855f7;">
                 <div class="carnet-card-top">
                     <div class="carnet-card-icon-wrap bg-icon-purple">
                         <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -994,29 +1277,41 @@
                     </div>
                     <div class="carnet-card-badges">
                         <span class="carnet-card-badge-pill pill-video">🎬 فيديو مسجل</span>
-                        <span class="carnet-card-badge-pill pill-info">الحوافز</span>
+                        <span class="carnet-card-badge-pill pill-purple">الحوافز والإضافي</span>
                     </div>
                 </div>
 
                 <div class="carnet-card-middle">
-                    <h3 style="color: #7c3aed;">{{ __('documentation.finance_guide.card_rewards_title') }}</h3>
+                    <h3>{{ __('documentation.finance_guide.card_rewards_title') }}</h3>
                     <p class="carnet-card-desc">
                         {{ __('documentation.finance_guide.card_rewards_desc') }}
                     </p>
+                    <div class="carnet-card-features">
+                        <span class="carnet-feat-chip">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            حوافز الأداء والتقدير
+                        </span>
+                        <span class="carnet-feat-chip">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            احتساب العمل الإضافي
+                        </span>
+                    </div>
                 </div>
 
                 <div class="carnet-card-actions">
-                    <button type="button" wire:click="setSub('rewards')" class="carnet-btn-open-guide" style="background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);">
-                        <span>عرض الفيديو والدليل التفصيلي ➔</span>
+                    <button type="button" wire:click="setSub('rewards')" class="carnet-btn-open-guide btn-gradient-purple">
+                        <span>عرض الشرح والدليل</span>
+                        <span>➔</span>
                     </button>
                     <a href="/employee-rewards" class="carnet-btn-screen-direct">
-                        <span>الانتقال للشاشة بالنظام ⇦</span>
+                        <span>الانتقال للشاشة</span>
+                        <span>⇦</span>
                     </a>
                 </div>
             </div>
 
-                    <!-- 5. صناديق الأصول وسندات الإيداع والسحب وكشف الحساب - Featured Card -->
-            <div class="carnet-grand-card featured" style="border-top: 4px solid #4f46e5;">
+            <!-- 5. صناديق الأصول وسندات الإيداع والسحب وكشف الحساب - Supporting Module (Span 2) -->
+            <div class="carnet-grand-card col-span-2 last-module carnet-card-asset-funds" style="--card-accent: linear-gradient(90deg, #4f46e5, #818cf8); --card-border-hover: #818cf8;">
                 <div class="carnet-card-top">
                     <div class="carnet-card-icon-wrap bg-icon-indigo">
                         <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -1025,23 +1320,35 @@
                     </div>
                     <div class="carnet-card-badges">
                         <span class="carnet-card-badge-pill pill-video">🎬 فيديو مسجل</span>
-                        <span class="carnet-card-badge-pill pill-info">كشف حركة فوري</span>
+                        <span class="carnet-card-badge-pill pill-indigo">كشف حركة فوري</span>
                     </div>
                 </div>
 
                 <div class="carnet-card-middle">
-                    <h3 style="color: #4f46e5;">{{ __('documentation.finance_guide.card_asset_funds_title') }}</h3>
+                    <h3>{{ __('documentation.finance_guide.card_asset_funds_title') }}</h3>
                     <p class="carnet-card-desc">
                         {{ __('documentation.finance_guide.card_asset_funds_desc') }}
                     </p>
+                    <div class="carnet-card-features">
+                        <span class="carnet-feat-chip">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            صناديق العهد والأصول
+                        </span>
+                        <span class="carnet-feat-chip">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            كشف حساب وطباعة وتصدير
+                        </span>
+                    </div>
                 </div>
 
                 <div class="carnet-card-actions">
-                    <button type="button" wire:click="setSub('asset-funds')" class="carnet-btn-open-guide" style="background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);">
-                        <span>عرض الفيديو والدليل التفصيلي ➔</span>
+                    <button type="button" wire:click="setSub('asset-funds')" class="carnet-btn-open-guide btn-gradient-indigo">
+                        <span>عرض الشرح والدليل</span>
+                        <span>➔</span>
                     </button>
                     <a href="/asset-funds" class="carnet-btn-screen-direct">
-                        <span>الانتقال للشاشة بالنظام ⇦</span>
+                        <span>الانتقال للشاشة</span>
+                        <span>⇦</span>
                     </a>
                 </div>
             </div>
