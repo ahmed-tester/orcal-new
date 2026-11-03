@@ -53,6 +53,7 @@ class WeeklyNoteForm
                             required: false,
                             relationshipName: 'assignedEmployee',
                             companyFieldName: 'company_id',
+                            saudiOnly: true,
                         )->columnSpanFull(),
 
                         RichEditor::make('content')
