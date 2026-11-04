@@ -402,6 +402,12 @@ return [
         'card_installments_desc' => 'Staff loans, repayment schedules, direct payment vouchers, and automated payroll deductions.',
         'card_rewards_title' => 'Employee Rewards & Incentives',
         'card_rewards_en' => 'EMPLOYEE REWARDS & INCENTIVES',
+        'card_rewards_desc' => 'Performance incentives, discretionary bonuses, overtime calculation, and payroll integration.',
+        'card_asset_funds_title' => 'Asset Funds & Movement Vouchers',
+        'card_asset_funds_en' => 'ASSET FUNDS, VOUCHERS & STATEMENTS',
+        'card_asset_funds_desc' => 'Asset fund management, Saudi manager & accountant assignments, deposit & withdrawal vouchers, and movement statements.',
+        'asset_funds_video_title' => 'Watch Asset Funds and Movement Vouchers Video (finance_assets)',
+        'asset_funds_video_desc' => 'Video demonstration on creating and managing asset funds, recording deposit and withdrawal vouchers, and generating movement statements:',
     ],
 
     // Tasks Guide

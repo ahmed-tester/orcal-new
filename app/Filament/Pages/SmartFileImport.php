@@ -1,5 +1,3 @@
-
-text/x-generic SmartFileImport.php ( PHP script, UTF-8 Unicode text )
 <?php
 
 namespace App\Filament\Pages;
@@ -20,7 +18,6 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -83,7 +80,7 @@ class SmartFileImport extends Page implements HasForms
     {
         $exts = Setting::getAllowedUploadExtensions();
 
-        return ! empty($exts) ? implode(' · ', array_map('strtoupper', $exts)) : 'PDF · JPG · PNG · TXT';
+        return ! empty($exts) ? implode(' • ', array_map('strtoupper', $exts)) : 'PDF • JPG • PNG • TXT';
     }
 
     public function getMaxFileSizeTextProperty(): string

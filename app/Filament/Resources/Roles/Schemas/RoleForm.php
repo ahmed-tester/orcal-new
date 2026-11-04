@@ -197,6 +197,18 @@ class RoleForm
                     'create_service' => __('permissions.create_service'),
                     'update_service' => __('permissions.update_service'),
                     'delete_service' => __('permissions.delete_service'),
+
+                    'view_any_asset_fund' => __('permissions.view_any_asset_fund'),
+                    'create_asset_fund' => __('permissions.create_asset_fund'),
+                    'update_asset_fund' => __('permissions.update_asset_fund'),
+                    'delete_asset_fund' => __('permissions.delete_asset_fund'),
+
+                    'view_any_asset_fund_voucher' => __('permissions.view_any_asset_fund_voucher'),
+                    'create_asset_fund_voucher' => __('permissions.create_asset_fund_voucher'),
+                    'update_asset_fund_voucher' => __('permissions.update_asset_fund_voucher'),
+                    'delete_asset_fund_voucher' => __('permissions.delete_asset_fund_voucher'),
+
+                    'view_asset_fund_statement' => __('permissions.view_asset_fund_statement'),
                 ],
             ],
 

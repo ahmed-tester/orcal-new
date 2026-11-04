@@ -77,6 +77,15 @@ return [
     'actions' => [
         'print_voucher' => 'Print Debt Voucher',
         'save_and_print' => 'Save & Print Debt Voucher',
+        'view_debt' => 'View Debt Details',
+    ],
+
+    'notifications' => [
+        'due_alert_title' => 'Debt Due: :number',
+        'due_today_title' => 'Alert: Debt (:number) is due today',
+        'overdue_title' => 'Warning: Overdue debt payment (:number)',
+        'upcoming_title' => 'Reminder: Debt (:number) due in :days days',
+        'body' => 'Debtor: :debtor | Balance: :remaining | Due Date: :due_date',
     ],
 
     'table_heading' => 'Public Debts — :count debts',

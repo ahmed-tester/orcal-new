@@ -17,6 +17,11 @@ class ListTreasuryTransactions extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('summaryView')
+                ->label(__('finance.treasury_transactions.summary.summary_view'))
+                ->icon('heroicon-o-chart-pie')
+                ->color('gray')
+                ->url(fn (): string => TreasuryTransactionResource::getUrl('index')),
             CreateAction::make(),
             Action::make('export_statement')
                 ->label('تصدير كشف الخزينة PDF 📑')
@@ -47,7 +52,7 @@ class ListTreasuryTransactions extends ListRecords
                         ->label('إلى تاريخ'),
                 ])
                 ->action(function (array $data) {
-                    $params = array_filter($data, fn ($v) => !is_null($v) && $v !== '');
+                    $params = array_filter($data, fn ($v) => ! is_null($v) && $v !== '');
                     $url = route('exports.treasury-statement', $params);
                     $this->js("window.open('{$url}', '_blank')");
                 }),

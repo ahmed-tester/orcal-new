@@ -9,6 +9,7 @@ return [
     'all' => 'All',
     'save' => 'Save',
     'cancel' => 'Cancel',
+    'back' => 'Back',
     'account_information' => 'Basic Account Information',
     'name' => 'Name',
     'email' => 'Email Address',

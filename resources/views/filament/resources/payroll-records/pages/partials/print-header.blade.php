@@ -13,20 +13,40 @@
         <div style="text-align: center;">
             <div style="font-size: 18px; font-weight: 900; color: #2e3882; text-decoration: underline;">
                 @if($operationType === 'payroll')
-                    @if($paymentScope === 'paid')
-                        {{ __('finance.payroll_records.sheet.print_payroll_paid_title') }}
-                    @elseif($paymentScope === 'unpaid')
-                        {{ __('finance.payroll_records.sheet.print_payroll_unpaid_title') }}
+                    @if($nationalityScope === 'foreign')
+                        @if($paymentScope === 'paid')
+                            {{ __('finance.payroll_records.sheet.print_payroll_foreign_paid_title') }}
+                        @elseif($paymentScope === 'unpaid')
+                            {{ __('finance.payroll_records.sheet.print_payroll_foreign_unpaid_title') }}
+                        @else
+                            {{ __('finance.payroll_records.sheet.print_payroll_foreign_title') }}
+                        @endif
                     @else
-                        {{ __('finance.payroll_records.sheet.print_payroll_title') }}
+                        @if($paymentScope === 'paid')
+                            {{ __('finance.payroll_records.sheet.print_payroll_saudi_paid_title') }}
+                        @elseif($paymentScope === 'unpaid')
+                            {{ __('finance.payroll_records.sheet.print_payroll_saudi_unpaid_title') }}
+                        @else
+                            {{ __('finance.payroll_records.sheet.print_payroll_saudi_title') }}
+                        @endif
                     @endif
                 @else
-                    @if($paymentScope === 'paid')
-                        {{ __('finance.payroll_records.sheet.print_collection_paid_title') }}
-                    @elseif($paymentScope === 'unpaid')
-                        {{ __('finance.payroll_records.sheet.print_collection_unpaid_title') }}
+                    @if($nationalityScope === 'foreign')
+                        @if($paymentScope === 'paid')
+                            {{ __('finance.payroll_records.sheet.print_collection_foreign_paid_title') }}
+                        @elseif($paymentScope === 'unpaid')
+                            {{ __('finance.payroll_records.sheet.print_collection_foreign_unpaid_title') }}
+                        @else
+                            {{ __('finance.payroll_records.sheet.print_collection_foreign_title') }}
+                        @endif
                     @else
-                        {{ __('finance.payroll_records.sheet.print_collection_title') }}
+                        @if($paymentScope === 'paid')
+                            {{ __('finance.payroll_records.sheet.print_collection_saudi_paid_title') }}
+                        @elseif($paymentScope === 'unpaid')
+                            {{ __('finance.payroll_records.sheet.print_collection_saudi_unpaid_title') }}
+                        @else
+                            {{ __('finance.payroll_records.sheet.print_collection_saudi_title') }}
+                        @endif
                     @endif
                 @endif
             </div>

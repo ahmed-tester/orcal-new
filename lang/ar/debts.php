@@ -77,6 +77,15 @@ return [
     'actions' => [
         'print_voucher' => 'طباعة سند الدين',
         'save_and_print' => 'حفظ وطباعة سند الدين',
+        'view_debt' => 'عرض تفاصيل الدين',
+    ],
+
+    'notifications' => [
+        'due_alert_title' => 'استحقاق دين: :number',
+        'due_today_title' => 'تنبيه: حل موعد استحقاق دين (:number)',
+        'overdue_title' => 'تحذير: دين متأخر عن السداد (:number)',
+        'upcoming_title' => 'تذكير: اقتراب موعد استحقاق دين (:number) — متبقي :days يوم',
+        'body' => 'المدين: :debtor | المبلغ المتبقي: :remaining | تاريخ الاستحقاق: :due_date',
     ],
 
     'table_heading' => 'سجل الديون العامة — :count دين',

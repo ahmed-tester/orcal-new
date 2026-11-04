@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\TreasuryTransactionType;
 use App\Models\Company;
+use App\Models\Debt;
+use App\Models\Invoice;
 use App\Models\TreasuryTransaction;
 use App\Models\Violation;
 use App\Models\ViolationCategory;
@@ -11,8 +14,9 @@ use App\Models\ViolationTransaction;
 use App\Models\ViolationType;
 use App\Services\ExportPdfService;
 use App\Services\HijriDateService;
-use Carbon\Carbon;
+use App\Services\TafqeetService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class ExportPdfController extends Controller
 {
@@ -40,8 +44,8 @@ class ExportPdfController extends Controller
                     headers: $headers,
                     rows: $rows,
                     options: [
-                        'filename' => 'violation-categories-' . date('Ymd'),
-                        'totals' => ['إجمالي التصنيفات' => count($rows) . ' تصنيف'],
+                        'filename' => 'violation-categories-'.date('Ymd'),
+                        'totals' => ['إجمالي التصنيفات' => count($rows).' تصنيف'],
                     ]
                 );
 
@@ -53,7 +57,7 @@ class ExportPdfController extends Controller
                     "<strong>{$t->name}</strong>",
                     $t->category?->name ?? '—',
                     $t->type_code ?? '—',
-                    number_format((float)($t->default_fine_amount ?? 0), 2) . ' ر.س',
+                    number_format((float) ($t->default_fine_amount ?? 0), 2).' ر.س',
                 ])->toArray();
 
                 return ExportPdfService::exportTableReport(
@@ -61,8 +65,8 @@ class ExportPdfController extends Controller
                     headers: $headers,
                     rows: $rows,
                     options: [
-                        'filename' => 'violation-types-' . date('Ymd'),
-                        'totals' => ['إجمالي أنواع المخالفات' => count($rows) . ' نوع'],
+                        'filename' => 'violation-types-'.date('Ymd'),
+                        'totals' => ['إجمالي أنواع المخالفات' => count($rows).' نوع'],
                     ]
                 );
 
@@ -72,7 +76,7 @@ class ExportPdfController extends Controller
                 $rows = $regs->map(fn ($r, $i) => [
                     $i + 1,
                     "<strong>{$r->title}</strong>",
-                    $r->content ? \Illuminate\Support\Str::limit(strip_tags($r->content), 120) : '—',
+                    $r->content ? Str::limit(strip_tags($r->content), 120) : '—',
                     $r->is_active ? '<span class="badge badge-success">نشط</span>' : '<span class="badge badge-danger">معطل</span>',
                 ])->toArray();
 
@@ -81,15 +85,15 @@ class ExportPdfController extends Controller
                     headers: $headers,
                     rows: $rows,
                     options: [
-                        'filename' => 'violation-regulations-' . date('Ymd'),
-                        'totals' => ['إجمالي اللوائح' => count($rows) . ' لائحة'],
+                        'filename' => 'violation-regulations-'.date('Ymd'),
+                        'totals' => ['إجمالي اللوائح' => count($rows).' لائحة'],
                     ]
                 );
 
             case 'violations':
             default:
                 $query = Violation::with(['company', 'category', 'type', 'recorder']);
-                if (!empty($companyId)) {
+                if (! empty($companyId)) {
                     $query->where('company_id', $companyId);
                 }
                 $violations = $query->orderBy('violation_date', 'desc')->get();
@@ -98,11 +102,11 @@ class ExportPdfController extends Controller
                 $rows = $violations->map(fn ($v, $i) => [
                     $i + 1,
                     "<strong>{$v->violation_number}</strong>",
-                    ($v->violation_date ? $v->violation_date->format('Y/m/d') : '—') . '<br><small style="color:#64748b;">' . HijriDateService::toHijriNumeric($v->violation_date) . '</small>',
+                    ($v->violation_date ? $v->violation_date->format('Y/m/d') : '—').'<br><small style="color:#64748b;">'.HijriDateService::toHijriNumeric($v->violation_date).'</small>',
                     $v->company?->trade_name ?? '—',
                     $v->type?->name ?? ($v->category?->name ?? '—'),
                     $v->issuing_authority ?? '—',
-                    number_format((float)$v->violation_amount, 2) . ' ر.س',
+                    number_format((float) $v->violation_amount, 2).' ر.س',
                     $v->payment_status?->getLabel() ?? '—',
                 ])->toArray();
 
@@ -113,10 +117,10 @@ class ExportPdfController extends Controller
                     headers: $headers,
                     rows: $rows,
                     options: [
-                        'filename' => 'violations-log-' . date('Ymd'),
+                        'filename' => 'violations-log-'.date('Ymd'),
                         'totals' => [
                             'عدد المخالفات' => count($rows),
-                            'إجمالي مبالغ الغرامات' => number_format((float)$totalAmount, 2) . ' ر.س',
+                            'إجمالي مبالغ الغرامات' => number_format((float) $totalAmount, 2).' ر.س',
                         ],
                     ]
                 );
@@ -136,7 +140,7 @@ class ExportPdfController extends Controller
         $query = ViolationTransaction::with(['company', 'violation.type', 'violation.category', 'executor']);
 
         $companyTitle = 'كافة المؤسسات والشركات (الكل)';
-        if (!empty($companyId) && $companyId !== 'all') {
+        if (! empty($companyId) && $companyId !== 'all') {
             $query->where('company_id', $companyId);
             $comp = Company::find($companyId);
             $companyTitle = $comp?->trade_name ?? "مؤسسة #{$companyId}";
@@ -152,13 +156,13 @@ class ExportPdfController extends Controller
         }
 
         $dateRangeLabel = null;
-        if (!empty($fromDate) && !empty($toDate)) {
+        if (! empty($fromDate) && ! empty($toDate)) {
             $query->whereBetween('transaction_date', [$fromDate, $toDate]);
             $dateRangeLabel = "الفترة من: {$fromDate} إلى: {$toDate}";
-        } elseif (!empty($fromDate)) {
+        } elseif (! empty($fromDate)) {
             $query->where('transaction_date', '>=', $fromDate);
             $dateRangeLabel = "من تاريخ: {$fromDate}";
-        } elseif (!empty($toDate)) {
+        } elseif (! empty($toDate)) {
             $query->where('transaction_date', '<=', $toDate);
             $dateRangeLabel = "حتى تاريخ: {$toDate}";
         }
@@ -171,14 +175,14 @@ class ExportPdfController extends Controller
             }
 
             return [
-                'type'           => $t->transaction_type?->value ?? $t->transaction_type,
-                'voucher_number' => $t->voucher_number ?? ('VT-' . $t->id),
-                'date'           => $t->transaction_date ? $t->transaction_date->format('Y/m/d') : '—',
-                'hijri_date'     => HijriDateService::toHijriNumeric($t->transaction_date),
-                'company_name'   => $t->company?->trade_name ?? '—',
-                'description'    => $desc,
-                'amount'         => (float)$t->amount,
-                'balance_after'  => $t->balance_after,
+                'type' => $t->transaction_type?->value ?? $t->transaction_type,
+                'voucher_number' => $t->voucher_number ?? ('VT-'.$t->id),
+                'date' => $t->transaction_date ? $t->transaction_date->format('Y/m/d') : '—',
+                'hijri_date' => HijriDateService::toHijriNumeric($t->transaction_date),
+                'company_name' => $t->company?->trade_name ?? '—',
+                'description' => $desc,
+                'amount' => (float) $t->amount,
+                'balance_after' => $t->balance_after,
             ];
         })->toArray();
 
@@ -186,10 +190,10 @@ class ExportPdfController extends Controller
             title: 'كشف حركات صندوق تحصيل المخالفات',
             records: $records,
             options: [
-                'company_title'    => $companyTitle,
-                'type_label'       => $typeLabel,
+                'company_title' => $companyTitle,
+                'type_label' => $typeLabel,
                 'date_range_label' => $dateRangeLabel,
-                'filename'         => 'violation-box-statement-' . date('Ymd'),
+                'filename' => 'violation-box-statement-'.date('Ymd'),
             ]
         );
     }
@@ -200,6 +204,7 @@ class ExportPdfController extends Controller
     public function printViolationVoucher(ViolationTransaction $transaction)
     {
         $transaction->load(['company', 'violation.type', 'violation.category', 'executor']);
+
         return ExportPdfService::exportVoucher($transaction);
     }
 
@@ -216,7 +221,7 @@ class ExportPdfController extends Controller
         $query = TreasuryTransaction::with(['company', 'paymentCollectionItem', 'executor.user']);
 
         $companyTitle = 'كافة المؤسسات والشركات (الكل)';
-        if (!empty($companyId) && $companyId !== 'all') {
+        if (! empty($companyId) && $companyId !== 'all') {
             $query->where('company_id', $companyId);
             $comp = Company::find($companyId);
             $companyTitle = $comp?->trade_name ?? "مؤسسة #{$companyId}";
@@ -232,32 +237,37 @@ class ExportPdfController extends Controller
         }
 
         $dateRangeLabel = null;
-        if (!empty($fromDate) && !empty($toDate)) {
+        if (! empty($fromDate) && ! empty($toDate)) {
             $query->whereBetween('transaction_date', [$fromDate, $toDate]);
             $dateRangeLabel = "الفترة من: {$fromDate} إلى: {$toDate}";
-        } elseif (!empty($fromDate)) {
+        } elseif (! empty($fromDate)) {
             $query->where('transaction_date', '>=', $fromDate);
             $dateRangeLabel = "من تاريخ: {$fromDate}";
-        } elseif (!empty($toDate)) {
+        } elseif (! empty($toDate)) {
             $query->where('transaction_date', '<=', $toDate);
             $dateRangeLabel = "حتى تاريخ: {$toDate}";
         }
 
         $records = $query->orderBy('transaction_date', 'asc')->orderBy('id', 'asc')->get()->map(function ($t) {
             $desc = $t->description ?: ($t->paymentCollectionItem?->sub_item ?? '—');
-            if ($t->recipient_or_payer) {
+            $desc = str_replace(
+                ['Salary Payment', 'Salary Collection', 'salary_payment', 'salary_collection'],
+                ['تسليم رواتب', 'تحصيل رواتب', 'تسليم رواتب', 'تحصيل رواتب'],
+                $desc
+            );
+            if ($t->recipient_or_payer && ! str_contains($desc, $t->recipient_or_payer)) {
                 $desc .= " (الطرف: {$t->recipient_or_payer})";
             }
 
             return [
-                'type'           => $t->transaction_type,
+                'type' => $t->transaction_type instanceof TreasuryTransactionType ? $t->transaction_type->value : (string) $t->transaction_type,
                 'voucher_number' => $t->voucher_number ?? $t->transaction_number,
-                'date'           => $t->transaction_date ? $t->transaction_date->format('Y/m/d') : '—',
-                'hijri_date'     => HijriDateService::toHijriNumeric($t->transaction_date),
-                'company_name'   => $t->company?->trade_name ?? '—',
-                'description'    => $desc,
-                'amount'         => (float)$t->amount,
-                'balance_after'  => $t->balance_after,
+                'date' => $t->transaction_date ? $t->transaction_date->format('Y/m/d') : '—',
+                'hijri_date' => HijriDateService::toHijriNumeric($t->transaction_date),
+                'company_name' => $t->company?->trade_name ?? '—',
+                'description' => $desc,
+                'amount' => (float) $t->amount,
+                'balance_after' => $t->balance_after,
             ];
         })->toArray();
 
@@ -265,10 +275,10 @@ class ExportPdfController extends Controller
             title: 'كشف حركة الخزينة والمقبوضات/المدفوعات',
             records: $records,
             options: [
-                'company_title'    => $companyTitle,
-                'type_label'       => $typeLabel,
+                'company_title' => $companyTitle,
+                'type_label' => $typeLabel,
                 'date_range_label' => $dateRangeLabel,
-                'filename'         => 'treasury-statement-' . date('Ymd'),
+                'filename' => 'treasury-statement-'.date('Ymd'),
             ]
         );
     }
@@ -279,6 +289,7 @@ class ExportPdfController extends Controller
     public function printTreasuryVoucher(TreasuryTransaction $transaction)
     {
         $transaction->load(['company', 'paymentCollectionItem', 'executor.user']);
+
         return ExportPdfService::exportVoucher($transaction);
     }
 
@@ -293,28 +304,28 @@ class ExportPdfController extends Controller
         $fromDate = $request->query('from_date');
         $toDate = $request->query('to_date');
 
-        $query = \App\Models\Debt::with(['company', 'employee.user', 'guarantor']);
+        $query = Debt::with(['company', 'employee.user', 'guarantor']);
 
         $companyTitle = 'كافة المنشآت والشركات (الكل)';
-        if (!empty($companyId) && $companyId !== 'all') {
+        if (! empty($companyId) && $companyId !== 'all') {
             $query->where('company_id', $companyId);
             $comp = Company::find($companyId);
             $companyTitle = $comp?->trade_name ?? "منشأة #{$companyId}";
         }
 
-        if (!empty($debtorType) && $debtorType !== 'all') {
+        if (! empty($debtorType) && $debtorType !== 'all') {
             $query->where('debtor_type', $debtorType);
         }
 
-        if (!empty($status) && $status !== 'all') {
+        if (! empty($status) && $status !== 'all') {
             $query->where('status', $status);
         }
 
-        if (!empty($fromDate) && !empty($toDate)) {
+        if (! empty($fromDate) && ! empty($toDate)) {
             $query->whereBetween('debt_date', [$fromDate, $toDate]);
-        } elseif (!empty($fromDate)) {
+        } elseif (! empty($fromDate)) {
             $query->where('debt_date', '>=', $fromDate);
-        } elseif (!empty($toDate)) {
+        } elseif (! empty($toDate)) {
             $query->where('debt_date', '<=', $toDate);
         }
 
@@ -342,7 +353,7 @@ class ExportPdfController extends Controller
                 : ($d->employee?->user?->name ?? 'موظف داخلي');
 
             if ($d->debtor_type === 'external' && $d->external_phone) {
-                $debtorName .= '<br><small style="color:#64748b;">' . $d->external_phone . '</small>';
+                $debtorName .= '<br><small style="color:#64748b;">'.$d->external_phone.'</small>';
             }
 
             $debtorTypeLabel = $d->debtor_type === 'external'
@@ -364,34 +375,34 @@ class ExportPdfController extends Controller
                 $d->company?->trade_name ?? '—',
                 $d->guarantor?->name ?? '—',
                 $d->debt_reason ?? '—',
-                number_format((float)$d->total_amount, 2) . ' ر.س',
-                number_format((float)$d->paid_amount, 2) . ' ر.س',
-                '<strong style="color:#dc2626;">' . number_format((float)$d->remaining_amount, 2) . ' ر.س</strong>',
+                number_format((float) $d->total_amount, 2).' ر.س',
+                number_format((float) $d->paid_amount, 2).' ر.س',
+                '<strong style="color:#dc2626;">'.number_format((float) $d->remaining_amount, 2).' ر.س</strong>',
                 $d->debt_date ? $d->debt_date->format('Y/m/d') : '—',
                 $d->due_date ? $d->due_date->format('Y/m/d') : '—',
                 $statusBadge,
             ];
         })->toArray();
 
-        $totalDebts = (float)$debts->sum('total_amount');
-        $totalPaid = (float)$debts->sum('paid_amount');
-        $totalRemaining = (float)$debts->sum('remaining_amount');
+        $totalDebts = (float) $debts->sum('total_amount');
+        $totalPaid = (float) $debts->sum('paid_amount');
+        $totalRemaining = (float) $debts->sum('remaining_amount');
 
         return ExportPdfService::exportTableReport(
             title: 'كشف وسجل الديون العامة',
             headers: $headers,
             rows: $rows,
             options: [
-                'orientation'  => 'L',
+                'orientation' => 'L',
                 'company_name' => $companyTitle,
-                'subtitle'     => 'تقرير شامل بحركات وأرصدة الديون المسجلة',
-                'totals'       => [
-                    'عدد الديون'            => count($rows) . ' دين',
-                    'إجمالي أصل الديون'    => number_format($totalDebts, 2) . ' ر.س',
-                    'إجمالي المبالغ المسددة' => number_format($totalPaid, 2) . ' ر.س',
-                    'إجمالي الأرصدة المتبقية' => number_format($totalRemaining, 2) . ' ر.س',
+                'subtitle' => 'تقرير شامل بحركات وأرصدة الديون المسجلة',
+                'totals' => [
+                    'عدد الديون' => count($rows).' دين',
+                    'إجمالي أصل الديون' => number_format($totalDebts, 2).' ر.س',
+                    'إجمالي المبالغ المسددة' => number_format($totalPaid, 2).' ر.س',
+                    'إجمالي الأرصدة المتبقية' => number_format($totalRemaining, 2).' ر.س',
                 ],
-                'filename'     => 'debts-report-' . date('Ymd-His'),
+                'filename' => 'debts-report-'.date('Ymd-His'),
             ]
         );
     }
@@ -399,12 +410,12 @@ class ExportPdfController extends Controller
     /**
      * Print official voucher for a debt.
      */
-    public function printDebtVoucher(\App\Models\Debt $debt)
+    public function printDebtVoucher(Debt $debt)
     {
         $debt->load(['company', 'employee.user', 'guarantor']);
-        
-        $amount = (float)$debt->total_amount;
-        $amountWords = \App\Services\TafqeetService::inArabic($amount);
+
+        $amount = (float) $debt->total_amount;
+        $amountWords = TafqeetService::inArabic($amount);
         $transDate = $debt->debt_date ?? now();
         $gregorianDate = $transDate->format('Y/m/d');
         $hijriDate = HijriDateService::toHijri($transDate);
@@ -416,24 +427,24 @@ class ExportPdfController extends Controller
             : ($debt->employee?->user?->name ?? 'موظف');
 
         $html = view('exports.pdf-voucher', [
-            'voucher_title'    => 'سند إثبات وتفاصيل دين عام',
-            'voucher_number'   => $debt->debt_number,
-            'is_incoming'      => false,
-            'company_name'     => $companyName,
-            'cr_number'        => $crNumber,
+            'voucher_title' => 'سند إثبات وتفاصيل دين عام',
+            'voucher_number' => $debt->debt_number,
+            'is_incoming' => false,
+            'company_name' => $companyName,
+            'cr_number' => $crNumber,
             'department_label' => 'إدارة الحسابات — سجل الديون العامة',
-            'gregorian_date'   => $gregorianDate,
-            'hijri_date'       => $hijriDate,
-            'amount'           => $amount,
-            'amount_words'     => $amountWords,
-            'party_name'       => $debtorName . ($debt->external_phone ? " ({$debt->external_phone})" : ''),
-            'category_name'    => $debt->debt_reason ?? 'دين عام',
-            'description'      => "أصل الدين: " . number_format($debt->total_amount, 2) . " ر.س | المسدد: " . number_format($debt->paid_amount, 2) . " ر.س | المتبقي: " . number_format($debt->remaining_amount, 2) . " ر.س" . ($debt->guarantor ? " | الضامن/الكفيل: {$debt->guarantor->name}" : '') . ($debt->description ? " | ملاحظات: {$debt->description}" : ''),
-            'balance_after'    => $debt->remaining_amount,
-            'executed_by'      => auth()->user()?->name ?? 'المسؤول',
+            'gregorian_date' => $gregorianDate,
+            'hijri_date' => $hijriDate,
+            'amount' => $amount,
+            'amount_words' => $amountWords,
+            'party_name' => $debtorName.($debt->external_phone ? " ({$debt->external_phone})" : ''),
+            'category_name' => $debt->debt_reason ?? 'دين عام',
+            'description' => 'أصل الدين: '.number_format($debt->total_amount, 2).' ر.س | المسدد: '.number_format($debt->paid_amount, 2).' ر.س | المتبقي: '.number_format($debt->remaining_amount, 2).' ر.س'.($debt->guarantor ? " | الضامن/الكفيل: {$debt->guarantor->name}" : '').($debt->description ? " | ملاحظات: {$debt->description}" : ''),
+            'balance_after' => $debt->remaining_amount,
+            'executed_by' => auth()->user()?->name ?? 'المسؤول',
         ])->render();
 
-        $filename = 'debt-voucher-' . $debt->debt_number . '.pdf';
+        $filename = 'debt-voucher-'.$debt->debt_number.'.pdf';
 
         return ExportPdfService::renderHtml($html, $filename, false, ['margin_top' => 12, 'margin_bottom' => 12]);
     }
@@ -448,24 +459,24 @@ class ExportPdfController extends Controller
         $fromDate = $request->query('from_date');
         $toDate = $request->query('to_date');
 
-        $query = \App\Models\Invoice::with(['company', 'customer', 'employee.user', 'invoiceType']);
+        $query = Invoice::with(['company', 'customer', 'employee.user', 'invoiceType']);
 
         $companyTitle = 'كافة المنشآت والشركات (الكل)';
-        if (!empty($companyId) && $companyId !== 'all') {
+        if (! empty($companyId) && $companyId !== 'all') {
             $query->where('company_id', $companyId);
             $comp = Company::find($companyId);
             $companyTitle = $comp?->trade_name ?? "منشأة #{$companyId}";
         }
 
-        if (!empty($status) && $status !== 'all') {
+        if (! empty($status) && $status !== 'all') {
             $query->where('payment_status', $status);
         }
 
-        if (!empty($fromDate) && !empty($toDate)) {
+        if (! empty($fromDate) && ! empty($toDate)) {
             $query->whereBetween('issue_date', [$fromDate, $toDate]);
-        } elseif (!empty($fromDate)) {
+        } elseif (! empty($fromDate)) {
             $query->where('issue_date', '>=', $fromDate);
-        } elseif (!empty($toDate)) {
+        } elseif (! empty($toDate)) {
             $query->where('issue_date', '<=', $toDate);
         }
 
@@ -486,11 +497,11 @@ class ExportPdfController extends Controller
 
         $rows = $invoices->map(function ($inv, $i) {
             $client = $inv->customer?->name;
-            if (!$client && $inv->employee) {
-                $client = 'موظف: ' . ($inv->employee->user?->name ?? '#' . $inv->employee->id);
+            if (! $client && $inv->employee) {
+                $client = 'موظف: '.($inv->employee->user?->name ?? '#'.$inv->employee->id);
             }
 
-            $st = $inv->payment_status?->value ?? (string)$inv->payment_status;
+            $st = $inv->payment_status?->value ?? (string) $inv->payment_status;
             $statusBadge = match ($st) {
                 'paid' => '<span style="color:#16a34a; font-weight:bold;">مسددة بالكامل</span>',
                 'partially_paid', 'partial' => '<span style="color:#0284c7; font-weight:bold;">مسددة جزئياً</span>',
@@ -504,32 +515,32 @@ class ExportPdfController extends Controller
                 $client ?? '—',
                 $inv->invoiceType?->name ?? 'خدمات عامة',
                 $inv->issue_date ? $inv->issue_date->format('Y/m/d') : '—',
-                number_format((float)$inv->total_amount, 2) . ' ر.س',
-                number_format((float)$inv->paid_amount, 2) . ' ر.س',
-                '<strong style="color:#dc2626;">' . number_format((float)$inv->remaining_amount, 2) . ' ر.س</strong>',
+                number_format((float) $inv->total_amount, 2).' ر.س',
+                number_format((float) $inv->paid_amount, 2).' ر.س',
+                '<strong style="color:#dc2626;">'.number_format((float) $inv->remaining_amount, 2).' ر.س</strong>',
                 $statusBadge,
             ];
         })->toArray();
 
-        $totalAmount = (float)$invoices->sum('total_amount');
-        $totalPaid = (float)$invoices->sum('paid_amount');
-        $totalRemaining = (float)$invoices->sum('remaining_amount');
+        $totalAmount = (float) $invoices->sum('total_amount');
+        $totalPaid = (float) $invoices->sum('paid_amount');
+        $totalRemaining = (float) $invoices->sum('remaining_amount');
 
         return ExportPdfService::exportTableReport(
             title: 'كشف وسجل الفواتير وسندات الخدمات',
             headers: $headers,
             rows: $rows,
             options: [
-                'orientation'  => 'L',
+                'orientation' => 'L',
                 'company_name' => $companyTitle,
-                'subtitle'     => 'تقرير شامل بحركات ومستحقات الفواتير الصادرة',
-                'totals'       => [
-                    'عدد الفواتير'            => count($rows) . ' فاتورة',
-                    'إجمالي قيمة الفواتير'    => number_format($totalAmount, 2) . ' ر.س',
-                    'إجمالي المبالغ المحصلة' => number_format($totalPaid, 2) . ' ر.س',
-                    'إجمالي المبالغ المتبقية' => number_format($totalRemaining, 2) . ' ر.س',
+                'subtitle' => 'تقرير شامل بحركات ومستحقات الفواتير الصادرة',
+                'totals' => [
+                    'عدد الفواتير' => count($rows).' فاتورة',
+                    'إجمالي قيمة الفواتير' => number_format($totalAmount, 2).' ر.س',
+                    'إجمالي المبالغ المحصلة' => number_format($totalPaid, 2).' ر.س',
+                    'إجمالي المبالغ المتبقية' => number_format($totalRemaining, 2).' ر.س',
                 ],
-                'filename'     => 'invoices-report-' . date('Ymd-His'),
+                'filename' => 'invoices-report-'.date('Ymd-His'),
             ]
         );
     }

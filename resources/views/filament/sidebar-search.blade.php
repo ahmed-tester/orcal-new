@@ -244,11 +244,16 @@
                 localStorage.setItem('collapsedGroups', JSON.stringify(allLabels));
 
                 groups.forEach(g => {
+                    const items = g.querySelectorAll('.fi-sidebar-item');
+                    if (items.length === 0) {
+                        g.style.display = 'none';
+                        return;
+                    }
                     if (g.dataset.groupLabel) {
                         g.classList.add('fi-collapsed');
-                        const items = g.querySelector('.fi-sidebar-group-items');
-                        if (items) {
-                            items.style.display = 'none';
+                        const itemsContainer = g.querySelector('.fi-sidebar-group-items');
+                        if (itemsContainer) {
+                            itemsContainer.style.display = 'none';
                         }
                     }
                 });
@@ -264,10 +269,15 @@
                 localStorage.setItem('collapsedGroups', JSON.stringify([]));
 
                 groups.forEach(g => {
+                    const items = g.querySelectorAll('.fi-sidebar-item');
+                    if (items.length === 0) {
+                        g.style.display = 'none';
+                        return;
+                    }
                     g.classList.remove('fi-collapsed');
-                    const items = g.querySelector('.fi-sidebar-group-items');
-                    if (items) {
-                        items.style.display = '';
+                    const itemsContainer = g.querySelector('.fi-sidebar-group-items');
+                    if (itemsContainer) {
+                        itemsContainer.style.display = '';
                     }
                 });
             },
@@ -279,14 +289,19 @@
                 let totalMatches = 0;
 
                 if (!q) {
-                    // Reset everything to normal state
+                    // Reset everything to normal state, but keep empty groups hidden
                     groups.forEach(group => {
+                        const items = group.querySelectorAll('.fi-sidebar-item');
+                        if (items.length === 0) {
+                            group.style.display = 'none';
+                            return;
+                        }
                         group.style.display = '';
                         const itemsContainer = group.querySelector('.fi-sidebar-group-items');
                         if (itemsContainer) {
                             itemsContainer.style.display = '';
                         }
-                        group.querySelectorAll('.fi-sidebar-item').forEach(item => {
+                        items.forEach(item => {
                             item.style.display = '';
                         });
                     });
@@ -296,11 +311,16 @@
                     // Re-apply collapsed state from storage
                     const collapsed = (window.Alpine && window.Alpine.store('sidebar')?.collapsedGroups) || [];
                     groups.forEach(group => {
+                        const items = group.querySelectorAll('.fi-sidebar-item');
+                        if (items.length === 0) {
+                            group.style.display = 'none';
+                            return;
+                        }
                         const label = group.dataset.groupLabel;
                         if (label && collapsed.includes(label)) {
                             group.classList.add('fi-collapsed');
-                            const items = group.querySelector('.fi-sidebar-group-items');
-                            if (items) items.style.display = 'none';
+                            const itemsContainer = group.querySelector('.fi-sidebar-group-items');
+                            if (itemsContainer) itemsContainer.style.display = 'none';
                         } else {
                             group.classList.remove('fi-collapsed');
                         }
@@ -311,11 +331,16 @@
 
                 // Filter groups and items
                 groups.forEach(group => {
+                    const items = group.querySelectorAll('.fi-sidebar-item');
+                    if (items.length === 0) {
+                        group.style.display = 'none';
+                        return;
+                    }
+
                     const groupLabelEl = group.querySelector('.fi-sidebar-group-label');
                     const groupLabel = this.normalize(group.dataset.groupLabel || (groupLabelEl ? groupLabelEl.textContent : ''));
                     const groupMatches = groupLabel.includes(q);
 
-                    const items = group.querySelectorAll('.fi-sidebar-item');
                     let groupHasMatchingItem = false;
 
                     items.forEach(item => {
@@ -333,7 +358,7 @@
 
                     const itemsContainer = group.querySelector('.fi-sidebar-group-items');
 
-                    if (groupMatches || groupHasMatchingItem) {
+                    if (groupHasMatchingItem) {
                         group.style.display = '';
                         if (itemsContainer) {
                             itemsContainer.style.display = 'block';

@@ -46,6 +46,12 @@
         color: #ffffff !important;
     }
 
+    /* Hide any sidebar navigation group that has no visible items (Permissions Security) */
+    .fi-sidebar-group:not(:has(.fi-sidebar-item)),
+    .fi-main-sidebar .fi-sidebar-group:not(:has(.fi-sidebar-item)) {
+        display: none !important;
+    }
+
     /* Group Labels & Group Toggle Buttons */
     .fi-main-sidebar .fi-sidebar-group-label,
     .fi-main-sidebar .fi-sidebar-group-btn span,
@@ -240,6 +246,17 @@
 </style>
 
 <script>
+    // Completely hide navigation groups that have no authorized items (Permissions Security)
+    function hideEmptySidebarGroups() {
+        document.querySelectorAll('.fi-sidebar-group').forEach(group => {
+            const items = group.querySelectorAll('.fi-sidebar-item');
+            if (!items || items.length === 0) {
+                group.style.display = 'none';
+                group.setAttribute('aria-hidden', 'true');
+            }
+        });
+    }
+
     // Disable native browser validation tooltips (e.g. English "Please fill out this field")
     // so Laravel & Livewire can render full Arabic inline error messages.
     function disableBrowserValidation() {
@@ -248,13 +265,23 @@
         });
     }
 
-    document.addEventListener('DOMContentLoaded', disableBrowserValidation);
-    document.addEventListener('livewire:navigated', disableBrowserValidation);
-    document.addEventListener('livewire:init', disableBrowserValidation);
+    document.addEventListener('DOMContentLoaded', () => {
+        disableBrowserValidation();
+        hideEmptySidebarGroups();
+    });
+    document.addEventListener('livewire:navigated', () => {
+        disableBrowserValidation();
+        hideEmptySidebarGroups();
+    });
+    document.addEventListener('livewire:init', () => {
+        disableBrowserValidation();
+        hideEmptySidebarGroups();
+    });
 
     // Watch for dynamically opened modals and Livewire components
     const formObserver = new MutationObserver(() => {
         disableBrowserValidation();
+        hideEmptySidebarGroups();
     });
 
     if (document.body) {

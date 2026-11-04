@@ -214,6 +214,16 @@
         color: #ffffff;
         box-shadow: 0 2px 8px rgba(139, 92, 246, 0.35);
     }
+    .op-btn-saudi {
+        background: #0284c7;
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(2, 132, 199, 0.35);
+    }
+    .op-btn-foreign {
+        background: #059669;
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(5, 150, 105, 0.35);
+    }
     .op-btn-inactive {
         background: transparent;
         color: #64748b;

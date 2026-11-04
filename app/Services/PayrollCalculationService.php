@@ -356,7 +356,7 @@ class PayrollCalculationService
 
             $employeeName = $record->employee?->user?->name ?? "#{$record->employee_id}";
             $monthFormatted = Carbon::parse($record->payroll_month)->format('Y-m');
-            $txTitle = $isCollection ? 'Salary Collection' : 'Salary Payment';
+            $txTitle = $isCollection ? 'تحصيل رواتب' : 'تسليم رواتب';
 
             $treasuryTx = TreasuryTransaction::create([
                 'company_id' => $companyId,

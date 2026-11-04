@@ -42,6 +42,12 @@ class ListPayrollRecords extends ListRecords
     // Operation Type: 'payroll' (رواتب) or 'collection' (تحصيل)
     public string $operationType = 'payroll';
 
+    // Nationality Scope: 'saudi' (سعوديون وملاك) or 'foreign' (أجانب)
+    public string $nationalityScope = 'saudi';
+
+    // Bulk Basic Salary tool
+    public ?float $bulkBasicSalary = null;
+
     public string $printReportType = 'payroll';
 
     // Employee Scope: 'all' (جميع موظفي المنشأة) or 'specific' (موظف معين)
@@ -325,6 +331,18 @@ class ListPayrollRecords extends ListRecords
         $this->loadSheet();
     }
 
+    public function setNationalityScope(string $scope): void
+    {
+        if (in_array($scope, ['saudi', 'foreign'])) {
+            $this->nationalityScope = $scope;
+            $this->checkedEmployees = [];
+            $this->notes = [];
+            $this->selectedEmployeeId = null;
+            $this->sheetPage = 1;
+            $this->loadSheet();
+        }
+    }
+
     public function updatedOperationType(): void
     {
         $this->checkedEmployees = [];
@@ -396,6 +414,12 @@ class ListPayrollRecords extends ListRecords
     {
         $query = Employee::query()->where('status', 'active')->with('user');
 
+        if ($this->nationalityScope === 'foreign') {
+            $query->foreign();
+        } else {
+            $query->saudi();
+        }
+
         if ($this->filterMode === 'single_company' && $this->selectedCompanyId) {
             $query->where('company_id', $this->selectedCompanyId);
         } elseif ($this->filterMode === 'multiple_companies' && ! empty($this->selectedCompanyIds)) {
@@ -415,6 +439,7 @@ class ListPayrollRecords extends ListRecords
                 'selectedGuarantorId' => $this->selectedGuarantorId,
                 'selectedGuarantor' => $this->selectedGuarantor,
                 'operationType' => $this->operationType,
+                'nationalityScope' => $this->nationalityScope,
                 'employeeScope' => $this->employeeScope,
                 'selectedEmployeeId' => $this->selectedEmployeeId,
                 'paymentScope' => $this->paymentScope,
@@ -474,12 +499,7 @@ class ListPayrollRecords extends ListRecords
     public function toggleEmployeeCheck(int $employeeId): void
     {
         $this->checkedEmployees[$employeeId] = ! ($this->checkedEmployees[$employeeId] ?? false);
-
-        $totals = PayrollSheetService::applyEmployeeCheck($this->employeeRows, $this->checkedEmployees, $employeeId);
-        $this->totalPaidAmount = $totals['totalPaidAmount'];
-        $this->totalPendingAmount = $totals['totalPendingAmount'];
-
-        $this->recalculatePagination();
+        $this->loadSheet();
     }
 
     public function toggleCheckAll(bool $checkState): void
@@ -487,12 +507,110 @@ class ListPayrollRecords extends ListRecords
         foreach ($this->employeeRows as $row) {
             $this->checkedEmployees[$row['employee_id']] = $checkState;
         }
+        $this->loadSheet();
+    }
 
-        $totals = PayrollSheetService::applyCheckAll($this->employeeRows, $checkState);
-        $this->totalPaidAmount = $totals['totalPaidAmount'];
-        $this->totalPendingAmount = $totals['totalPendingAmount'];
+    public function applyBulkBasicSalary(): void
+    {
+        if ($this->bulkBasicSalary === null || $this->bulkBasicSalary < 0) {
+            Notification::make()
+                ->title(__('finance.payroll_records.sheet.bulk_salary_invalid'))
+                ->warning()
+                ->send();
 
+            return;
+        }
+
+        $salary = round((float) $this->bulkBasicSalary, 2);
+
+        foreach ($this->employeeRows as &$row) {
+            $row['basic_salary'] = $salary;
+            $additions = (float) ($row['additional_amount'] ?? 0);
+            $deductions = (float) ($row['deduction_amount'] ?? 0);
+            $net = max(0.0, round($salary + $additions - $deductions, 2));
+            $row['net_amount'] = $net;
+
+            $empId = $row['employee_id'];
+            $isChecked = $this->checkedEmployees[$empId] ?? false;
+
+            if ($isChecked) {
+                $row['paid_amount'] = $net;
+                $row['remaining_amount'] = 0.0;
+            } else {
+                $origPaid = (float) ($row['original_paid_amount'] ?? 0.0);
+                $row['paid_amount'] = min($origPaid, $net);
+                $row['remaining_amount'] = max(0.0, round($net - $row['paid_amount'], 2));
+            }
+        }
+        unset($row);
+
+        $this->recalculateTotalsFromRows();
         $this->recalculatePagination();
+
+        Notification::make()
+            ->title(__('finance.payroll_records.sheet.bulk_salary_applied_title'))
+            ->body(__('finance.payroll_records.sheet.bulk_salary_applied_body', [
+                'amount' => number_format($salary, 2),
+                'count' => count($this->employeeRows),
+            ]))
+            ->success()
+            ->send();
+    }
+
+    public function updateRowBasicSalary(int $employeeId, mixed $newSalary): void
+    {
+        $salary = max(0.0, round((float) $newSalary, 2));
+
+        foreach ($this->employeeRows as &$row) {
+            if ($row['employee_id'] === $employeeId) {
+                $row['basic_salary'] = $salary;
+                $additions = (float) ($row['additional_amount'] ?? 0);
+                $deductions = (float) ($row['deduction_amount'] ?? 0);
+                $net = max(0.0, round($salary + $additions - $deductions, 2));
+                $row['net_amount'] = $net;
+
+                $isChecked = $this->checkedEmployees[$employeeId] ?? false;
+                if ($isChecked) {
+                    $row['paid_amount'] = $net;
+                    $row['remaining_amount'] = 0.0;
+                } else {
+                    $origPaid = (float) ($row['original_paid_amount'] ?? 0.0);
+                    $row['paid_amount'] = min($origPaid, $net);
+                    $row['remaining_amount'] = max(0.0, round($net - $row['paid_amount'], 2));
+                }
+                break;
+            }
+        }
+        unset($row);
+
+        $this->recalculateTotalsFromRows();
+        $this->recalculatePagination();
+    }
+
+    public function recalculateTotalsFromRows(): void
+    {
+        $totalBasic = 0.0;
+        $totalAdditional = 0.0;
+        $totalDeduction = 0.0;
+        $totalNet = 0.0;
+        $totalPaid = 0.0;
+        $totalPending = 0.0;
+
+        foreach ($this->employeeRows as $r) {
+            $totalBasic += (float) ($r['basic_salary'] ?? 0);
+            $totalAdditional += (float) ($r['additional_amount'] ?? 0);
+            $totalDeduction += (float) ($r['deduction_amount'] ?? 0);
+            $totalNet += (float) ($r['net_amount'] ?? 0);
+            $totalPaid += (float) ($r['paid_amount'] ?? 0);
+            $totalPending += (float) ($r['remaining_amount'] ?? 0);
+        }
+
+        $this->totalBasicAmount = round($totalBasic, 2);
+        $this->totalAdditionalAmount = round($totalAdditional, 2);
+        $this->totalDeductionAmount = round($totalDeduction, 2);
+        $this->totalNetAmount = round($totalNet, 2);
+        $this->totalPaidAmount = round($totalPaid, 2);
+        $this->totalPendingAmount = round($totalPending, 2);
     }
 
     public function savePayrollSheet(): void

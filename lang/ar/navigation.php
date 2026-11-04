@@ -102,5 +102,10 @@ return [
 
     // Group 11: Official Letters
     'official_letters' => 'الخطابات الرسمية',
+
+    // Group 12: Asset Funds
+    'asset_funds'          => 'صناديق الأصول',
+    'asset_fund_vouchers'  => 'سندات الإيداع والسحب',
+    'asset_fund_statement' => 'كشف حركة الصندوق',
 ];
 

@@ -2,7 +2,12 @@
 
 namespace App\Filament\Resources\TreasuryTransactions\Tables;
 
+use App\Enums\PaymentItemCategory;
+use App\Enums\TreasuryTransactionType;
+use App\Services\HijriDateService;
+use Carbon\Carbon;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -22,17 +27,19 @@ class TreasuryTransactionsTable
                     ->searchable()
                     ->sortable()
                     ->badge()
-                    ->color('primary'),
+                    ->color('primary')
+                    ->description(fn ($record) => $record->voucher_number ? "سند: {$record->voucher_number}" : null),
 
                 TextColumn::make('voucher_number')
                     ->label(__('finance.treasury_transactions.fields.voucher_number'))
                     ->searchable()
                     ->badge()
-                    ->color('gray'),
+                    ->color('gray')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('transaction_date')
                     ->label(__('finance.treasury_transactions.fields.transaction_date'))
-                    ->formatStateUsing(fn ($state) => $state ? \Carbon\Carbon::parse($state)->format('Y/m/d') . ' م<br><span style="font-size:0.75rem; color:#64748b;">' . \App\Services\HijriDateService::toHijriNumeric($state) . ' هـ</span>' : '—')
+                    ->formatStateUsing(fn ($state) => $state ? Carbon::parse($state)->format('Y/m/d').' م<br><span style="font-size:0.75rem; color:#64748b;">'.HijriDateService::toHijriNumeric($state).' هـ</span>' : '—')
                     ->html()
                     ->sortable(),
 
@@ -50,7 +57,7 @@ class TreasuryTransactionsTable
                 TextColumn::make('paymentCollectionItem.sub_item')
                     ->label(__('finance.treasury_transactions.fields.payment_collection_item'))
                     ->searchable()
-                    ->description(fn ($record) => $record->paymentCollectionItem?->main_item instanceof \App\Enums\PaymentItemCategory ? $record->paymentCollectionItem->main_item->getLabel() : (string)($record->paymentCollectionItem?->main_item ?? ''))
+                    ->description(fn ($record) => $record->paymentCollectionItem?->main_item instanceof PaymentItemCategory ? $record->paymentCollectionItem->main_item->getLabel() : (string) ($record->paymentCollectionItem?->main_item ?? ''))
                     ->wrap(),
 
                 TextColumn::make('recipient_or_payer')
@@ -85,7 +92,7 @@ class TreasuryTransactionsTable
 
                 SelectFilter::make('transaction_type')
                     ->label(__('finance.treasury_transactions.fields.transaction_type'))
-                    ->options(\App\Enums\TreasuryTransactionType::class),
+                    ->options(TreasuryTransactionType::class),
             ])
             ->recordActions([
                 Action::make('print_voucher')
@@ -94,11 +101,11 @@ class TreasuryTransactionsTable
                     ->color('warning')
                     ->url(fn ($record) => route('treasury.voucher.print', $record))
                     ->openUrlInNewTab(),
-                \Filament\Actions\ActionGroup::make([
+                ActionGroup::make([
                     EditAction::make(),
                     // DeleteAction::make(), // تم تعطيل حذف حركات الخزينة
                 ])
-                ->icon('heroicon-m-ellipsis-vertical'),
+                    ->icon('heroicon-m-ellipsis-vertical'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

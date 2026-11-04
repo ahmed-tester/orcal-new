@@ -332,4 +332,17 @@ return [
     'create_loan_fund_member_payment' => 'تسجيل اشتراك في سلفني',
     'update_loan_fund_member_payment' => 'تعديل اشتراك سلفني',
     'delete_loan_fund_member_payment' => 'حذف اشتراك سلفني',
+
+    // Asset Funds
+    'view_any_asset_fund' => 'استعراض صناديق الأصول',
+    'create_asset_fund' => 'إنشاء صندوق أصول',
+    'update_asset_fund' => 'تعديل صندوق أصول',
+    'delete_asset_fund' => 'حذف صندوق أصول',
+
+    'view_any_asset_fund_voucher' => 'استعراض سندات صندوق الأصول',
+    'create_asset_fund_voucher' => 'تسجيل سند إيداع / سحب',
+    'update_asset_fund_voucher' => 'تعديل سند صندوق أصول',
+    'delete_asset_fund_voucher' => 'حذف سند صندوق أصول',
+
+    'view_asset_fund_statement' => 'استعراض كشف حركة صندوق الأصول',
 ];

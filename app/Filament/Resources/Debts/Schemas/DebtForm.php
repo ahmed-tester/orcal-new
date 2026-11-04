@@ -256,6 +256,7 @@ class DebtForm
                             label: __('debts.fields.notify_employee'),
                             required: false,
                             relationshipName: 'notifyEmployee',
+                            saudiOnly: true,
                         ),
 
                         CompanyFormService::makeEmployeeSelect(
@@ -263,6 +264,7 @@ class DebtForm
                             label: __('debts.fields.executed_by'),
                             required: false,
                             relationshipName: 'executor',
+                            saudiOnly: true,
                         )
                             ->default(fn () => auth()->user()?->employee?->id)
                             ->disabled(fn () => ! (auth()->user()?->isSuperAdmin() ?? false))
