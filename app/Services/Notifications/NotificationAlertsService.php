@@ -5,6 +5,7 @@ namespace App\Services\Notifications;
 use App\Enums\ViolationPaymentStatus;
 use App\Enums\ViolationStage;
 use App\Models\Company;
+use App\Models\Debt;
 use App\Models\Employee;
 use App\Models\EmployeeDetail;
 use App\Models\Invoice;
@@ -410,6 +411,43 @@ class NotificationAlertsService
                             recipientName: $tx->display_beneficiary,
                             recipientPhone: $tx->beneficiary_phone ?? $tx->employee?->user?->phone,
                             companyName: $tx->company?->trade_name
+                        ));
+                    }
+                }
+            }
+
+            // 6. Active Unpaid / Overdue Debts
+            if (class_exists(Debt::class)) {
+                $debts = Debt::with(['notifyEmployee.user', 'employee.user', 'company'])
+                    ->where('status', '!=', 'paid')
+                    ->whereNotNull('due_date')
+                    ->get();
+
+                foreach ($debts as $debt) {
+                    $dueDate = Carbon::parse($debt->due_date);
+                    if ($dueDate->lessThanOrEqualTo($horizonDate)) {
+                        $debtorName = $debt->beneficiary_name ?? '—';
+                        $remaining = number_format((float) ($debt->remaining_amount ?? 0), 2) . ' ' . __('notifications.alerts.currency');
+                        $notifiable = $debt->notifyEmployee?->user ?? $debt->executor?->user ?? $debt->company?->owner?->user;
+                        $debtNumber = $debt->debt_number ?? ('#' . $debt->id);
+
+                        $subtitle = "المدين: {$debtorName} | المتبقي: {$remaining}";
+                        if (! empty($debt->notification_notes)) {
+                            $subtitle .= " | " . $debt->notification_notes;
+                        }
+
+                        $alerts->push($this->formatAlert(
+                            id: 'debt_' . $debt->id,
+                            category: 'invoices',
+                            type: 'debt_due',
+                            typeLabel: __('debts.single'),
+                            title: __('debts.notifications.due_alert_title', ['number' => $debtNumber]),
+                            subtitle: $subtitle,
+                            dueDate: $dueDate,
+                            notifiable: $notifiable,
+                            recipientName: $debt->notifyEmployee?->name ?? $debtorName,
+                            recipientPhone: $debt->notifyEmployee?->phone ?? $debt->beneficiary_phone,
+                            companyName: $debt->company?->trade_name
                         ));
                     }
                 }

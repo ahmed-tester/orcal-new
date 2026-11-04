@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\Debts\Tables;
 
 use App\Filament\Components\OrgSelect;
+use App\Models\Debt;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -49,8 +51,10 @@ class DebtsTable
                         if ($record->debtor_type === 'external') {
                             $idText = $record->external_national_id ? "{$record->external_national_id}" : '';
                             $phoneText = $record->external_phone ? "{$record->external_phone}" : '';
+
                             return trim("{$idText} | {$phoneText}", " |");
                         }
+
                         return $record->employee?->employee_number ?? null;
                     }),
 
@@ -129,17 +133,18 @@ class DebtsTable
                         'overdue' => __('debts.statuses.overdue'),
                     ]),
             ])
-            ->actions([
+            ->recordActions([
                 ActionGroup::make([
-                    \Filament\Actions\Action::make('print_voucher')
-                        ->label('طباعة سند الدين')
+                    Action::make('print_voucher')
+                        ->label(__('debts.actions.print_voucher'))
                         ->icon('heroicon-o-printer')
                         ->color('info')
-                        ->url(fn ($record) => route('exports.debt-voucher', $record))
+                        ->url(fn (Debt $record) => route('exports.debt-voucher', $record))
                         ->openUrlInNewTab(),
+
                     EditAction::make(),
                     DeleteAction::make(),
-                ]),
+                ])->icon('heroicon-m-ellipsis-vertical'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
