@@ -5,6 +5,7 @@ namespace App\Filament\Resources\AssetFundVouchers\Schemas;
 use App\Enums\AssetFundSourceType;
 use App\Enums\AssetFundVoucherType;
 use App\Models\AssetFund;
+use App\Models\AssetFundVoucher;
 use App\Services\CompanyFormService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -55,14 +56,14 @@ class AssetFundVoucherForm
                             ->required(),
                     ]),
 
-                // ─── Section 2A: Deposit Parties & Invoice (المقاول والمنشأة والفاتورة) ──
+                // ─── Section 2A: Deposit Parties & Invoice ─────────────────────
                 Section::make(__('asset_funds.asset_fund_vouchers.sections.deposit_parties'))
                     ->description(__('asset_funds.asset_fund_vouchers.sections.deposit_parties_desc'))
                     ->icon('heroicon-o-identification')
                     ->columns(2)
                     ->visible(fn (callable $get) => ($get('type') instanceof AssetFundVoucherType ? $get('type')->value : $get('type')) === AssetFundVoucherType::DEPOSIT->value || empty($get('type')))
                     ->schema([
-                        // الصف الأول: المقاول ورقم الفاتورة
+                        // Row 1: contractor and invoice number
                         TextInput::make('contractor_name')
                             ->label(__('asset_funds.asset_fund_vouchers.fields.contractor_name'))
                             ->placeholder(__('asset_funds.asset_fund_vouchers.placeholders.contractor_name')),
@@ -70,7 +71,7 @@ class AssetFundVoucherForm
                         TextInput::make('tax_invoice_number')
                             ->label(__('asset_funds.asset_fund_vouchers.fields.tax_invoice_number')),
 
-                        // الصف الثاني: خيارات المنشأة وبجانبها حقل المنشأة مباشرة
+                        // Row 2: establishment options next to the establishment field
                         ToggleButtons::make('source_type')
                             ->label(__('asset_funds.asset_fund_vouchers.fields.source_type'))
                             ->options(AssetFundSourceType::class)
@@ -100,7 +101,7 @@ class AssetFundVoucherForm
                             ->visible(fn (callable $get) => in_array($get('source_type'), [AssetFundSourceType::FREE, AssetFundSourceType::FREE->value, null, ''], true)),
                     ]),
 
-                // ─── Section 2B: Deposit Financials & Deductions (المبالغ والضرائب والخصومات) ──
+                // ─── Section 2B: Deposit Financials & Deductions ─────────────────
                 Section::make(__('asset_funds.asset_fund_vouchers.sections.deposit_financials'))
                     ->description(__('asset_funds.asset_fund_vouchers.sections.deposit_financials_desc'))
                     ->icon('heroicon-o-calculator')
@@ -113,7 +114,18 @@ class AssetFundVoucherForm
                             ->prefix('SAR')
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateDeposit($get, $set))
-                            ->columnSpan(4),
+                            ->columnSpan(3),
+
+                        TextInput::make('tax_percentage')
+                            ->label(__('asset_funds.asset_fund_vouchers.fields.tax_percentage'))
+                            ->numeric()
+                            ->suffix('%')
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->dehydrated(false)
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateDeposit($get, $set))
+                            ->columnSpan(3),
 
                         TextInput::make('tax_amount')
                             ->label(__('asset_funds.asset_fund_vouchers.fields.tax_amount'))
@@ -122,7 +134,7 @@ class AssetFundVoucherForm
                             ->default(0)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateDeposit($get, $set))
-                            ->columnSpan(4),
+                            ->columnSpan(3),
 
                         TextInput::make('net_after_tax')
                             ->label(__('asset_funds.asset_fund_vouchers.fields.net_after_tax'))
@@ -130,7 +142,7 @@ class AssetFundVoucherForm
                             ->prefix('SAR')
                             ->readOnly()
                             ->extraAttributes(['class' => 'font-bold'])
-                            ->columnSpan(4),
+                            ->columnSpan(3),
 
                         TextInput::make('retention_percentage')
                             ->label(__('asset_funds.asset_fund_vouchers.fields.retention_percentage'))
@@ -175,14 +187,14 @@ class AssetFundVoucherForm
                             ->extraAttributes(['class' => 'text-xl font-bold text-success-600']),
                     ]),
 
-                // ─── Section 3: Withdrawal Voucher Details (سند سحب / صرف) ──
+                // ─── Section 3: Withdrawal Voucher Details ───────────────────────
                 Section::make(__('asset_funds.asset_fund_vouchers.sections.withdrawal_details'))
                     ->description(__('asset_funds.asset_fund_vouchers.sections.withdrawal_details_desc'))
                     ->icon('heroicon-o-arrow-up-tray')
                     ->columns(2)
                     ->visible(fn (callable $get) => ($get('type') instanceof AssetFundVoucherType ? $get('type')->value : $get('type')) === AssetFundVoucherType::WITHDRAWAL->value)
                     ->schema([
-                        // خيارات المنشأة / الجهة المصروف لها
+                        // Establishment / payee options
                         ToggleButtons::make('source_type')
                             ->label(__('asset_funds.asset_fund_vouchers.fields.source_type'))
                             ->options(AssetFundSourceType::class)
@@ -226,10 +238,21 @@ class AssetFundVoucherForm
                             ->required(fn (callable $get) => ($get('type') instanceof AssetFundVoucherType ? $get('type')->value : $get('type')) === AssetFundVoucherType::WITHDRAWAL->value)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateWithdrawal($get, $set))
+                            ->columnSpanFull(),
+
+                        TextInput::make('tax_percentage')
+                            ->label(__('asset_funds.asset_fund_vouchers.fields.tax_percentage'))
+                            ->numeric()
+                            ->suffix('%')
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->dehydrated(false)
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateWithdrawal($get, $set))
                             ->columnSpan(1),
 
                         TextInput::make('tax_amount')
-                            ->label(__('asset_funds.asset_fund_vouchers.fields.tax_amount'))
+                            ->label(__('asset_funds.asset_fund_vouchers.fields.withdrawal_tax_amount'))
                             ->numeric()
                             ->prefix('SAR')
                             ->default(0)
@@ -238,7 +261,7 @@ class AssetFundVoucherForm
                             ->columnSpan(1),
 
                         TextInput::make('total_amount')
-                            ->label(__('asset_funds.asset_fund_vouchers.fields.gross_amount'))
+                            ->label(__('asset_funds.asset_fund_vouchers.fields.gross_with_tax'))
                             ->numeric()
                             ->prefix('SAR')
                             ->readOnly()
@@ -260,7 +283,7 @@ class AssetFundVoucherForm
     public static function recalculateDeposit(callable $get, callable $set): void
     {
         $gross = (float) ($get('gross_amount') ?? 0);
-        $tax   = (float) ($get('tax_amount') ?? 0);
+        $tax   = self::resolveTax($get, $set, $gross);
         $net   = round($gross - $tax, 2);
         $set('net_after_tax', $net);
 
@@ -280,10 +303,55 @@ class AssetFundVoucherForm
     public static function recalculateWithdrawal(callable $get, callable $set): void
     {
         $net   = (float) ($get('amount_without_tax') ?? 0);
-        $tax   = (float) ($get('tax_amount') ?? 0);
+        $tax   = self::resolveTax($get, $set, $net);
         $total = round($net + $tax, 2);
 
         $set('gross_amount', $total);
         $set('total_amount', $total);
+    }
+
+    /**
+     * When a tax percentage is provided, the tax amount is derived from the entered base;
+     * otherwise the manually entered tax amount is used.
+     */
+    private static function resolveTax(callable $get, callable $set, float $base): float
+    {
+        $pct = (float) ($get('tax_percentage') ?? 0);
+
+        if ($pct > 0) {
+            $tax = round($base * $pct / 100, 2);
+            $set('tax_amount', $tax);
+
+            return $tax;
+        }
+
+        return (float) ($get('tax_amount') ?? 0);
+    }
+
+    /**
+     * Derives the tax percentage of a saved voucher from the stored tax amount and base,
+     * so the field is prefilled when editing and can be used for recalculation.
+     */
+    public static function deriveTaxPercentage(?AssetFundVoucher $record): ?float
+    {
+        if (! $record instanceof AssetFundVoucher) {
+            return null;
+        }
+
+        $type = $record->type instanceof AssetFundVoucherType
+            ? $record->type->value
+            : (string) $record->type;
+
+        $base = (float) ($type === AssetFundVoucherType::WITHDRAWAL->value
+            ? $record->amount_without_tax
+            : $record->gross_amount);
+
+        $tax = (float) ($record->tax_amount ?? 0);
+
+        if ($base <= 0 || $tax <= 0) {
+            return null;
+        }
+
+        return round($tax / $base * 100, 2);
     }
 }

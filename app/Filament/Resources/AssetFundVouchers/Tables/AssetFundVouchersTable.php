@@ -46,7 +46,7 @@ class AssetFundVouchersTable
                     ->placeholder('—'),
 
                 TextColumn::make('party_display')
-                    ->label(__('asset_funds.statement.cols.company'))
+                    ->label(__('asset_funds.asset_fund_vouchers.fields.party_display'))
                     ->getStateUsing(fn ($record) => $record->party_name ?: ($record->company?->trade_name ?? $record->company?->name ?? '—'))
                     ->searchable(query: function ($query, string $search) {
                         $query->where('party_name', 'like', "%{$search}%")
