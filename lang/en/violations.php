@@ -104,6 +104,12 @@ return [
             'description' => 'Violation details and description...',
             'notes' => 'Additional notes...',
         ],
+        'filters' => [
+            'search_placeholder' => 'Search by violation number, external number, issuing authority, company, or description...',
+            'all_categories' => 'All Categories',
+            'all_types' => 'All Types',
+            'all_payment_statuses' => 'All Payment Statuses',
+        ],
         'helpers' => [
             'correction_deadline' => 'Auto-calculated = Violation date + 14 days',
             'objection_deadline' => 'Auto-calculated = Violation date + 60 days',

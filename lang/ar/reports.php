@@ -47,6 +47,8 @@ return [
     ],
     'filters' => [
         'report_type' => 'نوع التقرير',
+        'company' => 'المنشأة',
+        'all_companies' => 'جميع المنشآت',
         'branch' => 'الفرع',
         'all_branches' => 'جميع الفروع',
         'status' => 'الحالة',
@@ -58,6 +60,9 @@ return [
         'per_page' => 'عدد السجلات',
         'reset' => 'إعادة ضبط الفلاتر',
         'title' => 'خيارات التصفية والبحث',
+        'select_all' => 'تحديد الكل',
+        'clear_selection' => 'إلغاء التحديد',
+        'selected_count' => 'تم تحديد (:count)',
     ],
     'filters_active' => 'فلاتر مفعلة',
     'filters_active_hint' => 'يتم عرض النتائج المصفاة حسب الخيارات المحددة',

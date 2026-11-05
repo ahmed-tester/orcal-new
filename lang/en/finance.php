@@ -163,6 +163,7 @@ return [
                 'all_companies' => 'All Entities / Companies',
                 'all_types' => 'All Types (Receipt & Payment)',
                 'all_items' => 'All Accounting Items',
+                'item' => 'Payment / Collection Item',
                 'date_from' => 'From Date',
                 'date_to' => 'To Date',
                 'reset' => 'Reset Filters',

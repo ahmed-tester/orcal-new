@@ -35,48 +35,60 @@ class TreasurySummaryService
      */
     public static function applyFilters(Builder $query, array $filters = []): Builder
     {
-        if (! empty($filters['search'])) {
-            $term = trim($filters['search']);
-            $query->where(function (Builder $q) use ($term) {
-                $q->where('recipient_or_payer', 'like', "%{$term}%")
-                    ->orWhere('transaction_number', 'like', "%{$term}%")
-                    ->orWhere('voucher_number', 'like', "%{$term}%")
-                    ->orWhere('description', 'like', "%{$term}%")
-                    ->orWhereHas('paymentCollectionItem', function (Builder $itemQ) use ($term) {
-                        $itemQ->where('sub_item', 'like', "%{$term}%")
-                            ->orWhere('main_item', 'like', "%{$term}%");
-                    });
+        return FilterBarService::applyFilters($query, $filters, [
+            'search_columns' => [
+                'recipient_or_payer',
+                'transaction_number',
+                'voucher_number',
+                'description',
+                'paymentCollectionItem.sub_item',
+                'paymentCollectionItem.main_item',
+            ],
+            'company' => true,
+            'date_column' => 'transaction_date',
+            'where_in' => [
+                'transaction_type' => $filters['transaction_type'] ?? null,
+                'payment_collection_item_id' => $filters['payment_collection_item_id'] ?? null,
+            ],
+            'extra' => [
+                static fn (Builder $query, array $state) => static::applyPaymentItemFilter($query, $state['payment_item'] ?? null),
+            ],
+        ]);
+    }
+
+    /**
+     * Match the payment item either through the relation or the description.
+     */
+    protected static function applyPaymentItemFilter(Builder $query, mixed $paymentItem): void
+    {
+        $items = FilterBarService::values($paymentItem);
+
+        if ($items === []) {
+            return;
+        }
+
+        $items = array_map(fn ($item) => trim((string) $item), $items);
+        $items = array_values(array_filter($items, fn ($item) => $item !== ''));
+
+        if ($items === []) {
+            return;
+        }
+
+        $query->where(function (Builder $q) use ($items) {
+            $q->whereHas('paymentCollectionItem', function (Builder $itemQ) use ($items) {
+                $itemQ->where(function (Builder $subQ) use ($items) {
+                    foreach ($items as $item) {
+                        $subQ->orWhere('sub_item', $item)
+                            ->orWhere('sub_item', 'like', '%"'.$item.'"%')
+                            ->orWhere('sub_item', 'like', "%{$item}%");
+                    }
+                });
+            })->orWhere(function (Builder $descQ) use ($items) {
+                foreach ($items as $item) {
+                    $descQ->orWhere('description', 'like', "%{$item}%");
+                }
             });
-        }
-
-        if (! empty($filters['company_id'])) {
-            $query->where('company_id', (int) $filters['company_id']);
-        }
-
-        if (! empty($filters['transaction_type'])) {
-            $query->where('transaction_type', $filters['transaction_type']);
-        }
-
-        if (! empty($filters['payment_collection_item_id'])) {
-            $query->where('payment_collection_item_id', (int) $filters['payment_collection_item_id']);
-        }
-
-        if (! empty($filters['payment_item'])) {
-            $item = trim((string) $filters['payment_item']);
-            $query->whereHas('paymentCollectionItem', function (Builder $itemQ) use ($item) {
-                $itemQ->where('sub_item', $item);
-            });
-        }
-
-        if (! empty($filters['date_from'])) {
-            $query->whereDate('transaction_date', '>=', $filters['date_from']);
-        }
-
-        if (! empty($filters['date_to'])) {
-            $query->whereDate('transaction_date', '<=', $filters['date_to']);
-        }
-
-        return $query;
+        });
     }
 
     /**
@@ -157,25 +169,28 @@ class TreasurySummaryService
     /**
      * Calculate current actual treasury balance (sum of latest balance_after per authorized company).
      */
-    public static function calculateCurrentBalance(?int $specificCompanyId = null): float
+    public static function calculateCurrentBalance(int|array|null $specificCompanyId = null): float
     {
-        if ($specificCompanyId) {
-            $latest = TreasuryTransaction::where('company_id', $specificCompanyId)
-                ->orderBy('id', 'desc')
-                ->value('balance_after');
+        $targetCompanyIds = collect();
 
-            return (float) ($latest ?? 0);
+        if (! empty($specificCompanyId)) {
+            $ids = is_array($specificCompanyId) ? array_filter(array_map('intval', $specificCompanyId)) : [(int) $specificCompanyId];
+            if (! empty($ids)) {
+                $targetCompanyIds = collect($ids);
+            }
         }
 
-        $user = auth()->user();
-        $authorizedIds = CompanyFormService::getAuthorizedCompanyIds($user);
+        if ($targetCompanyIds->isEmpty()) {
+            $user = auth()->user();
+            $authorizedIds = CompanyFormService::getAuthorizedCompanyIds($user);
 
-        $companyQuery = Company::query();
-        if (! empty($authorizedIds)) {
-            $companyQuery->whereIn('id', $authorizedIds);
+            $companyQuery = Company::query();
+            if (! empty($authorizedIds)) {
+                $companyQuery->whereIn('id', $authorizedIds);
+            }
+
+            $targetCompanyIds = $companyQuery->pluck('id');
         }
-
-        $targetCompanyIds = $companyQuery->pluck('id');
 
         $total = 0.0;
         if ($targetCompanyIds->isNotEmpty()) {
