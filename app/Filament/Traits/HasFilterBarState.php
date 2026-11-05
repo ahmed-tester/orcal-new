@@ -2,9 +2,15 @@
 
 namespace App\Filament\Traits;
 
+use App\Models\Branch;
 use App\Models\Company;
 use App\Services\CompanyFormService;
 use App\Services\FilterBarService;
+use Filament\Schemas\Components\EmbeddedTable;
+use Filament\Schemas\Components\RenderHook;
+use Filament\Schemas\Components\View;
+use Filament\Schemas\Schema;
+use Filament\View\PanelsRenderHook;
 
 trait HasFilterBarState
 {
@@ -181,5 +187,80 @@ trait HasFilterBarState
         }
 
         return $query->orderBy('trade_name')->get();
+    }
+
+    /**
+     * Authorized branches for the filter dropdown.
+     */
+    public function getBranchesProperty()
+    {
+        $query = Branch::query();
+
+        if (! empty($this->companyId)) {
+            $compIds = is_array($this->companyId) ? $this->companyId : [$this->companyId];
+            $query->whereIn('company_id', array_filter($compIds));
+        } else {
+            $user = auth()->user();
+            if ($user && ! $user->isSuperAdmin()) {
+                $companyIds = CompanyFormService::getAuthorizedCompanyIds($user);
+                $query->whereIn('company_id', ! empty($companyIds) ? $companyIds : [0]);
+            }
+        }
+
+        return $query->orderBy('name')->get();
+    }
+
+    /**
+     * Locate the filter bar view for the current ListRecords page.
+     * Checks explicitly configured $filterBarView property first,
+     * then discovers conventional path: filament.resources.<slug>.pages.partials.filter-bar
+     */
+    protected function getFilterBarView(): ?string
+    {
+        if (property_exists($this, 'filterBarView') && ! empty($this->filterBarView)) {
+            return $this->filterBarView;
+        }
+
+        if (method_exists($this, 'getResource')) {
+            $resource = $this->getResource();
+            $baseName = class_basename($resource);
+            $baseSlug = str($baseName)->beforeLast('Resource')->kebab();
+
+            $candidates = [
+                "filament.resources.{$baseSlug->plural()}.pages.partials.filter-bar",
+                "filament.resources.{$baseSlug}.pages.partials.filter-bar",
+            ];
+
+            foreach ($candidates as $view) {
+                if (view()->exists($view)) {
+                    return $view;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Automatically inject the Filter Bar above the table on ListRecords pages.
+     */
+    public function content(Schema $schema): Schema
+    {
+        $components = [];
+
+        if (method_exists($this, 'getTabsContentComponent')) {
+            $components[] = $this->getTabsContentComponent();
+        }
+
+        $components[] = RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_BEFORE);
+
+        if ($view = $this->getFilterBarView()) {
+            $components[] = View::make($view);
+        }
+
+        $components[] = EmbeddedTable::make();
+        $components[] = RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_AFTER);
+
+        return $schema->components($components);
     }
 }

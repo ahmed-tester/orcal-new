@@ -75,8 +75,7 @@ class DailyJournalsTable
                     ->toggleable(),
             ])
             ->filters([
-                OrgSelect::tableFilterCompany('company_id', __('finance.daily_journals.fields.company')),
-                OrgSelect::tableFilterBranch('branch_id', __('finance.daily_journals.fields.branch')),
+                // Handled by top Filter Bar
             ])
             ->recordActions([
                 ActionGroup::make([

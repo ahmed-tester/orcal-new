@@ -78,6 +78,7 @@ return [
         'print_voucher' => 'Print Debt Voucher',
         'save_and_print' => 'Save & Print Debt Voucher',
         'view_debt' => 'View Debt Details',
+        'print_statement' => 'Print & Save Statement 🖨️',
     ],
 
     'notifications' => [

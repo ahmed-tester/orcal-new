@@ -10,11 +10,6 @@ use App\Services\FilterBarService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
-use Filament\Schemas\Components\EmbeddedTable;
-use Filament\Schemas\Components\RenderHook;
-use Filament\Schemas\Components\View;
-use Filament\Schemas\Schema;
-use Filament\View\PanelsRenderHook;
 use Illuminate\Database\Eloquent\Builder;
 
 class ListViolations extends ListRecords
@@ -23,7 +18,6 @@ class ListViolations extends ListRecords
 
     protected static string $resource = ViolationResource::class;
 
-    // Additional violation-specific filters
     public mixed $categoryId = null;
 
     public mixed $typeId = null;
@@ -35,23 +29,12 @@ class ListViolations extends ListRecords
         return [
             CreateAction::make(),
             Action::make('export_pdf')
-                ->label('تصدير كشف المخالفات PDF 🖨️')
+                ->label(__('violations.violations.actions.export_pdf'))
                 ->icon('heroicon-o-printer')
                 ->color('info')
                 ->url(route('exports.violations', ['section' => 'violations']))
                 ->openUrlInNewTab(),
         ];
-    }
-
-    public function content(Schema $schema): Schema
-    {
-        return $schema->components([
-            $this->getTabsContentComponent(),
-            RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_BEFORE),
-            View::make('filament.resources.violations.pages.partials.filter-bar'),
-            EmbeddedTable::make(),
-            RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_LIST_RECORDS_TABLE_AFTER),
-        ]);
     }
 
     protected function filterBarExtraProperties(): array

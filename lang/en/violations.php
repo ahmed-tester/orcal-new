@@ -118,6 +118,9 @@ return [
             'remaining_amount' => 'Remaining = Total Amount − Paid Amount',
         ],
         'table_heading' => 'Violations Register — :count violations',
+        'actions' => [
+            'export_pdf' => 'Export Violations PDF 🖨️',
+        ],
     ],
 
     // ====================================================
@@ -183,6 +186,23 @@ return [
             'all' => 'All',
             'by_company' => 'By Company',
             'by_period' => 'By Period',
+        ],
+        'actions' => [
+            'print_voucher' => 'Print Voucher PDF',
+        ],
+        'export_statement_modal' => [
+            'btn_label' => 'Export Fund Statement PDF 📑',
+            'heading' => 'Export Violation Fund Statement',
+            'description' => 'Select company, statement type, and date range to export the statement as PDF.',
+            'submit_label' => 'Generate Statement',
+            'company_label' => 'Company / Entity',
+            'all_companies' => 'All Companies (All)',
+            'type_label' => 'Statement Type',
+            'type_all' => 'All (Receipts & Disbursements)',
+            'type_incoming' => 'Collections Only (Receipts)',
+            'type_outgoing' => 'Fund Disbursements Only',
+            'from_date' => 'From Date',
+            'to_date' => 'To Date',
         ],
     ],
 

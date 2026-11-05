@@ -101,33 +101,7 @@ class ContractVouchersTable
                     }),
             ])
             ->filters([
-                SelectFilter::make('voucher_type')
-                    ->label(__('contract_vouchers.fields.voucher_type'))
-                    ->options([
-                        'receipt' => __('contract_vouchers.types.receipt'),
-                        'payment' => __('contract_vouchers.types.payment'),
-                        'request' => __('contract_vouchers.types.request'),
-                    ]),
-
-                SelectFilter::make('payment_method')
-                    ->label(__('contract_vouchers.fields.payment_method'))
-                    ->options([
-                        'cash'          => __('contract_vouchers.payment_methods.cash'),
-                        'check'         => __('contract_vouchers.payment_methods.check'),
-                        'bank_transfer' => __('contract_vouchers.payment_methods.bank_transfer'),
-                    ]),
-
-                SelectFilter::make('status')
-                    ->label(__('contract_vouchers.fields.status'))
-                    ->options([
-                        'draft'     => __('contract_vouchers.statuses.draft'),
-                        'approved'  => __('contract_vouchers.statuses.approved'),
-                        'cancelled' => __('contract_vouchers.statuses.cancelled'),
-                    ]),
-
-                SelectFilter::make('company_id')
-                    ->label(__('contract_vouchers.fields.company'))
-                    ->relationship('company', 'trade_name'),
+                // Handled by top Filter Bar
             ])
             ->recordActions([
                 Action::make('approve')

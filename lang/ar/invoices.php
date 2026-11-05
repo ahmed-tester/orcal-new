@@ -44,6 +44,8 @@ return [
         'general_to_all' => 'عام لجميع المنشآت',
     ],
     'placeholders' => [
+        'general_services' => 'خدمات عامة',
+        'employee_prefix' => 'موظف: :name',
         'general_to_all' => 'عام لجميع المنشآت',
         'type_name_example' => 'مثال: فواتير خدمات، فواتير إيجار، كهرباء، ماء...',
     ],
@@ -56,5 +58,10 @@ return [
         'partially_paid' => 'سداد جزئي',
         'paid' => 'مدفوع بالكامل',
         'cancelled' => 'ملغاة',
+    ],
+    'actions' => [
+        'print_all' => 'طباعة وحفظ الكشف 🖨️',
+        'print' => 'طباعة الفاتورة',
+        'print_tooltip' => 'انقر لطباعة وحفظ الفاتورة 🖨️',
     ],
 ];

@@ -98,27 +98,7 @@ class InstallmentPaymentsTable
                     ->toggleable(),
             ])
             ->filters([
-                SelectFilter::make('status')
-                    ->label(__('finance.installment_payments.fields.status'))
-                    ->options(ApprovalStatus::class)
-                    ->query(function ($query, array $data) {
-                        if (! empty($data['value'])) {
-                            $query->where('metadata->status', $data['value']);
-                        }
-                    }),
-
-                SelectFilter::make('payment_type')
-                    ->label(__('finance.installment_payments.fields.payment_type'))
-                    ->options([
-                        'installment' => __('finance.installment_payments.types.installment'),
-                        'advance' => __('finance.installment_payments.types.advance'),
-                    ]),
-
-                OrgSelect::tableFilterCompany('company_id', __('finance.installment_payments.fields.company')),
-
-                SelectFilter::make('payment_source')
-                    ->label(__('finance.installment_payments.fields.payment_source'))
-                    ->options(InstallmentPaymentSource::class),
+                // Handled by top Filter Bar
             ])
             ->recordActions([
                 ...ApprovalActions::make('approve_installment_payment', translationKey: 'finance.installment_payments.actions'),

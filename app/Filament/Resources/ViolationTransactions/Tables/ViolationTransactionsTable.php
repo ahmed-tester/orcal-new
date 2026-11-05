@@ -71,19 +71,11 @@ class ViolationTransactionsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('company_id')
-                    ->label(__('violations.transactions.fields.company'))
-                    ->relationship('company', 'trade_name')
-                    ->searchable()
-                    ->preload(),
-
-                SelectFilter::make('transaction_type')
-                    ->label(__('violations.transactions.fields.transaction_type'))
-                    ->options(ViolationTransactionType::class),
+                // Handled by top Filter Bar
             ])
             ->recordActions([
                 \Filament\Actions\Action::make('print_voucher')
-                    ->label('طباعة السند PDF')
+                    ->label(__('violations.transactions.actions.print_voucher'))
                     ->icon('heroicon-o-printer')
                     ->color('warning')
                     ->url(fn ($record) => route('exports.violation-voucher', $record))

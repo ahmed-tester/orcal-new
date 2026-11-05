@@ -107,34 +107,7 @@ class InstallmentsTable
                     ->badge(),
             ])
             ->filters([
-                SelectFilter::make('transaction_type')
-                    ->label(__('finance.installments.fields.transaction_type'))
-                    ->options([
-                        'installment' => __('finance.installments.toggle_options.installment'),
-                        'advance'     => __('finance.installments.toggle_options.advance'),
-                    ]),
-
-                SelectFilter::make('beneficiary_type')
-                    ->label(__('finance.installments.fields.beneficiary_type'))
-                    ->options([
-                        'internal' => __('finance.installments.sources.internal'),
-                        'external' => __('finance.installments.sources.external'),
-                    ]),
-
-                OrgSelect::tableFilterCompany('company_id', __('finance.installments.fields.company')),
-
-                SelectFilter::make('status')
-                    ->label(__('finance.installments.fields.status'))
-                    ->options(InstallmentStatus::class),
-
-                SelectFilter::make('category')
-                    ->label(__('finance.installment_types.fields.category'))
-                    ->options(InstallmentCategory::class)
-                    ->query(function ($query, array $data) {
-                        if (!empty($data['value'])) {
-                            $query->whereHas('installmentType', fn ($q) => $q->where('category', $data['value']));
-                        }
-                    }),
+                // Handled by top Filter Bar
             ])
             ->recordActions([
                 ActionGroup::make([

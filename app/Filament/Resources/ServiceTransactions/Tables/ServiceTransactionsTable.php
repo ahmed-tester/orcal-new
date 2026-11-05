@@ -114,37 +114,7 @@ class ServiceTransactionsTable
                     ->toggleable(),
             ])
             ->filters([
-                SelectFilter::make('status')
-                    ->label(__('services_tracking.fields.status'))
-                    ->options(ApprovalStatus::class)
-                    ->query(function ($query, array $data) {
-                        if (! empty($data['value'])) {
-                            $query->where('metadata->status', $data['value']);
-                        }
-                    }),
-
-                SelectFilter::make('scope_type')
-                    ->label(__('services_tracking.fields.scope_type'))
-                    ->options([
-                        'internal' => __('services_tracking.toggle_options.internal'),
-                        'external' => __('services_tracking.toggle_options.external'),
-                    ]),
-
-                SelectFilter::make('service_status')
-                    ->label(__('services_tracking.fields.service_status'))
-                    ->options([
-                        'active' => __('services_tracking.service_statuses.active'),
-                        'completed' => __('services_tracking.service_statuses.completed'),
-                        'inactive' => __('services_tracking.service_statuses.inactive'),
-                    ]),
-
-                SelectFilter::make('payment_status')
-                    ->label(__('services_tracking.fields.payment_status'))
-                    ->options([
-                        'unpaid' => __('services_tracking.payment_statuses.unpaid'),
-                        'partial' => __('services_tracking.payment_statuses.partial'),
-                        'paid' => __('services_tracking.payment_statuses.paid'),
-                    ]),
+                // Handled by top Filter Bar
             ])
             ->recordActions([
                 ...ApprovalActions::make('approve_service_transaction', translationKey: 'services_tracking.actions'),
