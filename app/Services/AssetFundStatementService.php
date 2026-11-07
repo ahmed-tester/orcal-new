@@ -165,6 +165,13 @@ class AssetFundStatementService
                     .e((string) $row->voucher_number)
                     .'</span>',
             ],
+            'linked_deposit' => [
+                'label' => __('asset_funds.statement.cols.linked_deposit'),
+                'width' => '90px',
+                'html' => fn (AssetFundVoucher $row): string => $row->linkedDepositVoucher
+                    ? '<span style="font-weight:700;color:#0284c7">' . e($row->linkedDepositVoucher->voucher_number) . '</span>'
+                    : '<span style="color:#64748b">' . __('asset_funds.asset_fund_vouchers.disbursement_types.general_short') . '</span>',
+            ],
             'notes' => [
                 'label' => __('asset_funds.statement.cols.notes'),
                 'width' => '200px',
@@ -183,11 +190,13 @@ class AssetFundStatementService
     public static function summaryCards(): array
     {
         return [
-            'total_deposits' => __('asset_funds.statement.summary.total_deposits'),
+            'total_deposits'    => __('asset_funds.statement.summary.total_deposits'),
             'total_withdrawals' => __('asset_funds.statement.summary.total_withdrawals'),
-            'total_tax' => __('asset_funds.statement.summary.total_tax'),
-            'total_retention' => __('asset_funds.statement.summary.total_retention'),
-            'net_balance' => __('asset_funds.statement.summary.net_balance'),
+            'total_tax'         => __('asset_funds.statement.summary.total_tax'),
+            'total_retention'   => __('asset_funds.statement.summary.total_retention'),
+            'total_fund_share'  => __('asset_funds.statement.summary.total_fund_share'),
+            'net_balance'       => __('asset_funds.statement.summary.net_balance'),
+            'gross_balance'     => __('asset_funds.statement.summary.gross_balance'),
         ];
     }
 
@@ -338,6 +347,41 @@ class AssetFundStatementService
     }
 
     /**
+     * Resolves the active summary cards depending on operation filter type:
+     * - 'deposit': hides the withdrawals card ('total_withdrawals'); it only appears
+     *   in the combined statement (deposit + withdrawal).
+     * - 'withdrawal': hides the deposit card ('total_deposits'), the withdrawals card
+     *   and the duplicate 'gross_balance' card; keeps tax, retention, fund share and
+     *   net_balance (displayed as the total disbursed amount).
+     * - 'all': retains selected cards.
+     *
+     * @param  array<string>|string|null  $requested
+     * @return array<string>
+     */
+    public static function resolveActiveCards(mixed $requested, string $filterType = 'all'): array
+    {
+        $cards = self::sanitizeColumns($requested, array_keys(self::summaryCards()));
+
+        if ($filterType === 'deposit') {
+            $cards = array_filter(
+                $cards,
+                fn (string $k): bool => $k !== 'total_withdrawals'
+            );
+        } elseif ($filterType === 'withdrawal') {
+            $cards = array_filter(
+                $cards,
+                fn (string $k): bool => ! in_array($k, [
+                    'total_deposits',
+                    'total_withdrawals',
+                    'gross_balance',
+                ], true)
+            );
+        }
+
+        return array_values($cards);
+    }
+
+    /**
      * @return array<string, float>
      */
     public static function depositsSummary(Collection $deposits): array
@@ -369,16 +413,36 @@ class AssetFundStatementService
      */
     public static function summary(Collection $deposits, Collection $withdrawals): array
     {
-        $totalDeposits = (float) $deposits->sum('total_amount');
+        $totalDepositsGross = (float) $deposits->sum(function ($row): float {
+            $gross = (float) ($row->gross_amount ?? 0);
+            if ($gross > 0) {
+                return $gross;
+            }
+
+            return (float) ($row->total_amount ?? 0)
+                + (float) ($row->tax_amount ?? 0)
+                + (float) ($row->retention_amount ?? 0)
+                + (float) ($row->fund_share_amount ?? 0);
+        });
+
+        $totalDepositsNet = (float) $deposits->sum('total_amount');
         $totalWithdrawals = (float) $withdrawals->sum('total_amount');
+        $depositsTax = (float) $deposits->sum('tax_amount');
+        $depositsRetention = (float) $deposits->sum('retention_amount');
+        $depositsFundShare = (float) $deposits->sum('fund_share_amount');
+        $netBalance = $totalDepositsNet - $totalWithdrawals;
+
+        // الرصيد / المبلغ المتاح شامل الضرائب والاستقطاعات والنسبة الأخرى
+        $grossBalance = $netBalance + $depositsTax + $depositsRetention + $depositsFundShare;
 
         return [
-            'total_deposits' => $totalDeposits,
+            'total_deposits'    => $totalDepositsGross,
             'total_withdrawals' => $totalWithdrawals,
-            'total_tax' => (float) $deposits->sum('tax_amount') + (float) $withdrawals->sum('tax_amount'),
-            'total_retention' => (float) $deposits->sum('retention_amount'),
-            'total_fund_share' => (float) $deposits->sum('fund_share_amount'),
-            'net_balance' => $totalDeposits - $totalWithdrawals,
+            'total_tax'         => $depositsTax + (float) $withdrawals->sum('tax_amount'),
+            'total_retention'   => $depositsRetention,
+            'total_fund_share'  => $depositsFundShare,
+            'net_balance'       => $netBalance,
+            'gross_balance'     => $grossBalance,
         ];
     }
 

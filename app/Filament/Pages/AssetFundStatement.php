@@ -78,8 +78,17 @@ class AssetFundStatement extends Page
      */
     #[Session]
     public array $summary_cards = [
-        'total_deposits', 'total_withdrawals', 'total_tax', 'total_retention', 'net_balance',
+        'total_deposits', 'total_withdrawals', 'total_tax', 'total_retention', 'net_balance', 'gross_balance',
     ];
+
+    public function mount(): void
+    {
+        if ($this->preset === 'all') {
+            $this->summary_cards = array_keys(AssetFundStatementService::summaryCards());
+        } elseif (! in_array('gross_balance', $this->summary_cards, true)) {
+            $this->summary_cards[] = 'gross_balance';
+        }
+    }
 
     public function getTitle(): string
     {
@@ -121,18 +130,18 @@ class AssetFundStatement extends Page
         return $query->get(['id', 'fund_name', 'fund_number']);
     }
 
-    public function getVouchersProperty(): Collection
+    public function getDepositVouchersProperty(): Collection
     {
         if (! $this->fund_id) {
             return collect();
         }
 
-        $query = AssetFundVoucher::with(['company', 'creator'])
-            ->where('asset_fund_id', $this->fund_id);
-
-        if ($this->filter_type !== 'all') {
-            $query->where('type', $this->filter_type);
-        }
+        $query = AssetFundVoucher::with(['company', 'creator', 'linkedDepositVoucher'])
+            ->where('asset_fund_id', $this->fund_id)
+            ->where(function ($q) {
+                $q->where('type', 'deposit')
+                  ->orWhere('type', \App\Enums\AssetFundVoucherType::DEPOSIT->value);
+            });
 
         if ($this->date_from) {
             $query->whereDate('voucher_date', '>=', $this->date_from);
@@ -145,14 +154,37 @@ class AssetFundStatement extends Page
         return $query->orderBy('voucher_date')->get();
     }
 
-    public function getDepositVouchersProperty(): Collection
-    {
-        return $this->vouchers->filter(fn ($v) => ($v->type?->value ?? $v->type) === 'deposit')->values();
-    }
-
     public function getWithdrawalVouchersProperty(): Collection
     {
-        return $this->vouchers->filter(fn ($v) => ($v->type?->value ?? $v->type) === 'withdrawal')->values();
+        if (! $this->fund_id) {
+            return collect();
+        }
+
+        $query = AssetFundVoucher::with(['company', 'creator', 'linkedDepositVoucher'])
+            ->where('asset_fund_id', $this->fund_id)
+            ->where(function ($q) {
+                $q->where('type', 'withdrawal')
+                  ->orWhere('type', \App\Enums\AssetFundVoucherType::WITHDRAWAL->value);
+            });
+
+        if ($this->date_from) {
+            $query->whereDate('voucher_date', '>=', $this->date_from);
+        }
+
+        if ($this->date_to) {
+            $query->whereDate('voucher_date', '<=', $this->date_to);
+        }
+
+        return $query->orderBy('voucher_date')->get();
+    }
+
+    public function getVouchersProperty(): Collection
+    {
+        return match ($this->filter_type) {
+            'deposit'    => $this->deposit_vouchers,
+            'withdrawal' => $this->withdrawal_vouchers,
+            default      => $this->deposit_vouchers->concat($this->withdrawal_vouchers)->sortBy('voucher_date')->values(),
+        };
     }
 
     public function getDepositsSummaryProperty(): array
@@ -237,9 +269,9 @@ class AssetFundStatement extends Page
      */
     public function getSelectedCardsProperty(): array
     {
-        return AssetFundStatementService::sanitizeColumns(
+        return AssetFundStatementService::resolveActiveCards(
             $this->summary_cards,
-            array_keys(AssetFundStatementService::summaryCards()),
+            $this->filter_type,
         );
     }
 

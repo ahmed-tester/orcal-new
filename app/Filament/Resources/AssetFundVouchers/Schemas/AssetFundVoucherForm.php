@@ -8,6 +8,7 @@ use App\Models\AssetFund;
 use App\Models\AssetFundVoucher;
 use App\Services\CompanyFormService;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -40,6 +41,7 @@ class AssetFundVoucherForm
                             ->searchable()
                             ->preload()
                             ->required()
+                            ->live()
                             ->columnSpan(fn ($record) => $record !== null ? 1 : 2),
 
                         ToggleButtons::make('type')
@@ -124,7 +126,7 @@ class AssetFundVoucherForm
                             ->maxValue(100)
                             ->dehydrated(false)
                             ->live(onBlur: true)
-                            ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateDeposit($get, $set))
+                            ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateDepositFromTaxPercentage($get, $set))
                             ->columnSpan(3),
 
                         TextInput::make('tax_amount')
@@ -133,7 +135,7 @@ class AssetFundVoucherForm
                             ->prefix('SAR')
                             ->default(0)
                             ->live(onBlur: true)
-                            ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateDeposit($get, $set))
+                            ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateDepositFromTaxAmount($get, $set))
                             ->columnSpan(3),
 
                         TextInput::make('net_after_tax')
@@ -151,7 +153,7 @@ class AssetFundVoucherForm
                             ->minValue(0)
                             ->maxValue(100)
                             ->live(onBlur: true)
-                            ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateDeposit($get, $set))
+                            ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateDepositDeductions($get, $set))
                             ->columnSpan(3),
 
                         TextInput::make('retention_amount')
@@ -168,7 +170,7 @@ class AssetFundVoucherForm
                             ->minValue(0)
                             ->maxValue(100)
                             ->live(onBlur: true)
-                            ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateDeposit($get, $set))
+                            ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateDepositDeductions($get, $set))
                             ->columnSpan(3),
 
                         TextInput::make('fund_share_amount')
@@ -194,6 +196,89 @@ class AssetFundVoucherForm
                     ->columns(2)
                     ->visible(fn (callable $get) => ($get('type') instanceof AssetFundVoucherType ? $get('type')->value : $get('type')) === AssetFundVoucherType::WITHDRAWAL->value)
                     ->schema([
+                        Placeholder::make('fund_gross_balance_info')
+                            ->hiddenLabel()
+                            ->visible(fn (callable $get) => ($get('type') instanceof AssetFundVoucherType ? $get('type')->value : $get('type')) === AssetFundVoucherType::WITHDRAWAL->value && ! empty($get('asset_fund_id')))
+                            ->content(function (callable $get, ?AssetFundVoucher $record): \Illuminate\Support\HtmlString {
+                                $fundId = (int) $get('asset_fund_id');
+                                $available = AssetFundVoucher::getFundGrossAvailableBalance($fundId, $record?->id);
+                                $isPositive = $available > 0;
+                                $color = $isPositive ? '#1e40af' : '#b91c1c';
+                                $border = $isPositive ? '#bfdbfe' : '#fca5a5';
+                                $bg = $isPositive ? '#eff6ff' : '#fef2f2';
+
+                                return new \Illuminate\Support\HtmlString("
+                                    <div style='background: {$bg}; border: 1px solid {$border}; border-radius: .5rem; padding: .65rem 1rem; font-size: .85rem; color: {$color}; display: flex; justify-content: space-between; align-items: center;'>
+                                        <span><strong>" . __('asset_funds.asset_fund_vouchers.fields.fund_gross_available') . ":</strong></span>
+                                        <span style='font-size: 1.15rem; font-weight: 800; direction: ltr;'>" . number_format($available, 2) . " <small style='font-size:.75rem'>ر.س</small></span>
+                                    </div>
+                                ");
+                            })
+                            ->columnSpanFull(),
+
+                        // Disbursement Type (General vs Linked Deposit)
+                        ToggleButtons::make('disbursement_type')
+                            ->label(__('asset_funds.asset_fund_vouchers.fields.disbursement_type'))
+                            ->options([
+                                'general'        => __('asset_funds.asset_fund_vouchers.disbursement_types.general'),
+                                'linked_deposit' => __('asset_funds.asset_fund_vouchers.disbursement_types.linked_deposit'),
+                            ])
+                            ->default('general')
+                            ->inline()
+                            ->live()
+                            ->columnSpanFull()
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                if ($state !== 'linked_deposit') {
+                                    $set('linked_deposit_voucher_id', null);
+                                }
+                            }),
+
+                        Select::make('linked_deposit_voucher_id')
+                            ->label(__('asset_funds.asset_fund_vouchers.fields.linked_deposit_voucher'))
+                            ->placeholder(__('asset_funds.asset_fund_vouchers.placeholders.linked_deposit_voucher'))
+                            ->visible(fn (callable $get) => $get('disbursement_type') === 'linked_deposit')
+                            ->required(fn (callable $get) => ($get('type') instanceof AssetFundVoucherType ? $get('type')->value : $get('type')) === AssetFundVoucherType::WITHDRAWAL->value && $get('disbursement_type') === 'linked_deposit')
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->options(function (callable $get, ?AssetFundVoucher $record): array {
+                                $fundId = $get('asset_fund_id') ?? $record?->asset_fund_id;
+
+                                $query = AssetFundVoucher::query()
+                                    ->where(function ($q) {
+                                        $q->where('type', AssetFundVoucherType::DEPOSIT->value)
+                                          ->orWhere('type', 'deposit');
+                                    })
+                                    ->with(['company', 'fund'])
+                                    ->orderByDesc('voucher_date')
+                                    ->orderByDesc('id');
+
+                                if ($fundId) {
+                                    $query->where('asset_fund_id', $fundId);
+                                }
+
+                                $deposits = $query->get();
+
+                                $options = [];
+                                foreach ($deposits as $dep) {
+                                    $party = $dep->party_name ?: ($dep->contractor_name ?: ($dep->company?->trade_name ?? $dep->company?->name ?? '—'));
+                                    $date = $dep->voucher_date?->format('Y/m/d');
+
+                                    $options[$dep->id] = trim("{$dep->voucher_number} — {$party}" . ($date ? " — {$date}" : ''));
+                                }
+
+                                return $options;
+                            })
+                            ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                if ($state && empty($get('asset_fund_id'))) {
+                                    $dep = AssetFundVoucher::find($state);
+                                    if ($dep) {
+                                        $set('asset_fund_id', $dep->asset_fund_id);
+                                    }
+                                }
+                            })
+                            ->columnSpanFull(),
+
                         // Establishment / payee options
                         ToggleButtons::make('source_type')
                             ->label(__('asset_funds.asset_fund_vouchers.fields.source_type'))
@@ -238,6 +323,35 @@ class AssetFundVoucherForm
                             ->required(fn (callable $get) => ($get('type') instanceof AssetFundVoucherType ? $get('type')->value : $get('type')) === AssetFundVoucherType::WITHDRAWAL->value)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateWithdrawal($get, $set))
+                            ->rules([
+                                fn (callable $get, ?AssetFundVoucher $record): \Closure => function (string $attribute, $value, \Closure $fail) use ($get, $record) {
+                                    $fundId = $get('asset_fund_id') ?? $record?->asset_fund_id;
+                                    $tax = (float) ($get('tax_amount') ?? 0);
+                                    $total = (float) $value + $tax;
+
+                                    // 1. تحقق صارم على مستوى إجمالي الصندوق (شامل الضرائب والاستقطاعات والنسبة الأخرى) لمنع السوالب
+                                    if ($fundId && $total > 0) {
+                                        $fundAvailable = AssetFundVoucher::getFundGrossAvailableBalance((int) $fundId, $record?->id);
+                                        if ($total > $fundAvailable) {
+                                            $fail(__('asset_funds.asset_fund_vouchers.errors.amount_exceeds_fund_gross_balance', [
+                                                'amount'    => number_format($total, 2),
+                                                'available' => number_format($fundAvailable, 2),
+                                            ]));
+                                            return;
+                                        }
+                                    }
+
+                                    // 2. تحقق على مستوى سند الإيداع المرتبط (إن وُجد)
+                                    if ($get('disbursement_type') === 'linked_deposit' && $depositId = $get('linked_deposit_voucher_id')) {
+                                        $remaining = AssetFundVoucher::getRemainingBalanceForDeposit((int) $depositId, $record?->id);
+                                        if ($total > $remaining) {
+                                            $fail(__('asset_funds.asset_fund_vouchers.errors.amount_exceeds_deposit_balance', [
+                                                'remaining' => number_format($remaining, 2),
+                                            ]));
+                                        }
+                                    }
+                                },
+                            ])
                             ->columnSpanFull(),
 
                         TextInput::make('tax_percentage')
@@ -248,7 +362,7 @@ class AssetFundVoucherForm
                             ->maxValue(100)
                             ->dehydrated(false)
                             ->live(onBlur: true)
-                            ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateWithdrawal($get, $set))
+                            ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateWithdrawalFromTaxPercentage($get, $set))
                             ->columnSpan(1),
 
                         TextInput::make('tax_amount')
@@ -257,7 +371,7 @@ class AssetFundVoucherForm
                             ->prefix('SAR')
                             ->default(0)
                             ->live(onBlur: true)
-                            ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateWithdrawal($get, $set))
+                            ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateWithdrawalFromTaxAmount($get, $set))
                             ->columnSpan(1),
 
                         TextInput::make('total_amount')
@@ -283,9 +397,92 @@ class AssetFundVoucherForm
     public static function recalculateDeposit(callable $get, callable $set): void
     {
         $gross = (float) ($get('gross_amount') ?? 0);
-        $tax   = self::resolveTax($get, $set, $gross);
-        $net   = round($gross - $tax, 2);
+        $pct   = (float) ($get('tax_percentage') ?? 0);
+        $tax   = (float) ($get('tax_amount') ?? 0);
+
+        if ($gross <= 0) {
+            $set('tax_amount', 0);
+            $set('net_after_tax', 0);
+            self::recalculateDepositDeductions($get, $set);
+
+            return;
+        }
+
+        if ($pct > 0) {
+            // Gross amount includes tax: Gross = Net * (1 + pct / 100) => Net = Gross / (1 + pct / 100)
+            $net = round($gross / (1 + ($pct / 100)), 2);
+            $tax = round($gross - $net, 2);
+            $set('tax_amount', $tax);
+            $set('net_after_tax', $net);
+        } elseif ($tax > 0) {
+            $net = round(max(0, $gross - $tax), 2);
+            $set('net_after_tax', $net);
+            if ($net > 0) {
+                $set('tax_percentage', round(($tax / $net) * 100, 2));
+            }
+        } else {
+            $set('tax_amount', 0);
+            $set('net_after_tax', $gross);
+        }
+
+        self::recalculateDepositDeductions($get, $set);
+    }
+
+    public static function recalculateDepositFromTaxPercentage(callable $get, callable $set): void
+    {
+        $gross = (float) ($get('gross_amount') ?? 0);
+        $pct   = (float) ($get('tax_percentage') ?? 0);
+
+        if ($gross <= 0) {
+            $set('tax_amount', 0);
+            $set('net_after_tax', 0);
+            self::recalculateDepositDeductions($get, $set);
+
+            return;
+        }
+
+        if ($pct > 0) {
+            $net = round($gross / (1 + ($pct / 100)), 2);
+            $tax = round($gross - $net, 2);
+            $set('tax_amount', $tax);
+            $set('net_after_tax', $net);
+        } else {
+            $set('tax_amount', 0);
+            $set('net_after_tax', $gross);
+        }
+
+        self::recalculateDepositDeductions($get, $set);
+    }
+
+    public static function recalculateDepositFromTaxAmount(callable $get, callable $set): void
+    {
+        $gross = (float) ($get('gross_amount') ?? 0);
+        $tax   = (float) ($get('tax_amount') ?? 0);
+
+        if ($gross <= 0) {
+            $set('tax_amount', 0);
+            $set('net_after_tax', 0);
+            $set('tax_percentage', null);
+            self::recalculateDepositDeductions($get, $set);
+
+            return;
+        }
+
+        $net = round(max(0, $gross - $tax), 2);
         $set('net_after_tax', $net);
+
+        if ($net > 0 && $tax > 0) {
+            $set('tax_percentage', round(($tax / $net) * 100, 2));
+        } else {
+            $set('tax_percentage', null);
+        }
+
+        self::recalculateDepositDeductions($get, $set);
+    }
+
+    public static function recalculateDepositDeductions(callable $get, callable $set): void
+    {
+        $net = (float) ($get('net_after_tax') ?? 0);
 
         $retPct = (float) ($get('retention_percentage') ?? 0);
         $retAmt = round($net * ($retPct / 100), 2);
@@ -302,30 +499,50 @@ class AssetFundVoucherForm
 
     public static function recalculateWithdrawal(callable $get, callable $set): void
     {
-        $net   = (float) ($get('amount_without_tax') ?? 0);
-        $tax   = self::resolveTax($get, $set, $net);
+        $net = (float) ($get('amount_without_tax') ?? 0);
+        $pct = (float) ($get('tax_percentage') ?? 0);
+        $tax = (float) ($get('tax_amount') ?? 0);
+
+        if ($pct > 0) {
+            $tax = round($net * ($pct / 100), 2);
+            $set('tax_amount', $tax);
+        } elseif ($tax > 0 && $net > 0) {
+            $set('tax_percentage', round(($tax / $net) * 100, 2));
+        }
+
         $total = round($net + $tax, 2);
 
         $set('gross_amount', $total);
         $set('total_amount', $total);
     }
 
-    /**
-     * When a tax percentage is provided, the tax amount is derived from the entered base;
-     * otherwise the manually entered tax amount is used.
-     */
-    private static function resolveTax(callable $get, callable $set, float $base): float
+    public static function recalculateWithdrawalFromTaxPercentage(callable $get, callable $set): void
     {
+        $net = (float) ($get('amount_without_tax') ?? 0);
         $pct = (float) ($get('tax_percentage') ?? 0);
 
-        if ($pct > 0) {
-            $tax = round($base * $pct / 100, 2);
-            $set('tax_amount', $tax);
+        $tax = $pct > 0 ? round($net * ($pct / 100), 2) : 0.0;
+        $set('tax_amount', $tax);
 
-            return $tax;
+        $total = round($net + $tax, 2);
+        $set('gross_amount', $total);
+        $set('total_amount', $total);
+    }
+
+    public static function recalculateWithdrawalFromTaxAmount(callable $get, callable $set): void
+    {
+        $net = (float) ($get('amount_without_tax') ?? 0);
+        $tax = (float) ($get('tax_amount') ?? 0);
+
+        if ($net > 0 && $tax > 0) {
+            $set('tax_percentage', round(($tax / $net) * 100, 2));
+        } else {
+            $set('tax_percentage', null);
         }
 
-        return (float) ($get('tax_amount') ?? 0);
+        $total = round($net + $tax, 2);
+        $set('gross_amount', $total);
+        $set('total_amount', $total);
     }
 
     /**
@@ -344,7 +561,7 @@ class AssetFundVoucherForm
 
         $base = (float) ($type === AssetFundVoucherType::WITHDRAWAL->value
             ? $record->amount_without_tax
-            : $record->gross_amount);
+            : $record->net_after_tax);
 
         $tax = (float) ($record->tax_amount ?? 0);
 

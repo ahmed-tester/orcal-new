@@ -94,7 +94,15 @@ return [
             'net_after_deductions'  => 'Net Amount After All Deductions',
             'expense_reason'        => 'Expense Reason',
             'amount_without_tax'    => 'Net Amount',
+            'disbursement_type'     => 'Disbursement Method',
+            'linked_deposit_voucher'=> 'Linked Deposit Voucher',
+            'fund_gross_available'  => 'Fund Available Balance (Incl. Taxes, Deductions & Other %)',
             'notes'                 => 'Notes',
+        ],
+        'disbursement_types' => [
+            'general'        => 'General Free Fund Disbursement',
+            'linked_deposit' => 'Dedicated Disbursement Linked to Deposit',
+            'general_short'  => 'Free',
         ],
         'helpers' => [
             'party_name'            => 'Free text entry for the beneficiary name',
@@ -103,9 +111,15 @@ return [
             'fund_share_percentage' => 'Calculated from Net Amount After Tax',
         ],
         'placeholders' => [
-            'party_name'      => 'Beneficiary name...',
-            'contractor_name' => 'Contractor name...',
-            'expense_reason'  => 'Expense purpose...',
+            'party_name'             => 'Beneficiary name...',
+            'contractor_name'        => 'Contractor name...',
+            'expense_reason'         => 'Expense purpose...',
+            'linked_deposit_voucher' => '— Select Deposit Voucher —',
+        ],
+        'errors' => [
+            'cannot_delete_deposit_with_withdrawals' => 'Cannot delete deposit voucher because it has linked withdrawal vouchers.',
+            'amount_exceeds_fund_gross_balance'      => 'The total withdrawal amount (:amount SAR) exceeds the fund available balance including taxes, deductions and other % (:available SAR). Negative balance is not allowed.',
+            'amount_exceeds_deposit_balance'         => 'The withdrawal total amount exceeds the remaining available balance in the selected deposit voucher including taxes and deductions (:remaining SAR).',
         ],
     ],
 
@@ -157,6 +171,7 @@ return [
             'tax_amount_opt'       => 'Tax',
             'gross_with_tax'       => 'Gross Amount (incl. Tax)',
             'voucher_no'           => 'Voucher Number',
+            'linked_deposit'       => 'Linked Deposit Voucher',
             'totals'               => 'Total',
         ],
         'filter_types' => [
@@ -165,12 +180,14 @@ return [
             'withdrawal' => 'Withdrawals Only',
         ],
         'summary' => [
-            'total_deposits'    => 'Total Net Deposits',
-            'total_withdrawals' => 'Total Withdrawals',
-            'total_tax'         => 'Total Tax Amount',
-            'total_retention'   => 'Total Retention Amount',
-            'total_fund_share'  => 'Total Fund Share',
-            'net_balance'       => 'Net Available Balance',
+            'total_deposits'         => 'Total Incoming Amount (Incl. Tax)',
+            'total_withdrawals'      => 'Total Withdrawals',
+            'total_withdrawn_amount' => 'Total Amount Disbursed from Fund',
+            'total_tax'              => 'Total Tax Amount',
+            'total_retention'        => 'Total Retention Amount',
+            'total_fund_share'       => 'Total Other Percentage (Fund Share)',
+            'net_balance'            => 'Net Available Balance (After Tax & Deductions)',
+            'gross_balance'          => 'Available Amount (Incl. Taxes, Deductions & Other %)',
         ],
         'columns_panel' => [
             'title'            => 'Customize Columns & Summary',

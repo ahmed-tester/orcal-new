@@ -193,31 +193,82 @@
             'total_withdrawals' => '#dc2626',
             'total_tax'         => '#b45309',
             'total_retention'   => '#6d28d9',
+            'total_fund_share'  => '#0891b2',
             'net_balance'       => ($summary['net_balance'] >= 0 ? '#16a34a' : '#dc2626'),
+            'gross_balance'     => (($summary['gross_balance'] ?? 0) >= 0 ? '#4338ca' : '#dc2626'),
         ];
+        $isWithdrawalFilter = ($filters['filter_type'] ?? 'all') === 'withdrawal';
+        $balancePdfKeys      = ['net_balance', 'gross_balance'];
+        $withdrawalPdfCards  = $isWithdrawalFilter ? $cards : [];
+        $mainPdfCards        = $isWithdrawalFilter ? [] : array_values(array_filter($cards, fn ($k) => ! in_array($k, $balancePdfKeys, true)));
+        $balancePdfCards     = $isWithdrawalFilter ? [] : array_values(array_filter($cards, fn ($k) => in_array($k, $balancePdfKeys, true)));
     @endphp
     <div class="summary-box">
         <div style="font-size: 9pt; font-weight: bold; color: #082c50; margin-bottom: 4px; text-align: center;">
             {{ __('asset_funds.statement.summary_section') }}
         </div>
-        <table>
-            <tr>
-                @foreach ($cards as $cardKey)
-                    @if (isset($allCardDefs[$cardKey]))
-                        <td class="label">{{ $allCardDefs[$cardKey] }}</td>
-                    @endif
-                @endforeach
-            </tr>
-            <tr>
-                @foreach ($cards as $cardKey)
-                    @if (isset($allCardDefs[$cardKey]))
-                        <td style="font-weight: bold; font-size: 9pt; color: {{ $cardColors[$cardKey] ?? '#000' }}; background: #fff;">
-                            {{ number_format($summary[$cardKey], 2) }} <small style="font-size: 6.5pt;">ر.س</small>
+        @if (count($withdrawalPdfCards) > 0)
+            <table>
+                <tr>
+                    @foreach ($withdrawalPdfCards as $cardKey)
+                        @php $isNetInWithdrawal = $cardKey === 'net_balance'; @endphp
+                        <td class="label" style="width: {{ round(100 / count($withdrawalPdfCards), 1) }}%; font-size: 8.5pt;">
+                            {{ $isNetInWithdrawal ? __('asset_funds.statement.summary.total_withdrawn_amount') : ($allCardDefs[$cardKey] ?? $cardKey) }}
                         </td>
-                    @endif
-                @endforeach
-            </tr>
-        </table>
+                    @endforeach
+                </tr>
+                <tr>
+                    @foreach ($withdrawalPdfCards as $cardKey)
+                        @php
+                            $isNetInWithdrawal = $cardKey === 'net_balance';
+                            $val = $isNetInWithdrawal ? $summary['total_withdrawals'] : $summary[$cardKey];
+                            $color = $isNetInWithdrawal ? '#dc2626' : ($cardColors[$cardKey] ?? '#000');
+                        @endphp
+                        <td style="font-weight: bold; font-size: 10pt; color: {{ $color }}; background: #f8fafc; padding: 6px;">
+                            {{ number_format($val, 2) }} <small style="font-size: 7pt;">ر.س</small>
+                        </td>
+                    @endforeach
+                </tr>
+            </table>
+        @endif
+        @if (count($mainPdfCards) > 0)
+            <table style="margin-bottom: 6px;">
+                <tr>
+                    @foreach ($mainPdfCards as $cardKey)
+                        @if (isset($allCardDefs[$cardKey]))
+                            <td class="label" style="width: {{ round(100 / count($mainPdfCards), 1) }}%;">{{ $allCardDefs[$cardKey] }}</td>
+                        @endif
+                    @endforeach
+                </tr>
+                <tr>
+                    @foreach ($mainPdfCards as $cardKey)
+                        @if (isset($allCardDefs[$cardKey]))
+                            <td style="font-weight: bold; font-size: 9pt; color: {{ $cardColors[$cardKey] ?? '#000' }}; background: #fff;">
+                                {{ number_format($summary[$cardKey], 2) }} <small style="font-size: 6.5pt;">ر.س</small>
+                            </td>
+                        @endif
+                    @endforeach
+                </tr>
+            </table>
+        @endif
+        @if (count($balancePdfCards) > 0)
+            <table>
+                <tr>
+                    @foreach ($balancePdfCards as $cardKey)
+                        <td class="label" style="width: {{ round(100 / count($balancePdfCards), 1) }}%; font-size: 8.5pt;">
+                            {{ $allCardDefs[$cardKey] ?? $cardKey }}
+                        </td>
+                    @endforeach
+                </tr>
+                <tr>
+                    @foreach ($balancePdfCards as $cardKey)
+                        <td style="font-weight: bold; font-size: 10pt; color: {{ $cardColors[$cardKey] ?? '#000' }}; background: #f8fafc; padding: 6px;">
+                            {{ number_format($summary[$cardKey], 2) }} <small style="font-size: 7pt;">ر.س</small>
+                        </td>
+                    @endforeach
+                </tr>
+            </table>
+        @endif
     </div>
 @endif
 

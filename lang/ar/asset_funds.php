@@ -94,7 +94,15 @@ return [
             'net_after_deductions'  => 'المبلغ الصافي بعد جميع الخصومات',
             'expense_reason'        => 'سبب الصرف',
             'amount_without_tax'    => 'صافي المبلغ',
+            'disbursement_type'     => 'طريقة الصرف',
+            'linked_deposit_voucher'=> 'سند الإيداع المرتبط',
+            'fund_gross_available'  => 'الرصيد المتاح في الصندوق (شامل الضرائب والاستقطاعات والنسبة الأخرى)',
             'notes'                 => 'الملاحظات',
+        ],
+        'disbursement_types' => [
+            'general'        => 'صرف عام حر من رصيد الصندوق',
+            'linked_deposit' => 'صرف مخصص مرتبط بسند إيداع',
+            'general_short'  => 'صرف حر',
         ],
         'helpers' => [
             'party_name'            => 'تسجيل يدوي حر لاسم المستفيد',
@@ -103,9 +111,15 @@ return [
             'fund_share_percentage' => 'يتم احتساب النسبة من المبلغ الصافي بعد الضريبة',
         ],
         'placeholders' => [
-            'party_name'      => 'اسم المستفيد...',
-            'contractor_name' => 'اسم المقاول...',
-            'expense_reason'  => 'سبب الصرف...',
+            'party_name'             => 'اسم المستفيد...',
+            'contractor_name'        => 'اسم المقاول...',
+            'expense_reason'         => 'سبب الصرف...',
+            'linked_deposit_voucher' => '— اختر سند الإيداع المرتبط بالصرف —',
+        ],
+        'errors' => [
+            'cannot_delete_deposit_with_withdrawals' => 'لا يمكن حذف سند الإيداع لوجود سندات صرف مرتبطة به.',
+            'amount_exceeds_fund_gross_balance'      => 'المبلغ الإجمالي للصرف (:amount ر.س) يتجاوز الرصيد المتاح في الصندوق شامل الضرائب والاستقطاعات والنسبة الأخرى (:available ر.س). لا يمكن أن يصبح رصيد الصندوق بالسالب.',
+            'amount_exceeds_deposit_balance'         => 'المبلغ الإجمالي للصرف يتجاوز الرصيد المتبقي المتاح في سند الإيداع المحدد شاملاً الضرائب والاستقطاعات (:remaining ر.س).',
         ],
     ],
 
@@ -157,6 +171,7 @@ return [
             'tax_amount_opt'       => 'الضريبة',
             'gross_with_tax'       => 'المبلغ الإجمالي شامل الضريبة',
             'voucher_no'           => 'رقم السند',
+            'linked_deposit'       => 'سند الإيداع المرتبط',
             'totals'               => 'الإجمالي',
         ],
         'filter_types' => [
@@ -165,12 +180,14 @@ return [
             'withdrawal' => 'سندات السحب (صرف) فقط',
         ],
         'summary' => [
-            'total_deposits'    => 'إجمالي الواردات الصافية (إيداع)',
-            'total_withdrawals' => 'إجمالي المصروفات (سحب)',
-            'total_tax'         => 'إجمالي مبلغ الضريبة',
-            'total_retention'   => 'إجمالي مبلغ الاستقطاع',
-            'total_fund_share'  => 'إجمالي نصيب الصندوق',
-            'net_balance'       => 'الرصيد الصافي المتاح',
+            'total_deposits'         => 'المبلغ الوارد كامل (شامل الضريبة)',
+            'total_withdrawals'      => 'إجمالي المصروفات (سحب)',
+            'total_withdrawn_amount' => 'إجمالي المبلغ المصروف من الصندوق',
+            'total_tax'              => 'إجمالي مبلغ الضريبة',
+            'total_retention'        => 'إجمالي مبلغ الاستقطاع',
+            'total_fund_share'       => 'إجمالي النسبة الأخرى (نصيب الصندوق)',
+            'net_balance'            => 'الرصيد الصافي المتاح (بعد الضريبة والنسب)',
+            'gross_balance'          => 'المبلغ المتاح شامل الضرائب والاستقطاعات والنسبة الأخرى',
         ],
         'columns_panel' => [
             'title'            => 'تخصيص أعمدة الكشف والملخص',
