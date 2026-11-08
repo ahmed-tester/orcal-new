@@ -195,6 +195,14 @@ return [
                     'modal_desc' => 'Are you sure you want to wipe all loan funds, ROSCA circles, members, and payments?',
                     'checkbox' => 'I confirm that all loan funds and circles will be permanently wiped',
                 ],
+                'asset_funds' => [
+                    'title' => 'Asset Funds & Vouchers',
+                    'desc' => 'Asset fund records, deposit and withdrawal vouchers, and related voucher items.',
+                    'button' => 'Reset Asset Funds Data',
+                    'modal_heading' => 'Confirm Asset Funds Reset',
+                    'modal_desc' => 'Are you sure you want to wipe all asset funds, vouchers, and items? Numbering will restart from 1.',
+                    'checkbox' => 'I confirm that all asset funds and vouchers will be wiped and numbering restart from 1',
+                ],
                 'companies_clients' => [
                     'title' => 'Customers, Entities & Branches',
                     'desc' => 'Customer records, subsidiary entities, companies, and registered branches.',

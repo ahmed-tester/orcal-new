@@ -64,6 +64,10 @@ class DatabaseResetService
             foreach ($allTables as $table) {
                 if (!in_array($table, static::$protectedTables, true)) {
                     DB::statement("TRUNCATE TABLE `{$table}`;");
+                    try {
+                        DB::statement("ALTER TABLE `{$table}` AUTO_INCREMENT = 1;");
+                    } catch (\Throwable $ignored) {
+                    }
                     $truncatedTables[] = $table;
                 }
             }
@@ -195,6 +199,14 @@ class DatabaseResetService
             ],
             'clean_users' => false,
         ],
+        'asset_funds' => [
+            'tables' => [
+                'asset_fund_voucher_items',
+                'asset_fund_vouchers',
+                'asset_funds',
+            ],
+            'clean_users' => false,
+        ],
         'companies_clients' => [
             'tables' => [
                 'company_attachments',
@@ -232,6 +244,10 @@ class DatabaseResetService
             foreach ($tables as $table) {
                 if (\Illuminate\Support\Facades\Schema::hasTable($table)) {
                     DB::statement("TRUNCATE TABLE `{$table}`;");
+                    try {
+                        DB::statement("ALTER TABLE `{$table}` AUTO_INCREMENT = 1;");
+                    } catch (\Throwable $ignored) {
+                    }
                     $truncatedTables[] = $table;
                 }
             }
