@@ -198,30 +198,42 @@
             'gross_balance'     => (($summary['gross_balance'] ?? 0) >= 0 ? '#4338ca' : '#dc2626'),
         ];
         $isWithdrawalFilter = ($filters['filter_type'] ?? 'all') === 'withdrawal';
-        $balancePdfKeys      = ['net_balance', 'gross_balance'];
-        $withdrawalPdfCards  = $isWithdrawalFilter ? $cards : [];
-        $mainPdfCards        = $isWithdrawalFilter ? [] : array_values(array_filter($cards, fn ($k) => ! in_array($k, $balancePdfKeys, true)));
-        $balancePdfCards     = $isWithdrawalFilter ? [] : array_values(array_filter($cards, fn ($k) => in_array($k, $balancePdfKeys, true)));
+        $primaryPdfKeys     = ['total_deposits', 'total_withdrawals', 'gross_balance'];
+        $secondaryPdfKeys   = ['total_tax', 'total_retention', 'total_fund_share', 'net_balance'];
+
+        if ($isWithdrawalFilter) {
+            $row1PdfCards = $cards;
+            $row2PdfCards = [];
+        } else {
+            $row1PdfCards = array_values(array_filter($cards, fn ($k) => in_array($k, $primaryPdfKeys, true)));
+            $row2PdfCards = array_values(array_filter($cards, fn ($k) => in_array($k, $secondaryPdfKeys, true)));
+
+            $row1Order = array_flip($primaryPdfKeys);
+            usort($row1PdfCards, fn ($a, $b) => ($row1Order[$a] ?? 0) <=> ($row1Order[$b] ?? 0));
+
+            $row2Order = array_flip($secondaryPdfKeys);
+            usort($row2PdfCards, fn ($a, $b) => ($row2Order[$a] ?? 0) <=> ($row2Order[$b] ?? 0));
+        }
     @endphp
     <div class="summary-box">
         <div style="font-size: 9pt; font-weight: bold; color: #082c50; margin-bottom: 4px; text-align: center;">
             {{ __('asset_funds.statement.summary_section') }}
         </div>
-        @if (count($withdrawalPdfCards) > 0)
-            <table>
+        @if (count($row1PdfCards) > 0)
+            <table style="margin-bottom: 5px;">
                 <tr>
-                    @foreach ($withdrawalPdfCards as $cardKey)
-                        @php $isNetInWithdrawal = $cardKey === 'net_balance'; @endphp
-                        <td class="label" style="width: {{ round(100 / count($withdrawalPdfCards), 1) }}%; font-size: 8.5pt;">
+                    @foreach ($row1PdfCards as $cardKey)
+                        @php $isNetInWithdrawal = $isWithdrawalFilter && $cardKey === 'net_balance'; @endphp
+                        <td class="label" style="width: {{ round(100 / count($row1PdfCards), 1) }}%; font-size: 8.5pt;">
                             {{ $isNetInWithdrawal ? __('asset_funds.statement.summary.total_withdrawn_amount') : ($allCardDefs[$cardKey] ?? $cardKey) }}
                         </td>
                     @endforeach
                 </tr>
                 <tr>
-                    @foreach ($withdrawalPdfCards as $cardKey)
+                    @foreach ($row1PdfCards as $cardKey)
                         @php
-                            $isNetInWithdrawal = $cardKey === 'net_balance';
-                            $val = $isNetInWithdrawal ? $summary['total_withdrawals'] : $summary[$cardKey];
+                            $isNetInWithdrawal = $isWithdrawalFilter && $cardKey === 'net_balance';
+                            $val = $isNetInWithdrawal ? $summary['total_withdrawals'] : ($summary[$cardKey] ?? 0);
                             $color = $isNetInWithdrawal ? '#dc2626' : ($cardColors[$cardKey] ?? '#000');
                         @endphp
                         <td style="font-weight: bold; font-size: 10pt; color: {{ $color }}; background: #f8fafc; padding: 6px;">
@@ -231,39 +243,23 @@
                 </tr>
             </table>
         @endif
-        @if (count($mainPdfCards) > 0)
-            <table style="margin-bottom: 6px;">
-                <tr>
-                    @foreach ($mainPdfCards as $cardKey)
-                        @if (isset($allCardDefs[$cardKey]))
-                            <td class="label" style="width: {{ round(100 / count($mainPdfCards), 1) }}%;">{{ $allCardDefs[$cardKey] }}</td>
-                        @endif
-                    @endforeach
-                </tr>
-                <tr>
-                    @foreach ($mainPdfCards as $cardKey)
-                        @if (isset($allCardDefs[$cardKey]))
-                            <td style="font-weight: bold; font-size: 9pt; color: {{ $cardColors[$cardKey] ?? '#000' }}; background: #fff;">
-                                {{ number_format($summary[$cardKey], 2) }} <small style="font-size: 6.5pt;">ر.س</small>
-                            </td>
-                        @endif
-                    @endforeach
-                </tr>
-            </table>
-        @endif
-        @if (count($balancePdfCards) > 0)
+        @if (count($row2PdfCards) > 0)
             <table>
                 <tr>
-                    @foreach ($balancePdfCards as $cardKey)
-                        <td class="label" style="width: {{ round(100 / count($balancePdfCards), 1) }}%; font-size: 8.5pt;">
+                    @foreach ($row2PdfCards as $cardKey)
+                        <td class="label" style="width: {{ round(100 / count($row2PdfCards), 1) }}%; font-size: 8.5pt;">
                             {{ $allCardDefs[$cardKey] ?? $cardKey }}
                         </td>
                     @endforeach
                 </tr>
                 <tr>
-                    @foreach ($balancePdfCards as $cardKey)
-                        <td style="font-weight: bold; font-size: 10pt; color: {{ $cardColors[$cardKey] ?? '#000' }}; background: #f8fafc; padding: 6px;">
-                            {{ number_format($summary[$cardKey], 2) }} <small style="font-size: 7pt;">ر.س</small>
+                    @foreach ($row2PdfCards as $cardKey)
+                        @php
+                            $val = $summary[$cardKey] ?? 0;
+                            $color = $cardColors[$cardKey] ?? '#000';
+                        @endphp
+                        <td style="font-weight: bold; font-size: 9.5pt; color: {{ $color }}; background: #fff; padding: 5px;">
+                            {{ number_format($val, 2) }} <small style="font-size: 7pt;">ر.س</small>
                         </td>
                     @endforeach
                 </tr>

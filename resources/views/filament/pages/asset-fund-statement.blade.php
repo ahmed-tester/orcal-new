@@ -98,32 +98,181 @@
         .group-withdrawal .af-tile-check { accent-color: #dc2626; }
         .group-cards .af-tile-check { accent-color: #2563eb; }
 
-        .af-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
-        .af-sum-card { border-radius: .75rem; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: .25rem; }
-        .af-sum-card.deposits { background: #dcfce7; border: 1px solid #86efac; }
-        .dark .af-sum-card.deposits { background: rgba(22,163,74,.2); border-color: rgba(22,163,74,.4); }
-        .af-sum-card.withdrawals { background: #fee2e2; border: 1px solid #fca5a5; }
-        .dark .af-sum-card.withdrawals { background: rgba(220,38,38,.2); border-color: rgba(220,38,38,.4); }
-        .af-sum-card.tax { background: #fef3c7; border: 1px solid #fcd34d; }
-        .dark .af-sum-card.tax { background: rgba(217,119,6,.2); border-color: rgba(217,119,6,.4); }
-        .af-sum-card.retention { background: #ede9fe; border: 1px solid #c4b5fd; }
-        .dark .af-sum-card.retention { background: rgba(124,58,237,.2); border-color: rgba(124,58,237,.4); }
-        .af-sum-card.fund-share { background: #cffafe; border: 1px solid #67e8f9; }
-        .dark .af-sum-card.fund-share { background: rgba(14,116,144,.2); border-color: rgba(14,116,144,.4); }
-        .af-sum-card.balance { background: #dbeafe; border: 1px solid #93c5fd; }
-        .dark .af-sum-card.balance { background: rgba(37,99,235,.2); border-color: rgba(37,99,235,.4); }
-        .af-sum-card.gross-balance { background: #e0e7ff; border: 1px solid #a5b4fc; }
-        .dark .af-sum-card.gross-balance { background: rgba(99,102,241,.2); border-color: rgba(99,102,241,.4); }
-        .af-balances-grid { display: grid; gap: 1rem; margin-bottom: 1.25rem; width: 100%; }
-        @media (max-width: 768px) {
-            .af-balances-grid { grid-template-columns: 1fr !important; }
+        .af-summary-section { margin-bottom: 1.25rem; display: flex; flex-direction: column; gap: .85rem; }
+        .af-summary-row { display: grid; gap: .85rem; width: 100%; }
+        .af-cols-1 { grid-template-columns: 1fr; }
+        .af-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .af-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .af-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        @media (max-width: 1024px) {
+            .af-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .af-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
-        .af-sum-card-balance { padding: 1.15rem 1.35rem; justify-content: space-between; min-height: 88px; }
-        .af-sum-card-balance .af-sum-label { font-size: .85rem; }
-        .af-sum-card-balance .af-sum-value { font-size: 1.65rem; }
-        .af-sum-label { font-size: .75rem; font-weight: 700; color: #475569; }
+        @media (max-width: 768px) {
+            .af-cols-4, .af-cols-3, .af-cols-2 { grid-template-columns: 1fr; }
+        }
+
+        .af-sum-card {
+            border-radius: .75rem;
+            padding: .9rem 1.15rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: .55rem;
+            min-height: 84px;
+            box-shadow: 0 1px 2px rgba(0,0,0,.04);
+            transition: transform .15s ease, box-shadow .15s ease;
+            box-sizing: border-box;
+        }
+        .af-sum-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,.07);
+        }
+
+        .af-sum-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+        }
+        .af-sum-label {
+            font-size: .8rem;
+            font-weight: 700;
+            color: #475569;
+            line-height: 1.35;
+        }
         .dark .af-sum-label { color: #94a3b8; }
-        .af-sum-value { font-size: 1.4rem; font-weight: 900; }
+
+        .af-sum-icon {
+            width: 1.85rem;
+            height: 1.85rem;
+            border-radius: .5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background: rgba(255,255,255,.75);
+            box-shadow: 0 1px 2px rgba(0,0,0,.05);
+        }
+        .dark .af-sum-icon {
+            background: rgba(15,23,42,.5);
+            box-shadow: 0 1px 2px rgba(0,0,0,.2);
+        }
+        .af-sum-icon svg {
+            width: 1.05rem;
+            height: 1.05rem;
+        }
+
+        .af-sum-value-wrap {
+            display: flex;
+            align-items: baseline;
+            justify-content: flex-start;
+            gap: .4rem;
+        }
+        .af-sum-value {
+            font-size: 1.45rem;
+            font-weight: 900;
+            letter-spacing: -.02em;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.15;
+        }
+        .af-sum-currency {
+            font-size: .75rem;
+            font-weight: 700;
+            color: #64748b;
+        }
+        .dark .af-sum-currency { color: #94a3b8; }
+
+        .af-sum-card.deposits {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-inline-start: 4px solid #16a34a;
+        }
+        .dark .af-sum-card.deposits {
+            background: rgba(22,163,74,.14);
+            border-color: rgba(34,197,94,.35);
+            border-inline-start-color: #22c55e;
+        }
+        .af-sum-card.deposits .af-sum-icon { color: #16a34a; }
+        .dark .af-sum-card.deposits .af-sum-icon { color: #4ade80; }
+
+        .af-sum-card.withdrawals {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-inline-start: 4px solid #dc2626;
+        }
+        .dark .af-sum-card.withdrawals {
+            background: rgba(220,38,38,.14);
+            border-color: rgba(239,68,68,.35);
+            border-inline-start-color: #ef4444;
+        }
+        .af-sum-card.withdrawals .af-sum-icon { color: #dc2626; }
+        .dark .af-sum-card.withdrawals .af-sum-icon { color: #f87171; }
+
+        .af-sum-card.tax {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            border-inline-start: 4px solid #d97706;
+        }
+        .dark .af-sum-card.tax {
+            background: rgba(217,119,6,.14);
+            border-color: rgba(245,158,11,.35);
+            border-inline-start-color: #f59e0b;
+        }
+        .af-sum-card.tax .af-sum-icon { color: #d97706; }
+        .dark .af-sum-card.tax .af-sum-icon { color: #fbbf24; }
+
+        .af-sum-card.retention {
+            background: #faf5ff;
+            border: 1px solid #e9d5ff;
+            border-inline-start: 4px solid #7c3aed;
+        }
+        .dark .af-sum-card.retention {
+            background: rgba(124,58,237,.14);
+            border-color: rgba(168,85,247,.35);
+            border-inline-start-color: #a855f7;
+        }
+        .af-sum-card.retention .af-sum-icon { color: #7c3aed; }
+        .dark .af-sum-card.retention .af-sum-icon { color: #c084fc; }
+
+        .af-sum-card.fund-share {
+            background: #ecfeff;
+            border: 1px solid #a5f3fc;
+            border-inline-start: 4px solid #0891b2;
+        }
+        .dark .af-sum-card.fund-share {
+            background: rgba(14,116,144,.14);
+            border-color: rgba(6,182,212,.35);
+            border-inline-start-color: #06b6d4;
+        }
+        .af-sum-card.fund-share .af-sum-icon { color: #0891b2; }
+        .dark .af-sum-card.fund-share .af-sum-icon { color: #22d3ee; }
+
+        .af-sum-card.gross-balance {
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            border-inline-start: 4px solid #4f46e5;
+        }
+        .dark .af-sum-card.gross-balance {
+            background: rgba(79,70,229,.14);
+            border-color: rgba(99,102,241,.35);
+            border-inline-start-color: #6366f1;
+        }
+        .af-sum-card.gross-balance .af-sum-icon { color: #4f46e5; }
+        .dark .af-sum-card.gross-balance .af-sum-icon { color: #818cf8; }
+
+        .af-sum-card.balance {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-inline-start: 4px solid #2563eb;
+        }
+        .dark .af-sum-card.balance {
+            background: rgba(37,99,235,.14);
+            border-color: rgba(59,130,246,.35);
+            border-inline-start-color: #3b82f6;
+        }
+        .af-sum-card.balance .af-sum-icon { color: #2563eb; }
+        .dark .af-sum-card.balance .af-sum-icon { color: #60a5fa; }
         .af-table-wrapper { overflow-x: auto; margin-bottom: 1.5rem; border-radius: 0.5rem; border: 1px solid #cbd5e1; }
         .af-table { width: 100%; border-collapse: collapse; font-size: .8125rem; }
         .af-table th { background: #e2e8f0; padding: .6rem .65rem; font-size: .75rem; font-weight: 800; color: #1e293b; border: 1px solid #cbd5e1; text-align: center; white-space: normal; }
@@ -343,66 +492,101 @@
             $cardStyles = [
                 'total_deposits'    => ['class' => 'deposits', 'color' => '#16a34a'],
                 'total_withdrawals' => ['class' => 'withdrawals', 'color' => '#dc2626'],
-                'total_tax'         => ['class' => 'tax', 'color' => '#b45309'],
-                'total_retention'   => ['class' => 'retention', 'color' => '#6d28d9'],
+                'total_tax'         => ['class' => 'tax', 'color' => '#d97706'],
+                'total_retention'   => ['class' => 'retention', 'color' => '#7c3aed'],
                 'total_fund_share'  => ['class' => 'fund-share', 'color' => '#0891b2'],
-                'net_balance'       => ['class' => 'balance', 'color' => $summary['net_balance'] >= 0 ? '#2563eb' : '#dc2626'],
                 'gross_balance'     => ['class' => 'gross-balance', 'color' => ($summary['gross_balance'] ?? 0) >= 0 ? '#4338ca' : '#dc2626'],
+                'net_balance'       => ['class' => 'balance', 'color' => ($summary['net_balance'] ?? 0) >= 0 ? '#2563eb' : '#dc2626'],
+            ];
+
+            $cardIcons = [
+                'total_deposits'    => '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>',
+                'total_withdrawals' => '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>',
+                'gross_balance'     => '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6H2.25m0 0v12.75M3 6h18m-18 0a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h16.5a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H3Z" /></svg>',
+                'total_tax'         => '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" /></svg>',
+                'total_retention'   => '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" /></svg>',
+                'total_fund_share'  => '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" /></svg>',
+                'net_balance'       => '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" /></svg>',
             ];
 
             $isWithdrawalFilter = $this->filter_type === 'withdrawal';
-            $balanceKeys        = ['net_balance', 'gross_balance'];
-            $withdrawalCardKeys = $isWithdrawalFilter ? $cardKeys : [];
-            $mainCardKeys       = $isWithdrawalFilter ? [] : array_values(array_filter($cardKeys, fn ($k) => ! in_array($k, $balanceKeys, true)));
-            $balanceCardKeys    = $isWithdrawalFilter ? [] : array_values(array_filter($cardKeys, fn ($k) => in_array($k, $balanceKeys, true)));
+            $primaryKeys        = ['total_deposits', 'total_withdrawals', 'gross_balance'];
+            $secondaryKeys      = ['total_tax', 'total_retention', 'total_fund_share', 'net_balance'];
+
+            if ($isWithdrawalFilter) {
+                $row1Cards = $cardKeys;
+                $row2Cards = [];
+            } else {
+                $row1Cards = array_values(array_filter($cardKeys, fn ($k) => in_array($k, $primaryKeys, true)));
+                $row2Cards = array_values(array_filter($cardKeys, fn ($k) => in_array($k, $secondaryKeys, true)));
+
+                $row1Order = array_flip($primaryKeys);
+                usort($row1Cards, fn ($a, $b) => ($row1Order[$a] ?? 0) <=> ($row1Order[$b] ?? 0));
+
+                $row2Order = array_flip($secondaryKeys);
+                usort($row2Cards, fn ($a, $b) => ($row2Order[$a] ?? 0) <=> ($row2Order[$b] ?? 0));
+            }
         @endphp
 
-        {{-- Withdrawal statement: all summary cards in a single row --}}
-        @if (count($withdrawalCardKeys) > 0)
-            <div class="af-balances-grid" style="grid-template-columns: repeat({{ count($withdrawalCardKeys) }}, minmax(0, 1fr));">
-                @foreach ($withdrawalCardKeys as $cardKey)
-                    @php
-                        $isNetInWithdrawal = $cardKey === 'net_balance';
-                        $cardLabel = $isNetInWithdrawal ? __('asset_funds.statement.summary.total_withdrawn_amount') : $cardDefs[$cardKey];
-                        $cardValue = $isNetInWithdrawal ? $summary['total_withdrawals'] : $summary[$cardKey];
-                        $cardClass = $isNetInWithdrawal ? 'withdrawals' : $cardStyles[$cardKey]['class'];
-                        $cardColor = $isNetInWithdrawal ? '#dc2626' : $cardStyles[$cardKey]['color'];
-                    @endphp
-                    <div class="af-sum-card af-sum-card-balance {{ $cardClass }}">
-                        <span class="af-sum-label">{{ $cardLabel }}</span>
-                        <span class="af-sum-value" style="color:{{ $cardColor }}">
-                            {{ number_format($cardValue, 2) }} <small style="font-size:.85rem">{{ __('asset_funds.statement.currency') }}</small>
-                        </span>
+        @if (count($row1Cards) > 0 || count($row2Cards) > 0)
+            <div class="af-summary-section">
+                {{-- Row 1: Primary operations & Gross Balance (e.g. 3 cards) --}}
+                @if (count($row1Cards) > 0)
+                    <div class="af-summary-row af-cols-{{ count($row1Cards) }}">
+                        @foreach ($row1Cards as $cardKey)
+                            @php
+                                $isNetInWithdrawal = $isWithdrawalFilter && $cardKey === 'net_balance';
+                                $cardLabel   = $isNetInWithdrawal ? __('asset_funds.statement.summary.total_withdrawn_amount') : $cardDefs[$cardKey];
+                                $cardValue   = $isNetInWithdrawal ? $summary['total_withdrawals'] : ($summary[$cardKey] ?? 0);
+                                $cardClass   = $isNetInWithdrawal ? 'withdrawals' : ($cardStyles[$cardKey]['class'] ?? '');
+                                $cardColor   = $isNetInWithdrawal ? '#dc2626' : ($cardStyles[$cardKey]['color'] ?? '#082c50');
+                                $cardIconKey = $isNetInWithdrawal ? 'total_withdrawals' : $cardKey;
+                            @endphp
+                            <div class="af-sum-card {{ $cardClass }}">
+                                <div class="af-sum-card-header">
+                                    <span class="af-sum-label">{{ $cardLabel }}</span>
+                                    <div class="af-sum-icon">
+                                        {!! $cardIcons[$cardIconKey] ?? '' !!}
+                                    </div>
+                                </div>
+                                <div class="af-sum-value-wrap">
+                                    <span class="af-sum-value" style="color:{{ $cardColor }}">
+                                        {{ number_format($cardValue, 2) }}
+                                    </span>
+                                    <span class="af-sum-currency">{{ __('asset_funds.statement.currency') }}</span>
+                                </div>
+                            </div>
+                        @endforeach
                     </div>
-                @endforeach
-            </div>
-        @endif
+                @endif
 
-        {{-- Main operational summary cards (deposit / all) --}}
-        @if (count($mainCardKeys) > 0)
-            <div class="af-summary-grid">
-                @foreach ($mainCardKeys as $cardKey)
-                    <div class="af-sum-card {{ $cardStyles[$cardKey]['class'] }}">
-                        <span class="af-sum-label">{{ $cardDefs[$cardKey] }}</span>
-                        <span class="af-sum-value" style="color:{{ $cardStyles[$cardKey]['color'] }}">
-                            {{ number_format($summary[$cardKey], 2) }} <small style="font-size:.75rem">{{ __('asset_funds.statement.currency') }}</small>
-                        </span>
+                {{-- Row 2: Deductions & Net Balance (e.g. 4 cards) --}}
+                @if (count($row2Cards) > 0)
+                    <div class="af-summary-row af-cols-{{ count($row2Cards) }}">
+                        @foreach ($row2Cards as $cardKey)
+                            @php
+                                $cardLabel = $cardDefs[$cardKey];
+                                $cardValue = $summary[$cardKey] ?? 0;
+                                $cardClass = $cardStyles[$cardKey]['class'] ?? '';
+                                $cardColor = $cardStyles[$cardKey]['color'] ?? '#082c50';
+                            @endphp
+                            <div class="af-sum-card {{ $cardClass }}">
+                                <div class="af-sum-card-header">
+                                    <span class="af-sum-label">{{ $cardLabel }}</span>
+                                    <div class="af-sum-icon">
+                                        {!! $cardIcons[$cardKey] ?? '' !!}
+                                    </div>
+                                </div>
+                                <div class="af-sum-value-wrap">
+                                    <span class="af-sum-value" style="color:{{ $cardColor }}">
+                                        {{ number_format($cardValue, 2) }}
+                                    </span>
+                                    <span class="af-sum-currency">{{ __('asset_funds.statement.currency') }}</span>
+                                </div>
+                            </div>
+                        @endforeach
                     </div>
-                @endforeach
-            </div>
-        @endif
-
-        {{-- Full-width Balance cards (deposit / all) --}}
-        @if (count($balanceCardKeys) > 0)
-            <div class="af-balances-grid" style="grid-template-columns: repeat({{ count($balanceCardKeys) }}, minmax(0, 1fr));">
-                @foreach ($balanceCardKeys as $cardKey)
-                    <div class="af-sum-card af-sum-card-balance {{ $cardStyles[$cardKey]['class'] }}">
-                        <span class="af-sum-label">{{ $cardDefs[$cardKey] }}</span>
-                        <span class="af-sum-value" style="color:{{ $cardStyles[$cardKey]['color'] }}">
-                            {{ number_format($summary[$cardKey], 2) }} <small style="font-size:.85rem">{{ __('asset_funds.statement.currency') }}</small>
-                        </span>
-                    </div>
-                @endforeach
+                @endif
             </div>
         @endif
 
