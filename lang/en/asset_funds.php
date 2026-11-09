@@ -37,6 +37,7 @@ return [
             'accountant_name'    => 'Accountant Name',
             'accountant_employee'=> 'Fund Accountant (Saudi Employee)',
             'status'             => 'Status',
+            'default_tax_percentage' => 'Default Tax Percentage %',
             'notes'              => 'Notes',
             'balance'            => 'Current Balance',
             'total_deposits'     => 'Total Deposits',
@@ -44,8 +45,9 @@ return [
             'vouchers_count'     => 'Vouchers Count',
         ],
         'helpers' => [
-            'manager_employee'    => 'Select fund manager from Saudi employees registered in the system',
-            'accountant_employee' => 'Select fund accountant from Saudi employees registered in the system',
+            'manager_employee'       => 'Select fund manager from Saudi employees registered in the system',
+            'accountant_employee'    => 'Select fund accountant from Saudi employees registered in the system',
+            'default_tax_percentage' => 'This rate will be automatically applied to any new deposit or withdrawal voucher in this fund, with manual override option',
         ],
     ],
 

@@ -24,19 +24,22 @@ class AssetFund extends Model
         'accountant_employee_id',
         'accountant_name',
         'status',
+        'default_tax_percentage',
         'notes',
         'created_by',
     ];
 
     protected $attributes = [
         'status' => 'active',
+        'default_tax_percentage' => 15.00,
     ];
 
     protected function casts(): array
     {
         return [
-            'established_date' => 'date',
-            'status'           => AssetFundStatus::class,
+            'established_date'       => 'date',
+            'status'                 => AssetFundStatus::class,
+            'default_tax_percentage' => 'float',
         ];
     }
 

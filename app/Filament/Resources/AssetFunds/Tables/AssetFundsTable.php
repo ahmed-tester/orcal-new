@@ -56,6 +56,12 @@ class AssetFundsTable
                 TextColumn::make('status')
                     ->label(__('asset_funds.asset_funds.fields.status'))
                     ->badge(),
+
+                TextColumn::make('default_tax_percentage')
+                    ->label(__('asset_funds.asset_funds.fields.default_tax_percentage'))
+                    ->suffix('%')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('created_at', 'desc')
             ->actions([
