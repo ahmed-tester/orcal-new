@@ -44,14 +44,12 @@ class AssetFundVoucherForm
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set, callable $get, ?AssetFundVoucher $record) {
                                 if ($state && ! $record) {
-                                    $fund = AssetFund::find($state);
-                                    if ($fund) {
-                                        $taxRate = (float) ($fund->default_tax_percentage ?? 15.00);
-                                        $set('tax_percentage', $taxRate);
-                                        $type = $get('type') instanceof AssetFundVoucherType ? $get('type')->value : $get('type');
-                                        if ($type === AssetFundVoucherType::WITHDRAWAL->value) {
-                                            self::recalculateWithdrawalFromTaxPercentage($get, $set);
-                                        } else {
+                                    $type = $get('type') instanceof AssetFundVoucherType ? $get('type')->value : $get('type');
+                                    if ($type === AssetFundVoucherType::DEPOSIT->value) {
+                                        $fund = AssetFund::find($state);
+                                        if ($fund) {
+                                            $taxRate = (float) ($fund->default_tax_percentage ?? 15.00);
+                                            $set('tax_percentage', $taxRate);
                                             self::recalculateDepositFromTaxPercentage($get, $set);
                                         }
                                     }
@@ -65,6 +63,23 @@ class AssetFundVoucherForm
                             ->default(AssetFundVoucherType::DEPOSIT)
                             ->inline()
                             ->live()
+                            ->afterStateUpdated(function ($state, callable $set, callable $get, ?AssetFundVoucher $record) {
+                                if (! $record) {
+                                    $val = $state instanceof AssetFundVoucherType ? $state->value : $state;
+                                    if ($val === AssetFundVoucherType::DEPOSIT->value) {
+                                        $fundId = $get('asset_fund_id');
+                                        if ($fundId) {
+                                            $taxRate = (float) (AssetFund::find($fundId)?->default_tax_percentage ?? 15.00);
+                                            $set('tax_percentage', $taxRate);
+                                            self::recalculateDepositFromTaxPercentage($get, $set);
+                                        }
+                                    } else {
+                                        $set('tax_percentage', null);
+                                        $set('tax_amount', 0);
+                                        self::recalculateWithdrawal($get, $set);
+                                    }
+                                }
+                            })
                             ->required(),
 
                         DatePicker::make('voucher_date')
@@ -386,17 +401,6 @@ class AssetFundVoucherForm
                             ->suffix('%')
                             ->minValue(0)
                             ->maxValue(100)
-                            ->default(function (callable $get) {
-                                $fundId = $get('asset_fund_id');
-                                if ($fundId) {
-                                    return (float) (AssetFund::find($fundId)?->default_tax_percentage ?? 15.00);
-                                }
-                                $activeFunds = AssetFund::where('status', 'active')->get();
-                                if ($activeFunds->count() === 1) {
-                                    return (float) ($activeFunds->first()->default_tax_percentage ?? 15.00);
-                                }
-                                return 15.00;
-                            })
                             ->dehydrated(false)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateWithdrawalFromTaxPercentage($get, $set))
