@@ -73,11 +73,18 @@ class AssetFundVoucher extends Model
     {
         static::creating(function (AssetFundVoucher $voucher) {
             if (empty($voucher->voucher_number)) {
+                $type = $voucher->type instanceof AssetFundVoucherType
+                    ? $voucher->type->value
+                    : (string) $voucher->type;
+
+                $prefix = $type === AssetFundVoucherType::WITHDRAWAL->value ? 'WDR' : 'DEP';
+
                 $voucher->voucher_number = CodeGeneratorService::generate(
                     modelClass: static::class,
                     column: 'voucher_number',
-                    prefix: 'AFV',
+                    prefix: $prefix,
                     companyId: null,
+                    scopeQuery: fn ($query) => $query->where('voucher_number', 'like', $prefix . '-%'),
                 );
             }
 
