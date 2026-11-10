@@ -370,7 +370,32 @@ class ManageSettings extends Page implements HasForms
                                                     ]),
                                                 ]),
 
-                                            // 6. Companies & Clients Module
+                                            // 6. Asset Funds Module
+                                            Section::make(__('settings.manage.database_reset.modules.asset_funds.title'))
+                                                ->description(__('settings.manage.database_reset.modules.asset_funds.desc'))
+                                                ->icon('heroicon-o-archive-box')
+                                                ->schema([
+                                                    \Filament\Schemas\Components\Actions::make([
+                                                        Action::make('reset_asset_funds')
+                                                            ->label(__('settings.manage.database_reset.modules.asset_funds.button'))
+                                                            ->icon('heroicon-o-trash')
+                                                            ->color('danger')
+                                                            ->requiresConfirmation()
+                                                            ->modalIcon('heroicon-o-exclamation-triangle')
+                                                            ->modalHeading(__('settings.manage.database_reset.modules.asset_funds.modal_heading'))
+                                                            ->modalDescription(__('settings.manage.database_reset.modules.asset_funds.modal_desc'))
+                                                            ->modalSubmitActionLabel(__('settings.manage.database_reset.submit_label'))
+                                                            ->form([
+                                                                Checkbox::make('confirm_asset_funds_reset')
+                                                                    ->label(__('settings.manage.database_reset.modules.asset_funds.checkbox'))
+                                                                    ->required()
+                                                                    ->accepted(),
+                                                            ])
+                                                            ->action(fn () => $this->performModuleReset('asset_funds')),
+                                                    ]),
+                                                ]),
+
+                                            // 7. Companies & Clients Module
                                             Section::make(__('settings.manage.database_reset.modules.companies_clients.title'))
                                                 ->description(__('settings.manage.database_reset.modules.companies_clients.desc'))
                                                 ->icon('heroicon-o-building-office-2')

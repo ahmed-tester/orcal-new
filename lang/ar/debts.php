@@ -78,6 +78,7 @@ return [
         'print_voucher' => 'طباعة سند الدين',
         'save_and_print' => 'حفظ وطباعة سند الدين',
         'view_debt' => 'عرض تفاصيل الدين',
+        'print_statement' => 'طباعة وحفظ الكشف 🖨️',
     ],
 
     'notifications' => [

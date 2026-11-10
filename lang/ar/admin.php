@@ -32,4 +32,5 @@ return [
     'created_at' => 'تاريخ الإنشاء',
     'branch' => 'الفرع',
     'all_branches' => 'كل الفروع',
+    'all_companies' => 'جميع المنشآت',
 ];

@@ -3,16 +3,23 @@
 namespace App\Filament\Resources\TreasuryTransactions\Pages;
 
 use App\Filament\Resources\TreasuryTransactions\TreasuryTransactionResource;
+use App\Filament\Traits\HasFilterBarState;
 use App\Models\Company;
+use App\Services\FilterBarService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Database\Eloquent\Builder;
 
 class ListTreasuryTransactions extends ListRecords
 {
+    use HasFilterBarState;
+
     protected static string $resource = TreasuryTransactionResource::class;
+
+    public mixed $transactionType = null;
 
     protected function getHeaderActions(): array
     {
@@ -24,32 +31,32 @@ class ListTreasuryTransactions extends ListRecords
                 ->url(fn (): string => TreasuryTransactionResource::getUrl('index')),
             CreateAction::make(),
             Action::make('export_statement')
-                ->label('تصدير كشف الخزينة PDF 📑')
+                ->label(__('finance.treasury_transactions.export_statement_modal.btn_label'))
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('info')
-                ->modalHeading('تصدير كشف حركة الخزينة والمحاسبة')
-                ->modalDescription('حدد المؤسسة ونوع الكشف والفترة الزمنية لتصدير وطباعة كشف الحساب والعمليات بصيغة PDF.')
-                ->modalSubmitActionLabel('توليد وعرض الكشف')
+                ->modalHeading(__('finance.treasury_transactions.export_statement_modal.heading'))
+                ->modalDescription(__('finance.treasury_transactions.export_statement_modal.description'))
+                ->modalSubmitActionLabel(__('finance.treasury_transactions.export_statement_modal.submit_label'))
                 ->form([
                     Select::make('company_id')
-                        ->label('المؤسسة / الشركة')
-                        ->options(['all' => 'كافة المؤسسات والشركات (الكل)'] + Company::orderBy('trade_name')->pluck('trade_name', 'id')->toArray())
+                        ->label(__('finance.treasury_transactions.export_statement_modal.company_label'))
+                        ->options(['all' => __('finance.treasury_transactions.export_statement_modal.all_companies')] + Company::orderBy('trade_name')->pluck('trade_name', 'id')->toArray())
                         ->default('all')
                         ->searchable()
                         ->required(),
                     Select::make('transaction_type')
-                        ->label('نوع الكشف')
+                        ->label(__('finance.treasury_transactions.export_statement_modal.type_label'))
                         ->options([
-                            'all' => 'الكل (قبض وصرف)',
-                            'incoming' => 'مقبوضات الخزينة (سندات قبض فقط)',
-                            'outgoing' => 'مدفوعات ومنصرفات الخزينة (سندات صرف فقط)',
+                            'all' => __('finance.treasury_transactions.export_statement_modal.type_all'),
+                            'incoming' => __('finance.treasury_transactions.export_statement_modal.type_incoming'),
+                            'outgoing' => __('finance.treasury_transactions.export_statement_modal.type_outgoing'),
                         ])
                         ->default('all')
                         ->required(),
                     DatePicker::make('from_date')
-                        ->label('من تاريخ'),
+                        ->label(__('finance.treasury_transactions.export_statement_modal.from_date')),
                     DatePicker::make('to_date')
-                        ->label('إلى تاريخ'),
+                        ->label(__('finance.treasury_transactions.export_statement_modal.to_date')),
                 ])
                 ->action(function (array $data) {
                     $params = array_filter($data, fn ($v) => ! is_null($v) && $v !== '');
@@ -57,5 +64,27 @@ class ListTreasuryTransactions extends ListRecords
                     $this->js("window.open('{$url}', '_blank')");
                 }),
         ];
+    }
+
+    protected function filterBarExtraProperties(): array
+    {
+        return ['transactionType'];
+    }
+
+    protected function getTableQuery(): Builder
+    {
+        return FilterBarService::applyFilters(parent::getTableQuery(), $this->filterBarState(), [
+            'company' => true,
+            'date_column' => 'transaction_date',
+            'search_columns' => [
+                'transaction_number',
+                'voucher_number',
+                'recipient_or_payer',
+                'company.trade_name',
+            ],
+            'where_in' => [
+                'transaction_type' => $this->transactionType,
+            ],
+        ]);
     }
 }

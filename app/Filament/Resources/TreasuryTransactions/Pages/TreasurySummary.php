@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\TreasuryTransactions\Pages;
 
 use App\Filament\Resources\TreasuryTransactions\TreasuryTransactionResource;
+use App\Filament\Traits\HasFilterBarState;
 use App\Models\Company;
 use App\Models\PaymentCollectionItem;
 use App\Models\TreasuryTransaction;
@@ -18,21 +19,14 @@ use Livewire\WithPagination;
 
 class TreasurySummary extends Page
 {
+    use HasFilterBarState;
     use WithPagination;
 
     protected static string $resource = TreasuryTransactionResource::class;
 
-    public string $search = '';
+    public mixed $transactionType = null;
 
-    public ?int $companyId = null;
-
-    public ?string $transactionType = null;
-
-    public ?string $paymentItem = null;
-
-    public ?string $dateFrom = null;
-
-    public ?string $dateTo = null;
+    public mixed $paymentItem = null;
 
     public int $perPage = 15;
 
@@ -47,12 +41,8 @@ class TreasurySummary extends Page
     public ?array $beneficiaryDetails = null;
 
     protected $queryString = [
-        'search' => ['except' => ''],
-        'companyId' => ['except' => null],
         'transactionType' => ['except' => null],
         'paymentItem' => ['except' => null],
-        'dateFrom' => ['except' => null],
-        'dateTo' => ['except' => null],
         'perPage' => ['except' => 15],
         'sortColumn' => ['except' => 'total_outgoing'],
         'sortDirection' => ['except' => 'desc'],
@@ -124,16 +114,29 @@ class TreasurySummary extends Page
         ];
     }
 
-    public function updated($property): void
+    protected function filterBarExtraProperties(): array
     {
-        if (in_array($property, ['search', 'companyId', 'transactionType', 'paymentItem', 'dateFrom', 'dateTo', 'perPage'], true)) {
-            $this->resetPage();
-        }
+        return ['transactionType', 'paymentItem'];
     }
 
+    /**
+     * Drop selected payment items that are no longer available for the new company.
+     */
     public function updatedCompanyId(): void
     {
-        if ($this->paymentItem && ! in_array($this->paymentItem, $this->paymentItems->toArray(), true)) {
+        if (empty($this->paymentItem)) {
+            return;
+        }
+
+        $available = $this->paymentItems->toArray();
+
+        if (is_array($this->paymentItem)) {
+            $this->paymentItem = array_values(array_intersect($this->paymentItem, $available));
+
+            return;
+        }
+
+        if (! in_array($this->paymentItem, $available, true)) {
             $this->paymentItem = null;
         }
     }
@@ -148,22 +151,6 @@ class TreasurySummary extends Page
         }
 
         $this->resetPage();
-    }
-
-    public function resetFilters(): void
-    {
-        $this->reset(['search', 'companyId', 'transactionType', 'paymentItem', 'dateFrom', 'dateTo']);
-        $this->resetPage();
-    }
-
-    public function hasActiveFilters(): bool
-    {
-        return trim((string) $this->search) !== ''
-            || $this->companyId !== null
-            || $this->transactionType !== null
-            || $this->paymentItem !== null
-            || $this->dateFrom !== null
-            || $this->dateTo !== null;
     }
 
     public function openDetails(int $rowId): void
@@ -231,14 +218,10 @@ class TreasurySummary extends Page
 
     protected function filterState(): array
     {
-        return [
-            'search' => $this->search,
-            'company_id' => $this->companyId,
+        return $this->filterBarState([
             'transaction_type' => $this->transactionType,
             'payment_item' => $this->paymentItem,
-            'date_from' => $this->dateFrom,
-            'date_to' => $this->dateTo,
-        ];
+        ]);
     }
 
     public function getSummaryProperty()
@@ -257,35 +240,35 @@ class TreasurySummary extends Page
         return TreasurySummaryService::getStats($this->filterState());
     }
 
-    public function getCompaniesProperty()
-    {
-        $query = Company::query();
-        $companyIds = CompanyFormService::getAuthorizedCompanyIds();
-
-        if (! empty($companyIds)) {
-            $query->whereIn('id', $companyIds);
-        }
-
-        return $query->orderBy('trade_name')->get();
-    }
-
     public function getPaymentItemsProperty()
     {
         $query = PaymentCollectionItem::query();
 
-        if ($this->companyId) {
-            $query->where('company_id', $this->companyId);
+        if (! empty($this->companyId)) {
+            $compIds = is_array($this->companyId) ? $this->companyId : [$this->companyId];
+            $query->whereIn('company_id', array_filter($compIds));
         } else {
             $companyIds = CompanyFormService::getAuthorizedCompanyIds();
-            if (! empty($companyIds)) {
-                $query->whereIn('company_id', $companyIds);
-            }
+            $query->whereIn('company_id', ! empty($companyIds) ? $companyIds : [0]);
         }
 
         return $query->whereNotNull('sub_item')
             ->where('sub_item', '!=', '')
             ->distinct()
             ->orderBy('sub_item')
-            ->pluck('sub_item');
+            ->pluck('sub_item')
+            ->map(function ($item) {
+                if (is_string($item) && (str_starts_with(trim($item), '{') || str_contains($item, '"sub_item"'))) {
+                    $decoded = json_decode($item, true);
+                    if (is_array($decoded)) {
+                        return $decoded['sub_item'] ?? $decoded['main_item'] ?? $item;
+                    }
+                }
+
+                return $item;
+            })
+            ->filter()
+            ->unique()
+            ->values();
     }
 }

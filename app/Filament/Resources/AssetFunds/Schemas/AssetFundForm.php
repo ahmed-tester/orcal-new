@@ -45,6 +45,16 @@ class AssetFundForm
                             ->default(AssetFundStatus::ACTIVE->value)
                             ->required(),
 
+                        TextInput::make('default_tax_percentage')
+                            ->label(__('asset_funds.asset_funds.fields.default_tax_percentage'))
+                            ->helperText(__('asset_funds.asset_funds.helpers.default_tax_percentage'))
+                            ->numeric()
+                            ->suffix('%')
+                            ->default(15.00)
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->required(),
+
                         Textarea::make('description')
                             ->label(__('asset_funds.asset_funds.fields.description'))
                             ->rows(3)

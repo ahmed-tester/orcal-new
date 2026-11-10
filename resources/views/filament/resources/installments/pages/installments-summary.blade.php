@@ -156,82 +156,45 @@
             @endforeach
         </div>
 
-        {{-- Filters (Clean row layout matching mockup) --}}
-        <x-filament::section icon="heroicon-o-funnel">
-            <x-slot name="heading">
-                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                    <span>{{ __('finance.installments.summary.filters.search') }}</span>
-                    @if($this->hasActiveFilters())
-                        <span style="display: inline-flex; align-items: center; padding: 0.125rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;">
-                            {{ __('finance.installments.summary.filters.active') }}
-                        </span>
-                    @endif
-                </div>
+        {{-- Unified Reusable Filter Bar --}}
+        <x-filter-bar
+            :title="__('finance.installments.summary.filters.search')"
+            :show-company="true"
+            :companies="$this->companies"
+            :company-label="__('finance.installments.fields.company')"
+            :multiple-company="true"
+            :show-status="true"
+            :status-label="__('finance.installments.fields.status')"
+            :status-options="$this->statusOptions"
+            :multiple-status="true"
+            :show-dates="false"
+            :show-search="true"
+            :search-placeholder="__('finance.installments.summary.filters.search_placeholder')"
+            :has-active="$this->hasActiveFilters()"
+            reset-method="resetFilters"
+        >
+            <x-slot name="actions">
+                <button type="button" wire:click="exportCsv" class="ism-export-btn">
+                    <x-heroicon-o-arrow-down-tray class="report-icon-sm" />
+                    <span>{{ __('finance.installments.summary.filters.export_excel') }}</span>
+                </button>
             </x-slot>
 
-            <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem;">
-                {{-- Search --}}
-                <div style="flex: 2; min-width: 240px;">
-                    <label class="report-filter-label">{{ __('finance.installments.summary.filters.search') }}</label>
-                    <div class="report-search-inner">
-                        <div class="report-search-icon"><x-heroicon-m-magnifying-glass class="report-icon-sm" /></div>
-                        <input type="text" wire:model.live.debounce.300ms="search" placeholder="{{ __('finance.installments.summary.filters.search_placeholder') }}" class="report-search-input">
-                        @if($search)
-                            <button type="button" wire:click="$set('search', '')" class="report-search-clear"><x-heroicon-m-x-mark class="report-icon-sm" /></button>
-                        @endif
-                    </div>
-                </div>
-
-                {{-- Company --}}
-                <div style="flex: 1.2; min-width: 170px;">
-                    <label class="report-filter-label">{{ __('finance.installments.fields.company') }}</label>
-                    <select wire:model.live="companyId" class="report-filter-input">
-                        <option value="">{{ __('finance.installments.summary.filters.all_companies') }}</option>
-                        @foreach($this->companies as $company)
-                            <option value="{{ $company->id }}">{{ $company->trade_name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
+            <x-slot name="append">
                 {{-- Installment / Transaction Type --}}
-                <div style="flex: 1; min-width: 140px;">
-                    <label class="report-filter-label">{{ __('finance.installments.summary.filters.installment_type') }}</label>
-                    <select wire:model.live="transactionType" class="report-filter-input">
-                        <option value="">{{ __('finance.installments.summary.filters.all_types') }}</option>
-                        <option value="installment">{{ __('finance.installments.toggle_options.installment') }}</option>
-                        <option value="advance">{{ __('finance.installments.toggle_options.advance') }}</option>
-                    </select>
-                </div>
-
-                {{-- Status --}}
-                <div style="flex: 1; min-width: 140px;">
-                    <label class="report-filter-label">{{ __('finance.installments.fields.status') }}</label>
-                    <select wire:model.live="status" class="report-filter-input">
-                        <option value="">{{ __('finance.installments.summary.filters.all_statuses') }}</option>
-                        @foreach($this->statusOptions as $value => $label)
-                            <option value="{{ $value }}">{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                {{-- Reset Filters button (if active) --}}
-                @if($this->hasActiveFilters())
-                    <div>
-                        <x-filament::button wire:click="resetFilters" color="gray" size="sm" icon="heroicon-m-arrow-path">
-                            {{ __('finance.installments.summary.filters.reset') }}
-                        </x-filament::button>
-                    </div>
-                @endif
-
-                {{-- Export Excel Button --}}
-                <div>
-                    <button type="button" wire:click="exportCsv" class="ism-export-btn">
-                        <x-heroicon-o-arrow-down-tray class="report-icon-sm" />
-                        <span>{{ __('finance.installments.summary.filters.export_excel') }}</span>
-                    </button>
-                </div>
-            </div>
-        </x-filament::section>
+                <x-filter-select
+                    wire:model.live="transactionType"
+                    :label="__('finance.installments.summary.filters.installment_type')"
+                    :placeholder="__('finance.installments.summary.filters.all_types')"
+                    :options="[
+                        'installment' => __('finance.installments.toggle_options.installment'),
+                        'advance' => __('finance.installments.toggle_options.advance'),
+                    ]"
+                    :multiple="true"
+                    :searchable="true"
+                />
+            </x-slot>
+        </x-filter-bar>
 
         {{-- Summary Table --}}
         @php $summary = $this->summary; @endphp

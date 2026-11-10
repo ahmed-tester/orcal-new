@@ -32,4 +32,5 @@ return [
     'created_at' => 'Creation Date',
     'branch' => 'Branch',
     'all_branches' => 'All Branches',
+    'all_companies' => 'All Companies',
 ];

@@ -4,10 +4,12 @@ namespace App\Filament\Pages;
 
 use App\Models\AssetFund;
 use App\Models\AssetFundVoucher;
+use App\Services\AssetFundStatementService;
 use BackedEnum;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Collection;
+use Livewire\Attributes\Session;
 
 class AssetFundStatement extends Page
 {
@@ -41,6 +43,52 @@ class AssetFundStatement extends Page
     public ?string $date_from   = null;
     public ?string $date_to     = null;
     public string  $filter_type = 'all';
+
+    /**
+     * Statement purpose preset: all, tax, deductions, totals, custom.
+     */
+    #[Session]
+    public string $preset = 'all';
+
+    /**
+     * Selected optional deposit table columns (kept per session).
+     *
+     * @var array<string>
+     */
+    #[Session]
+    public array $deposit_columns = [
+        'gross_amount', 'tax_amount', 'net_after_tax', 'retention_pct',
+        'fund_share_pct', 'net_after_deductions', 'notes',
+    ];
+
+    /**
+     * Selected optional withdrawal table columns (kept per session).
+     *
+     * @var array<string>
+     */
+    #[Session]
+    public array $withdrawal_columns = [
+        'amount_without_tax', 'tax_amount', 'gross_amount', 'notes',
+    ];
+
+    /**
+     * Selected summary cards (kept per session).
+     *
+     * @var array<string>
+     */
+    #[Session]
+    public array $summary_cards = [
+        'total_deposits', 'total_withdrawals', 'total_tax', 'total_retention', 'net_balance', 'gross_balance',
+    ];
+
+    public function mount(): void
+    {
+        if ($this->preset === 'all') {
+            $this->summary_cards = array_keys(AssetFundStatementService::summaryCards());
+        } elseif (! in_array('gross_balance', $this->summary_cards, true)) {
+            $this->summary_cards[] = 'gross_balance';
+        }
+    }
 
     public function getTitle(): string
     {
@@ -82,18 +130,18 @@ class AssetFundStatement extends Page
         return $query->get(['id', 'fund_name', 'fund_number']);
     }
 
-    public function getVouchersProperty(): Collection
+    public function getDepositVouchersProperty(): Collection
     {
         if (! $this->fund_id) {
             return collect();
         }
 
-        $query = AssetFundVoucher::with(['company', 'creator'])
-            ->where('asset_fund_id', $this->fund_id);
-
-        if ($this->filter_type !== 'all') {
-            $query->where('type', $this->filter_type);
-        }
+        $query = AssetFundVoucher::with(['company', 'creator', 'linkedDepositVoucher'])
+            ->where('asset_fund_id', $this->fund_id)
+            ->where(function ($q) {
+                $q->where('type', 'deposit')
+                  ->orWhere('type', \App\Enums\AssetFundVoucherType::DEPOSIT->value);
+            });
 
         if ($this->date_from) {
             $query->whereDate('voucher_date', '>=', $this->date_from);
@@ -106,51 +154,52 @@ class AssetFundStatement extends Page
         return $query->orderBy('voucher_date')->get();
     }
 
-    public function getDepositVouchersProperty(): Collection
-    {
-        return $this->vouchers->filter(fn ($v) => ($v->type?->value ?? $v->type) === 'deposit')->values();
-    }
-
     public function getWithdrawalVouchersProperty(): Collection
     {
-        return $this->vouchers->filter(fn ($v) => ($v->type?->value ?? $v->type) === 'withdrawal')->values();
+        if (! $this->fund_id) {
+            return collect();
+        }
+
+        $query = AssetFundVoucher::with(['company', 'creator', 'linkedDepositVoucher'])
+            ->where('asset_fund_id', $this->fund_id)
+            ->where(function ($q) {
+                $q->where('type', 'withdrawal')
+                  ->orWhere('type', \App\Enums\AssetFundVoucherType::WITHDRAWAL->value);
+            });
+
+        if ($this->date_from) {
+            $query->whereDate('voucher_date', '>=', $this->date_from);
+        }
+
+        if ($this->date_to) {
+            $query->whereDate('voucher_date', '<=', $this->date_to);
+        }
+
+        return $query->orderBy('voucher_date')->get();
+    }
+
+    public function getVouchersProperty(): Collection
+    {
+        return match ($this->filter_type) {
+            'deposit'    => $this->deposit_vouchers,
+            'withdrawal' => $this->withdrawal_vouchers,
+            default      => $this->deposit_vouchers->concat($this->withdrawal_vouchers)->sortBy('voucher_date')->values(),
+        };
     }
 
     public function getDepositsSummaryProperty(): array
     {
-        $deposits = $this->deposit_vouchers;
-
-        return [
-            'gross_amount'         => (float) $deposits->sum('gross_amount'),
-            'tax_amount'           => (float) $deposits->sum('tax_amount'),
-            'net_after_tax'        => (float) $deposits->sum('net_after_tax'),
-            'retention_amount'     => (float) $deposits->sum('retention_amount'),
-            'fund_share_amount'    => (float) $deposits->sum('fund_share_amount'),
-            'net_after_deductions' => (float) $deposits->sum('total_amount'),
-        ];
+        return AssetFundStatementService::depositsSummary($this->deposit_vouchers);
     }
 
     public function getWithdrawalsSummaryProperty(): array
     {
-        $withdrawals = $this->withdrawal_vouchers;
-
-        return [
-            'amount_without_tax' => (float) $withdrawals->sum('amount_without_tax'),
-            'tax_amount'         => (float) $withdrawals->sum('tax_amount'),
-            'total_amount'       => (float) $withdrawals->sum('total_amount'),
-        ];
+        return AssetFundStatementService::withdrawalsSummary($this->withdrawal_vouchers);
     }
 
     public function getSummaryProperty(): array
     {
-        $depositsTotal    = (float) $this->deposit_vouchers->sum('total_amount');
-        $withdrawalsTotal = (float) $this->withdrawal_vouchers->sum('total_amount');
-
-        return [
-            'total_deposits'    => $depositsTotal,
-            'total_withdrawals' => $withdrawalsTotal,
-            'net_balance'       => $depositsTotal - $withdrawalsTotal,
-        ];
+        return AssetFundStatementService::summary($this->deposit_vouchers, $this->withdrawal_vouchers);
     }
 
     public function getSelectedFundProperty(): ?AssetFund
@@ -158,11 +207,167 @@ class AssetFundStatement extends Page
         return $this->fund_id ? AssetFund::find($this->fund_id) : null;
     }
 
-    // ─── Actions ──────────────────────────────────────────────────────────
+    /**
+     * @return array<string, string>
+     */
+    public function getDepositColumnOptionsProperty(): array
+    {
+        return AssetFundStatementService::depositColumnOptions();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getWithdrawalColumnOptionsProperty(): array
+    {
+        return AssetFundStatementService::withdrawalColumnOptions();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getPresetOptionsProperty(): array
+    {
+        return [
+            'all'        => __('asset_funds.statement.columns_panel.presets.all'),
+            'tax'        => __('asset_funds.statement.columns_panel.presets.tax'),
+            'deductions' => __('asset_funds.statement.columns_panel.presets.deductions'),
+            'custom'     => __('asset_funds.statement.columns_panel.presets.custom'),
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function getSummaryCardOptionsProperty(): array
+    {
+        return AssetFundStatementService::summaryCards();
+    }
+
+    /**
+     * @return array<string>
+     */
+    public function getSelectedDepositColumnsProperty(): array
+    {
+        return AssetFundStatementService::resolveActiveDepositColumns(
+            $this->deposit_columns,
+        );
+    }
+
+    /**
+     * @return array<string>
+     */
+    public function getSelectedWithdrawalColumnsProperty(): array
+    {
+        return AssetFundStatementService::resolveActiveWithdrawalColumns(
+            $this->withdrawal_columns,
+        );
+    }
+
+    /**
+     * @return array<string>
+     */
+    public function getSelectedCardsProperty(): array
+    {
+        return AssetFundStatementService::resolveActiveCards(
+            $this->summary_cards,
+            $this->filter_type,
+        );
+    }
+
+    // ─── Actions & Lifecycle Hooks ───────────────────────────────────────
+
+    public function updatedPreset(string $value): void
+    {
+        $this->applyPreset($value);
+    }
+
+    public function updatedDepositColumns(): void
+    {
+        $this->preset = 'custom';
+    }
+
+    public function updatedWithdrawalColumns(): void
+    {
+        $this->preset = 'custom';
+    }
+
+    public function updatedSummaryCards(): void
+    {
+        $this->preset = 'custom';
+    }
 
     public function applyFilter(): void
     {
         // Livewire reactive
+    }
+
+    /**
+     * Apply a ready-made column/card preset.
+     */
+    public function applyPreset(string $preset): void
+    {
+        $this->preset = $preset;
+
+        $deposit = array_keys(AssetFundStatementService::customizableDepositColumns());
+        $withdrawal = array_keys(AssetFundStatementService::customizableWithdrawalColumns());
+        $cards = array_keys(AssetFundStatementService::summaryCards());
+
+        switch ($preset) {
+            case 'tax':
+                $this->deposit_columns = ['gross_amount', 'tax_amount', 'net_after_tax'];
+                $this->withdrawal_columns = ['amount_without_tax', 'tax_amount', 'gross_amount'];
+                $this->summary_cards = ['total_tax'];
+                break;
+
+            case 'deductions':
+                $this->deposit_columns = ['gross_amount', 'net_after_tax', 'retention_pct', 'fund_share_pct', 'net_after_deductions'];
+                $this->withdrawal_columns = ['gross_amount'];
+                $this->summary_cards = ['total_retention'];
+                break;
+
+            case 'custom':
+                // Retains manual selections
+                break;
+
+            case 'all':
+            default:
+                $this->preset = 'all';
+                $this->deposit_columns = $deposit;
+                $this->withdrawal_columns = $withdrawal;
+                $this->summary_cards = $cards;
+                break;
+        }
+    }
+
+    /**
+     * Select every column/card of one group (deposit, withdrawal, cards).
+     */
+    public function selectAllColumns(string $group): void
+    {
+        $this->preset = 'custom';
+
+        match ($group) {
+            'deposit' => $this->deposit_columns = array_keys(AssetFundStatementService::customizableDepositColumns()),
+            'withdrawal' => $this->withdrawal_columns = array_keys(AssetFundStatementService::customizableWithdrawalColumns()),
+            'cards' => $this->summary_cards = array_keys(AssetFundStatementService::summaryCards()),
+            default => null,
+        };
+    }
+
+    /**
+     * Clear every column/card of one group (deposit, withdrawal, cards).
+     */
+    public function clearColumns(string $group): void
+    {
+        $this->preset = 'custom';
+
+        match ($group) {
+            'deposit' => $this->deposit_columns = [],
+            'withdrawal' => $this->withdrawal_columns = [],
+            'cards' => $this->summary_cards = [],
+            default => null,
+        };
     }
 
     public function exportPdf(): void
@@ -172,10 +377,14 @@ class AssetFundStatement extends Page
         }
 
         $params = http_build_query([
-            'fund_id'     => $this->fund_id,
-            'date_from'   => $this->date_from,
-            'date_to'     => $this->date_to,
-            'filter_type' => $this->filter_type,
+            'fund_id'         => $this->fund_id,
+            'date_from'       => $this->date_from,
+            'date_to'         => $this->date_to,
+            'filter_type'     => $this->filter_type,
+            'preset'          => $this->preset,
+            'deposit_cols'    => implode(',', $this->selected_deposit_columns),
+            'withdrawal_cols' => implode(',', $this->selected_withdrawal_columns),
+            'cards'           => implode(',', $this->selected_cards),
         ]);
 
         $this->js("window.open('/asset-fund-statement/pdf?" . $params . "', '_blank')");

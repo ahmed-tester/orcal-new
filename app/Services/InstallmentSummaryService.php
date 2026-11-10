@@ -268,42 +268,25 @@ class InstallmentSummaryService
 
     protected static function applyFilters(Builder $query, array $filters): Builder
     {
-        if (! empty($filters['search'])) {
-            $term = '%'.trim((string) $filters['search']).'%';
-
-            $query->where(function (Builder $q) use ($term) {
-                $q->where('external_name', 'like', $term)
-                    ->orWhere('external_national_id', 'like', $term)
-                    ->orWhere('external_phone', 'like', $term)
-                    ->orWhereHas('employee.user', fn (Builder $u) => $u->where('name', 'like', $term))
-                    ->orWhereHas('employee', fn (Builder $e) => $e->where('employee_number', 'like', $term))
-                    ->orWhereHas('employee.details', fn (Builder $d) => $d
-                        ->where('national_id', 'like', $term)
-                        ->orWhere('iqama_number', 'like', $term));
-            });
-        }
-
-        if (! empty($filters['company_id'])) {
-            $query->where('company_id', (int) $filters['company_id']);
-        }
-
-        if (! empty($filters['branch_id'])) {
-            $query->whereHas('employee', fn (Builder $e) => $e->where('branch_id', (int) $filters['branch_id']));
-        }
-
-        if (! empty($filters['transaction_type'])) {
-            $query->where('transaction_type', $filters['transaction_type']);
-        }
-
-        if (! empty($filters['beneficiary_type'])) {
-            $query->where('beneficiary_type', $filters['beneficiary_type']);
-        }
-
-        if (! empty($filters['status'])) {
-            $query->where('status', $filters['status']);
-        }
-
-        return $query;
+        return FilterBarService::applyFilters($query, $filters, [
+            'search_columns' => [
+                'external_name',
+                'external_national_id',
+                'external_phone',
+                'employee.user.name',
+                'employee.employee_number',
+                'employee.details.national_id',
+                'employee.details.iqama_number',
+            ],
+            'company' => true,
+            'branch' => true,
+            'branch_column' => 'employee.branch_id',
+            'status' => true,
+            'where_in' => [
+                'transaction_type' => $filters['transaction_type'] ?? null,
+                'beneficiary_type' => $filters['beneficiary_type'] ?? null,
+            ],
+        ]);
     }
 
     /**

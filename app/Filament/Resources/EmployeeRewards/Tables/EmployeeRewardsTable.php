@@ -73,11 +73,7 @@ class EmployeeRewardsTable
                     ->badge(),
             ])
             ->filters([
-                OrgSelect::tableFilterCompany('company_id', __('finance.employee_rewards.fields.company')),
-
-                SelectFilter::make('status')
-                    ->label(__('finance.employee_rewards.fields.status'))
-                    ->options(RewardStatus::class),
+                // Handled by top Filter Bar
             ])
             ->recordActions([
                 ActionGroup::make([

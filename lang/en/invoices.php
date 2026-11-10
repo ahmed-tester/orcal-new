@@ -44,6 +44,8 @@ return [
         'general_to_all' => 'General for all entities',
     ],
     'placeholders' => [
+        'general_services' => 'General Services',
+        'employee_prefix' => 'Employee: :name',
         'general_to_all' => 'General for all entities',
         'type_name_example' => 'e.g. Services, Rent, Utilities, Bills...',
     ],
@@ -56,5 +58,10 @@ return [
         'partially_paid' => 'Partially Paid',
         'paid' => 'Paid',
         'cancelled' => 'Cancelled',
+    ],
+    'actions' => [
+        'print_all' => 'Print & Save Statement 🖨️',
+        'print' => 'Print Invoice',
+        'print_tooltip' => 'Click to print and save invoice 🖨️',
     ],
 ];

@@ -27,7 +27,7 @@ class InvoicesTable
                     ->icon('heroicon-m-document-text')
                     ->url(fn (\App\Models\Invoice $record) => route('invoices.print', $record))
                     ->openUrlInNewTab()
-                    ->tooltip('انقر لطباعة وحفظ الفاتورة 🖨️'),
+                    ->tooltip(__('invoices.actions.print_tooltip')),
 
                 TextColumn::make('company.trade_name')
                     ->label(__('invoices.fields.company'))
@@ -38,7 +38,7 @@ class InvoicesTable
 
                 TextColumn::make('customer.name')
                     ->label(__('invoices.fields.customer'))
-                    ->placeholder(fn ($record) => $record->employee ? 'موظف: ' . ($record->employee->user->name ?? '#' . $record->employee->id) : '—')
+                    ->placeholder(fn ($record) => $record->employee ? __('invoices.placeholders.employee_prefix', ['name' => $record->employee->user->name ?? '#' . $record->employee->id]) : '—')
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
@@ -47,7 +47,7 @@ class InvoicesTable
                     ->label(__('invoices.fields.invoice_type'))
                     ->badge()
                     ->color('info')
-                    ->placeholder('خدمات عامة'),
+                    ->placeholder(__('invoices.placeholders.general_services')),
 
                 TextColumn::make('issue_date')
                     ->label(__('invoices.fields.issue_date'))
@@ -77,26 +77,16 @@ class InvoicesTable
                     ->badge(),
 
                 IconColumn::make('is_paid_by_applicant')
-                    ->label('دفع طالب الخدمة')
+                    ->label(__('invoices.fields.is_paid_by_applicant'))
                     ->boolean()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('company_id')
-                    ->label(__('invoices.fields.company'))
-                    ->relationship('company', 'trade_name'),
-
-                SelectFilter::make('invoice_type_id')
-                    ->label(__('invoices.fields.invoice_type'))
-                    ->relationship('invoiceType', 'name'),
-
-                SelectFilter::make('payment_status')
-                    ->label(__('invoices.fields.payment_status'))
-                    ->options(PaymentStatus::class),
+                // Handled by top Filter Bar
             ])
             ->recordActions([
                 \Filament\Actions\Action::make('print')
-                    ->label('طباعة الفاتورة')
+                    ->label(__('invoices.actions.print'))
                     ->icon('heroicon-o-printer')
                     ->color('info')
                     ->url(fn (\App\Models\Invoice $record) => route('invoices.print', $record))

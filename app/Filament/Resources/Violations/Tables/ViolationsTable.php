@@ -2,14 +2,13 @@
 
 namespace App\Filament\Resources\Violations\Tables;
 
-use App\Enums\ViolationPaymentStatus;
-use App\Enums\ViolationStage;
+use App\Services\HijriDateService;
+use Carbon\Carbon;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class ViolationsTable
@@ -50,7 +49,7 @@ class ViolationsTable
 
                 TextColumn::make('violation_date')
                     ->label(__('violations.violations.fields.violation_date'))
-                    ->formatStateUsing(fn ($state) => $state ? \Carbon\Carbon::parse($state)->format('Y/m/d') . ' م<br><span style="font-size:0.75rem; color:#64748b;">' . \App\Services\HijriDateService::toHijriNumeric($state) . ' هـ</span>' : '—')
+                    ->formatStateUsing(fn ($state) => $state ? Carbon::parse($state)->format('Y/m/d').' م<br><span style="font-size:0.75rem; color:#64748b;">'.HijriDateService::toHijriNumeric($state).' هـ</span>' : '—')
                     ->html()
                     ->sortable(),
 
@@ -93,25 +92,7 @@ class ViolationsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('company_id')
-                    ->label(__('violations.violations.fields.company'))
-                    ->relationship('company', 'trade_name')
-                    ->searchable()
-                    ->preload(),
-
-                SelectFilter::make('violation_category_id')
-                    ->label(__('violations.violations.fields.category'))
-                    ->relationship('category', 'name')
-                    ->searchable()
-                    ->preload(),
-
-                SelectFilter::make('stage')
-                    ->label(__('violations.violations.fields.stage'))
-                    ->options(ViolationStage::class),
-
-                SelectFilter::make('payment_status')
-                    ->label(__('violations.violations.fields.payment_status'))
-                    ->options(ViolationPaymentStatus::class),
+                //
             ])
             ->recordActions([
                 EditAction::make(),

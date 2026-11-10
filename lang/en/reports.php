@@ -47,6 +47,8 @@ return [
     ],
     'filters' => [
         'report_type' => 'Report Type',
+        'company' => 'Company',
+        'all_companies' => 'All Companies',
         'branch' => 'Branch',
         'all_branches' => 'All Branches',
         'status' => 'Status',
@@ -58,6 +60,9 @@ return [
         'per_page' => 'Records per page',
         'reset' => 'Reset Filters',
         'title' => 'Filter & Search Options',
+        'select_all' => 'Select All',
+        'clear_selection' => 'Clear Selection',
+        'selected_count' => 'Selected (:count)',
     ],
     'filters_active' => 'Active Filters',
     'filters_active_hint' => 'Results are filtered based on selected criteria',

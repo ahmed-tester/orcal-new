@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AssetFund;
 use App\Models\AssetFundVoucher;
+use App\Services\AssetFundStatementService;
 use Illuminate\Http\Request;
 use Mpdf\Config\ConfigVariables;
 use Mpdf\Config\FontVariables;
@@ -31,48 +32,51 @@ class AssetFundStatementController extends Controller
             abort(403, __('asset_funds.statement.unauthorized'));
         }
 
-        $query = AssetFundVoucher::with(['company', 'creator'])
-            ->where('asset_fund_id', $fund->id);
+        $baseQuery = fn () => AssetFundVoucher::with(['company', 'creator', 'linkedDepositVoucher'])
+            ->where('asset_fund_id', $fund->id)
+            ->when($dateFrom, fn ($q) => $q->whereDate('voucher_date', '>=', $dateFrom))
+            ->when($dateTo, fn ($q) => $q->whereDate('voucher_date', '<=', $dateTo))
+            ->orderBy('voucher_date');
 
-        if ($filterType !== 'all') {
-            $query->where('type', $filterType);
-        }
-        if ($dateFrom) {
-            $query->whereDate('voucher_date', '>=', $dateFrom);
-        }
-        if ($dateTo) {
-            $query->whereDate('voucher_date', '<=', $dateTo);
-        }
+        $depositVouchers = (clone $baseQuery())
+            ->where(function ($q) {
+                $q->where('type', 'deposit')
+                  ->orWhere('type', \App\Enums\AssetFundVoucherType::DEPOSIT->value);
+            })
+            ->get();
 
-        $vouchers = $query->orderBy('voucher_date')->get();
+        $withdrawalVouchers = (clone $baseQuery())
+            ->where(function ($q) {
+                $q->where('type', 'withdrawal')
+                  ->orWhere('type', \App\Enums\AssetFundVoucherType::WITHDRAWAL->value);
+            })
+            ->get();
 
-        $depositVouchers    = $vouchers->filter(fn ($v) => $v->type?->value === 'deposit')->values();
-        $withdrawalVouchers = $vouchers->filter(fn ($v) => $v->type?->value === 'withdrawal')->values();
+        $vouchers = match ($filterType) {
+            'deposit'    => $depositVouchers,
+            'withdrawal' => $withdrawalVouchers,
+            default      => $depositVouchers->concat($withdrawalVouchers)->sortBy('voucher_date')->values(),
+        };
 
-        $depositsSummary = [
-            'gross_amount'         => (float) $depositVouchers->sum('gross_amount'),
-            'tax_amount'           => (float) $depositVouchers->sum('tax_amount'),
-            'net_after_tax'        => (float) $depositVouchers->sum('net_after_tax'),
-            'retention_amount'     => (float) $depositVouchers->sum('retention_amount'),
-            'fund_share_amount'    => (float) $depositVouchers->sum('fund_share_amount'),
-            'net_after_deductions' => (float) $depositVouchers->sum('total_amount'),
-        ];
+        $depositsSummary    = AssetFundStatementService::depositsSummary($depositVouchers);
+        $withdrawalsSummary = AssetFundStatementService::withdrawalsSummary($withdrawalVouchers);
+        $summary            = AssetFundStatementService::summary($depositVouchers, $withdrawalVouchers);
 
-        $withdrawalsSummary = [
-            'amount_without_tax' => (float) $withdrawalVouchers->sum('amount_without_tax'),
-            'tax_amount'         => (float) $withdrawalVouchers->sum('tax_amount'),
-            'total_amount'       => (float) $withdrawalVouchers->sum('total_amount'),
-        ];
+        // Selected columns/cards; missing parameters fall back to every available column.
+        $depositColumns = AssetFundStatementService::sanitizeColumns(
+            $request->query('deposit_cols'),
+            array_keys(AssetFundStatementService::depositColumns()),
+        );
 
-        $totalDeposits    = (float) $depositVouchers->sum('total_amount');
-        $totalWithdrawals = (float) $withdrawalVouchers->sum('total_amount');
-        $netBalance       = $totalDeposits - $totalWithdrawals;
+        $withdrawalColumns = AssetFundStatementService::sanitizeColumns(
+            $request->query('withdrawal_cols'),
+            array_keys(AssetFundStatementService::withdrawalColumns()),
+        );
 
-        $summary = [
-            'total_deposits'    => $totalDeposits,
-            'total_withdrawals' => $totalWithdrawals,
-            'net_balance'       => $netBalance,
-        ];
+        $cards = AssetFundStatementService::resolveActiveCards(
+            $request->query('cards'),
+            $filterType,
+        );
 
         $mpdf = $this->buildPdf(
             fund: $fund,
@@ -82,10 +86,14 @@ class AssetFundStatementController extends Controller
             depositsSummary: $depositsSummary,
             withdrawalsSummary: $withdrawalsSummary,
             summary: $summary,
+            depositColumns: $depositColumns,
+            withdrawalColumns: $withdrawalColumns,
+            cards: $cards,
             filters: [
                 'date_from'   => $dateFrom,
                 'date_to'     => $dateTo,
                 'filter_type' => $filterType,
+                'preset'      => $request->query('preset', 'all'),
             ]
         );
 
@@ -105,6 +113,9 @@ class AssetFundStatementController extends Controller
         array $depositsSummary,
         array $withdrawalsSummary,
         array $summary,
+        array $depositColumns,
+        array $withdrawalColumns,
+        array $cards,
         array $filters
     ): Mpdf {
         $defaultConfig = (new ConfigVariables())->getDefaults();
@@ -139,6 +150,9 @@ class AssetFundStatementController extends Controller
             'depositsSummary',
             'withdrawalsSummary',
             'summary',
+            'depositColumns',
+            'withdrawalColumns',
+            'cards',
             'filters'
         ))->render();
 

@@ -46,7 +46,7 @@ class AssetFundVouchersTable
                     ->placeholder('—'),
 
                 TextColumn::make('party_display')
-                    ->label(__('asset_funds.statement.cols.company'))
+                    ->label(__('asset_funds.asset_fund_vouchers.fields.party_display'))
                     ->getStateUsing(fn ($record) => $record->party_name ?: ($record->company?->trade_name ?? $record->company?->name ?? '—'))
                     ->searchable(query: function ($query, string $search) {
                         $query->where('party_name', 'like', "%{$search}%")
@@ -78,6 +78,14 @@ class AssetFundVouchersTable
                     ->color(fn ($record) => $record->type?->value === AssetFundVoucherType::DEPOSIT->value ? 'success' : 'danger')
                     ->weight('bold'),
 
+                TextColumn::make('linkedDepositVoucher.voucher_number')
+                    ->label(__('asset_funds.asset_fund_vouchers.fields.linked_deposit_voucher'))
+                    ->placeholder(fn ($record) => $record->type?->value === AssetFundVoucherType::WITHDRAWAL->value ? __('asset_funds.asset_fund_vouchers.disbursement_types.general') : '—')
+                    ->badge(fn ($record) => $record->linked_deposit_voucher_id !== null)
+                    ->color('info')
+                    ->searchable()
+                    ->toggleable(),
+
                 TextColumn::make('notes')
                     ->label(__('asset_funds.asset_fund_vouchers.fields.notes'))
                     ->limit(40)
@@ -88,6 +96,13 @@ class AssetFundVouchersTable
                 SelectFilter::make('type')
                     ->label(__('asset_funds.asset_fund_vouchers.fields.type'))
                     ->options(AssetFundVoucherType::class),
+
+                SelectFilter::make('disbursement_type')
+                    ->label(__('asset_funds.asset_fund_vouchers.fields.disbursement_type'))
+                    ->options([
+                        'general'        => __('asset_funds.asset_fund_vouchers.disbursement_types.general'),
+                        'linked_deposit' => __('asset_funds.asset_fund_vouchers.disbursement_types.linked_deposit'),
+                    ]),
 
                 SelectFilter::make('asset_fund_id')
                     ->label(__('asset_funds.asset_fund_vouchers.fields.fund'))

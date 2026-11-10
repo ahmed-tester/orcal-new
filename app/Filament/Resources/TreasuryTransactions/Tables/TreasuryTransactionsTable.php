@@ -28,7 +28,7 @@ class TreasuryTransactionsTable
                     ->sortable()
                     ->badge()
                     ->color('primary')
-                    ->description(fn ($record) => $record->voucher_number ? "سند: {$record->voucher_number}" : null),
+                    ->description(fn ($record) => $record->voucher_number ? __('finance.treasury_transactions.fields.voucher_number') . ": {$record->voucher_number}" : null),
 
                 TextColumn::make('voucher_number')
                     ->label(__('finance.treasury_transactions.fields.voucher_number'))
@@ -85,14 +85,7 @@ class TreasuryTransactionsTable
                     ->toggleable(),
             ])
             ->filters([
-                SelectFilter::make('company_id')
-                    ->label(__('finance.treasury_transactions.fields.company'))
-                    ->relationship('company', 'trade_name')
-                    ->visible(fn () => auth()->user()?->hasMultipleCompanies() ?? false),
-
-                SelectFilter::make('transaction_type')
-                    ->label(__('finance.treasury_transactions.fields.transaction_type'))
-                    ->options(TreasuryTransactionType::class),
+                // Handled by top Filter Bar
             ])
             ->recordActions([
                 Action::make('print_voucher')
@@ -103,13 +96,12 @@ class TreasuryTransactionsTable
                     ->openUrlInNewTab(),
                 ActionGroup::make([
                     EditAction::make(),
-                    // DeleteAction::make(), // تم تعطيل حذف حركات الخزينة
                 ])
                     ->icon('heroicon-m-ellipsis-vertical'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    // DeleteBulkAction::make(), // تم تعطيل حذف حركات الخزينة
+                    // Deletion disabled for treasury transactions
                 ]),
             ])
             ->defaultSort('id', 'desc');

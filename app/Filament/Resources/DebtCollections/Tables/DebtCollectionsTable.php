@@ -85,22 +85,7 @@ class DebtCollectionsTable
                     ->toggleable(),
             ])
             ->filters([
-                SelectFilter::make('status')
-                    ->label(__('debts.collections.fields.status'))
-                    ->options(ApprovalStatus::class)
-                    ->query(function ($query, array $data) {
-                        if (! empty($data['value'])) {
-                            $query->where('metadata->status', $data['value']);
-                        }
-                    }),
-
-                SelectFilter::make('payment_method')
-                    ->label(__('debts.collections.fields.payment_method'))
-                    ->options([
-                        'cash' => __('debts.collections.payment_methods.cash'),
-                        'bank_transfer' => __('debts.collections.payment_methods.bank_transfer'),
-                        'cheque' => __('debts.collections.payment_methods.cheque'),
-                    ]),
+                // Handled by top Filter Bar
             ])
             ->recordActions([
                 ...ApprovalActions::make('approve_debt_collection', translationKey: 'debts.collections.actions'),

@@ -4,9 +4,8 @@ namespace App\Filament\Resources\Installments\Pages;
 
 use App\Enums\InstallmentStatus;
 use App\Filament\Resources\Installments\InstallmentResource;
-use App\Models\Company;
+use App\Filament\Traits\HasFilterBarState;
 use App\Models\Installment;
-use App\Services\CompanyFormService;
 use App\Services\InstallmentSummaryService;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\Page;
@@ -15,21 +14,14 @@ use Livewire\WithPagination;
 
 class InstallmentsSummary extends Page
 {
+    use HasFilterBarState;
     use WithPagination;
 
     protected static string $resource = InstallmentResource::class;
 
-    public string $search = '';
+    public mixed $transactionType = null;
 
-    public ?int $companyId = null;
-
-    public ?int $branchId = null;
-
-    public ?string $transactionType = null;
-
-    public ?string $beneficiaryType = null;
-
-    public ?string $status = null;
+    public mixed $beneficiaryType = null;
 
     public int $perPage = 10;
 
@@ -42,12 +34,8 @@ class InstallmentsSummary extends Page
     public string $detailsTab = 'all';
 
     protected $queryString = [
-        'search' => ['except' => ''],
-        'companyId' => ['except' => null],
-        'branchId' => ['except' => null],
         'transactionType' => ['except' => null],
         'beneficiaryType' => ['except' => null],
-        'status' => ['except' => null],
         'perPage' => ['except' => 10],
         'sortColumn' => ['except' => 'remaining_sum'],
         'sortDirection' => ['except' => 'desc'],
@@ -85,11 +73,9 @@ class InstallmentsSummary extends Page
         ];
     }
 
-    public function updated($property): void
+    protected function filterBarExtraProperties(): array
     {
-        if (in_array($property, ['search', 'companyId', 'branchId', 'transactionType', 'beneficiaryType', 'status', 'perPage'], true)) {
-            $this->resetPage();
-        }
+        return ['transactionType', 'beneficiaryType'];
     }
 
     public function sortBy(string $column): void
@@ -102,22 +88,6 @@ class InstallmentsSummary extends Page
         }
 
         $this->resetPage();
-    }
-
-    public function resetFilters(): void
-    {
-        $this->reset(['search', 'companyId', 'branchId', 'transactionType', 'beneficiaryType', 'status']);
-        $this->resetPage();
-    }
-
-    public function hasActiveFilters(): bool
-    {
-        return trim((string) $this->search) !== ''
-            || $this->companyId !== null
-            || $this->branchId !== null
-            || $this->transactionType !== null
-            || $this->beneficiaryType !== null
-            || $this->status !== null;
     }
 
     public function openDetails(int $rowId): void
@@ -207,14 +177,10 @@ class InstallmentsSummary extends Page
 
     protected function filterState(): array
     {
-        return [
-            'search' => $this->search,
-            'company_id' => $this->companyId,
-            'branch_id' => $this->branchId,
+        return $this->filterBarState([
             'transaction_type' => $this->transactionType,
             'beneficiary_type' => $this->beneficiaryType,
-            'status' => $this->status,
-        ];
+        ]);
     }
 
     public function getSummaryProperty()
@@ -232,18 +198,6 @@ class InstallmentsSummary extends Page
     public function getStatsProperty(): array
     {
         return InstallmentSummaryService::getStats($this->filterState());
-    }
-
-    public function getCompaniesProperty()
-    {
-        $query = Company::query();
-        $companyIds = CompanyFormService::getAuthorizedCompanyIds();
-
-        if (! empty($companyIds)) {
-            $query->whereIn('id', $companyIds);
-        }
-
-        return $query->orderBy('trade_name')->get();
     }
 
     public function getStatusOptionsProperty(): array

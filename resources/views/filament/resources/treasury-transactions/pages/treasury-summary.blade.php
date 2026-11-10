@@ -27,8 +27,8 @@
         .dark .report-search-input { background-color: #0f172a; border-color: #334155; color: #f8fafc; }
         .report-search-icon { position: absolute; top: 50%; transform: translateY(-50%); inset-inline-start: 0.75rem; color: #64748b; pointer-events: none; }
         .report-search-clear { position: absolute; top: 50%; transform: translateY(-50%); inset-inline-end: 0.75rem; color: #64748b; cursor: pointer; background: none; border: none; }
-        .ism-export-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.55rem 1rem; border-radius: 0.5rem; background: #0f172a; color: #ffffff; font-weight: 700; font-size: 0.8125rem; border: none; cursor: pointer; transition: background-color 0.15s; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); white-space: nowrap; }
-        .ism-export-btn:hover { background: #1e293b; }
+        .ism-export-btn { display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.45rem 0.95rem; border-radius: 0.5rem; background: #082c50; color: #ffffff; font-weight: 700; font-size: 0.8rem; border: none; cursor: pointer; transition: background-color 0.15s; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); white-space: nowrap; flex-shrink: 0; line-height: 1; }
+        .ism-export-btn:hover { background: #0c4277; }
         .dark .ism-export-btn { background: #2563eb; }
         .dark .ism-export-btn:hover { background: #1d4ed8; }
 
@@ -165,96 +165,53 @@
             @endforeach
         </div>
 
-        {{-- Single-row Clean Filter Section --}}
-        <x-filament::section icon="heroicon-o-funnel">
-            <x-slot name="heading">
-                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                    <span>{{ __('finance.treasury_transactions.summary.filters.search') }}</span>
-                    @if($this->hasActiveFilters())
-                        <span style="display: inline-flex; align-items: center; padding: 0.125rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;">
-                            {{ __('finance.treasury_transactions.summary.filters.active') }}
-                        </span>
-                    @endif
-                </div>
+        {{-- Unified Reusable Filter Bar --}}
+        <x-filter-bar
+            :title="__('finance.treasury_transactions.summary.filters.search')"
+            :show-company="true"
+            :companies="$this->companies"
+            :company-label="__('finance.treasury_transactions.fields.company')"
+            :multiple-company="true"
+            :show-dates="true"
+            :date-from-label="__('finance.treasury_transactions.summary.filters.date_from')"
+            :date-to-label="__('finance.treasury_transactions.summary.filters.date_to')"
+            :show-search="true"
+            :search-placeholder="__('finance.treasury_transactions.summary.filters.search_placeholder')"
+            :has-active="$this->hasActiveFilters()"
+            reset-method="resetFilters"
+        >
+            <x-slot name="actions">
+                <button type="button" wire:click="exportCsv" class="ism-export-btn">
+                    <x-heroicon-o-arrow-down-tray class="report-icon-sm" />
+                    <span>{{ __('finance.treasury_transactions.summary.filters.export_excel') }}</span>
+                </button>
             </x-slot>
 
-            <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem;">
-                {{-- Search --}}
-                <div style="flex: 2; min-width: 220px;">
-                    <label class="report-filter-label">{{ __('finance.treasury_transactions.summary.filters.search') }}</label>
-                    <div class="report-search-inner">
-                        <div class="report-search-icon"><x-heroicon-m-magnifying-glass class="report-icon-sm" /></div>
-                        <input type="text" wire:model.live.debounce.300ms="search" placeholder="{{ __('finance.treasury_transactions.summary.filters.search_placeholder') }}" class="report-search-input">
-                        @if($search)
-                            <button type="button" wire:click="$set('search', '')" class="report-search-clear"><x-heroicon-m-x-mark class="report-icon-sm" /></button>
-                        @endif
-                    </div>
-                </div>
-
-                {{-- Company --}}
-                @if(count($this->companies) > 1)
-                    <div style="flex: 1.2; min-width: 170px;">
-                        <label class="report-filter-label">{{ __('finance.treasury_transactions.fields.company') }}</label>
-                        <select wire:model.live="companyId" class="report-filter-input">
-                            <option value="">{{ __('finance.treasury_transactions.summary.filters.all_companies') }}</option>
-                            @foreach($this->companies as $company)
-                                <option value="{{ $company->id }}">{{ $company->trade_name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                @endif
-
+            <x-slot name="append">
                 {{-- Transaction Type --}}
-                <div style="flex: 1; min-width: 140px;">
-                    <label class="report-filter-label">{{ __('finance.treasury_transactions.fields.transaction_type') }}</label>
-                    <select wire:model.live="transactionType" class="report-filter-input">
-                        <option value="">{{ __('finance.treasury_transactions.summary.filters.all_types') }}</option>
-                        <option value="outgoing">{{ __('finance.treasury_transactions.types.outgoing') }}</option>
-                        <option value="incoming">{{ __('finance.treasury_transactions.types.incoming') }}</option>
-                    </select>
-                </div>
+                <x-filter-select
+                    wire:model.live="transactionType"
+                    :label="__('finance.treasury_transactions.fields.transaction_type')"
+                    :placeholder="__('finance.treasury_transactions.summary.filters.all_types')"
+                    :options="[
+                        'outgoing' => __('finance.treasury_transactions.types.outgoing'),
+                        'incoming' => __('finance.treasury_transactions.types.incoming'),
+                    ]"
+                    :multiple="true"
+                    :searchable="true"
+                />
 
                 {{-- Payment Collection Item --}}
-                <div style="flex: 1.2; min-width: 160px;">
-                    <label class="report-filter-label">{{ __('finance.treasury_transactions.fields.payment_collection_item') }}</label>
-                    <select wire:model.live="paymentItem" class="report-filter-input">
-                        <option value="">{{ __('finance.treasury_transactions.summary.filters.all_items') }}</option>
-                        @foreach($this->paymentItems as $subItem)
-                            <option value="{{ $subItem }}">{{ $subItem }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                {{-- Date From --}}
-                <div style="flex: 0.9; min-width: 130px;">
-                    <label class="report-filter-label">{{ __('finance.treasury_transactions.summary.filters.date_from') }}</label>
-                    <input type="date" wire:model.live="dateFrom" class="report-filter-input">
-                </div>
-
-                {{-- Date To --}}
-                <div style="flex: 0.9; min-width: 130px;">
-                    <label class="report-filter-label">{{ __('finance.treasury_transactions.summary.filters.date_to') }}</label>
-                    <input type="date" wire:model.live="dateTo" class="report-filter-input">
-                </div>
-
-                {{-- Reset Button --}}
-                @if($this->hasActiveFilters())
-                    <div>
-                        <x-filament::button wire:click="resetFilters" color="gray" size="sm" icon="heroicon-m-arrow-path">
-                            {{ __('finance.treasury_transactions.summary.filters.reset') }}
-                        </x-filament::button>
-                    </div>
-                @endif
-
-                {{-- Export CSV --}}
-                <div>
-                    <button type="button" wire:click="exportCsv" class="ism-export-btn">
-                        <x-heroicon-o-arrow-down-tray class="report-icon-sm" />
-                        <span>{{ __('finance.treasury_transactions.summary.filters.export_excel') }}</span>
-                    </button>
-                </div>
-            </div>
-        </x-filament::section>
+                <x-filter-select
+                    wire:model.live="paymentItem"
+                    :label="__('finance.treasury_transactions.summary.filters.item')"
+                    :placeholder="__('finance.treasury_transactions.summary.filters.all_items')"
+                    :options="$this->paymentItems"
+                    :multiple="true"
+                    :searchable="true"
+                />
+            </x-slot>
+        </x-filter-bar>
 
         {{-- Grouped Beneficiaries Table: ONE ROW PER EMPLOYEE/BENEFICIARY --}}
         @php $summary = $this->summary; @endphp

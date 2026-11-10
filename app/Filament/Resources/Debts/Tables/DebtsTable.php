@@ -117,21 +117,7 @@ class DebtsTable
                     ->sortable(),
             ])
             ->filters([
-                SelectFilter::make('debtor_type')
-                    ->label(__('debts.fields.debtor_type'))
-                    ->options([
-                        'internal' => __('debts.toggle_options.internal'),
-                        'external' => __('debts.toggle_options.external'),
-                    ]),
-
-                SelectFilter::make('status')
-                    ->label(__('debts.fields.status'))
-                    ->options([
-                        'pending' => __('debts.statuses.pending'),
-                        'partial' => __('debts.statuses.partial'),
-                        'paid'    => __('debts.statuses.paid'),
-                        'overdue' => __('debts.statuses.overdue'),
-                    ]),
+                // Handled by top Filter Bar
             ])
             ->recordActions([
                 ActionGroup::make([

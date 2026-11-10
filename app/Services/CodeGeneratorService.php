@@ -15,15 +15,19 @@ class CodeGeneratorService
      * @param  int|null             $companyId    The company ID to scope the sequence.
      * @param  int                  $padLength    How many digits to pad the sequence to.
      * @param  string|null          $datePart     Optional date format to include (e.g. 'Ym', 'Ymd').
+     * @param  callable|null        $scopeQuery   Optional extra constraint on the counted rows,
+     *                                            used when one table needs independent sequences
+     *                                            (e.g. per voucher type).
      * @return string
      */
     public static function generate(
-        string  $modelClass,
-        string  $column,
-        string  $prefix,
-        ?int    $companyId = null,
-        int     $padLength = 4,
-        ?string $datePart = null,
+        string    $modelClass,
+        string    $column,
+        string    $prefix,
+        ?int      $companyId = null,
+        int       $padLength = 4,
+        ?string   $datePart = null,
+        ?callable $scopeQuery = null,
     ): string {
         $companyId = $companyId ?: static::resolveCompanyId();
 
@@ -34,6 +38,10 @@ class CodeGeneratorService
 
         if (static::modelHasCompanyId($modelClass)) {
             $query->where('company_id', $companyId);
+        }
+
+        if ($scopeQuery) {
+            $scopeQuery($query);
         }
 
         $count = $query->count();
