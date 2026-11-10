@@ -23,6 +23,16 @@ return [
         'status' => 'الحالة',
         'image' => 'صورة الهوية / المالك',
         'address' => 'العنوان',
+        'registration_source' => 'طريقة التسجيل',
+        'registration_manual' => 'تسجيل حر',
+        'registration_from_saudi_employee' => 'جلب من الموظفين السعوديين',
+        'selected_employee' => 'الموظف السعودي',
+        'selected_employee_placeholder' => 'ابحث بالاسم أو رقم الهوية الوطنية...',
+        'password_help_employee' => 'اختياري، اتركه فارغاً للاحتفاظ بكلمة مرور الموظف الحالية',
+        'errors' => [
+            'employee_data_unavailable' => 'بيانات الموظف المختار غير متوفرة.',
+            'employee_already_owner' => 'هذا الموظف مسجل بالفعل كمالك في هذه المنشأة.',
+        ],
     ],
     'statuses' => [
         'active' => 'نشط',

@@ -25,6 +25,16 @@ return [
         'status' => 'Status',
         'image' => 'Owner / ID Photo',
         'address' => 'Address',
+        'registration_source' => 'Registration Source',
+        'registration_manual' => 'Manual Registration',
+        'registration_from_saudi_employee' => 'Import from Saudi Employees',
+        'selected_employee' => 'Saudi Employee',
+        'selected_employee_placeholder' => 'Search by name or national ID...',
+        'password_help_employee' => 'Optional, leave blank to keep employee\'s current password',
+        'errors' => [
+            'employee_data_unavailable' => 'Selected employee data is unavailable.',
+            'employee_already_owner' => 'This employee is already registered as an owner in this company.',
+        ],
     ],
 
     'statuses' => [
