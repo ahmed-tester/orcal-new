@@ -392,6 +392,162 @@
             flex-shrink: 0 !important;
             display: inline-block !important;
         }
+
+        /* ----------------------------------------------------
+           Print Styles (filter-aware report)
+        ---------------------------------------------------- */
+        @media print {
+            @page {
+                size: A4 {{ $viewMode === 'matrix' ? 'landscape' : 'portrait' }};
+                margin: 8mm;
+            }
+
+            *, *::before, *::after {
+                background: transparent !important;
+                color: #000000 !important;
+                box-shadow: none !important;
+                text-shadow: none !important;
+            }
+
+            html, body {
+                background: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            /* Hide the interactive screen UI and keep only the print wrapper visible */
+            body * { visibility: hidden !important; }
+            .notif-print-wrapper, .notif-print-wrapper * { visibility: visible !important; }
+
+            .notif-screen-ui, .fi-topbar, .fi-sidebar, .fi-breadcrumbs, .fi-header,
+            .fi-main-ctn > nav { display: none !important; }
+
+            a[href]:after, a:after { content: none !important; }
+
+            .notif-print-wrapper {
+                position: absolute !important;
+                inset-inline-start: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                direction: rtl !important;
+                background: #ffffff !important;
+            }
+
+            .notif-print-header {
+                border-bottom: 2px solid #000000;
+                padding-bottom: 6px;
+                margin-bottom: 8px;
+            }
+
+            .notif-print-header-top {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .notif-print-title {
+                font-size: 15px !important;
+                font-weight: 800 !important;
+                margin: 0 0 2px 0 !important;
+            }
+
+            .notif-print-sub {
+                font-size: 10px !important;
+                color: #333333 !important;
+            }
+
+            .notif-print-meta {
+                text-align: left !important;
+                font-size: 9.5px !important;
+                line-height: 1.4;
+            }
+
+            .notif-print-filters {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+                margin-top: 5px;
+                font-size: 9px !important;
+            }
+
+            .notif-print-tag {
+                border: 1px solid #999999;
+                border-radius: 3px;
+                padding: 1px 5px;
+                background-color: #f8f8f8 !important;
+            }
+
+            .notif-print-table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                font-size: 9.5px !important;
+                margin-top: 6px;
+                table-layout: auto !important;
+            }
+
+            .notif-print-table thead { display: table-header-group !important; }
+
+            .notif-print-table th {
+                border: 1px solid #000000 !important;
+                background-color: #f0f0f0 !important;
+                padding: 4px 5px !important;
+                font-weight: 700 !important;
+                text-align: center !important;
+                word-break: break-word !important;
+            }
+
+            .notif-print-table td {
+                border: 1px solid #666666 !important;
+                padding: 3px 5px !important;
+                text-align: center !important;
+                vertical-align: middle !important;
+                word-break: break-word !important;
+            }
+
+            .notif-print-table td.notif-print-text {
+                text-align: right !important;
+            }
+
+            .notif-print-table tbody tr {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            .notif-print-table tbody tr:nth-child(even) td {
+                background-color: #fafafa !important;
+            }
+
+            .notif-print-cell-date {
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                font-weight: 700 !important;
+                font-size: 9px !important;
+            }
+
+            .notif-print-cell-note {
+                font-size: 8.5px !important;
+                color: #333333 !important;
+            }
+
+            .notif-print-footer {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 8px;
+                padding-top: 4px;
+                border-top: 1px solid #cccccc;
+                font-size: 8.5px !important;
+                color: #555555 !important;
+                page-break-inside: avoid !important;
+            }
+        }
+
+        @media screen {
+            .notif-print-wrapper {
+                display: none !important;
+            }
+        }
     </style>
 
     @php
@@ -400,7 +556,136 @@
         $paginatedAlerts = $this->paginatedAlerts;
     @endphp
 
-    <div class="notif-page-ctn" dir="rtl">
+    {{-- ==========================================
+         PRINT-ONLY REPORT (ALL FILTERED ROWS)
+         ========================================== --}}
+    <div class="notif-print-wrapper" dir="rtl">
+        @php
+            $printRows = $viewMode === 'matrix' ? $this->documentsMatrix : $this->alerts;
+            $printTags = $this->printFilterTags;
+        @endphp
+
+        <div class="notif-print-header">
+            <div class="notif-print-header-top">
+                <div>
+                    <h1 class="notif-print-title">{{ __('notifications.report_label') }}</h1>
+                    <div class="notif-print-sub">
+                        {{ config('app.name', 'Orcal') }} — {{ $viewMode === 'matrix' ? __('notifications.ui.matrix') : __('notifications.ui.alert_log') }}
+                    </div>
+                </div>
+                <div class="notif-print-meta">
+                    <div><strong>{{ __('reports.printed_at') }}:</strong> {{ now()->format('Y-m-d H:i') }}</div>
+                    <div><strong>{{ __('reports.total_records') }}:</strong> {{ $printRows->count() }}</div>
+                </div>
+            </div>
+
+            @if (! empty($printTags))
+                <div class="notif-print-filters">
+                    @foreach ($printTags as $tag)
+                        <span class="notif-print-tag"><strong>{{ $tag['label'] }}:</strong> {{ $tag['value'] }}</span>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
+        @if ($viewMode === 'matrix')
+            <table class="notif-print-table">
+                <thead>
+                    <tr>
+                        <th style="width: 30px;">#</th>
+                        <th>{{ __('notifications.ui.beneficiary') }}</th>
+                        <th>{{ __('notifications.ui.identity') }}</th>
+                        <th>{{ __('notifications.ui.iqama_cr') }}</th>
+                        <th>{{ __('notifications.ui.work_municipality') }}</th>
+                        <th>{{ __('notifications.ui.insurance_defense') }}</th>
+                        <th>{{ __('notifications.ui.contract') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($printRows as $index => $row)
+                        @php
+                            $docColumns = $row['is_company']
+                                ? [$row['cr'] ?? null, $row['municipality'] ?? null, $row['civil_defense'] ?? null]
+                                : [$row['iqama'] ?? null, $row['work_permit'] ?? null, $row['insurance'] ?? null];
+                        @endphp
+                        <tr>
+                            <td>{{ $index + 1 }}</td>
+                            <td class="notif-print-text">
+                                <div style="font-weight: 700;">{{ $row['name'] }}</div>
+                                @if (! $row['is_company'] && ! empty($row['company_name']))
+                                    <div class="notif-print-cell-note">{{ $row['company_name'] }}</div>
+                                @endif
+                            </td>
+                            <td>{{ $row['iqama_number'] ?? '—' }}</td>
+                            @foreach ($docColumns as $cell)
+                                <td>
+                                    @if (! empty($cell))
+                                        <div class="notif-print-cell-date">{{ $cell['date'] }}</div>
+                                        <div class="notif-print-cell-note">{{ $cell['text'] }}</div>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                            @endforeach
+                            <td>
+                                @if (! $row['is_company'] && ! empty($row['contract']))
+                                    <div class="notif-print-cell-date">{{ $row['contract']['date'] }}</div>
+                                    <div class="notif-print-cell-note">{{ $row['contract']['text'] }}</div>
+                                @else
+                                    —
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7">{{ __('notifications.ui.no_matches') }}</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        @else
+            <table class="notif-print-table">
+                <thead>
+                    <tr>
+                        <th style="width: 30px;">#</th>
+                        <th>{{ __('notifications.ui.alert_type') }}</th>
+                        <th>{{ __('notifications.ui.recipient') }}</th>
+                        <th>{{ __('notifications.ui.details') }}</th>
+                        <th>{{ __('notifications.ui.due_date') }}</th>
+                        <th>{{ __('notifications.ui.remaining') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($printRows as $index => $item)
+                        <tr>
+                            <td>{{ $index + 1 }}</td>
+                            <td>{{ $item['type_label'] }}</td>
+                            <td class="notif-print-text">{{ $item['title'] }}</td>
+                            <td class="notif-print-text">
+                                {{ $item['subtitle'] }}
+                                @if (! empty($item['company_name']))
+                                    <div class="notif-print-cell-note">{{ $item['company_name'] }}</div>
+                                @endif
+                            </td>
+                            <td>{{ $item['due_date'] }}</td>
+                            <td>{{ $item['status_text'] }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6">{{ __('notifications.ui.no_alerts') }}</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        @endif
+
+        <div class="notif-print-footer">
+            <span>{{ __('reports.print.footer_generated') }}</span>
+            <span>{{ __('reports.print.footer_summary', ['count' => $printRows->count()]) }}</span>
+        </div>
+    </div>
+
+    <div class="notif-page-ctn notif-screen-ui" dir="rtl">
         
         <!-- Header Bar with View Mode Tabs -->
         <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;">
@@ -413,16 +698,22 @@
                 </p>
             </div>
 
-            <!-- View Switcher -->
-            <div class="fi-tabs-segmented">
-                <button wire:click="switchViewMode('matrix')" class="fi-tab-item {{ $viewMode === 'matrix' ? 'active' : '' }}">
-                    <span>📊</span>
-                    <span>{{ __('notifications.ui.matrix') }}</span>
-                </button>
-                <button wire:click="switchViewMode('list')" class="fi-tab-item {{ $viewMode === 'list' ? 'active' : '' }}">
-                    <span>🔔</span>
-                    <span>{{ __('notifications.ui.alert_log') }} ({{ $counts['total'] }})</span>
-                </button>
+            <!-- Actions & View Switcher -->
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;">
+                <x-filament::button color="gray" size="sm" icon="heroicon-o-printer" onclick="window.print()">
+                    {{ __('notifications.ui.print') }}
+                </x-filament::button>
+
+                <div class="fi-tabs-segmented">
+                    <button wire:click="switchViewMode('matrix')" class="fi-tab-item {{ $viewMode === 'matrix' ? 'active' : '' }}">
+                        <span>📊</span>
+                        <span>{{ __('notifications.ui.matrix') }}</span>
+                    </button>
+                    <button wire:click="switchViewMode('list')" class="fi-tab-item {{ $viewMode === 'list' ? 'active' : '' }}">
+                        <span>🔔</span>
+                        <span>{{ __('notifications.ui.alert_log') }} ({{ $counts['total'] }})</span>
+                    </button>
+                </div>
             </div>
         </div>
 

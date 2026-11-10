@@ -3,6 +3,7 @@
 namespace App\Services\Notifications;
 
 use App\Enums\LeaveStatus;
+use App\Enums\TaskStatus;
 use App\Enums\ViolationPaymentStatus;
 use App\Enums\ViolationStage;
 use App\Models\Company;
@@ -12,13 +13,14 @@ use App\Models\EmployeeDetail;
 use App\Models\Invoice;
 use App\Models\Leave;
 use App\Models\ServiceTransaction;
-use App\Models\Task;
+use App\Models\TaskAssignmentItem;
 use App\Models\Violation;
 use App\Services\CompanyFormService;
 use App\Services\FilterBarService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class NotificationAlertsService
 {
@@ -276,31 +278,39 @@ class NotificationAlertsService
                 }
             }
 
-            // 2. Overdue or upcoming Tasks
-            if (class_exists(Task::class)) {
-                $tasks = Task::with('creator')->whereNotNull('due_date')->get();
-                foreach ($tasks as $task) {
-                    $dueDate = Carbon::parse($task->due_date);
-                    if ($dueDate->lessThanOrEqualTo($horizonDate)) {
-                        $alerts->push($this->formatAlert(
-                            id: 'task_'.$task->id,
-                            category: 'tasks',
-                            type: 'task',
-                            typeLabel: __('notifications.alerts.task_label'),
-                            title: $task->title ?? __('notifications.alerts.task_fallback_title', ['id' => $task->id]),
-                            subtitle: __('notifications.alerts.task_priority', ['priority' => $task->priority ?? __('notifications.alerts.task_priority_normal')]),
-                            dueDate: $dueDate,
-                            notifiable: $task->creator ?? null,
-                            recipientName: $task->creator?->name ?? __('notifications.alerts.responsible_fallback'),
-                            recipientPhone: $task->creator?->phone ?? null
-                        ));
-                    }
-                }
-            }
+            // Task due dates belong to assignment items, not the task catalog.
+            $taskItems = TaskAssignmentItem::with(['task', 'taskAssignment.employee.user', 'taskAssignment.employee.company'])
+                ->whereNotNull('due_date')
+                ->whereDate('due_date', '<=', $horizonDate->toDateString())
+                ->where('status', '!=', TaskStatus::COMPLETED->value)
+                ->whereNull('completed_at')
+                ->whereHas('taskAssignment', fn ($query) => $query->where('is_completed', false))
+                ->get();
 
+            foreach ($taskItems as $item) {
+                $assignment = $item->taskAssignment;
+                $employee = $assignment->employee;
+                $assignee = $employee?->user;
+                $recipientName = $assignee?->name ?? __('notifications.alerts.responsible_fallback');
+
+                $alerts->push($this->formatAlert(
+                    id: 'task_item_'.$item->id,
+                    category: 'tasks',
+                    type: 'task_assignment_item',
+                    typeLabel: __('notifications.alerts.task_label'),
+                    title: $item->task?->name ?? __('notifications.alerts.task_fallback_title', ['id' => $item->task_id]),
+                    subtitle: $assignment->transaction_number.' | '.$recipientName,
+                    dueDate: Carbon::parse($item->due_date),
+                    notifiable: $assignment,
+                    recipientName: $recipientName,
+                    recipientPhone: $assignee?->phone,
+                    companyName: $employee?->company?->trade_name,
+                    companyId: $employee?->company_id,
+                ));
+            }
             // 3. Invoices Due / Overdue
-            if (class_exists(Invoice::class)) {
-                $invoices = Invoice::with('customer')->whereNotNull('due_date')->where('status', '!=', 'paid')->get();
+            if (class_exists(Invoice::class) && Schema::hasColumn((new Invoice)->getTable(), 'due_date')) {
+                $invoices = Invoice::with('customer')->whereNotNull('due_date')->where('payment_status', '!=', 'paid')->get();
                 foreach ($invoices as $invoice) {
                     $dueDate = Carbon::parse($invoice->due_date);
                     if ($dueDate->lessThanOrEqualTo($horizonDate)) {

@@ -50,12 +50,7 @@ class BaseSystemNotification extends Notification implements ShouldQueue
      */
     public function via(mixed $notifiable): array
     {
-        // Filter inactive accounts before dispatch; shouldSend rechecks at delivery.
-        if ($notifiable instanceof User && $notifiable->status !== 'active') {
-            return [];
-        }
-
-        return ['database'];
+        return $notifiable instanceof User && $notifiable->status === 'active' ? ['database'] : [];
     }
 
     public function shouldSend(mixed $notifiable, string $channel): bool

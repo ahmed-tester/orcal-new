@@ -9,6 +9,8 @@ use App\Models\Invoice;
 use App\Models\Leave;
 use App\Models\ServiceTransaction;
 use App\Models\Task;
+use App\Models\TaskAssignment;
+use App\Models\TaskAssignmentItem;
 use App\Models\User;
 use App\Models\Violation;
 use App\Notifications\BaseSystemNotification;
@@ -286,6 +288,106 @@ class NotificationsReport extends Page
         }
 
         return $allOptions;
+    }
+
+    /**
+     * Human readable list of the currently applied filters, used by the print header.
+     */
+    public function getPrintFilterTagsProperty(): array
+    {
+        $tags = [];
+
+        if (filled($this->search)) {
+            $tags[] = ['label' => __('reports.filters.search'), 'value' => $this->search];
+        }
+
+        $companyIds = FilterBarService::values($this->companyId);
+        if ($companyIds !== []) {
+            $names = $this->companies
+                ->whereIn('id', $companyIds)
+                ->pluck('trade_name')
+                ->filter()
+                ->implode(', ');
+
+            if ($names !== '') {
+                $tags[] = ['label' => __('reports.filters.company'), 'value' => $names];
+            }
+        }
+
+        if (filled($this->dateFrom) || filled($this->dateTo)) {
+            $tags[] = [
+                'label' => __('reports.period'),
+                'value' => ($this->dateFrom ?: '—').' '.__('reports.to').' '.($this->dateTo ?: '—'),
+            ];
+        }
+
+        if ($this->targetType) {
+            $tags[] = [
+                'label' => __('notifications.ui.scope'),
+                'value' => $this->targetType === 'employees'
+                    ? __('notifications.ui.employees')
+                    : __('notifications.ui.companies'),
+            ];
+        }
+
+        $documentTypes = FilterBarService::values($this->documentType, ['all']);
+        if ($documentTypes !== []) {
+            $documentLabels = $this->printDocumentLabels();
+            $tags[] = [
+                'label' => __('notifications.ui.reason'),
+                'value' => collect($documentTypes)->map(fn ($type) => $documentLabels[$type] ?? $type)->implode(', '),
+            ];
+        }
+
+        $statuses = FilterBarService::values($this->status, ['all']);
+        if ($statuses !== []) {
+            $statusLabels = [
+                'overdue' => __('notifications.ui.expired'),
+                'urgent' => __('notifications.ui.urgent_option'),
+                'warning' => __('notifications.ui.expiring'),
+                'safe' => __('notifications.ui.safe'),
+            ];
+            $tags[] = [
+                'label' => __('notifications.ui.urgency'),
+                'value' => collect($statuses)->map(fn ($status) => $statusLabels[$status] ?? $status)->implode(', '),
+            ];
+        }
+
+        if ($this->category !== 'all') {
+            $categoryLabels = [
+                'documents' => __('notifications.ui.documents_contracts'),
+                'violations' => __('notifications.ui.violations_option'),
+                'tasks' => __('notifications.ui.tasks'),
+                'invoices' => __('notifications.ui.invoices'),
+            ];
+            $tags[] = [
+                'label' => __('notifications.ui.category'),
+                'value' => $categoryLabels[$this->category] ?? $this->category,
+            ];
+        }
+
+        return $tags;
+    }
+
+    /**
+     * Plain document type labels (without counters) for print summaries.
+     */
+    protected function printDocumentLabels(): array
+    {
+        return [
+            'iqama' => __('notifications.documents.iqama'),
+            'work_permit' => __('notifications.documents.work_permit'),
+            'insurance' => __('notifications.documents.health_insurance'),
+            'contract' => __('notifications.documents.contract'),
+            'passport' => __('notifications.documents.passport'),
+            'cr' => __('notifications.documents.cr'),
+            'municipality' => __('notifications.documents.municipality'),
+            'civil_defense' => __('notifications.documents.civil_defense'),
+            'leave_overdue' => __('notifications.ui.overdue_leaves'),
+            'violations' => __('notifications.ui.violations_option'),
+            'tasks' => __('notifications.ui.tasks'),
+            'invoices' => __('notifications.ui.invoices'),
+        ];
     }
 
     public function formatDocCell(?string $dateString): ?array
@@ -648,6 +750,7 @@ class NotificationsReport extends Page
             'debt', 'debt_due' => Debt::with(['company'])->find($recordId),
             'violation', 'legal_deadline', 'admin_execution', 'suspended', 'stage_deadline' => Violation::with(['company'])->find($recordId),
             'task' => Task::find($recordId),
+            'task_assignment_item' => TaskAssignmentItem::find($recordId)?->taskAssignment,
             'invoice' => Invoice::with(['company'])->find($recordId),
             'service', 'service_due' => ServiceTransaction::with(['company'])->find($recordId),
             default => null,
@@ -682,6 +785,7 @@ class NotificationsReport extends Page
         try {
             $notification = $this->buildNotificationForRecord($record, $type, $documentType);
             $count = NotificationDispatcher::send($record, $notification);
+
             if ($count === 0) {
                 FilamentNotification::make()->title(__('notifications.delivery.no_recipients'))->warning()->send();
 
@@ -717,6 +821,7 @@ class NotificationsReport extends Page
             $record instanceof Leave => ['leave', 'LeaveOverdueAlert', $record->employee?->user?->name ?? '#'.$record->employee_id, 'heroicon-o-clock', 'danger'],
             $record instanceof Debt => ['debt', 'DebtDueAlert', $record->debt_number ?? '#'.$record->id, 'heroicon-o-currency-dollar', 'warning'],
             $record instanceof Violation => ['violation', 'ViolationDeadlineAlert', $record->violation_number ?? '#'.$record->id, 'heroicon-o-scale', 'danger'],
+            $record instanceof TaskAssignment => ['task', 'TaskDueAlert', $record->transaction_number ?? '#'.$record->id, 'heroicon-o-clipboard-document-check', 'info'],
             $record instanceof Task => ['task', 'TaskDueAlert', $record->title ?? '#'.$record->id, 'heroicon-o-clipboard-document-check', 'info'],
             $record instanceof Invoice => ['invoice', 'InvoiceDueAlert', $record->invoice_number ?? '#'.$record->id, 'heroicon-o-document-text', 'info'],
             $record instanceof ServiceTransaction => ['service', 'ServiceDueAlert', $record->transaction_number ?? '#'.$record->id, 'heroicon-o-document-text', 'info'],

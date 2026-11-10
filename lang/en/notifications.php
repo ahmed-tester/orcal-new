@@ -271,6 +271,8 @@ return [
         'remind_tooltip' => 'Send an in-app reminder to eligible staff',
         'remind' => '🔔 Send reminder',
         'queuing' => '⏳ Queuing...',
+        'print' => '🖨️ Print',
+        'category' => 'Category',
         'no_alerts' => 'There are no active alerts',
         'overdue_leaves' => '🏖️ Overdue leave returns',
     ],
