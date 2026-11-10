@@ -7,6 +7,7 @@ use App\Filament\Components\OrgSelect;
 use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Services\EmployeeAgeService;
+use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -25,7 +26,7 @@ class SaudiEmployeesTable
         return $table
             ->defaultSort('id', 'desc')
             ->modifyQueryUsing(fn ($query) => $query->with([
-                'user',
+                'user.owners',
                 'details.guarantor',
                 'company',
                 'jobTitle',
@@ -58,6 +59,8 @@ class SaudiEmployeesTable
 
                         return implode(' | ', $parts);
                     }),
+
+                PersonCapacityService::makeTableColumn('employee'),
 
                 TextColumn::make('employee_type')
                     ->label(__('employees.fields.employee_type'))
@@ -163,6 +166,8 @@ class SaudiEmployeesTable
                 SelectFilter::make('status')
                     ->label(__('employees.fields.status'))
                     ->options(__('employees.statuses')),
+
+                PersonCapacityService::makeTableFilter('employee'),
             ])
             ->recordActions([
                 EditAction::make()

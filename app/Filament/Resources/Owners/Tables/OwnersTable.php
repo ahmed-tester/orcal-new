@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Owners\Tables;
 
 use App\Enums\GeneralStatus;
+use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -18,6 +19,11 @@ class OwnersTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultSort('id', 'desc')
+            ->modifyQueryUsing(fn ($query) => $query->with([
+                'user.employee',
+                'company',
+            ]))
             ->columns([
                 ImageColumn::make('image')
                     ->label(__('owners.fields.image'))
@@ -37,6 +43,8 @@ class OwnersTable
                     ->searchable()
                     ->sortable()
                     ->description(fn ($record) => ($record->user?->phone ? '📱 '.PhoneService::format($record->user->phone) : '').($record->user?->email ? ' | ✉️ '.$record->user->email : '')),
+
+                PersonCapacityService::makeTableColumn('owner'),
 
                 TextColumn::make('company.trade_name')
                     ->label(__('owners.fields.company'))
@@ -89,6 +97,8 @@ class OwnersTable
                 SelectFilter::make('status')
                     ->label(__('owners.fields.status'))
                     ->options(GeneralStatus::class),
+
+                PersonCapacityService::makeTableFilter('owner'),
             ])
             ->recordActions([
                 EditAction::make()->label(__('employees.actions.edit')),
