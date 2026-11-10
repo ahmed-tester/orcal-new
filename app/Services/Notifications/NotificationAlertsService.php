@@ -2,6 +2,8 @@
 
 namespace App\Services\Notifications;
 
+use App\Enums\LeaveStatus;
+use App\Enums\TaskStatus;
 use App\Enums\ViolationPaymentStatus;
 use App\Enums\ViolationStage;
 use App\Models\Company;
@@ -10,10 +12,15 @@ use App\Models\Employee;
 use App\Models\EmployeeDetail;
 use App\Models\Invoice;
 use App\Models\Leave;
-use App\Models\Task;
+use App\Models\ServiceTransaction;
+use App\Models\TaskAssignmentItem;
 use App\Models\Violation;
+use App\Services\CompanyFormService;
+use App\Services\FilterBarService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class NotificationAlertsService
 {
@@ -40,7 +47,7 @@ class NotificationAlertsService
 
             foreach ($details as $detail) {
                 $employee = $detail->employee;
-                if (!$employee || ($employee->status && $employee->status->value !== 'active')) {
+                if (! $employee || ($employee->status && $employee->status->value !== 'active')) {
                     continue;
                 }
 
@@ -55,7 +62,7 @@ class NotificationAlertsService
                     $expiry = Carbon::parse($detail->iqama_expiry);
                     if ($expiry->lessThanOrEqualTo($horizonDate)) {
                         $alerts->push($this->formatAlert(
-                            id: 'iqama_' . $detail->id,
+                            id: 'iqama_'.$detail->id,
                             category: 'documents',
                             type: 'iqama',
                             typeLabel: __('notifications.alerts.expiry_label', ['document' => __('notifications.documents.iqama')]),
@@ -77,7 +84,7 @@ class NotificationAlertsService
                     $expiry = Carbon::parse($detail->passport_expiry);
                     if ($expiry->lessThanOrEqualTo($horizonDate)) {
                         $alerts->push($this->formatAlert(
-                            id: 'passport_' . $detail->id,
+                            id: 'passport_'.$detail->id,
                             category: 'documents',
                             type: 'passport',
                             typeLabel: __('notifications.alerts.expiry_label', ['document' => __('notifications.documents.passport')]),
@@ -99,7 +106,7 @@ class NotificationAlertsService
                     $expiry = Carbon::parse($detail->insurance_expiry);
                     if ($expiry->lessThanOrEqualTo($horizonDate)) {
                         $alerts->push($this->formatAlert(
-                            id: 'insurance_' . $detail->id,
+                            id: 'insurance_'.$detail->id,
                             category: 'documents',
                             type: 'insurance',
                             typeLabel: __('notifications.alerts.expiry_label', ['document' => __('notifications.documents.health_insurance')]),
@@ -121,7 +128,7 @@ class NotificationAlertsService
                     $expiry = Carbon::parse($detail->work_permit_expiry);
                     if ($expiry->lessThanOrEqualTo($horizonDate)) {
                         $alerts->push($this->formatAlert(
-                            id: 'work_permit_' . $detail->id,
+                            id: 'work_permit_'.$detail->id,
                             category: 'documents',
                             type: 'work_permit',
                             typeLabel: __('notifications.alerts.expiry_label', ['document' => __('notifications.documents.work_permit')]),
@@ -143,7 +150,7 @@ class NotificationAlertsService
                     $expiry = Carbon::parse($employee->contract_end_date);
                     if ($expiry->lessThanOrEqualTo($horizonDate)) {
                         $alerts->push($this->formatAlert(
-                            id: 'contract_' . $employee->id,
+                            id: 'contract_'.$employee->id,
                             category: 'documents',
                             type: 'contract',
                             typeLabel: __('notifications.alerts.expiry_label', ['document' => __('notifications.documents.contract')]),
@@ -164,8 +171,8 @@ class NotificationAlertsService
             // 1.2 Company Licenses & Registrations Expiry
             $companies = Company::where(function ($q) {
                 $q->whereNotNull('commercial_registration_expiry')
-                  ->orWhereNotNull('municipality_license_expiry')
-                  ->orWhereNotNull('civil_defense_license_expiry');
+                    ->orWhereNotNull('municipality_license_expiry')
+                    ->orWhereNotNull('civil_defense_license_expiry');
             })->get();
 
             foreach ($companies as $company) {
@@ -176,7 +183,7 @@ class NotificationAlertsService
                     $expiry = Carbon::parse($company->commercial_registration_expiry);
                     if ($expiry->lessThanOrEqualTo($horizonDate)) {
                         $alerts->push($this->formatAlert(
-                            id: 'cr_' . $company->id,
+                            id: 'cr_'.$company->id,
                             category: 'documents',
                             type: 'cr',
                             typeLabel: __('notifications.alerts.expiry_label', ['document' => __('notifications.documents.cr')]),
@@ -197,7 +204,7 @@ class NotificationAlertsService
                     $expiry = Carbon::parse($company->municipality_license_expiry);
                     if ($expiry->lessThanOrEqualTo($horizonDate)) {
                         $alerts->push($this->formatAlert(
-                            id: 'municipality_' . $company->id,
+                            id: 'municipality_'.$company->id,
                             category: 'documents',
                             type: 'municipality',
                             typeLabel: __('notifications.alerts.expiry_label', ['document' => __('notifications.documents.municipality')]),
@@ -218,7 +225,7 @@ class NotificationAlertsService
                     $expiry = Carbon::parse($company->civil_defense_license_expiry);
                     if ($expiry->lessThanOrEqualTo($horizonDate)) {
                         $alerts->push($this->formatAlert(
-                            id: 'civil_defense_' . $company->id,
+                            id: 'civil_defense_'.$company->id,
                             category: 'documents',
                             type: 'civil_defense',
                             typeLabel: __('notifications.alerts.expiry_label', ['document' => __('notifications.documents.civil_defense')]),
@@ -238,26 +245,29 @@ class NotificationAlertsService
 
             // 1.3 Overdue Leaves Alert
             if (class_exists(Leave::class)) {
+                $yesterday = $now->copy()->subDay()->format('Y-m-d');
                 $overdueLeaves = Leave::with(['employee.user', 'employee.company'])
-                    ->where('status', \App\Enums\LeaveStatus::APPROVED)
+                    ->where('status', LeaveStatus::APPROVED)
                     ->whereNull('actual_return_date')
-                    ->where('end_date', '<', $now->format('Y-m-d'))
+                    ->whereDate('end_date', '<=', $yesterday)
                     ->get();
 
                 foreach ($overdueLeaves as $leave) {
                     $employee = $leave->employee;
-                    if (!$employee) continue;
+                    if (! $employee) {
+                        continue;
+                    }
                     $empName = $employee->user?->name ?? __('notifications.alerts.employee_fallback', ['id' => $employee->id]);
-                    $dueDate = Carbon::parse($leave->end_date);
+                    $expectedReturnDate = Carbon::parse($leave->end_date)->addDay()->startOfDay();
 
                     $alerts->push($this->formatAlert(
-                        id: 'leave_overdue_' . $leave->id,
+                        id: 'leave_overdue_'.$leave->id,
                         category: 'documents',
                         type: 'leave_overdue',
                         typeLabel: __('notifications.alerts.leave_overdue_label'),
                         title: $empName,
-                        subtitle: __('notifications.alerts.leave_overdue_subtitle', ['date' => $dueDate->format('Y-m-d')]),
-                        dueDate: $dueDate,
+                        subtitle: __('notifications.alerts.leave_overdue_subtitle', ['date' => $expectedReturnDate->format('Y-m-d')]),
+                        dueDate: $expectedReturnDate,
                         notifiable: $employee->user ?? $employee,
                         recipientName: $empName,
                         recipientPhone: $employee->user?->phone,
@@ -268,40 +278,48 @@ class NotificationAlertsService
                 }
             }
 
-            // 2. Overdue or upcoming Tasks
-            if (class_exists(Task::class)) {
-                $tasks = Task::with('creator')->whereNotNull('due_date')->get();
-                foreach ($tasks as $task) {
-                    $dueDate = Carbon::parse($task->due_date);
-                    if ($dueDate->lessThanOrEqualTo($horizonDate)) {
-                        $alerts->push($this->formatAlert(
-                            id: 'task_' . $task->id,
-                            category: 'tasks',
-                            type: 'task',
-                            typeLabel: __('notifications.alerts.task_label'),
-                            title: $task->title ?? __('notifications.alerts.task_fallback_title', ['id' => $task->id]),
-                            subtitle: __('notifications.alerts.task_priority', ['priority' => $task->priority ?? __('notifications.alerts.task_priority_normal')]),
-                            dueDate: $dueDate,
-                            notifiable: $task->creator ?? null,
-                            recipientName: $task->creator?->name ?? __('notifications.alerts.responsible_fallback'),
-                            recipientPhone: $task->creator?->phone ?? null
-                        ));
-                    }
-                }
-            }
+            // Task due dates belong to assignment items, not the task catalog.
+            $taskItems = TaskAssignmentItem::with(['task', 'taskAssignment.employee.user', 'taskAssignment.employee.company'])
+                ->whereNotNull('due_date')
+                ->whereDate('due_date', '<=', $horizonDate->toDateString())
+                ->where('status', '!=', TaskStatus::COMPLETED->value)
+                ->whereNull('completed_at')
+                ->whereHas('taskAssignment', fn ($query) => $query->where('is_completed', false))
+                ->get();
 
+            foreach ($taskItems as $item) {
+                $assignment = $item->taskAssignment;
+                $employee = $assignment->employee;
+                $assignee = $employee?->user;
+                $recipientName = $assignee?->name ?? __('notifications.alerts.responsible_fallback');
+
+                $alerts->push($this->formatAlert(
+                    id: 'task_item_'.$item->id,
+                    category: 'tasks',
+                    type: 'task_assignment_item',
+                    typeLabel: __('notifications.alerts.task_label'),
+                    title: $item->task?->name ?? __('notifications.alerts.task_fallback_title', ['id' => $item->task_id]),
+                    subtitle: $assignment->transaction_number.' | '.$recipientName,
+                    dueDate: Carbon::parse($item->due_date),
+                    notifiable: $assignment,
+                    recipientName: $recipientName,
+                    recipientPhone: $assignee?->phone,
+                    companyName: $employee?->company?->trade_name,
+                    companyId: $employee?->company_id,
+                ));
+            }
             // 3. Invoices Due / Overdue
-            if (class_exists(Invoice::class)) {
-                $invoices = Invoice::with('customer')->whereNotNull('due_date')->where('status', '!=', 'paid')->get();
+            if (class_exists(Invoice::class) && Schema::hasColumn((new Invoice)->getTable(), 'due_date')) {
+                $invoices = Invoice::with('customer')->whereNotNull('due_date')->where('payment_status', '!=', 'paid')->get();
                 foreach ($invoices as $invoice) {
                     $dueDate = Carbon::parse($invoice->due_date);
                     if ($dueDate->lessThanOrEqualTo($horizonDate)) {
                         $alerts->push($this->formatAlert(
-                            id: 'invoice_' . $invoice->id,
+                            id: 'invoice_'.$invoice->id,
                             category: 'invoices',
                             type: 'invoice',
                             typeLabel: __('notifications.alerts.invoice_label'),
-                            title: __('notifications.alerts.invoice_title', ['number' => $invoice->invoice_number ?? '#' . $invoice->id]),
+                            title: __('notifications.alerts.invoice_title', ['number' => $invoice->invoice_number ?? '#'.$invoice->id]),
                             subtitle: __('notifications.alerts.invoice_subtitle', [
                                 'customer' => $invoice->customer?->name ?? '—',
                                 'amount' => number_format($invoice->total_amount ?? 0, 2),
@@ -327,7 +345,7 @@ class NotificationAlertsService
                     $compName = $company?->trade_name ?? __('notifications.alerts.company_fallback');
                     $ownerNotifiable = $company?->owner?->user ?? $company;
                     $vNumber = $violation->violation_number ?? ($violation->external_violation_number ? "#{$violation->external_violation_number}" : "#{$violation->id}");
-                    $remainingFormatted = number_format($violation->remaining_amount, 2) . ' ' . __('violations.transactions.stats.unit');
+                    $remainingFormatted = number_format($violation->remaining_amount, 2).' '.__('violations.transactions.stats.unit');
 
                     // 4.1 Legal Deadline Alert (Exceeded 60 days from violation date or legal_deadline passed)
                     $daysSinceViolation = $violation->violation_date ? Carbon::parse($violation->violation_date)->diffInDays($now, false) : 0;
@@ -336,12 +354,12 @@ class NotificationAlertsService
                     if ($isLegalExceeded || $violation->stage === ViolationStage::LEGAL) {
                         $dueDate = $violation->legal_deadline ? Carbon::parse($violation->legal_deadline) : Carbon::parse($violation->violation_date)->addDays(60);
                         $alerts->push($this->formatAlert(
-                            id: 'violation_legal_' . $violation->id,
+                            id: 'violation_legal_'.$violation->id,
                             category: 'violations',
                             type: 'legal_deadline',
                             typeLabel: __('violations.stages.legal'),
-                            title: __('violations.notifications.legal_deadline_warning_title') . " — {$vNumber}",
-                            subtitle: "{$compName} | {$violation->issuing_authority} | " . __('violations.violations.fields.remaining_amount') . ": {$remainingFormatted}",
+                            title: __('violations.notifications.legal_deadline_warning_title')." — {$vNumber}",
+                            subtitle: "{$compName} | {$violation->issuing_authority} | ".__('violations.violations.fields.remaining_amount').": {$remainingFormatted}",
                             dueDate: $dueDate,
                             notifiable: $ownerNotifiable,
                             recipientName: $compName,
@@ -356,12 +374,12 @@ class NotificationAlertsService
                     if ($violation->stage === ViolationStage::ADMIN_EXECUTION || ($violation->admin_execution_date && Carbon::parse($violation->admin_execution_date)->lessThanOrEqualTo($horizonDate))) {
                         $dueDate = $violation->admin_execution_date ? Carbon::parse($violation->admin_execution_date) : $now;
                         $alerts->push($this->formatAlert(
-                            id: 'violation_admin_exec_' . $violation->id,
+                            id: 'violation_admin_exec_'.$violation->id,
                             category: 'violations',
                             type: 'admin_execution',
                             typeLabel: __('violations.stages.admin_execution'),
-                            title: __('violations.notifications.admin_execution_title') . " — {$vNumber}",
-                            subtitle: "{$compName} | {$violation->issuing_authority} | " . __('violations.violations.fields.remaining_amount') . ": {$remainingFormatted}",
+                            title: __('violations.notifications.admin_execution_title')." — {$vNumber}",
+                            subtitle: "{$compName} | {$violation->issuing_authority} | ".__('violations.violations.fields.remaining_amount').": {$remainingFormatted}",
                             dueDate: $dueDate,
                             notifiable: $ownerNotifiable,
                             recipientName: $compName,
@@ -376,12 +394,12 @@ class NotificationAlertsService
                     if ($violation->stage === ViolationStage::SUSPENDED) {
                         $dueDate = $violation->closure_date ? Carbon::parse($violation->closure_date) : $now;
                         $alerts->push($this->formatAlert(
-                            id: 'violation_suspended_' . $violation->id,
+                            id: 'violation_suspended_'.$violation->id,
                             category: 'violations',
                             type: 'suspended',
                             typeLabel: __('violations.stages.suspended'),
-                            title: __('violations.notifications.suspended_title') . " — {$vNumber}",
-                            subtitle: "{$compName} | {$violation->issuing_authority} | " . __('violations.violations.fields.remaining_amount') . ": {$remainingFormatted}",
+                            title: __('violations.notifications.suspended_title')." — {$vNumber}",
+                            subtitle: "{$compName} | {$violation->issuing_authority} | ".__('violations.violations.fields.remaining_amount').": {$remainingFormatted}",
                             dueDate: $dueDate,
                             notifiable: $ownerNotifiable,
                             recipientName: $compName,
@@ -395,19 +413,19 @@ class NotificationAlertsService
                     // 4.4 Approaching Correction / Objection / Grace Stage Deadline
                     $stageDeadline = match ($violation->stage) {
                         ViolationStage::CORRECTION => $violation->correction_deadline ? Carbon::parse($violation->correction_deadline) : null,
-                        ViolationStage::OBJECTION  => $violation->objection_deadline ? Carbon::parse($violation->objection_deadline) : null,
-                        ViolationStage::GRACE      => $violation->grace_deadline ? Carbon::parse($violation->grace_deadline) : null,
-                        default                    => null,
+                        ViolationStage::OBJECTION => $violation->objection_deadline ? Carbon::parse($violation->objection_deadline) : null,
+                        ViolationStage::GRACE => $violation->grace_deadline ? Carbon::parse($violation->grace_deadline) : null,
+                        default => null,
                     };
 
                     if ($stageDeadline && $stageDeadline->lessThanOrEqualTo($horizonDate)) {
                         $alerts->push($this->formatAlert(
-                            id: 'violation_stage_' . $violation->id,
+                            id: 'violation_stage_'.$violation->id,
                             category: 'violations',
                             type: 'stage_deadline',
                             typeLabel: $violation->stage->getLabel(),
-                            title: __('violations.notifications.stage_expiring_title') . " — {$vNumber}",
-                            subtitle: "{$compName} | {$violation->issuing_authority} | " . __('violations.violations.fields.remaining_amount') . ": {$remainingFormatted}",
+                            title: __('violations.notifications.stage_expiring_title')." — {$vNumber}",
+                            subtitle: "{$compName} | {$violation->issuing_authority} | ".__('violations.violations.fields.remaining_amount').": {$remainingFormatted}",
                             dueDate: $stageDeadline,
                             notifiable: $ownerNotifiable,
                             recipientName: $compName,
@@ -421,8 +439,8 @@ class NotificationAlertsService
             }
 
             // 5. Active Service Transactions Alerts
-            if (class_exists(\App\Models\ServiceTransaction::class)) {
-                $activeTransactions = \App\Models\ServiceTransaction::with(['company', 'employee.user', 'service'])
+            if (class_exists(ServiceTransaction::class)) {
+                $activeTransactions = ServiceTransaction::with(['company', 'employee.user', 'service'])
                     ->where('service_status', 'active')
                     ->whereNotNull('due_date')
                     ->get();
@@ -430,10 +448,10 @@ class NotificationAlertsService
                 foreach ($activeTransactions as $tx) {
                     $dueDate = Carbon::parse($tx->due_date);
                     if ($dueDate->lessThanOrEqualTo($horizonDate)) {
-                        $title = $tx->display_service_name . " — {$tx->transaction_number}";
-                        $subtitle = "{$tx->display_beneficiary} | " . __('services_tracking.fields.remaining_amount') . ": " . number_format($tx->remaining_amount, 2) . " SAR";
+                        $title = $tx->display_service_name." — {$tx->transaction_number}";
+                        $subtitle = "{$tx->display_beneficiary} | ".__('services_tracking.fields.remaining_amount').': '.number_format($tx->remaining_amount, 2).' SAR';
                         $alerts->push($this->formatAlert(
-                            id: 'service_' . $tx->id,
+                            id: 'service_'.$tx->id,
                             category: 'tasks',
                             type: 'service_due',
                             typeLabel: __('services_tracking.single'),
@@ -462,17 +480,17 @@ class NotificationAlertsService
                     $dueDate = Carbon::parse($debt->due_date);
                     if ($dueDate->lessThanOrEqualTo($horizonDate)) {
                         $debtorName = $debt->beneficiary_name ?? '—';
-                        $remaining = number_format((float) ($debt->remaining_amount ?? 0), 2) . ' ' . __('notifications.alerts.currency');
+                        $remaining = number_format((float) ($debt->remaining_amount ?? 0), 2).' '.__('notifications.alerts.currency');
                         $notifiable = $debt->notifyEmployee?->user ?? $debt->executor?->user ?? $debt->company?->owner?->user;
-                        $debtNumber = $debt->debt_number ?? ('#' . $debt->id);
+                        $debtNumber = $debt->debt_number ?? ('#'.$debt->id);
 
-                        $subtitle = "المدين: {$debtorName} | المتبقي: {$remaining}";
+                        $subtitle = __('notifications.alerts.debt_subtitle', ['debtor' => $debtorName, 'remaining' => $remaining]);
                         if (! empty($debt->notification_notes)) {
-                            $subtitle .= " | " . $debt->notification_notes;
+                            $subtitle .= ' | '.$debt->notification_notes;
                         }
 
                         $alerts->push($this->formatAlert(
-                            id: 'debt_' . $debt->id,
+                            id: 'debt_'.$debt->id,
                             category: 'invoices',
                             type: 'debt_due',
                             typeLabel: __('debts.single'),
@@ -490,7 +508,9 @@ class NotificationAlertsService
                 }
             }
         } catch (\Throwable $e) {
-            // Graceful fallback for missing database connection or empty tables
+            Log::error('[NotificationAlertsService] Error resolving active alerts: '.$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
         }
 
         // Apply filters
@@ -508,15 +528,28 @@ class NotificationAlertsService
         }
 
         // Apply document type / reason filter (supports single or multi-select array)
-        $docTypes = \App\Services\FilterBarService::values($documentType, ['all']);
+        $docTypes = FilterBarService::values($documentType, ['all']);
         if (! empty($docTypes)) {
             $alerts = $alerts->whereIn('type', $docTypes);
         }
 
         // Filter by company ID (supports single or multi-select array)
-        $compIds = \App\Services\FilterBarService::values($companyId);
+        $compIds = FilterBarService::values($companyId);
         if (! empty($compIds)) {
             $alerts = $alerts->filter(fn ($a) => in_array($a['company_id'], $compIds, false));
+        }
+
+        // Enforce user company authorization scope for non-superadmins
+        $currentUser = auth()->user();
+        if ($currentUser && ! $currentUser->isSuperAdmin()) {
+            $authorizedIds = array_map('intval', CompanyFormService::getAuthorizedCompanyIds($currentUser));
+            $alerts = $alerts->filter(function ($a) use ($authorizedIds) {
+                if ($a['company_id'] === null) {
+                    return true;
+                }
+
+                return in_array((int) $a['company_id'], $authorizedIds, true);
+            });
         }
 
         // Filter by Date Range
@@ -528,22 +561,23 @@ class NotificationAlertsService
         }
 
         // Filter by Urgency / Status (supports single or multi-select array)
-        $statuses = \App\Services\FilterBarService::values($urgency, ['all']);
+        $statuses = FilterBarService::values($urgency, ['all']);
         if (! empty($statuses)) {
             $alerts = $alerts->filter(function ($alert) use ($statuses) {
                 $days = $alert['days_remaining'];
                 foreach ($statuses as $st) {
                     $matches = match ($st) {
                         'overdue' => $days < 0,
-                        'urgent'  => $days >= 0 && $days <= 15,
+                        'urgent' => $days >= 0 && $days <= 15,
                         'warning' => $days > 15 && $days <= 90,
-                        'safe'    => $days > 90,
-                        default   => true,
+                        'safe' => $days > 90,
+                        default => true,
                     };
                     if ($matches) {
                         return true;
                     }
                 }
+
                 return false;
             });
         }
@@ -569,29 +603,29 @@ class NotificationAlertsService
     public function getSummaryCounts(): array
     {
         $all = $this->getActiveAlerts('all');
-        $urgent     = $all->where('is_urgent', true)->count();
-        $overdue    = $all->where('days_remaining', '<', 0)->count();
-        $documents  = $all->where('category', 'documents')->count();
-        $tasks      = $all->where('category', 'tasks')->count();
-        $invoices   = $all->where('category', 'invoices')->count();
+        $urgent = $all->where('is_urgent', true)->count();
+        $overdue = $all->where('days_remaining', '<', 0)->count();
+        $documents = $all->where('category', 'documents')->count();
+        $tasks = $all->where('category', 'tasks')->count();
+        $invoices = $all->where('category', 'invoices')->count();
         $violations = $all->where('category', 'violations')->count();
 
         // Per-type counts for the document type filter badges
         $typeCounts = [];
-        $docAlerts  = $all->where('category', 'documents');
+        $docAlerts = $all->where('category', 'documents');
         foreach (['iqama', 'work_permit', 'insurance', 'contract', 'passport', 'cr', 'municipality', 'civil_defense'] as $t) {
             $typeCounts[$t] = $docAlerts->where('type', $t)->count();
         }
 
         return [
-            'total'      => $all->count(),
-            'urgent'     => $urgent,
-            'overdue'    => $overdue,
-            'documents'  => $documents,
-            'tasks'      => $tasks,
-            'invoices'   => $invoices,
+            'total' => $all->count(),
+            'urgent' => $urgent,
+            'overdue' => $overdue,
+            'documents' => $documents,
+            'tasks' => $tasks,
+            'invoices' => $invoices,
             'violations' => $violations,
-            'types'      => $typeCounts,
+            'types' => $typeCounts,
         ];
     }
 
@@ -617,22 +651,22 @@ class NotificationAlertsService
         $isUrgent = $daysRemaining <= 15;
 
         $urgencyLevel = match (true) {
-            $daysRemaining < 0   => 'overdue',
-            $daysRemaining <= 7  => 'critical',
+            $daysRemaining < 0 => 'overdue',
+            $daysRemaining <= 7 => 'critical',
             $daysRemaining <= 30 => 'warning',
-            default              => 'normal',
+            default => 'normal',
         };
 
         $badgeColor = match ($urgencyLevel) {
             'overdue', 'critical' => 'danger',
-            'warning'             => 'warning',
-            default               => 'info',
+            'warning' => 'warning',
+            default => 'info',
         };
 
         $statusText = match (true) {
-            $daysRemaining < 0  => __('notifications.stages.days_overdue', ['days' => abs($daysRemaining)]),
+            $daysRemaining < 0 => __('notifications.stages.days_overdue', ['days' => abs($daysRemaining)]),
             $daysRemaining == 0 => __('notifications.stages.expires_today'),
-            default             => __('notifications.stages.days_remaining', ['days' => $daysRemaining]),
+            default => __('notifications.stages.days_remaining', ['days' => $daysRemaining]),
         };
 
         return [

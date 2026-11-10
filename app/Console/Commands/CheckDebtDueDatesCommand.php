@@ -3,10 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Models\Debt;
-use App\Models\User;
+use App\Notifications\BaseSystemNotification;
+use App\Services\Notifications\NotificationDispatcher;
 use Carbon\Carbon;
-use Filament\Actions\Action;
-use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -24,8 +23,8 @@ class CheckDebtDueDatesCommand extends Command
         $daysHorizon = (int) $this->option('days');
         $this->info("Checking active debt due dates (Horizon: {$daysHorizon} days)...");
 
-        $debts = Debt::with(['notifyEmployee.user', 'executor.user', 'company'])
-            ->where('status', '!=', 'paid')
+        $debts = Debt::with(['company'])
+            ->whereNotIn('status', ['paid', 'cancelled'])
             ->whereNotNull('due_date')
             ->get();
 
@@ -35,7 +34,7 @@ class CheckDebtDueDatesCommand extends Command
         foreach ($debts as $debt) {
             $dueDate = Carbon::parse($debt->due_date)->startOfDay();
             $daysRemaining = (int) $today->diffInDays($dueDate, false);
-            $debtNumber = $debt->debt_number ?? ('#' . $debt->id);
+            $debtNumber = $debt->debt_number ?? ('#'.$debt->id);
 
             // 1. Automatically update status to 'overdue' if due date has passed
             if ($daysRemaining < 0 && $debt->status !== 'overdue') {
@@ -49,36 +48,9 @@ class CheckDebtDueDatesCommand extends Command
                 continue;
             }
 
-            // Determine recipient users
-            $notifiableUsers = collect();
-
-            // Primary target: Follow-up employee assigned to this debt
-            if ($debt->notifyEmployee?->user) {
-                $notifiableUsers->push($debt->notifyEmployee->user);
-            }
-
-            // Secondary target: The executor who recorded this debt
-            if ($debt->executor?->user && (! $debt->notifyEmployee || $debt->executor->id !== $debt->notifyEmployee->id)) {
-                $notifiableUsers->push($debt->executor->user);
-            }
-
-            // Super Admins & Owners: Always included so administrators can monitor due debts
-            try {
-                $superAdmins = User::all()->filter(fn ($u) => method_exists($u, 'isSuperAdminOrOwner') && $u->isSuperAdminOrOwner());
-                $notifiableUsers = $notifiableUsers->concat($superAdmins);
-            } catch (\Throwable $e) {
-                // Ignore or log error
-            }
-
-            $notifiableUsers = $notifiableUsers->unique('id');
-
-            if ($notifiableUsers->isEmpty()) {
-                continue;
-            }
-
-            // 3. Compose notification title & body
+            // 4. Compose notification title & body
             $debtorName = $debt->beneficiary_name ?? '—';
-            $remaining = number_format((float) ($debt->remaining_amount ?? 0), 2) . ' SAR';
+            $remaining = number_format((float) ($debt->remaining_amount ?? 0), 2).' SAR';
 
             [$title, $color] = match (true) {
                 $daysRemaining < 0 => [
@@ -102,32 +74,25 @@ class CheckDebtDueDatesCommand extends Command
             ]);
 
             if (! empty($debt->notification_notes)) {
-                $body .= "\n" . __('debts.fields.notification_notes') . ': ' . $debt->notification_notes;
+                $body .= "\n".__('debts.fields.notification_notes').': '.$debt->notification_notes;
             }
 
-            // 4. Send Filament Database Notification
-            $debtEditUrl = route('filament.admin.resources.debts.edit', ['record' => $debt->id]);
+            $debtEditUrl = url("/debts/{$debt->id}/edit");
 
-            foreach ($notifiableUsers as $user) {
-                $notification = FilamentNotification::make()
-                    ->title($title)
-                    ->body($body)
-                    ->icon('heroicon-o-bell')
-                    ->status($color)
-                    ->actions([
-                        Action::make('view')
-                            ->label(__('debts.actions.view_debt'))
-                            ->url($debtEditUrl)
-                            ->button(),
-                    ]);
+            $notification = new BaseSystemNotification(
+                eventKey: 'DueDateReminder',
+                placeholders: [],
+                customMessage: $body,
+                customTitle: $title,
+                actionUrl: $debtEditUrl,
+                icon: 'heroicon-o-bell',
+                color: $color
+            );
 
-                // We use notifyNow to write directly and synchronously to the notifications table,
-                // avoiding jobs getting stuck if the queue worker is not running on the server.
-                $user->notifyNow($notification->toDatabase());
-                \Filament\Notifications\Events\DatabaseNotificationsSent::dispatch($user);
+            // Dispatch through standard queued notification channel
+            if (NotificationDispatcher::send($debt, $notification) > 0) {
+                $processedCount++;
             }
-
-            $processedCount++;
         }
 
         $this->info("Completed. {$overdueCount} debt(s) marked overdue, {$processedCount} alert(s) dispatched.");
@@ -136,4 +101,3 @@ class CheckDebtDueDatesCommand extends Command
         return Command::SUCCESS;
     }
 }
-

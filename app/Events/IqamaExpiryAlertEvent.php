@@ -5,9 +5,9 @@ namespace App\Events;
 use App\Interfaces\NotificationEventInterface;
 use App\Models\Employee;
 use App\Models\EmployeeDetail;
-use App\Models\Owner;
 use Carbon\Carbon;
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -23,18 +23,19 @@ class IqamaExpiryAlertEvent implements NotificationEventInterface
         public ?string $customMessage = null
     ) {}
 
+    public function getRecord(): ?Model
+    {
+        return $this->employee;
+    }
+
+    public function getActionUrl(): ?string
+    {
+        return url("/foreign-employees/{$this->employee->id}/edit");
+    }
+
     public function getNotifiable(): mixed
     {
-        $recipients = collect();
-
-        // 1. Employee User (for their personal alert)
-        if ($this->employee->user) {
-            $recipients->push($this->employee->user);
-        } else {
-            $recipients->push($this->employee);
-        }
-
-        return $recipients->unique('id')->values();
+        return $this->employee->user ?? $this->employee;
     }
 
     public function getEventKey(): string
@@ -44,22 +45,22 @@ class IqamaExpiryAlertEvent implements NotificationEventInterface
 
     public function getPlaceholders(): array
     {
-        $expiryDate = $this->detail->iqama_expiry 
-            ? Carbon::parse($this->detail->iqama_expiry)->format('Y-m-d') 
+        $expiryDate = $this->detail->iqama_expiry
+            ? Carbon::parse($this->detail->iqama_expiry)->format('Y-m-d')
             : '—';
 
         $statusText = match (true) {
-            $this->daysRemaining < 0  => 'منتهية منذ ' . abs($this->daysRemaining) . ' يوم',
-            $this->daysRemaining == 0 => 'تنتهي اليوم',
-            default                   => 'متبقي ' . $this->daysRemaining . ' يوم',
+            $this->daysRemaining < 0 => __('notifications.stages.days_overdue', ['days' => abs($this->daysRemaining)]),
+            $this->daysRemaining == 0 => __('notifications.stages.expires_today'),
+            default => __('notifications.stages.days_remaining', ['days' => $this->daysRemaining]),
         };
 
-        $stageName = $this->alertStage ?: 'تنبيه انتهاء الإقامة';
-        $companyName = $this->employee->company?->trade_name ?? 'الشركة';
+        $stageName = $this->alertStage ?: __('notifications.events.IqamaExpiryAlert.name');
+        $companyName = $this->employee->company?->trade_name ?? __('notifications.alerts.company_fallback');
 
         return [
             'alert_stage' => $stageName,
-            'employee_name' => $this->employee->user?->name ?? ('موظف #' . $this->employee->id),
+            'employee_name' => $this->employee->user?->name ?? __('notifications.alerts.employee_fallback', ['id' => $this->employee->id]),
             'company_name' => $companyName,
             'iqama_number' => $this->detail->iqama_number ?? '—',
             'expiry_date' => $expiryDate,
@@ -73,4 +74,3 @@ class IqamaExpiryAlertEvent implements NotificationEventInterface
         return $this->customMessage;
     }
 }
-

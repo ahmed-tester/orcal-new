@@ -2,14 +2,11 @@
 
 namespace App\Observers;
 
-use App\Filament\Resources\TaskAssignments\TaskAssignmentResource;
 use App\Models\Company;
 use App\Models\TaskAssignment;
 use App\Models\User;
-use Filament\Actions\Action;
-use Filament\Notifications\Notification as FilamentNotification;
+use App\Services\Notifications\NotificationDispatcher;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 
 class TaskAssignmentObserver
 {
@@ -50,47 +47,18 @@ class TaskAssignmentObserver
      */
     protected function notifyAssignedEmployee(TaskAssignment $assignment): void
     {
-        $assignment->loadMissing(['employee.user', 'creator']);
-
-        $user = $assignment->employee?->user;
-
-        if (! $user) {
-            return;
-        }
-
-        $creatorName = $assignment->creator?->name ?? Auth::user()?->name ?? __('tasks.creator_default');
-
-        try {
-            $viewUrl = TaskAssignmentResource::getUrl('edit', ['record' => $assignment]);
-        } catch (\Throwable) {
-            $viewUrl = url("/admin/task-assignments/{$assignment->id}/edit");
-        }
-
-        try {
-            $notification = FilamentNotification::make()
-                ->title(__('tasks.notifications.new_assignment_title'))
-                ->body(__('tasks.notifications.new_assignment_body', [
-                    'number' => $assignment->transaction_number,
-                    'creator' => $creatorName,
-                ]))
-                ->icon('heroicon-o-clipboard-document-check')
-                ->iconColor('success')
-                ->actions([
-                    Action::make('view')
-                        ->label(__('tasks.notifications.view_assignment'))
-                        ->url($viewUrl)
-                        ->button(),
-                ]);
-
-            // إيداع فوري في قاعدة البيانات عبر notifyNow لتجاوز طابور الـ Queue
-            $user->notifyNow($notification->toDatabase());
-        } catch (\Throwable $e) {
-            Log::error('[TaskAssignmentNotification] Failed to send notification', [
-                'error' => $e->getMessage(),
-                'assignment_id' => $assignment->id,
-                'target_user_id' => $user->id,
-            ]);
-        }
+        NotificationDispatcher::translated(
+            record: $assignment,
+            eventKey: 'TaskAssigned',
+            titleKey: 'tasks.notifications.new_assignment_title',
+            bodyKey: 'tasks.notifications.new_assignment_body',
+            parameters: [
+                'number' => $assignment->transaction_number,
+                'creator' => $assignment->creator?->name ?? Auth::user()?->name ?? __('tasks.creator_default'),
+            ],
+            icon: 'heroicon-o-clipboard-document-check',
+            color: 'success',
+        );
     }
 
     /**
