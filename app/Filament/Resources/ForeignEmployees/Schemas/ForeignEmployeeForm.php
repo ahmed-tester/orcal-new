@@ -298,7 +298,8 @@ class ForeignEmployeeForm
                         CompanyFormService::makeCompanySelect(),
                         CompanyFormService::makeBranchSelect(),
                         CompanyFormService::makeDepartmentSelect(),
-                        CompanyFormService::makeJobTitleSelect(),
+                        TextInput::make('job_title')
+                            ->label(__('employees.fields.job_title')),
 
                         Select::make('employment_type')
                             ->label(__('employees.fields.employment_type'))

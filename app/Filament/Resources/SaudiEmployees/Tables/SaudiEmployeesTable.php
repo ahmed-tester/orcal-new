@@ -106,9 +106,9 @@ class SaudiEmployeesTable
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('jobTitle.name')
+                TextColumn::make('job_title')
                     ->label(__('employees.fields.job_title'))
-                    ->searchable()
+                    ->state(fn ($record) => $record->metadata['job_title'] ?? $record->jobTitle?->name ?? '—')
                     ->badge()
                     ->color('info'),
 

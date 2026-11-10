@@ -75,6 +75,7 @@ class EditForeignEmployee extends EditRecord
         }
 
         $data['name_en'] = $employee->metadata['name_en'] ?? null;
+        $data['job_title'] = $employee->metadata['job_title'] ?? $employee->jobTitle?->name;
 
         return $data;
     }
@@ -84,16 +85,27 @@ class EditForeignEmployee extends EditRecord
         $employee = $this->record;
         $userId = $employee->user_id;
 
+        $metadata = $employee->metadata ?? [];
+
         if (array_key_exists('name_en', $data)) {
-            $metadata = $employee->metadata ?? [];
             if (! empty($data['name_en'])) {
                 $metadata['name_en'] = trim($data['name_en']);
             } else {
                 unset($metadata['name_en']);
             }
-            $data['metadata'] = $metadata;
             unset($data['name_en']);
         }
+
+        if (array_key_exists('job_title', $data)) {
+            if (filled($data['job_title'])) {
+                $metadata['job_title'] = trim((string) $data['job_title']);
+            } else {
+                unset($metadata['job_title']);
+            }
+            unset($data['job_title']);
+        }
+
+        $data['metadata'] = $metadata;
 
         if (! empty($data['user_email'])) {
             $email = trim($data['user_email']);

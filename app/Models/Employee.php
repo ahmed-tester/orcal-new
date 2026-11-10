@@ -245,4 +245,9 @@ class Employee extends Model
     {
         return $this->details?->metadata['age'] ?? EmployeeAgeService::calculateAge($this->details?->birth_date);
     }
+
+    public function getJobTitleDisplayAttribute(): ?string
+    {
+        return $this->metadata['job_title'] ?? $this->jobTitle?->name;
+    }
 }
