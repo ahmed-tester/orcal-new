@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use Filament\Pages\Page;
 use App\Services\Reports\GeneralReportService;
+use App\Services\FilterBarService;
 use App\Models\Branch;
 use App\Models\Guarantor;
 use Illuminate\Support\Collection;
@@ -50,9 +51,9 @@ class GeneralReports extends Page
     public string $reportType = 'users';
     public ?string $dateFrom = null;
     public ?string $dateTo = null;
-    public ?int $branchId = null;
+    public mixed $branchId = [];
     public ?int $guarantorId = null;
-    public string $status = 'all';
+    public mixed $status = [];
     public ?string $search = null;
     public int $perPage = 10;
     
@@ -64,18 +65,24 @@ class GeneralReports extends Page
         'reportType' => ['except' => 'users'],
         'dateFrom' => ['except' => null],
         'dateTo' => ['except' => null],
-        'branchId' => ['except' => null],
+        'branchId' => ['except' => []],
         'guarantorId' => ['except' => null],
-        'status' => ['except' => 'all'],
+        'status' => ['except' => []],
         'search' => ['except' => null],
         'sortColumn' => ['except' => 'id'],
         'sortDirection' => ['except' => 'desc'],
     ];
 
+    public function mount(): void
+    {
+        $this->branchId = is_array($this->branchId) ? $this->branchId : ($this->branchId ? [$this->branchId] : []);
+        $this->status   = is_array($this->status) ? $this->status : ($this->status && $this->status !== 'all' ? [$this->status] : []);
+    }
+
     public function updatedReportType()
     {
         // Reset specific filters when changing report type
-        $this->status = 'all';
+        $this->status = [];
         $this->search = null;
         $this->guarantorId = null;
         $this->sortColumn = 'id';
@@ -109,7 +116,12 @@ class GeneralReports extends Page
 
     public function resetFilters()
     {
-        $this->reset(['dateFrom', 'dateTo', 'branchId', 'guarantorId', 'status', 'search', 'sortColumn', 'sortDirection']);
+        $this->dateFrom = null;
+        $this->dateTo = null;
+        $this->branchId = [];
+        $this->guarantorId = null;
+        $this->status = [];
+        $this->search = null;
         $this->sortColumn = 'id';
         $this->sortDirection = 'desc';
         $this->resetPage();
@@ -119,9 +131,9 @@ class GeneralReports extends Page
     {
         return !empty($this->dateFrom) ||
             !empty($this->dateTo) ||
-            !empty($this->branchId) ||
+            !empty(FilterBarService::values($this->branchId)) ||
             !empty($this->guarantorId) ||
-            $this->status !== 'all' ||
+            !empty(FilterBarService::values($this->status, ['all'])) ||
             !empty($this->search);
     }
 
@@ -192,7 +204,6 @@ class GeneralReports extends Page
     public function getStatusOptionsProperty(): array
     {
         $options = [
-            'all' => __('reports.filters.status_all'),
             'active' => __('reports.status.active'),
             'inactive' => __('reports.status.inactive'),
         ];
