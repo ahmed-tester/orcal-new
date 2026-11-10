@@ -10,6 +10,8 @@ use App\Models\Owner;
 use App\Models\User;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -47,6 +49,48 @@ class OwnerFormService
                 ->visible(fn ($get, $livewire) => $livewire instanceof CreateOwner && $get('registration_source') === 'from_saudi_employee')
                 ->afterStateUpdated(fn ($state, callable $set) => static::populateFromEmployee($set, $state))
                 ->columnSpanFull(),
+        ];
+    }
+
+    /**
+     * Get owner financial fields (Monthly deduction, advances, debts, other).
+     *
+     * @return array<\Filament\Forms\Components\Component>
+     */
+    public static function makeFinancialFields(): array
+    {
+        return [
+            TextInput::make('monthly_deduction_percentage')
+                ->label(__('owners.fields.monthly_deduction_percentage'))
+                ->numeric()
+                ->suffix('%')
+                ->minValue(0)
+                ->maxValue(100)
+                ->nullable(),
+
+            TextInput::make('owner_advances')
+                ->label(__('owners.fields.owner_advances'))
+                ->numeric()
+                ->prefix('ر.س')
+                ->minValue(0)
+                ->nullable(),
+
+            TextInput::make('debts')
+                ->label(__('owners.fields.debts'))
+                ->numeric()
+                ->prefix('ر.س')
+                ->minValue(0)
+                ->nullable(),
+
+            Textarea::make('other_financials')
+                ->label(__('owners.fields.other_financials'))
+                ->placeholder(__('owners.fields.other_financials_placeholder'))
+                ->rows(2)
+                ->columnSpanFull()
+                ->placeholder(__('owners.fields.other_financials_placeholder'))
+                ->rows(2)
+                ->columnSpanFull()
+                ->nullable(),
         ];
     }
 

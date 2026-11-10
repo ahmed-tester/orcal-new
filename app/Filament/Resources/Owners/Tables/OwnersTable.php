@@ -57,6 +57,29 @@ class OwnersTable
                 TextColumn::make('status')
                     ->label(__('owners.fields.status'))
                     ->badge(),
+
+                TextColumn::make('monthly_deduction_percentage')
+                    ->label(__('owners.fields.monthly_deduction_percentage'))
+                    ->suffix('%')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('owner_advances')
+                    ->label(__('owners.fields.owner_advances'))
+                    ->money('SAR')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('debts')
+                    ->label(__('owners.fields.debts'))
+                    ->money('SAR')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('other_financials')
+                    ->label(__('owners.fields.other_financials'))
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('company_id')

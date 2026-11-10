@@ -5,6 +5,7 @@ return [
     'plural' => 'الملاك',
     'sections' => [
         'info' => 'بيانات المالك الأساسية',
+        'financial_info' => 'البيانات المالية للمالك',
     ],
     'fields' => [
         'user' => 'حساب المستخدم',
@@ -23,6 +24,11 @@ return [
         'status' => 'الحالة',
         'image' => 'صورة الهوية / المالك',
         'address' => 'العنوان',
+        'monthly_deduction_percentage' => 'نسبة الاقتطاع الشهرية للمالك',
+        'owner_advances' => 'سلف المالك',
+        'debts' => 'مديونيات',
+        'other_financials' => 'ملاحظات حرة',
+        'other_financials_placeholder' => 'أدخل أي ملاحظات حرة...',
         'registration_source' => 'طريقة التسجيل',
         'registration_manual' => 'تسجيل حر',
         'registration_from_saudi_employee' => 'جلب من الموظفين السعوديين',

@@ -100,6 +100,11 @@ class OwnerForm
                             ->maxSize(Setting::getMaxUploadSizeKb())
                             ->columnSpanFull(),
                     ]),
+
+                Section::make(__('owners.sections.financial_info'))
+                    ->icon('heroicon-o-banknotes')
+                    ->columns(3)
+                    ->schema(OwnerFormService::makeFinancialFields()),
             ]);
     }
 }

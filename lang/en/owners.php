@@ -6,6 +6,7 @@ return [
 
     'sections' => [
         'info' => 'Basic Owner Information',
+        'financial_info' => 'Owner Financial Information',
     ],
 
     'fields' => [
@@ -25,6 +26,11 @@ return [
         'status' => 'Status',
         'image' => 'Owner / ID Photo',
         'address' => 'Address',
+        'monthly_deduction_percentage' => 'Monthly Deduction Percentage for Owner',
+        'owner_advances' => 'Owner Advances',
+        'debts' => 'Debts / Liabilities',
+        'other_financials' => 'Free Notes',
+        'other_financials_placeholder' => 'Enter any free notes...',
         'registration_source' => 'Registration Source',
         'registration_manual' => 'Manual Registration',
         'registration_from_saudi_employee' => 'Import from Saudi Employees',

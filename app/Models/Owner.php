@@ -35,6 +35,10 @@ class Owner extends Model
         'ownership_percentage',
         'status',
         'metadata',
+        'monthly_deduction_percentage',
+        'owner_advances',
+        'debts',
+        'other_financials',
     ];
 
     protected function casts(): array
@@ -72,5 +76,75 @@ class Owner extends Model
     public function getIdentityNumberAttribute(): ?string
     {
         return $this->national_id;
+    }
+
+    public function getMonthlyDeductionPercentageAttribute(): ?float
+    {
+        return isset($this->metadata['monthly_deduction_percentage'])
+            ? (float) $this->metadata['monthly_deduction_percentage']
+            : null;
+    }
+
+    public function setMonthlyDeductionPercentageAttribute($value): void
+    {
+        $meta = $this->metadata ?? [];
+        if ($value !== null && $value !== '') {
+            $meta['monthly_deduction_percentage'] = (float) $value;
+        } else {
+            unset($meta['monthly_deduction_percentage']);
+        }
+        $this->metadata = $meta;
+    }
+
+    public function getOwnerAdvancesAttribute(): ?float
+    {
+        return isset($this->metadata['owner_advances'])
+            ? (float) $this->metadata['owner_advances']
+            : null;
+    }
+
+    public function setOwnerAdvancesAttribute($value): void
+    {
+        $meta = $this->metadata ?? [];
+        if ($value !== null && $value !== '') {
+            $meta['owner_advances'] = (float) $value;
+        } else {
+            unset($meta['owner_advances']);
+        }
+        $this->metadata = $meta;
+    }
+
+    public function getDebtsAttribute(): ?float
+    {
+        return isset($this->metadata['debts'])
+            ? (float) $this->metadata['debts']
+            : null;
+    }
+
+    public function setDebtsAttribute($value): void
+    {
+        $meta = $this->metadata ?? [];
+        if ($value !== null && $value !== '') {
+            $meta['debts'] = (float) $value;
+        } else {
+            unset($meta['debts']);
+        }
+        $this->metadata = $meta;
+    }
+
+    public function getOtherFinancialsAttribute(): ?string
+    {
+        return $this->metadata['other_financials'] ?? null;
+    }
+
+    public function setOtherFinancialsAttribute($value): void
+    {
+        $meta = $this->metadata ?? [];
+        if ($value !== null && $value !== '') {
+            $meta['other_financials'] = is_string($value) ? trim($value) : (string) $value;
+        } else {
+            unset($meta['other_financials']);
+        }
+        $this->metadata = $meta;
     }
 }
