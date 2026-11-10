@@ -66,7 +66,7 @@ class AttendanceForm
                             ->numeric()
                             ->default(0)
                             ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
-                            ->helperText('يتم احتساب دقائق التأخير آلياً بناءً على مواعيد الفرع وفترة السماح')
+                            ->helperText(__('attendance.helpers.late_hours_calculation'))
                             ->suffix(' '.__('attendance.units.minute')),
 
                         TextInput::make('overtime_hours')
@@ -159,7 +159,7 @@ class AttendanceForm
                     $checkOutStr = $branchSettings['check_out_time'] ?? '16:00';
                     $standardEndTime = Carbon::parse("{$dateStr} {$checkOutStr}");
                     if ($actualCheckOut->gt($standardEndTime)) {
-                        $overtimeMinutes = (int) round($actualCheckOut->diffInMinutes($standardEndTime));
+                        $overtimeMinutes = (int) round($standardEndTime->diffInMinutes($actualCheckOut, true));
                         $set('overtime_hours', $overtimeMinutes);
                     } else {
                         $set('overtime_hours', 0);
