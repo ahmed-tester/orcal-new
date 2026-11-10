@@ -29,6 +29,7 @@ return [
     'employees' => 'الموظفون',
     'saudi_employees' => 'الموظفون السعوديون',
     'foreign_employees' => 'الموظفون غير السعوديين',
+    'temporary_employees' => 'التوظيف المؤقت',
     'attendance' => 'الحضور والانصراف',
     'attendance_devices' => 'أجهزة البصمة (ADMS)',
     'leaves' => 'الإجازات',

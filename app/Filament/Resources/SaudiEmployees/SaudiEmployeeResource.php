@@ -13,12 +13,18 @@ use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class SaudiEmployeeResource extends Resource
 {
     use HasCompanyScope;
 
     protected static ?string $model = Employee::class;
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->nonTemporary();
+    }
 
     protected static ?int $navigationSort = 2;
 

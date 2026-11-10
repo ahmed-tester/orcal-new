@@ -7,6 +7,7 @@ use App\Filament\Components\OrgSelect;
 use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Services\EmployeeAgeService;
+use App\Services\EmployeeServiceDurationService;
 use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
 use Carbon\Carbon;
@@ -136,6 +137,9 @@ class SaudiEmployeesTable
                     ->money('SAR')
                     ->sortable(),
 
+                EmployeeServiceDurationService::makeDaysServedTableColumn(),
+                EmployeeServiceDurationService::makeTerminationReasonTableColumn(),
+
                 TextColumn::make('status')
                     ->label(__('employees.fields.status'))
                     ->badge(),
@@ -166,6 +170,8 @@ class SaudiEmployeesTable
                 SelectFilter::make('status')
                     ->label(__('employees.fields.status'))
                     ->options(__('employees.statuses')),
+
+                EmployeeServiceDurationService::makeTerminationReasonTableFilter(),
 
                 PersonCapacityService::makeTableFilter('employee'),
             ])

@@ -8,6 +8,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\CompanyFormService;
 use App\Services\EmployeeAgeService;
+use App\Services\EmployeeServiceDurationService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -306,10 +307,6 @@ class ForeignEmployeeForm
                             ->options(__('employees.employment_types'))
                             ->default('full_time'),
 
-                        DatePicker::make('hire_date')
-                            ->label(__('employees.fields.hire_date'))
-                            ->native(false),
-
                         TextInput::make('annual_leave_days')
                             ->label(__('employees.fields.annual_leave_days'))
                             ->numeric()
@@ -319,10 +316,6 @@ class ForeignEmployeeForm
                             ->helperText(__('employees.fields.annual_leave_days_helper'))
                             ->required(),
 
-                        DatePicker::make('contract_end_date')
-                            ->label(__('employees.fields.contract_end_date'))
-                            ->native(false),
-
                         TextInput::make('contract_duration')
                             ->label(__('employees.fields.contract_duration')),
 
@@ -331,6 +324,8 @@ class ForeignEmployeeForm
                             ->options(__('employees.statuses'))
                             ->default('active')
                             ->required(),
+
+                        ...EmployeeServiceDurationService::makeFormFields(),
                     ]),
 
                 Section::make(__('employees.sections.financial_info'))
