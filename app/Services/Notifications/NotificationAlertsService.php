@@ -22,8 +22,13 @@ class NotificationAlertsService
      */
     public function getActiveAlerts(
         ?string $category = null,
-        ?string $urgency = null,
-        ?string $search = null
+        mixed $urgency = null,
+        ?string $search = null,
+        mixed $documentType = null,
+        ?string $targetType = null,
+        mixed $companyId = null,
+        ?string $dateFrom = null,
+        ?string $dateTo = null
     ): Collection {
         $alerts = collect();
         $now = Carbon::today();
@@ -42,6 +47,8 @@ class NotificationAlertsService
                 $empName = $employee->user?->name ?? __('notifications.alerts.employee_fallback', ['id' => $employee->id]);
                 $empPhone = $employee->user?->phone ?? $detail->emergency_contact_phone;
                 $notifiable = $employee->user ?? $employee;
+                $empCompanyId = $employee->company_id;
+                $empCompanyName = $employee->company?->trade_name;
 
                 // A) Iqama / Residency
                 if ($detail->iqama_expiry) {
@@ -58,7 +65,9 @@ class NotificationAlertsService
                             notifiable: $notifiable,
                             recipientName: $empName,
                             recipientPhone: $empPhone,
-                            companyName: $employee->company?->trade_name
+                            companyName: $empCompanyName,
+                            companyId: $empCompanyId,
+                            isCompany: false
                         ));
                     }
                 }
@@ -78,7 +87,9 @@ class NotificationAlertsService
                             notifiable: $notifiable,
                             recipientName: $empName,
                             recipientPhone: $empPhone,
-                            companyName: $employee->company?->trade_name
+                            companyName: $empCompanyName,
+                            companyId: $empCompanyId,
+                            isCompany: false
                         ));
                     }
                 }
@@ -98,7 +109,9 @@ class NotificationAlertsService
                             notifiable: $notifiable,
                             recipientName: $empName,
                             recipientPhone: $empPhone,
-                            companyName: $employee->company?->trade_name
+                            companyName: $empCompanyName,
+                            companyId: $empCompanyId,
+                            isCompany: false
                         ));
                     }
                 }
@@ -118,7 +131,9 @@ class NotificationAlertsService
                             notifiable: $notifiable,
                             recipientName: $empName,
                             recipientPhone: $empPhone,
-                            companyName: $employee->company?->trade_name
+                            companyName: $empCompanyName,
+                            companyId: $empCompanyId,
+                            isCompany: false
                         ));
                     }
                 }
@@ -138,7 +153,9 @@ class NotificationAlertsService
                             notifiable: $notifiable,
                             recipientName: $empName,
                             recipientPhone: $empPhone,
-                            companyName: $employee->company?->trade_name
+                            companyName: $empCompanyName,
+                            companyId: $empCompanyId,
+                            isCompany: false
                         ));
                     }
                 }
@@ -169,7 +186,9 @@ class NotificationAlertsService
                             notifiable: $ownerNotifiable,
                             recipientName: $compName,
                             recipientPhone: $company->phone,
-                            companyName: $compName
+                            companyName: $compName,
+                            companyId: $company->id,
+                            isCompany: true
                         ));
                     }
                 }
@@ -188,7 +207,9 @@ class NotificationAlertsService
                             notifiable: $ownerNotifiable,
                             recipientName: $compName,
                             recipientPhone: $company->phone,
-                            companyName: $compName
+                            companyName: $compName,
+                            companyId: $company->id,
+                            isCompany: true
                         ));
                     }
                 }
@@ -207,7 +228,9 @@ class NotificationAlertsService
                             notifiable: $ownerNotifiable,
                             recipientName: $compName,
                             recipientPhone: $company->phone,
-                            companyName: $compName
+                            companyName: $compName,
+                            companyId: $company->id,
+                            isCompany: true
                         ));
                     }
                 }
@@ -238,7 +261,9 @@ class NotificationAlertsService
                         notifiable: $employee->user ?? $employee,
                         recipientName: $empName,
                         recipientPhone: $employee->user?->phone,
-                        companyName: $employee->company?->trade_name
+                        companyName: $employee->company?->trade_name,
+                        companyId: $employee->company_id,
+                        isCompany: false
                     ));
                 }
             }
@@ -321,7 +346,9 @@ class NotificationAlertsService
                             notifiable: $ownerNotifiable,
                             recipientName: $compName,
                             recipientPhone: $company?->phone,
-                            companyName: $compName
+                            companyName: $compName,
+                            companyId: $violation->company_id,
+                            isCompany: true
                         ));
                     }
 
@@ -339,7 +366,9 @@ class NotificationAlertsService
                             notifiable: $ownerNotifiable,
                             recipientName: $compName,
                             recipientPhone: $company?->phone,
-                            companyName: $compName
+                            companyName: $compName,
+                            companyId: $violation->company_id,
+                            isCompany: true
                         ));
                     }
 
@@ -357,7 +386,9 @@ class NotificationAlertsService
                             notifiable: $ownerNotifiable,
                             recipientName: $compName,
                             recipientPhone: $company?->phone,
-                            companyName: $compName
+                            companyName: $compName,
+                            companyId: $violation->company_id,
+                            isCompany: true
                         ));
                     }
 
@@ -381,7 +412,9 @@ class NotificationAlertsService
                             notifiable: $ownerNotifiable,
                             recipientName: $compName,
                             recipientPhone: $company?->phone,
-                            companyName: $compName
+                            companyName: $compName,
+                            companyId: $violation->company_id,
+                            isCompany: true
                         ));
                     }
                 }
@@ -410,7 +443,9 @@ class NotificationAlertsService
                             notifiable: $tx->executor?->user ?? $tx->company?->owner?->user ?? null,
                             recipientName: $tx->display_beneficiary,
                             recipientPhone: $tx->beneficiary_phone ?? $tx->employee?->user?->phone,
-                            companyName: $tx->company?->trade_name
+                            companyName: $tx->company?->trade_name,
+                            companyId: $tx->company_id,
+                            isCompany: ($tx->scope_type === 'internal' && $tx->service_target === 'company')
                         ));
                     }
                 }
@@ -447,7 +482,9 @@ class NotificationAlertsService
                             notifiable: $notifiable,
                             recipientName: $debt->notifyEmployee?->name ?? $debtorName,
                             recipientPhone: $debt->notifyEmployee?->phone ?? $debt->beneficiary_phone,
-                            companyName: $debt->company?->trade_name
+                            companyName: $debt->company?->trade_name,
+                            companyId: $debt->company_id,
+                            isCompany: false
                         ));
                     }
                 }
@@ -461,22 +498,64 @@ class NotificationAlertsService
             $alerts = $alerts->where('category', $category);
         }
 
-        if ($urgency && $urgency !== 'all') {
-            if ($urgency === 'urgent') {
-                $alerts = $alerts->where('is_urgent', true);
-            } elseif ($urgency === 'overdue') {
-                $alerts = $alerts->where('days_remaining', '<', 0);
-            } elseif ($urgency === 'upcoming') {
-                $alerts = $alerts->where('days_remaining', '>=', 0);
+        // Filter by targetType (employees vs companies)
+        if ($targetType && $targetType !== 'all') {
+            if ($targetType === 'employees') {
+                $alerts = $alerts->where('is_company', false);
+            } elseif ($targetType === 'companies') {
+                $alerts = $alerts->where('is_company', true);
             }
         }
 
+        // Apply document type / reason filter (supports single or multi-select array)
+        $docTypes = \App\Services\FilterBarService::values($documentType, ['all']);
+        if (! empty($docTypes)) {
+            $alerts = $alerts->whereIn('type', $docTypes);
+        }
+
+        // Filter by company ID (supports single or multi-select array)
+        $compIds = \App\Services\FilterBarService::values($companyId);
+        if (! empty($compIds)) {
+            $alerts = $alerts->filter(fn ($a) => in_array($a['company_id'], $compIds, false));
+        }
+
+        // Filter by Date Range
+        if ($dateFrom) {
+            $alerts = $alerts->where('due_date', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $alerts = $alerts->where('due_date', '<=', $dateTo);
+        }
+
+        // Filter by Urgency / Status (supports single or multi-select array)
+        $statuses = \App\Services\FilterBarService::values($urgency, ['all']);
+        if (! empty($statuses)) {
+            $alerts = $alerts->filter(function ($alert) use ($statuses) {
+                $days = $alert['days_remaining'];
+                foreach ($statuses as $st) {
+                    $matches = match ($st) {
+                        'overdue' => $days < 0,
+                        'urgent'  => $days >= 0 && $days <= 15,
+                        'warning' => $days > 15 && $days <= 90,
+                        'safe'    => $days > 90,
+                        default   => true,
+                    };
+                    if ($matches) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
+
         if ($search) {
-            $searchLower = mb_strtolower($search);
+            $searchLower = mb_strtolower(trim($search));
             $alerts = $alerts->filter(function ($alert) use ($searchLower) {
-                return str_contains(mb_strtolower($alert['title']), $searchLower)
-                    || str_contains(mb_strtolower($alert['type_label']), $searchLower)
-                    || str_contains(mb_strtolower($alert['subtitle'] ?? ''), $searchLower);
+                return str_contains(mb_strtolower($alert['title'] ?? ''), $searchLower)
+                    || str_contains(mb_strtolower($alert['type_label'] ?? ''), $searchLower)
+                    || str_contains(mb_strtolower($alert['subtitle'] ?? ''), $searchLower)
+                    || str_contains(mb_strtolower($alert['company_name'] ?? ''), $searchLower)
+                    || str_contains(mb_strtolower($alert['recipient_name'] ?? ''), $searchLower);
             });
         }
 
@@ -490,21 +569,29 @@ class NotificationAlertsService
     public function getSummaryCounts(): array
     {
         $all = $this->getActiveAlerts('all');
-        $urgent = $all->where('is_urgent', true)->count();
-        $overdue = $all->where('days_remaining', '<', 0)->count();
-        $documents = $all->where('category', 'documents')->count();
-        $tasks = $all->where('category', 'tasks')->count();
-        $invoices = $all->where('category', 'invoices')->count();
+        $urgent     = $all->where('is_urgent', true)->count();
+        $overdue    = $all->where('days_remaining', '<', 0)->count();
+        $documents  = $all->where('category', 'documents')->count();
+        $tasks      = $all->where('category', 'tasks')->count();
+        $invoices   = $all->where('category', 'invoices')->count();
         $violations = $all->where('category', 'violations')->count();
 
+        // Per-type counts for the document type filter badges
+        $typeCounts = [];
+        $docAlerts  = $all->where('category', 'documents');
+        foreach (['iqama', 'work_permit', 'insurance', 'contract', 'passport', 'cr', 'municipality', 'civil_defense'] as $t) {
+            $typeCounts[$t] = $docAlerts->where('type', $t)->count();
+        }
+
         return [
-            'total' => $all->count(),
-            'urgent' => $urgent,
-            'overdue' => $overdue,
-            'documents' => $documents,
-            'tasks' => $tasks,
-            'invoices' => $invoices,
+            'total'      => $all->count(),
+            'urgent'     => $urgent,
+            'overdue'    => $overdue,
+            'documents'  => $documents,
+            'tasks'      => $tasks,
+            'invoices'   => $invoices,
             'violations' => $violations,
+            'types'      => $typeCounts,
         ];
     }
 
@@ -522,7 +609,9 @@ class NotificationAlertsService
         mixed $notifiable,
         string $recipientName,
         ?string $recipientPhone = null,
-        ?string $companyName = null
+        ?string $companyName = null,
+        ?int $companyId = null,
+        bool $isCompany = false
     ): array {
         $daysRemaining = (int) Carbon::today()->diffInDays($dueDate, false);
         $isUrgent = $daysRemaining <= 15;
@@ -563,6 +652,8 @@ class NotificationAlertsService
             'recipient_name' => $recipientName,
             'recipient_phone' => $recipientPhone,
             'company_name' => $companyName,
+            'company_id' => $companyId,
+            'is_company' => $isCompany,
         ];
     }
 }

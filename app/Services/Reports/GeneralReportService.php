@@ -125,25 +125,98 @@ class GeneralReportService
     /**
      * Get dynamic stats for the given report type and date range.
      */
-    public static function getStats(string $reportType, ?string $dateFrom = null, ?string $dateTo = null, ?int $branchId = null, ?int $guarantorId = null): array
+    public static function getStats(string $reportType, ?string $dateFrom = null, ?string $dateTo = null, mixed $branchId = null, ?int $guarantorId = null): array
     {
         $report = static::getReport($reportType);
+        $branchIds = \App\Services\FilterBarService::values($branchId);
+        $singleBranchId = count($branchIds) === 1 ? (int) $branchIds[0] : null;
+
         if ($report instanceof GuarantorsReport) {
-            return $report->getStats($dateFrom, $dateTo, $branchId, $guarantorId);
+            return $report->getStats($dateFrom, $dateTo, $singleBranchId, $guarantorId);
         }
-        return $report->getStats($dateFrom, $dateTo, $branchId);
+        return $report->getStats($dateFrom, $dateTo, $singleBranchId);
     }
 
     /**
      * Build the query for the selected report based on filters.
      */
-    public static function getQuery(string $reportType, ?string $dateFrom, ?string $dateTo, ?int $branchId, string $status, ?string $search, ?int $guarantorId = null)
+    public static function getQuery(string $reportType, ?string $dateFrom, ?string $dateTo, mixed $branchId, mixed $status, ?string $search, ?int $guarantorId = null)
     {
         $report = static::getReport($reportType);
+
+        $branchIds = \App\Services\FilterBarService::values($branchId);
+        $statuses  = \App\Services\FilterBarService::values($status, ['all']);
+
+        $singleBranchId = count($branchIds) === 1 ? (int) $branchIds[0] : null;
+        $singleStatus   = count($statuses) === 1 ? (string) $statuses[0] : 'all';
+
         if ($report instanceof GuarantorsReport) {
-            return $report->getQuery($dateFrom, $dateTo, $branchId, $status, $search, $guarantorId);
+            $query = $report->getQuery($dateFrom, $dateTo, $singleBranchId, $singleStatus, $search, $guarantorId);
+        } else {
+            $query = $report->getQuery($dateFrom, $dateTo, $singleBranchId, $singleStatus, $search);
         }
-        return $report->getQuery($dateFrom, $dateTo, $branchId, $status, $search);
+
+        // Apply multiple branches when selected (count > 1)
+        if (count($branchIds) > 1) {
+            static::applyMultiBranchFilter($reportType, $query, $branchIds);
+        }
+
+        // Apply multiple statuses when selected (count > 1)
+        if (count($statuses) > 1) {
+            static::applyMultiStatusFilter($reportType, $query, $statuses);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Apply multi-select branch filtering to a query builder.
+     */
+    protected static function applyMultiBranchFilter(string $reportType, $query, array $branchIds): void
+    {
+        $viaEmployee = [
+            'attendance',
+            'employee_rewards',
+            'guarantors',
+            'installment_payments',
+            'installments',
+            'leaves',
+            'payroll_records',
+            'task_assignments',
+            'users',
+        ];
+
+        $directBranch = [
+            'attendance_devices',
+            'daily_journals',
+            'employees',
+            'invoices',
+        ];
+
+        if (in_array($reportType, $viaEmployee, true)) {
+            $query->whereHas('employee', fn($eq) => $eq->whereIn('branch_id', $branchIds));
+        } elseif (in_array($reportType, $directBranch, true)) {
+            $table = $query->getModel()->getTable();
+            $query->whereIn("{$table}.branch_id", $branchIds);
+        }
+    }
+
+    /**
+     * Apply multi-select status filtering to a query builder.
+     */
+    protected static function applyMultiStatusFilter(string $reportType, $query, array $statuses): void
+    {
+        $statusColumn = match ($reportType) {
+            'invoices', 'payroll_records', 'rosca_fund_payments', 'violations' => 'payment_status',
+            'treasury_transactions', 'violation_transactions' => 'transaction_type',
+            'daily_journals', 'faqs', 'guarantors', 'loan_fund_loan_payments', 'payment_collection_items', 'task_assignments' => null,
+            default => 'status',
+        };
+
+        if ($statusColumn !== null) {
+            $table = $query->getModel()->getTable();
+            $query->whereIn("{$table}.{$statusColumn}", $statuses);
+        }
     }
 
     /**

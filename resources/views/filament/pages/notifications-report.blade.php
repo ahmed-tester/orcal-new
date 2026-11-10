@@ -494,60 +494,63 @@
             </div>
         </div>
 
-        <!-- 2. Filter Bar (Horizontal & Compact) -->
-        <div class="fi-filter-bar">
-            <div class="fi-filter-row">
-                <!-- Search (Flex 1.2) -->
-                <div class="fi-filter-col" style="flex: 1.2 1 180px;">
-                    <label class="fi-filter-label">🔍 بحث بالاسم أو الهوية</label>
-                    <input type="text" wire:model.live.debounce.300ms="search" placeholder="اكتب للبحث..." class="fi-custom-input" />
-                </div>
+        <!-- 2. Centralized Filter Bar -->
+        <div style="margin-bottom: 0.25rem;">
+            <x-filter-bar
+                :title="__('reports.filters.title')"
+                :icon="'heroicon-o-funnel'"
+                :show-search="true"
+                :search-placeholder="'ابحث بالاسم، رقم الهوية/الإقامة، أو اسم المنشأة...'"
+                :show-dates="true"
+                :date-from-label="__('reports.filters.date_from')"
+                :date-to-label="__('reports.filters.date_to')"
+                :show-company="true"
+                :companies="$this->companies"
+                :company-label="'🏢 المنشأة'"
+                :multiple-company="true"
+                :show-status="false"
+                :has-active="$this->hasActiveFilters()"
+                reset-method="resetFilters"
+            >
+                <x-slot name="prepend">
+                    {{-- 1. الجهة / النطاق --}}
+                    <x-filter-select
+                        wire:model.live="targetType"
+                        label="الجهة / النطاق"
+                        :placeholder="'🌐 الكل (موظفون ومنشآت)'"
+                        :options="[
+                            'employees' => '👤 الموظفون ككل',
+                            'companies' => '🏢 المنشآت ككل',
+                        ]"
+                        :searchable="false"
+                    />
 
-                <!-- Entity (Flex 1.2) -->
-                <div class="fi-filter-col" style="flex: 1.2 1 180px;">
-                    <label class="fi-filter-label">🏢 المنشأة أو الموظف</label>
-                    <select wire:model.live="entityFilter" class="fi-custom-input">
-                        <option value="all">الكل (كافة المنشآت والموظفين)</option>
-                        @php $entities = $this->entitiesList; @endphp
-                        @if(!empty($entities))
-                            <optgroup label="🏢 المنشآت والشركات">
-                                @foreach($entities as $key => $label)
-                                    @if(str_starts_with($key, 'comp_'))
-                                        <option value="{{ $key }}">{{ $label }}</option>
-                                    @endif
-                                @endforeach
-                            </optgroup>
-                            <optgroup label="👤 الموظفون">
-                                @foreach($entities as $key => $label)
-                                    @if(str_starts_with($key, 'emp_'))
-                                        <option value="{{ $key }}">{{ $label }}</option>
-                                    @endif
-                                @endforeach
-                            </optgroup>
-                        @endif
-                    </select>
-                </div>
+                    {{-- 2. السبب / نوع الوثيقة --}}
+                    <x-filter-select
+                        wire:model.live="documentType"
+                        label="السبب / نوع الوثيقة"
+                        :placeholder="'الكل (جميع الأسباب)'"
+                        :options="$this->documentTypeOptions"
+                        :multiple="true"
+                        :searchable="true"
+                    />
 
-                <!-- Date From (Flex 0.8) -->
-                <div class="fi-filter-col" style="flex: 0.8 1 130px;">
-                    <label class="fi-filter-label">📅 من تاريخ</label>
-                    <input type="date" wire:model.live="dateFrom" class="fi-custom-input" />
-                </div>
-
-                <!-- Date To (Flex 0.8) -->
-                <div class="fi-filter-col" style="flex: 0.8 1 130px;">
-                    <label class="fi-filter-label">📅 إلى تاريخ</label>
-                    <input type="date" wire:model.live="dateTo" class="fi-custom-input" />
-                </div>
-
-                <!-- Reset Filter Action (Flex auto) -->
-                <div class="fi-filter-col" style="flex: 0 0 auto;">
-                    <button wire:click="resetFilters" class="fi-btn-custom fi-btn-secondary-custom" title="إعادة تعيين الفلاتر">
-                        <span>🔄</span>
-                        <span>إعادة تعيين</span>
-                    </button>
-                </div>
-            </div>
+                    {{-- 3. الحالة / درجة الإلحاح --}}
+                    <x-filter-select
+                        wire:model.live="status"
+                        label="الحالة / درجة الإلحاح"
+                        :placeholder="'الكل (جميع الحالات)'"
+                        :options="[
+                            'overdue' => '🚨 منتهية بالفعل',
+                            'urgent'  => '⚠️ عاجلة (≤ 15 يوم)',
+                            'warning' => '⏳ تنتهي قريباً (≤ 90 يوم)',
+                            'safe'    => '✅ سارية ومستقرة (> 90 يوم)',
+                        ]"
+                        :multiple="true"
+                        :searchable="false"
+                    />
+                </x-slot>
+            </x-filter-bar>
         </div>
 
         <!-- 3. VIEW MODE A: Matrix Table (Single Unified Modern Header) -->
@@ -746,12 +749,9 @@
                         </button>
                     </div>
 
-                    <select wire:model.live="urgency" class="fi-custom-input" style="width: auto; min-width: 150px; height: 32px; font-size: 0.78rem;">
-                        <option value="all">كل درجات الإلحاح</option>
-                        <option value="urgent">عاجلة فقط (≤ 15 يوم)</option>
-                        <option value="overdue">منتهية بالفعل</option>
-                        <option value="upcoming">قادمة مستقبلاً</option>
-                    </select>
+                    <div style="font-size: 0.8rem; color: #64748b; font-weight: 600;">
+                        إجمالي النتائج: <span style="color: #2563eb; font-weight: 800;">{{ $paginatedAlerts->total() }}</span>
+                    </div>
                 </div>
             </div>
 
