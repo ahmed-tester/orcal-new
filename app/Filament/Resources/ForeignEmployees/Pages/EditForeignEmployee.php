@@ -40,6 +40,7 @@ class EditForeignEmployee extends EditRecord
             $data['nationality'] = $details->nationality;
             $data['iqama_number'] = $details->iqama_number;
             $data['iqama_expiry'] = $details->iqama_expiry?->format('Y-m-d');
+            $data['profession'] = $details->profession;
             $data['passport_number'] = $details->passport_number;
             $data['passport_expiry'] = $details->passport_expiry?->format('Y-m-d');
             $data['insurance_expiry'] = $details->insurance_expiry?->format('Y-m-d');
@@ -162,7 +163,7 @@ class EditForeignEmployee extends EditRecord
                 'gender' => $data['gender'] ?? 'male',
                 'marital_status' => $data['marital_status'] ?? null,
                 'birth_date' => $data['birth_date'] ?? null,
-                'metadata' => ! empty($data['birth_date']) ? ['age' => EmployeeAgeService::calculateAge($data['birth_date'])] : null,
+                'profession' => $data['profession'] ?? null,
                 'city' => $data['city'] ?? null,
                 'address' => $data['address'] ?? null,
                 'iqama_file' => is_array($data['iqama_file'] ?? null)

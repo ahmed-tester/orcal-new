@@ -104,6 +104,11 @@ class ForeignEmployeeForm
                             ->native(false)
                             ->required(),
 
+                        TextInput::make('profession')
+                            ->label(__('employees.fields.profession'))
+                            ->placeholder(__('employees.placeholders.profession'))
+                            ->maxLength(255),
+
                         TextInput::make('passport_number')
                             ->label(__('employees.fields.passport_number')),
 

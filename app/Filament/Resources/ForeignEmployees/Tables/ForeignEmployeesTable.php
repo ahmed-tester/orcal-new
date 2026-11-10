@@ -131,6 +131,10 @@ class ForeignEmployeesTable
                     ->label(__('employees.fields.job_title'))
                     ->searchable(),
 
+                TextColumn::make('details.profession')
+                    ->label(__('employees.fields.profession'))
+                    ->placeholder('—'),
+
                 TextColumn::make('details.guarantor.name')
                     ->label(__('guarantors.single'))
                     ->placeholder('—')

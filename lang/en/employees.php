@@ -44,6 +44,7 @@ return [
         'address_foreign' => 'Detailed Address in KSA',
         'iqama_number' => 'Iqama Number',
         'iqama_expiry' => 'Iqama Expiry Date',
+        'profession' => 'Profession',
         'passport_number' => 'Passport Number',
         'passport_expiry' => 'Passport Expiry Date',
         'insurance_expiry' => 'Health Insurance Expiry',
@@ -171,5 +172,6 @@ return [
         'name' => 'Enter employee name',
         'name_en' => 'Enter English name (e.g. Mohammed Ali)',
         'address' => 'National or detailed address',
+        'profession' => 'Enter profession',
     ],
 ];

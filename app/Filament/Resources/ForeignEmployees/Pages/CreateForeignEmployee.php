@@ -95,6 +95,7 @@ class CreateForeignEmployee extends CreateRecord
             'marital_status' => $data['marital_status'] ?? null,
             'birth_date' => $data['birth_date'] ?? null,
             'metadata' => ! empty($data['birth_date']) ? ['age' => EmployeeAgeService::calculateAge($data['birth_date'])] : null,
+            'profession' => $data['profession'] ?? null,
             'city' => $data['city'] ?? null,
             'address' => $data['address'] ?? null,
             'iqama_file' => is_array($data['iqama_file'] ?? null)

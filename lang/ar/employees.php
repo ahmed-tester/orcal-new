@@ -52,6 +52,7 @@ return [
         'address_foreign' => 'العنوان التفصيلي داخل المملكة',
         'iqama_number' => 'رقم الإقامة',
         'iqama_expiry' => 'تاريخ انتهاء الإقامة',
+        'profession' => 'المهنة',
         'passport_number' => 'رقم جواز السفر',
         'passport_expiry' => 'تاريخ انتهاء جواز السفر',
         'insurance_expiry' => 'تاريخ انتهاء التأمين الطبي',
@@ -172,5 +173,6 @@ return [
         'name' => 'أدخل اسم الموظف',
         'name_en' => 'أدخل الاسم بالإنجليزية (e.g. Mohammed Ali)',
         'address' => 'العنوان الوطني أو التفصيلي',
+        'profession' => 'أدخل المهنة',
     ],
 ];
