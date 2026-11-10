@@ -91,7 +91,7 @@ return [
         'accessible_companies_helper' => 'Specify assigned companies for this user (e.g. 10 companies for a specific accountant). If left empty and department is global, access to all companies is granted.',
         'person_capacity' => 'Capacity',
         'capacity_employee' => 'Employee',
-        'capacity_employee_and_owner' => 'Employee & Owner',
+        'capacity_employee_and_owner' => 'Employee & Establishment Owner',
         'errors' => [
             'iqama_exists' => 'This residence (Iqama) number is already registered for another employee.',
             'national_id_exists' => 'This national ID is already registered for another employee.',

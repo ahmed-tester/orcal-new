@@ -99,7 +99,7 @@ return [
         'accessible_companies_helper' => 'حدد المؤسسات المخصصة لهذا الموظف (مثل 10 مؤسسات لمحاسب معين). إذا تُرك فارغاً وكان القسم عاماً، سيمنح وصولاً لكافة المؤسسات.',
         'person_capacity' => 'الصفة',
         'capacity_employee' => 'موظف',
-        'capacity_employee_and_owner' => 'موظف ومالك',
+        'capacity_employee_and_owner' => 'موظف ومالك منشأة',
         'errors' => [
             'iqama_exists' => 'رقم الإقامة مسجل مسبقاً لموظف آخر.',
             'national_id_exists' => 'رقم الهوية الوطنية مسجل مسبقاً لموظف آخر.',
