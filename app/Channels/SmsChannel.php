@@ -14,13 +14,21 @@ class SmsChannel
 
     public function send(mixed $notifiable, Notification $notification): void
     {
-        if (!method_exists($notification, 'toSms')) {
+        // Central guard: SMS channel is strictly disabled in this phase
+        if (! config('notifications.sms.enabled', false)) {
+            Log::debug('[SmsChannel] SMS channel is centrally disabled. Skipping delivery.');
+
+            return;
+        }
+
+        if (! method_exists($notification, 'toSms')) {
             return;
         }
 
         $message = $notification->toSms($notifiable);
         if (empty($message)) {
-            Log::debug("[SmsChannel] Empty message generated. Skipping SMS send.");
+            Log::debug('[SmsChannel] Empty message generated. Skipping SMS send.');
+
             return;
         }
 
@@ -35,8 +43,9 @@ class SmsChannel
             ?? $notifiable->detail?->phone
             ?? null;
 
-        if (!$phone) {
-            Log::warning("[SmsChannel] ⚠️ No phone number found for notifiable. Skipping SMS notification.");
+        if (! $phone) {
+            Log::warning('[SmsChannel] ⚠️ No phone number found for notifiable. Skipping SMS notification.');
+
             return;
         }
 

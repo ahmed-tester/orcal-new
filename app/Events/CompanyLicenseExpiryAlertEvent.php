@@ -4,9 +4,9 @@ namespace App\Events;
 
 use App\Interfaces\NotificationEventInterface;
 use App\Models\Company;
-use App\Models\Owner;
 use Carbon\Carbon;
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -24,10 +24,19 @@ class CompanyLicenseExpiryAlertEvent implements NotificationEventInterface
         public ?string $customMessage = null
     ) {}
 
+    public function getRecord(): ?Model
+    {
+        return $this->company;
+    }
+
+    public function getActionUrl(): ?string
+    {
+        return url("/companies/{$this->company->id}/edit");
+    }
+
     public function getNotifiable(): mixed
     {
-        // Recipients are routed purely to users who have 'update_company' permission
-        return collect();
+        return $this->company;
     }
 
     public function getEventKey(): string
@@ -37,20 +46,20 @@ class CompanyLicenseExpiryAlertEvent implements NotificationEventInterface
 
     public function getPlaceholders(): array
     {
-        $expiryFormatted = $this->expiryDate 
-            ? Carbon::parse($this->expiryDate)->format('Y-m-d') 
+        $expiryFormatted = $this->expiryDate
+            ? Carbon::parse($this->expiryDate)->format('Y-m-d')
             : '—';
 
         $statusText = match (true) {
-            $this->daysRemaining < 0  => 'منتهية منذ ' . abs($this->daysRemaining) . ' يوم',
-            $this->daysRemaining == 0 => 'تنتهي اليوم',
-            default                   => 'متبقي ' . $this->daysRemaining . ' يوم',
+            $this->daysRemaining < 0 => __('notifications.stages.days_overdue', ['days' => abs($this->daysRemaining)]),
+            $this->daysRemaining == 0 => __('notifications.stages.expires_today'),
+            default => __('notifications.stages.days_remaining', ['days' => $this->daysRemaining]),
         };
 
-        $stageName = $this->alertStage ?: 'تنبيه انتهاء وثيقة منشأة';
+        $stageName = $this->alertStage ?: __('notifications.events.CompanyLicenseExpiryAlert.name');
 
         return [
-            'company_name' => $this->company->trade_name ?? $this->company->name ?? 'الشركة',
+            'company_name' => $this->company->trade_name ?? $this->company->name ?? __('notifications.alerts.company_fallback'),
             'license_type' => $this->licenseType,
             'license_number' => $this->licenseNumber ?? '—',
             'expiry_date' => $expiryFormatted,
