@@ -242,8 +242,7 @@ class TemporaryEmployeeForm
                             ->helperText(__('employees.fields.annual_leave_days_helper'))
                             ->required(),
 
-                        TextInput::make('contract_duration')
-                            ->label(__('employees.fields.contract_duration')),
+                        EmployeeServiceDurationService::makeContractDurationField(),
 
                         Select::make('status')
                             ->label(__('employees.fields.status'))
@@ -251,7 +250,7 @@ class TemporaryEmployeeForm
                             ->default('active')
                             ->required(),
 
-                        ...EmployeeServiceDurationService::makeFormFields(),
+                        ...EmployeeServiceDurationService::makeFormFields(autoContractDuration: true),
                     ]),
 
                 Section::make(__('employees.fields.dashboard_access_section'))
