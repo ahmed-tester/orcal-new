@@ -17,7 +17,7 @@ class JobTitleService
     {
         $scope = $rawState['title_scope'] ?? ($data['title_scope'] ?? JobTitleScope::COMPANY->value);
 
-        if ($scope === JobTitleScope::GLOBAL->value || ! empty($data['is_global'])) {
+        if (JobTitleScope::isGlobalValue($scope) || ! empty($data['is_global'])) {
             $data['is_global'] = true;
             $data['company_id'] = null;
             $data['department_id'] = null;
