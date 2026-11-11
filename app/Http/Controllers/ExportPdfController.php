@@ -5,17 +5,22 @@ namespace App\Http\Controllers;
 use App\Enums\TreasuryTransactionType;
 use App\Models\Company;
 use App\Models\Debt;
+use App\Models\Employee;
 use App\Models\Invoice;
+use App\Models\Owner;
 use App\Models\TreasuryTransaction;
 use App\Models\Violation;
 use App\Models\ViolationCategory;
 use App\Models\ViolationRegulation;
 use App\Models\ViolationTransaction;
 use App\Models\ViolationType;
+use App\Services\CompanyFormService;
+use App\Services\DebtSummaryService;
 use App\Services\ExportPdfService;
 use App\Services\HijriDateService;
 use App\Services\TafqeetService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 class ExportPdfController extends Controller
@@ -298,18 +303,20 @@ class ExportPdfController extends Controller
      */
     public function exportDebtsStatement(Request $request)
     {
+        Gate::authorize('viewAny', Debt::class);
+
         $companyId = $request->query('company_id');
         $debtorType = $request->query('debtor_type', 'all');
         $status = $request->query('status', 'all');
         $fromDate = $request->query('from_date');
         $toDate = $request->query('to_date');
 
-        $query = Debt::with(['company', 'employee.user', 'guarantor']);
+        $query = DebtSummaryService::debts()->with(['company', 'employee.user', 'guarantor']);
 
         $companyTitle = 'كافة المنشآت والشركات (الكل)';
         if (! empty($companyId) && $companyId !== 'all') {
             $query->where('company_id', $companyId);
-            $comp = Company::find($companyId);
+            $comp = $query->first()?->company;
             $companyTitle = $comp?->trade_name ?? "منشأة #{$companyId}";
         }
 
@@ -412,7 +419,8 @@ class ExportPdfController extends Controller
      */
     public function printDebtVoucher(Debt $debt)
     {
-        $debt->load(['company', 'employee.user', 'guarantor']);
+        Gate::authorize('view', $debt);
+        $debt = DebtSummaryService::debts()->with(['company', 'employee.user', 'guarantor'])->findOrFail($debt->id);
 
         $amount = (float) $debt->total_amount;
         $amountWords = TafqeetService::inArabic($amount);
@@ -543,5 +551,325 @@ class ExportPdfController extends Controller
                 'filename' => 'invoices-report-'.date('Ymd-His'),
             ]
         );
+    }
+
+    /**
+     * Export / Print Statement for Employees and Owners.
+     * Options:
+     * - statement_type: 'all' | 'employees_only' | 'owners_only'
+     * - company_id: ID | 'all'
+     * - status: 'all' | 'active'
+     * - nationality: 'all' | 'saudi' | 'foreign'
+     * - export_mode: 'print' | 'pdf'
+     */
+    public function exportEmployeesStatement(Request $request)
+    {
+        $statementType = $request->query('statement_type', 'all');
+        $companyId = $request->query('company_id', 'all');
+        $status = $request->query('status', 'all');
+        $nationality = $request->query('nationality', 'all');
+        $exportMode = $request->query('export_mode', 'print');
+
+        $user = auth()->user();
+        $isSuperAdmin = $user?->isSuperAdmin() ?? false;
+        $authorizedCompanyIds = $user ? array_map('intval', CompanyFormService::getAuthorizedCompanyIds($user)) : [];
+
+        // Security check: non-superadmins must have authorized companies and cannot query unauthorized companies
+        if (! $isSuperAdmin) {
+            if (empty($authorizedCompanyIds)) {
+                abort(403, 'لا تملك صلاحية الوصول إلى أي منشأة.');
+            }
+
+            if (! empty($companyId) && $companyId !== 'all') {
+                if (! in_array((int) $companyId, $authorizedCompanyIds, true)) {
+                    abort(403, 'غير مصرح لك بالوصول لبيانات هذه المنشأة.');
+                }
+            }
+        }
+
+        $companyTitle = 'كافة المنشآت المصرح بها';
+        if (! empty($companyId) && $companyId !== 'all') {
+            $company = Company::find($companyId);
+            $companyTitle = $company?->trade_name ?? "منشأة #{$companyId}";
+        }
+
+        // Query employees if needed
+        $employees = collect();
+        if ($statementType === 'all' || $statementType === 'employees_only' || $statementType === 'dual_only') {
+            $empQuery = Employee::with(['user.owners', 'company', 'branch', 'department', 'jobTitle', 'details']);
+
+            if ($statementType === 'dual_only') {
+                $empQuery->whereHas('user.owners');
+            }
+
+            if (! empty($companyId) && $companyId !== 'all') {
+                $empQuery->where('company_id', (int) $companyId);
+            } elseif (! $isSuperAdmin) {
+                $empQuery->whereIn('company_id', $authorizedCompanyIds);
+            }
+
+            if (! empty($status) && $status !== 'all') {
+                $empQuery->where('status', $status);
+            }
+
+            if ($nationality === 'saudi') {
+                $empQuery->saudi();
+            } elseif ($nationality === 'foreign') {
+                $empQuery->foreign();
+            }
+
+            $employees = $empQuery->orderBy('id', 'desc')->get();
+        }
+
+        // Query owners if needed
+        $owners = collect();
+        if ($statementType === 'all' || $statementType === 'owners_only' || $statementType === 'dual_only') {
+            $ownerQuery = Owner::with(['user.employee', 'company']);
+
+            if ($statementType === 'dual_only') {
+                $ownerQuery->whereHas('user.employee');
+            }
+
+            if (! empty($companyId) && $companyId !== 'all') {
+                $ownerQuery->where('company_id', (int) $companyId);
+            } elseif (! $isSuperAdmin) {
+                $ownerQuery->whereIn('company_id', $authorizedCompanyIds);
+            }
+
+            if (! empty($status) && $status !== 'all') {
+                $ownerQuery->where('status', $status);
+            }
+
+            $owners = $ownerQuery->orderBy('id', 'desc')->get();
+        }
+
+        $records = [];
+        $stats = [
+            'employees_only_count' => 0,
+            'owners_only_count' => 0,
+            'dual_count' => 0,
+        ];
+
+        if ($statementType === 'employees_only') {
+            foreach ($employees as $emp) {
+                $isOwner = $emp->user?->owners?->isNotEmpty() ?? false;
+                if ($isOwner) {
+                    $stats['dual_count']++;
+                } else {
+                    $stats['employees_only_count']++;
+                }
+
+                $records[] = [
+                    'name' => $emp->user?->name ?? '—',
+                    'capacity' => $isOwner ? __('employees.fields.capacity_employee_and_owner') : __('employees.fields.capacity_employee'),
+                    'capacity_code' => $isOwner ? 'employee_and_owner' : 'employee',
+                    'national_id' => $emp->details?->national_id ?? $emp->details?->iqama_number ?? '—',
+                    'company_name' => $emp->company?->trade_name ?? '—',
+                    'branch_name' => $emp->branch?->name ?? '—',
+                    'department_name' => $emp->department?->name ?? '—',
+                    'job_title' => $emp->metadata['job_title'] ?? $emp->jobTitle?->name ?? $emp->details?->profession ?? '—',
+                    'phone' => $emp->user?->phone ?? '—',
+                    'status' => $emp->status instanceof \BackedEnum ? $emp->status->value : (string) ($emp->status ?? 'active'),
+                ];
+            }
+        } elseif ($statementType === 'owners_only') {
+            foreach ($owners as $owner) {
+                $isEmployee = (bool) $owner->user?->employee;
+                if ($isEmployee) {
+                    $stats['dual_count']++;
+                } else {
+                    $stats['owners_only_count']++;
+                }
+
+                $records[] = [
+                    'name' => $owner->user?->name ?? '—',
+                    'capacity' => $isEmployee ? __('owners.fields.capacity_employee_and_owner') : __('owners.fields.capacity_owner'),
+                    'capacity_code' => $isEmployee ? 'employee_and_owner' : 'owner',
+                    'national_id' => $owner->national_id ?? '—',
+                    'company_name' => $owner->company?->trade_name ?? '—',
+                    'branch_name' => '—',
+                    'department_name' => 'الإدارة العليا / المُلّاك',
+                    'job_title' => $owner->ownership_percentage ? "نسبة الملكية: {$owner->ownership_percentage}%" : 'مالك',
+                    'phone' => $owner->user?->phone ?? '—',
+                    'status' => $owner->status instanceof \BackedEnum ? $owner->status->value : (string) ($owner->status ?? 'active'),
+                ];
+            }
+        } elseif ($statementType === 'dual_only') {
+            // 'dual_only': Persons holding both Employee and Owner capacities
+            $seenUserIds = [];
+
+            foreach ($employees as $emp) {
+                if ($emp->user?->owners?->isNotEmpty()) {
+                    $stats['dual_count']++;
+                    if ($emp->user_id) {
+                        $seenUserIds[$emp->user_id] = true;
+                    }
+
+                    $records[] = [
+                        'name' => $emp->user?->name ?? '—',
+                        'capacity' => __('employees.fields.capacity_employee_and_owner'),
+                        'capacity_code' => 'employee_and_owner',
+                        'national_id' => $emp->details?->national_id ?? $emp->details?->iqama_number ?? '—',
+                        'company_name' => $emp->company?->trade_name ?? '—',
+                        'branch_name' => $emp->branch?->name ?? '—',
+                        'department_name' => $emp->department?->name ?? '—',
+                        'job_title' => $emp->metadata['job_title'] ?? $emp->jobTitle?->name ?? $emp->details?->profession ?? '—',
+                        'phone' => $emp->user?->phone ?? '—',
+                        'status' => $emp->status instanceof \BackedEnum ? $emp->status->value : (string) ($emp->status ?? 'active'),
+                    ];
+                }
+            }
+
+            foreach ($owners as $owner) {
+                if ($owner->user_id && isset($seenUserIds[$owner->user_id])) {
+                    continue;
+                }
+
+                if ((bool) $owner->user?->employee) {
+                    $stats['dual_count']++;
+                    if ($owner->user_id) {
+                        $seenUserIds[$owner->user_id] = true;
+                    }
+
+                    $records[] = [
+                        'name' => $owner->user?->name ?? '—',
+                        'capacity' => __('owners.fields.capacity_employee_and_owner'),
+                        'capacity_code' => 'employee_and_owner',
+                        'national_id' => $owner->national_id ?? '—',
+                        'company_name' => $owner->company?->trade_name ?? '—',
+                        'branch_name' => '—',
+                        'department_name' => 'الإدارة العليا / المُلّاك',
+                        'job_title' => $owner->ownership_percentage ? "نسبة الملكية: {$owner->ownership_percentage}%" : 'مالك',
+                        'phone' => $owner->user?->phone ?? '—',
+                        'status' => $owner->status instanceof \BackedEnum ? $owner->status->value : (string) ($owner->status ?? 'active'),
+                    ];
+                }
+            }
+        } else {
+            // 'all': Combined records of employees and owners
+            $seenUserIds = [];
+
+            foreach ($employees as $emp) {
+                $isOwner = $emp->user?->owners?->isNotEmpty() ?? false;
+                if ($isOwner) {
+                    $stats['dual_count']++;
+                } else {
+                    $stats['employees_only_count']++;
+                }
+
+                if ($emp->user_id) {
+                    $seenUserIds[$emp->user_id] = true;
+                }
+
+                $records[] = [
+                    'name' => $emp->user?->name ?? '—',
+                    'capacity' => $isOwner ? __('employees.fields.capacity_employee_and_owner') : __('employees.fields.capacity_employee'),
+                    'capacity_code' => $isOwner ? 'employee_and_owner' : 'employee',
+                    'national_id' => $emp->details?->national_id ?? $emp->details?->iqama_number ?? '—',
+                    'company_name' => $emp->company?->trade_name ?? '—',
+                    'branch_name' => $emp->branch?->name ?? '—',
+                    'department_name' => $emp->department?->name ?? '—',
+                    'job_title' => $emp->metadata['job_title'] ?? $emp->jobTitle?->name ?? $emp->details?->profession ?? '—',
+                    'phone' => $emp->user?->phone ?? '—',
+                    'status' => $emp->status instanceof \BackedEnum ? $emp->status->value : (string) ($emp->status ?? 'active'),
+                ];
+            }
+
+            foreach ($owners as $owner) {
+                if ($owner->user_id && isset($seenUserIds[$owner->user_id])) {
+                    // Already included from employees list as dual (employee & owner)
+                    continue;
+                }
+
+                $isEmployee = (bool) $owner->user?->employee;
+                if ($isEmployee) {
+                    $stats['dual_count']++;
+                } else {
+                    $stats['owners_only_count']++;
+                }
+
+                $records[] = [
+                    'name' => $owner->user?->name ?? '—',
+                    'capacity' => $isEmployee ? __('owners.fields.capacity_employee_and_owner') : __('owners.fields.capacity_owner'),
+                    'capacity_code' => $isEmployee ? 'employee_and_owner' : 'owner',
+                    'national_id' => $owner->national_id ?? '—',
+                    'company_name' => $owner->company?->trade_name ?? '—',
+                    'branch_name' => '—',
+                    'department_name' => 'الإدارة العليا / المُلّاك',
+                    'job_title' => $owner->ownership_percentage ? "نسبة الملكية: {$owner->ownership_percentage}%" : 'مالك',
+                    'phone' => $owner->user?->phone ?? '—',
+                    'status' => $owner->status instanceof \BackedEnum ? $owner->status->value : (string) ($owner->status ?? 'active'),
+                ];
+            }
+        }
+
+        $nationalitySuffix = match ($nationality) {
+            'saudi' => ' (الموظفون السعوديون)',
+            'foreign' => ' (الموظفون المقيمون)',
+            default => '',
+        };
+
+        $title = match ($statementType) {
+            'owners_only' => 'كشف وبيان مُلّاك المنشأة',
+            'employees_only' => 'كشف وبيان موظفي المنشأة'.$nationalitySuffix,
+            'dual_only' => 'كشف من يجمع بين صفتي موظف ومالك منشأة'.$nationalitySuffix,
+            default => 'كشف وبيان الموظفين والمُلّاك'.$nationalitySuffix,
+        };
+
+        $typeLabel = match ($statementType) {
+            'owners_only' => 'كشف المُلّاك',
+            'employees_only' => 'كشف الموظفين'.$nationalitySuffix,
+            'dual_only' => 'كشف من يجمع بين الصفتين (موظف ومالك منشأة)'.$nationalitySuffix,
+            default => 'كشف شامل للموظفين والمُلّاك معاً (مع إظهار الصفة)'.$nationalitySuffix,
+        };
+
+        if ($exportMode === 'pdf') {
+            $headers = ['#', 'الاسم الكامل', 'الصفة', 'الهوية / الإقامة', 'المنشأة / الشركة', 'الفرع / القسم', 'المسمى الوظيفي', 'رقم الجوال', 'الحالة'];
+            $rows = [];
+            foreach ($records as $i => $row) {
+                $rows[] = [
+                    $i + 1,
+                    "<strong>{$row['name']}</strong>",
+                    $row['capacity'],
+                    $row['national_id'],
+                    $row['company_name'],
+                    ($row['branch_name'] !== '—' ? $row['branch_name'].' / ' : '').$row['department_name'],
+                    $row['job_title'],
+                    $row['phone'],
+                    $row['status'] === 'active' ? 'نشط' : $row['status'],
+                ];
+            }
+
+            return ExportPdfService::exportTableReport(
+                title: $title,
+                headers: $headers,
+                rows: $rows,
+                options: [
+                    'orientation' => 'L',
+                    'company_name' => $companyTitle,
+                    'subtitle' => $typeLabel,
+                    'totals' => [
+                        'إجمالي السجلات' => count($rows).' سجل',
+                        'الموظفون فقط' => $stats['employees_only_count'],
+                        'المُلّاك فقط' => $stats['owners_only_count'],
+                        'موظف ومالك منشأة' => $stats['dual_count'],
+                    ],
+                    'filename' => 'employees-statement-'.date('Ymd-His'),
+                ]
+            );
+        }
+
+        return response()->view('exports.employees-statement-print', [
+            'title' => $title,
+            'type_label' => $typeLabel,
+            'statement_type' => $statementType,
+            'company_title' => $companyTitle,
+            'status' => $status,
+            'records' => $records,
+            'stats' => $stats,
+            'date_label' => now()->format('Y/m/d'),
+            'hijri_date' => HijriDateService::formatDual(now(), true),
+            'printed_by' => auth()->user()?->name ?? 'المسؤول',
+        ]);
     }
 }

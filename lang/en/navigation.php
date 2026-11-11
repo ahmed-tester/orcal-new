@@ -17,6 +17,7 @@ return [
     'tickets' => 'Support Tickets',
     'saudi_employees' => 'Saudi Employees',
     'foreign_employees' => 'Resident Employees (Non-Saudi)',
+    'temporary_employees' => 'Temporary Employment',
     'owners' => 'Owners & Partners',
     'companies' => 'Companies / Entities',
     'branches' => 'Branches',

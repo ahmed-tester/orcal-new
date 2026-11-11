@@ -527,21 +527,10 @@ class CompanyFormService
     ): Select {
         return Select::make($name)
             ->label($label ?? __('employees.fields.job_title'))
-            ->options(function (callable $get) use ($companyFieldName) {
-                $user = auth()->user();
-                $companyId = $get($companyFieldName);
-
-                $query = JobTitle::query()->where('status', 'active');
-
-                if ($companyId) {
-                    $query->where('company_id', $companyId);
-                } elseif ($user && ! $user->isSuperAdmin()) {
-                    $companyIds = static::getAuthorizedCompanyIds($user);
-                    $query->whereIn('company_id', ! empty($companyIds) ? $companyIds : [0]);
-                }
-
-                return $query->orderBy('sort_order')->pluck('name', 'id');
-            })
+            ->options(fn (callable $get) => app(JobTitleService::class)->getAvailableForCompanyOptions(
+                $get($companyFieldName),
+                auth()->user()
+            ))
             ->searchable()
             ->preload()
             ->required($required);

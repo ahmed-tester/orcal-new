@@ -4,7 +4,9 @@ namespace App\Filament\Resources\DebtCollections\Schemas;
 
 use App\Enums\ApprovalStatus;
 use App\Models\Debt;
+use App\Models\DebtCollection;
 use App\Services\CompanyFormService;
+use App\Services\DebtSummaryService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -48,7 +50,10 @@ class DebtCollectionForm
 
                         Select::make('debt_id')
                             ->label(__('debts.collections.fields.debt'))
-                            ->relationship('debt', 'id', fn ($query) => $query->whereIn('status', ['pending', 'partial', 'overdue']))
+                            ->relationship('debt', 'id', fn ($query, ?DebtCollection $record) => $query
+                                ->whereIn('debts.id', DebtSummaryService::debts()->select('debts.id'))
+                                ->where(fn ($available) => $available->where('remaining_amount', '>', 0)
+                                    ->when($record, fn ($current) => $current->orWhere('debts.id', $record->debt_id))))
                             ->getOptionLabelFromRecordUsing(fn (Debt $record) => "{$record->debt_number} — {$record->beneficiary_name} • ".__('debts.fields.remaining_amount').': '.number_format($record->remaining_amount, 2).' SAR')
                             ->searchable(['debt_number', 'external_name'])
                             ->preload()
@@ -56,7 +61,7 @@ class DebtCollectionForm
                             ->reactive()
                             ->afterStateUpdated(function ($state, callable $set) {
                                 if ($state) {
-                                    $debt = Debt::find($state);
+                                    $debt = DebtSummaryService::debts()->find($state);
                                     if ($debt) {
                                         $set('amount', $debt->remaining_amount);
                                         $set('company_id', $debt->company_id);

@@ -6,6 +6,7 @@ use App\Filament\Components\OrgSelect;
 use App\Models\Guarantor;
 use App\Services\CompanyFormService;
 use App\Services\EmployeeAgeService;
+use App\Services\EmployeeServiceDurationService;
 use App\Services\PhoneService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -127,9 +128,13 @@ class ForeignEmployeesTable
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('jobTitle.name')
+                TextColumn::make('job_title')
                     ->label(__('employees.fields.job_title'))
-                    ->searchable(),
+                    ->state(fn ($record) => $record->metadata['job_title'] ?? $record->jobTitle?->name ?? '—'),
+
+                TextColumn::make('details.profession')
+                    ->label(__('employees.fields.profession'))
+                    ->placeholder('—'),
 
                 TextColumn::make('details.guarantor.name')
                     ->label(__('guarantors.single'))
@@ -147,6 +152,9 @@ class ForeignEmployeesTable
                     ->label(__('employees.fields.basic_salary'))
                     ->money('SAR')
                     ->sortable(),
+
+                EmployeeServiceDurationService::makeDaysServedTableColumn(),
+                EmployeeServiceDurationService::makeTerminationReasonTableColumn(),
 
                 TextColumn::make('status')
                     ->label(__('employees.fields.status'))
@@ -199,6 +207,8 @@ class ForeignEmployeesTable
                 SelectFilter::make('status')
                     ->label(__('employees.fields.status'))
                     ->options(__('employees.statuses')),
+
+                EmployeeServiceDurationService::makeTerminationReasonTableFilter(),
             ])
             ->recordActions([
                 EditAction::make()->label(__('employees.actions.edit')),

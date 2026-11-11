@@ -3,10 +3,10 @@
 namespace App\Filament\Resources\Owners\Schemas;
 
 use App\Filament\Resources\Owners\Pages\CreateOwner;
-use App\Filament\Resources\Owners\Pages\EditOwner;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\CompanyFormService;
+use App\Services\OwnerFormService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -25,32 +25,35 @@ class OwnerForm
                 Section::make(__('owners.sections.info'))
                     ->columns(3)
                     ->schema([
+                        ...OwnerFormService::makeRegistrationFields(),
+
                         TextInput::make('user_name')
                             ->label(__('owners.fields.name'))
                             ->required(),
+
+                        TextInput::make('name_en')
+                            ->label(__('owners.fields.name_en'))
+                            ->placeholder(__('owners.fields.name_en_placeholder'))
+                            ->maxLength(255),
 
                         TextInput::make('user_email')
                             ->label(__('owners.fields.email'))
                             ->email()
                             ->nullable()
-                            ->unique(User::class, 'email', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
-                                return $record?->user_id ? $rule->ignore($record->user_id) : $rule;
-                            }),
+                            ->unique(User::class, 'email', ignoreRecord: false, modifyRuleUsing: OwnerFormService::ignoreSelectedEmployeeUserId()),
 
                         PhoneService::makeFormField('user_phone', __('owners.fields.phone'))
                             ->nullable()
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn ($state, callable $set) => $set('user_phone', PhoneService::normalize($state) ?? $state))
-                            ->unique(User::class, 'phone', ignoreRecord: false, modifyRuleUsing: function ($rule, $record) {
-                                return $record?->user_id ? $rule->ignore($record->user_id) : $rule;
-                            }),
+                            ->unique(User::class, 'phone', ignoreRecord: false, modifyRuleUsing: OwnerFormService::ignoreSelectedEmployeeUserId()),
 
                         TextInput::make('user_password')
                             ->label(__('owners.fields.password'))
                             ->password()
                             ->revealable()
-                            ->required(fn ($livewire) => $livewire instanceof CreateOwner)
-                            ->helperText(fn ($livewire) => $livewire instanceof EditOwner ? __('owners.fields.password_help') : null),
+                            ->required(fn ($get, $livewire) => $livewire instanceof CreateOwner && $get('registration_source') !== 'from_saudi_employee')
+                            ->helperText(OwnerFormService::getPasswordHelperText()),
 
                         CompanyFormService::makeCompanySelect('company_id', __('owners.fields.company'))
                             ->required(),
@@ -91,6 +94,9 @@ class OwnerForm
                             ->options(__('owners.statuses'))
                             ->default('active'),
 
+                        TextInput::make('address')
+                            ->label(__('owners.fields.address')),
+
                         FileUpload::make('image')
                             ->label(__('owners.fields.image'))
                             ->disk('public')
@@ -99,6 +105,11 @@ class OwnerForm
                             ->maxSize(Setting::getMaxUploadSizeKb())
                             ->columnSpanFull(),
                     ]),
+
+                Section::make(__('owners.sections.financial_info'))
+                    ->icon('heroicon-o-banknotes')
+                    ->columns(3)
+                    ->schema(OwnerFormService::makeFinancialFields()),
             ]);
     }
 }

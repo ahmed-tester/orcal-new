@@ -7,6 +7,7 @@ use App\Enums\GeneralStatus;
 use App\Enums\UserType;
 use App\Services\CodeGeneratorService;
 use App\Services\EmployeeAgeService;
+use App\Services\EmployeeServiceDurationService;
 use App\Traits\HasHijriDates;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -50,6 +51,8 @@ class Employee extends Model
         'contract_file',
         'notes',
         'status',
+        'termination_reason',
+        'termination_reason_other',
         'metadata',
     ];
 
@@ -96,6 +99,31 @@ class Employee extends Model
 
         static::saving(function (Employee $employee) {
             $employee->basic_salary = (float) ($employee->basic_salary ?? 0);
+
+            // Persist duration metrics in metadata JSON column
+            $meta = $employee->metadata ?? [];
+            if (is_string($meta)) {
+                $meta = json_decode($meta, true) ?? [];
+            }
+
+            if ($employee->hire_date) {
+                $days = EmployeeServiceDurationService::calculateDaysServed(
+                    $employee->hire_date,
+                    $employee->termination_date ?? $employee->contract_end_date
+                );
+                $meta['days_served'] = $days;
+                $meta['days_served_formatted'] = $days !== null ? EmployeeServiceDurationService::formatDaysServed($days) : null;
+            } else {
+                unset($meta['days_served'], $meta['days_served_formatted']);
+            }
+
+            if ($employee->termination_date) {
+                $meta['time_since_termination'] = EmployeeServiceDurationService::calculateTimeSinceTermination($employee->termination_date);
+            } else {
+                unset($meta['time_since_termination']);
+            }
+
+            $employee->metadata = $meta;
         });
     }
 
@@ -125,6 +153,19 @@ class Employee extends Model
                             ->where('nationality', 'not like', '%saudi%')
                         );
                 });
+        });
+    }
+
+    public function scopeTemporary(Builder $query): Builder
+    {
+        return $query->where('employment_type', EmploymentType::TEMPORARY->value);
+    }
+
+    public function scopeNonTemporary(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->where('employment_type', '!=', EmploymentType::TEMPORARY->value)
+                ->orWhereNull('employment_type');
         });
     }
 
@@ -249,5 +290,55 @@ class Employee extends Model
     public function getAgeAttribute(): ?int
     {
         return $this->details?->metadata['age'] ?? EmployeeAgeService::calculateAge($this->details?->birth_date);
+    }
+
+    public function getJobTitleDisplayAttribute(): ?string
+    {
+        return $this->metadata['job_title'] ?? $this->jobTitle?->name;
+    }
+
+    public function getTerminationReasonAttribute(): ?string
+    {
+        return $this->metadata['termination_reason'] ?? null;
+    }
+
+    public function setTerminationReasonAttribute(?string $value): void
+    {
+        $meta = $this->metadata ?? [];
+        if ($value !== null && trim($value) !== '') {
+            $meta['termination_reason'] = trim($value);
+        } else {
+            unset($meta['termination_reason']);
+        }
+        $this->metadata = $meta;
+    }
+
+    public function getTerminationReasonOtherAttribute(): ?string
+    {
+        return $this->metadata['termination_reason_other'] ?? null;
+    }
+
+    public function setTerminationReasonOtherAttribute(?string $value): void
+    {
+        $meta = $this->metadata ?? [];
+        if ($value !== null && trim($value) !== '') {
+            $meta['termination_reason_other'] = trim($value);
+        } else {
+            unset($meta['termination_reason_other']);
+        }
+        $this->metadata = $meta;
+    }
+
+    public function getDaysServedAttribute(): ?int
+    {
+        return $this->metadata['days_served'] ?? EmployeeServiceDurationService::calculateDaysServed(
+            $this->hire_date,
+            $this->termination_date ?? $this->contract_end_date
+        );
+    }
+
+    public function getTimeSinceTerminationAttribute(): ?string
+    {
+        return $this->metadata['time_since_termination'] ?? EmployeeServiceDurationService::calculateTimeSinceTermination($this->termination_date);
     }
 }

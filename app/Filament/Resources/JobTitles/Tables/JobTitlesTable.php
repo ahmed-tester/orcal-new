@@ -2,10 +2,11 @@
 
 namespace App\Filament\Resources\JobTitles\Tables;
 
+use App\Enums\JobTitleScope;
+use App\Models\JobTitle;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -29,6 +30,7 @@ class JobTitlesTable
 
                 TextColumn::make('department.name')
                     ->label(__('organization.job_titles.fields.department'))
+                    ->placeholder('—')
                     ->searchable()
                     ->badge()
                     ->color('info'),
@@ -37,9 +39,18 @@ class JobTitlesTable
                     ->label(__('organization.job_titles.fields.parent'))
                     ->placeholder('-'),
 
-                TextColumn::make('company.trade_name')
+                TextColumn::make('company_display_name')
                     ->label(__('organization.job_titles.fields.company'))
-                    ->searchable()
+                    ->badge(fn (JobTitle $record) => $record->isGlobal())
+                    ->color(fn (JobTitle $record) => $record->isGlobal() ? 'success' : null)
+                    ->searchable(query: function ($query, string $search) {
+                        $query->whereHas('company', fn ($q) => $q->where('trade_name', 'like', "%{$search}%"))
+                            ->orWhere(function ($q) use ($search) {
+                                if (str_contains('عام للمجموعة بالكامل', $search) || str_contains('عام', $search)) {
+                                    $q->where('is_global', true)->orWhereNull('company_id');
+                                }
+                            });
+                    })
                     ->sortable(),
 
                 TextColumn::make('sort_order')
@@ -51,6 +62,15 @@ class JobTitlesTable
                     ->badge(),
             ])
             ->filters([
+                SelectFilter::make('scope')
+                    ->label('نطاق المسمى')
+                    ->options(JobTitleScope::class)
+                    ->query(function ($query, array $data) {
+                        if (! empty($data['value'])) {
+                            $query->forScope($data['value']);
+                        }
+                    }),
+
                 SelectFilter::make('company_id')
                     ->label(__('organization.job_titles.fields.company'))
                     ->relationship('company', 'trade_name')

@@ -7,6 +7,8 @@ use App\Filament\Components\OrgSelect;
 use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Services\EmployeeAgeService;
+use App\Services\EmployeeServiceDurationService;
+use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -25,7 +27,7 @@ class SaudiEmployeesTable
         return $table
             ->defaultSort('id', 'desc')
             ->modifyQueryUsing(fn ($query) => $query->with([
-                'user',
+                'user.owners',
                 'details.guarantor',
                 'company',
                 'jobTitle',
@@ -58,6 +60,8 @@ class SaudiEmployeesTable
 
                         return implode(' | ', $parts);
                     }),
+
+                PersonCapacityService::makeTableColumn('employee'),
 
                 TextColumn::make('employee_type')
                     ->label(__('employees.fields.employee_type'))
@@ -106,9 +110,9 @@ class SaudiEmployeesTable
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('jobTitle.name')
+                TextColumn::make('job_title')
                     ->label(__('employees.fields.job_title'))
-                    ->searchable()
+                    ->state(fn ($record) => $record->metadata['job_title'] ?? $record->jobTitle?->name ?? '—')
                     ->badge()
                     ->color('info'),
 
@@ -128,6 +132,9 @@ class SaudiEmployeesTable
                     ->label(__('employees.fields.basic_salary'))
                     ->money('SAR')
                     ->sortable(),
+
+                EmployeeServiceDurationService::makeDaysServedTableColumn(),
+                EmployeeServiceDurationService::makeTerminationReasonTableColumn(),
 
                 TextColumn::make('status')
                     ->label(__('employees.fields.status'))
@@ -159,6 +166,10 @@ class SaudiEmployeesTable
                 SelectFilter::make('status')
                     ->label(__('employees.fields.status'))
                     ->options(__('employees.statuses')),
+
+                EmployeeServiceDurationService::makeTerminationReasonTableFilter(),
+
+                PersonCapacityService::makeTableFilter('employee'),
             ])
             ->recordActions([
                 EditAction::make()

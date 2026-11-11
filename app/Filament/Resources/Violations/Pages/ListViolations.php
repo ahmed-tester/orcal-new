@@ -28,6 +28,10 @@ class ListViolations extends ListRecords
     {
         return [
             CreateAction::make(),
+            Action::make('summary')
+                ->label(__('violations.summary.title'))
+                ->icon('heroicon-o-chart-bar')
+                ->url(fn () => ViolationResource::getUrl('index')),
             Action::make('export_pdf')
                 ->label(__('violations.violations.actions.export_pdf'))
                 ->icon('heroicon-o-printer')
