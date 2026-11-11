@@ -11,6 +11,11 @@ enum JobTitleScope: string implements HasLabel, HasColor, HasIcon
     case COMPANY = 'company';
     case GLOBAL  = 'global';
 
+    public static function isGlobalValue(mixed $value): bool
+    {
+        return $value === self::GLOBAL || $value === self::GLOBAL->value;
+    }
+
     public function getLabel(): string
     {
         return match ($this) {
