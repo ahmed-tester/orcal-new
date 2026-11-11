@@ -5,6 +5,7 @@ namespace App\Filament\Resources\EmployeeRewards;
 use App\Filament\Resources\EmployeeRewards\Pages\CreateEmployeeReward;
 use App\Filament\Resources\EmployeeRewards\Pages\EditEmployeeReward;
 use App\Filament\Resources\EmployeeRewards\Pages\ListEmployeeRewards;
+use App\Filament\Resources\EmployeeRewards\Pages\RewardsSummary;
 use App\Filament\Resources\EmployeeRewards\Schemas\EmployeeRewardForm;
 use App\Filament\Resources\EmployeeRewards\Tables\EmployeeRewardsTable;
 use App\Filament\Traits\HasCompanyScope;
@@ -64,9 +65,10 @@ class EmployeeRewardResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => ListEmployeeRewards::route('/'),
-            'create' => CreateEmployeeReward::route('/create'),
-            'edit'   => EditEmployeeReward::route('/{record}/edit'),
+            'index'    => RewardsSummary::route('/'),
+            'detailed' => ListEmployeeRewards::route('/detailed'),
+            'create'   => CreateEmployeeReward::route('/create'),
+            'edit'     => EditEmployeeReward::route('/{record}/edit'),
         ];
     }
 }
