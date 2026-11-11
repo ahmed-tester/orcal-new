@@ -8,6 +8,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\CompanyFormService;
 use App\Services\EmployeeAgeService;
+use App\Services\EmployeeServiceDurationService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -103,6 +104,11 @@ class ForeignEmployeeForm
                             ->label(__('employees.fields.iqama_expiry'))
                             ->native(false)
                             ->required(),
+
+                        TextInput::make('profession')
+                            ->label(__('employees.fields.profession'))
+                            ->placeholder(__('employees.placeholders.profession'))
+                            ->maxLength(255),
 
                         TextInput::make('passport_number')
                             ->label(__('employees.fields.passport_number')),
@@ -293,16 +299,13 @@ class ForeignEmployeeForm
                         CompanyFormService::makeCompanySelect(),
                         CompanyFormService::makeBranchSelect(),
                         CompanyFormService::makeDepartmentSelect(),
-                        CompanyFormService::makeJobTitleSelect(),
+                        TextInput::make('job_title')
+                            ->label(__('employees.fields.job_title')),
 
                         Select::make('employment_type')
                             ->label(__('employees.fields.employment_type'))
                             ->options(__('employees.employment_types'))
                             ->default('full_time'),
-
-                        DatePicker::make('hire_date')
-                            ->label(__('employees.fields.hire_date'))
-                            ->native(false),
 
                         TextInput::make('annual_leave_days')
                             ->label(__('employees.fields.annual_leave_days'))
@@ -313,10 +316,6 @@ class ForeignEmployeeForm
                             ->helperText(__('employees.fields.annual_leave_days_helper'))
                             ->required(),
 
-                        DatePicker::make('contract_end_date')
-                            ->label(__('employees.fields.contract_end_date'))
-                            ->native(false),
-
                         TextInput::make('contract_duration')
                             ->label(__('employees.fields.contract_duration')),
 
@@ -325,6 +324,8 @@ class ForeignEmployeeForm
                             ->options(__('employees.statuses'))
                             ->default('active')
                             ->required(),
+
+                        ...EmployeeServiceDurationService::makeFormFields(),
                     ]),
 
                 Section::make(__('employees.sections.financial_info'))

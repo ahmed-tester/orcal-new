@@ -5,6 +5,7 @@ return [
     'plural' => 'الملاك',
     'sections' => [
         'info' => 'بيانات المالك الأساسية',
+        'financial_info' => 'البيانات المالية للمالك',
     ],
     'fields' => [
         'user' => 'حساب المستخدم',
@@ -23,6 +24,24 @@ return [
         'status' => 'الحالة',
         'image' => 'صورة الهوية / المالك',
         'address' => 'العنوان',
+        'monthly_deduction_percentage' => 'نسبة الاقتطاع الشهرية للمالك',
+        'owner_advances' => 'سلف المالك',
+        'debts' => 'مديونيات',
+        'other_financials' => 'ملاحظات حرة',
+        'other_financials_placeholder' => 'أدخل أي ملاحظات حرة...',
+        'person_capacity' => 'الصفة',
+        'capacity_owner' => 'مالك منشأة',
+        'capacity_employee_and_owner' => 'موظف ومالك منشأة',
+        'registration_source' => 'طريقة التسجيل',
+        'registration_manual' => 'تسجيل حر',
+        'registration_from_saudi_employee' => 'جلب من الموظفين السعوديين',
+        'selected_employee' => 'الموظف السعودي',
+        'selected_employee_placeholder' => 'ابحث بالاسم أو رقم الهوية الوطنية...',
+        'password_help_employee' => 'اختياري، اتركه فارغاً للاحتفاظ بكلمة مرور الموظف الحالية',
+        'errors' => [
+            'employee_data_unavailable' => 'بيانات الموظف المختار غير متوفرة.',
+            'employee_already_owner' => 'هذا الموظف مسجل بالفعل كمالك في هذه المنشأة.',
+        ],
     ],
     'statuses' => [
         'active' => 'نشط',

@@ -5,6 +5,8 @@ return [
     'saudi_plural' => 'Saudi Employees',
     'foreign_single' => 'Resident Employee (Expat)',
     'foreign_plural' => 'Resident Employees (Non-Saudi)',
+    'temporary_single' => 'Temporary Employee',
+    'temporary_plural' => 'Temporary Employees',
 
     'sections' => [
         'personal_info' => 'Personal & Basic Information',
@@ -44,6 +46,7 @@ return [
         'address_foreign' => 'Detailed Address in KSA',
         'iqama_number' => 'Iqama Number',
         'iqama_expiry' => 'Iqama Expiry Date',
+        'profession' => 'Profession',
         'passport_number' => 'Passport Number',
         'passport_expiry' => 'Passport Expiry Date',
         'insurance_expiry' => 'Health Insurance Expiry',
@@ -76,10 +79,18 @@ return [
         'saudi_employee_data' => 'Saudi Employee Information',
         'work_location' => 'Work Location',
         'notes' => 'Notes',
+        'days_served' => 'Days Served',
+        'days_served_unit' => 'days',
+        'time_since_termination' => 'Time Since Resignation / Termination',
+        'termination_date' => 'Termination / Resignation Date',
+        'termination_reason' => 'Termination Reason',
+        'termination_reason_other' => 'Specify Termination Reason',
         'registration_source' => 'Registration Method',
         'registration_manual' => 'Manual Registration (Outside Lists)',
         'registration_from_owner' => 'Auto-fetch from Owners List',
+        'registration_from_saudi_employee' => 'Auto-fetch from Saudi Employees List',
         'selected_owner' => 'Select Owner to Auto-fill Data',
+        'selected_saudi_employee' => 'Select Saudi Employee to Auto-fill Data',
         'dashboard_access_section' => 'Dashboard Access & Promotion',
         'dashboard_access_desc' => 'Assign administrative roles to allow employee access to dashboard',
         'role_label' => 'Administrative Role',
@@ -88,6 +99,9 @@ return [
         'password_login_placeholder' => 'Leave empty to keep existing password',
         'accessible_companies' => 'Accessible Companies',
         'accessible_companies_helper' => 'Specify assigned companies for this user (e.g. 10 companies for a specific accountant). If left empty and department is global, access to all companies is granted.',
+        'person_capacity' => 'Capacity',
+        'capacity_employee' => 'Employee',
+        'capacity_employee_and_owner' => 'Employee & Establishment Owner',
         'errors' => [
             'iqama_exists' => 'This residence (Iqama) number is already registered for another employee.',
             'national_id_exists' => 'This national ID is already registered for another employee.',
@@ -132,6 +146,15 @@ return [
         'final_exit' => 'Final Exit',
     ],
 
+    'termination_reasons' => [
+        'resignation' => 'Resignation',
+        'unwillingness_to_continue' => 'Unwillingness to continue working',
+        'contract_expired' => 'Contract Expired',
+        'failure_to_report' => 'Failure to report to work',
+        'absence' => 'Absence',
+        'other' => 'Other',
+    ],
+
     'nationalities' => [
         'saudi' => 'Saudi 🇸🇦',
         'egyptian' => 'Egyptian 🇪🇬',
@@ -171,5 +194,9 @@ return [
         'name' => 'Enter employee name',
         'name_en' => 'Enter English name (e.g. Mohammed Ali)',
         'address' => 'National or detailed address',
+        'profession' => 'Enter profession',
+        'auto_calculated' => 'Calculated automatically',
+        'time_since_termination_placeholder' => 'Appears automatically when resignation date is set',
+        'specify_reason' => 'Specify termination reason...',
     ],
 ];

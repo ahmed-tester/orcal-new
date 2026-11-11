@@ -43,6 +43,11 @@ class EditOwner extends EditRecord
             $data['user_phone'] = $user->phone;
         }
 
+        $data['monthly_deduction_percentage'] = $owner->monthly_deduction_percentage;
+        $data['owner_advances'] = $owner->owner_advances;
+        $data['debts'] = $owner->debts;
+        $data['other_financials'] = $owner->other_financials;
+
         return $data;
     }
 

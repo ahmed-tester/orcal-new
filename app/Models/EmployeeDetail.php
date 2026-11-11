@@ -47,6 +47,7 @@ class EmployeeDetail extends Model
         'passport_expiry',
         'iqama_file',
         'passport_file',
+        'profession',
         'metadata',
     ];
 
@@ -73,5 +74,21 @@ class EmployeeDetail extends Model
     public function guarantor(): BelongsTo
     {
         return $this->belongsTo(Guarantor::class);
+    }
+
+    public function getProfessionAttribute(): ?string
+    {
+        return $this->metadata['profession'] ?? null;
+    }
+
+    public function setProfessionAttribute(?string $value): void
+    {
+        $meta = is_array($this->metadata) ? $this->metadata : [];
+        if ($value !== null && trim($value) !== '') {
+            $meta['profession'] = trim($value);
+        } else {
+            unset($meta['profession']);
+        }
+        $this->metadata = $meta;
     }
 }

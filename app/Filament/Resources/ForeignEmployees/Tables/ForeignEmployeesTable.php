@@ -127,9 +127,13 @@ class ForeignEmployeesTable
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('jobTitle.name')
+                TextColumn::make('job_title')
                     ->label(__('employees.fields.job_title'))
-                    ->searchable(),
+                    ->state(fn ($record) => $record->metadata['job_title'] ?? $record->jobTitle?->name ?? '—'),
+
+                TextColumn::make('details.profession')
+                    ->label(__('employees.fields.profession'))
+                    ->placeholder('—'),
 
                 TextColumn::make('details.guarantor.name')
                     ->label(__('guarantors.single'))

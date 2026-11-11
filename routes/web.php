@@ -36,6 +36,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/exports/debts-statement', [\App\Http\Controllers\ExportPdfController::class, 'exportDebtsStatement'])->name('exports.debts-statement');
     Route::get('/exports/debt-voucher/{debt}', [\App\Http\Controllers\ExportPdfController::class, 'printDebtVoucher'])->name('exports.debt-voucher');
 
+    // Employees & Owners Statement Export & Print Route
+    Route::get('/exports/employees-statement', [\App\Http\Controllers\ExportPdfController::class, 'exportEmployeesStatement'])->name('exports.employees-statement');
+
     // Invoices Print & PDF Routes
     Route::get('/exports/invoices-statement', [\App\Http\Controllers\ExportPdfController::class, 'exportInvoicesStatement'])->name('exports.invoices-statement');
     Route::get('/invoices/{invoice}/print', [\App\Http\Controllers\InvoicePrintController::class, 'print'])->name('invoices.print');

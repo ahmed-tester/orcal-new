@@ -6,6 +6,7 @@ use App\Models\Owner;
 use App\Models\User;
 use App\Services\CompanyFormService;
 use App\Services\EmployeeAgeService;
+use App\Services\EmployeeServiceDurationService;
 use App\Services\PhoneService;
 use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;
@@ -158,10 +159,6 @@ class SaudiEmployeeForm
                             ->options(__('employees.employment_types'))
                             ->default('full_time'),
 
-                        DatePicker::make('hire_date')
-                            ->label(__('employees.fields.hire_date'))
-                            ->native(false),
-
                         TextInput::make('annual_leave_days')
                             ->label(__('employees.fields.annual_leave_days'))
                             ->numeric()
@@ -171,10 +168,6 @@ class SaudiEmployeeForm
                             ->helperText(__('employees.fields.annual_leave_days_helper'))
                             ->required(),
 
-                        DatePicker::make('contract_end_date')
-                            ->label(__('employees.fields.contract_end_date'))
-                            ->native(false),
-
                         TextInput::make('contract_duration')
                             ->label(__('employees.fields.contract_duration')),
 
@@ -183,6 +176,8 @@ class SaudiEmployeeForm
                             ->options(__('employees.statuses'))
                             ->default('active')
                             ->required(),
+
+                        ...EmployeeServiceDurationService::makeFormFields(),
                     ]),
 
                 Section::make(__('employees.fields.dashboard_access_section'))

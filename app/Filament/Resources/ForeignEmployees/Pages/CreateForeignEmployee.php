@@ -55,19 +55,30 @@ class CreateForeignEmployee extends CreateRecord
 
         $data['user_id'] = $user->id;
 
+        $metadata = $data['metadata'] ?? [];
+        if (is_string($metadata)) {
+            $metadata = json_decode($metadata, true) ?? [];
+        }
+
         if (array_key_exists('name_en', $data)) {
-            $metadata = $data['metadata'] ?? [];
-            if (is_string($metadata)) {
-                $metadata = json_decode($metadata, true) ?? [];
-            }
             if (! empty($data['name_en'])) {
                 $metadata['name_en'] = trim($data['name_en']);
             } else {
                 unset($metadata['name_en']);
             }
-            $data['metadata'] = $metadata;
             unset($data['name_en']);
         }
+
+        if (array_key_exists('job_title', $data)) {
+            if (filled($data['job_title'])) {
+                $metadata['job_title'] = trim((string) $data['job_title']);
+            } else {
+                unset($metadata['job_title']);
+            }
+            unset($data['job_title']);
+        }
+
+        $data['metadata'] = $metadata;
 
         return $data;
     }
@@ -95,6 +106,7 @@ class CreateForeignEmployee extends CreateRecord
             'marital_status' => $data['marital_status'] ?? null,
             'birth_date' => $data['birth_date'] ?? null,
             'metadata' => ! empty($data['birth_date']) ? ['age' => EmployeeAgeService::calculateAge($data['birth_date'])] : null,
+            'profession' => $data['profession'] ?? null,
             'city' => $data['city'] ?? null,
             'address' => $data['address'] ?? null,
             'iqama_file' => is_array($data['iqama_file'] ?? null)
