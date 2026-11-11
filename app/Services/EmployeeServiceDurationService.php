@@ -36,6 +36,20 @@ class EmployeeServiceDurationService
     }
 
     /**
+     * Calculate formatted contract duration between hire date and contract end date.
+     */
+    public static function calculateContractDuration(mixed $hireDate, mixed $contractEndDate): ?string
+    {
+        if (empty($hireDate) || empty($contractEndDate)) {
+            return null;
+        }
+
+        $days = static::calculateDaysServed($hireDate, $contractEndDate);
+
+        return $days !== null ? static::formatDaysServed($days) : null;
+    }
+
+    /**
      * Format days count into human-readable Arabic string (years, months, days).
      */
     public static function formatDaysServed(int $days): string
@@ -129,7 +143,7 @@ class EmployeeServiceDurationService
     /**
      * Synchronize duration fields reactively in Filament form.
      */
-    public static function syncDurationFields(callable $get, callable $set): void
+    public static function syncDurationFields(callable $get, callable $set, bool $syncContractDuration = false): void
     {
         $hire = $get('hire_date');
         $term = $get('termination_date');
@@ -137,32 +151,54 @@ class EmployeeServiceDurationService
         $days = static::calculateDaysServed($hire, $term ?? $contractEnd);
         $set('days_served', $days !== null ? static::formatDaysServed($days) : null);
         $set('time_since_termination', static::calculateTimeSinceTermination($term));
+
+        if ($syncContractDuration) {
+            $set('contract_duration', static::calculateContractDuration($hire, $contractEnd));
+        }
+    }
+
+    /**
+     * Create the auto-calculated contract duration form field.
+     */
+    public static function makeContractDurationField(): TextInput
+    {
+        return TextInput::make('contract_duration')
+            ->label(__('employees.fields.contract_duration'))
+            ->readOnly()
+            ->dehydrated(true)
+            ->placeholder(__('employees.placeholders.auto_calculated'))
+            ->formatStateUsing(function ($state, callable $get, $record) {
+                $hire = $get('hire_date') ?? $record?->hire_date;
+                $contractEnd = $get('contract_end_date') ?? $record?->contract_end_date;
+
+                return static::calculateContractDuration($hire, $contractEnd) ?? $state;
+            });
     }
 
     /**
      * Create the duration and termination form fields.
      */
-    public static function makeFormFields(): array
+    public static function makeFormFields(bool $autoContractDuration = false): array
     {
         return [
             DatePicker::make('hire_date')
                 ->label(__('employees.fields.hire_date'))
                 ->native(false)
                 ->live()
-                ->afterStateUpdated(fn ($state, callable $get, callable $set) => static::syncDurationFields($get, $set)),
+                ->afterStateUpdated(fn ($state, callable $get, callable $set) => static::syncDurationFields($get, $set, $autoContractDuration)),
 
             DatePicker::make('contract_end_date')
                 ->label(__('employees.fields.contract_end_date'))
                 ->native(false)
                 ->live()
-                ->afterStateUpdated(fn ($state, callable $get, callable $set) => static::syncDurationFields($get, $set)),
+                ->afterStateUpdated(fn ($state, callable $get, callable $set) => static::syncDurationFields($get, $set, $autoContractDuration)),
 
             DatePicker::make('termination_date')
                 ->label(__('employees.fields.termination_date'))
                 ->helperText('حدد تاريخ الاستقالة أو انتهاء الخدمة لحساب المدة تلقائياً')
                 ->native(false)
                 ->live()
-                ->afterStateUpdated(fn ($state, callable $get, callable $set) => static::syncDurationFields($get, $set)),
+                ->afterStateUpdated(fn ($state, callable $get, callable $set) => static::syncDurationFields($get, $set, $autoContractDuration)),
 
             TextInput::make('days_served')
                 ->label(__('employees.fields.days_served'))
