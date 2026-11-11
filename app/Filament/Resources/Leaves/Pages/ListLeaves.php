@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources\Leaves\Pages;
 
+use App\Enums\UserType;
 use App\Filament\Resources\Leaves\LeaveResource;
 use App\Models\Leave;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -16,6 +18,12 @@ class ListLeaves extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('summaryView')
+                ->label(__('leaves.summary.summary_view'))
+                ->icon('heroicon-o-users')
+                ->color('gray')
+                ->url(fn (): string => LeaveResource::getUrl('index')),
+
             CreateAction::make()->label(__('admin.add_new')),
         ];
     }
@@ -24,7 +32,7 @@ class ListLeaves extends ListRecords
     {
         $user = auth()->user();
         $pendingQuery = Leave::where('status', 'pending');
-        if ($user && !$user->hasRole('Super Admin') && $user->user_type !== \App\Enums\UserType::SUPER_ADMIN && $user->user_type !== \App\Enums\UserType::OWNER && $user->branch_id) {
+        if ($user && ! $user->hasRole('Super Admin') && $user->user_type !== UserType::SUPER_ADMIN && $user->user_type !== UserType::OWNER && $user->branch_id) {
             $pendingQuery->whereHas('employee', fn ($q) => $q->where('branch_id', $user->branch_id));
         }
 

@@ -21,6 +21,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/exports/treasury-statement', [\App\Http\Controllers\ExportPdfController::class, 'exportTreasuryStatement'])->name('exports.treasury-statement');
     Route::get('/exports/treasury-voucher/{transaction}', [\App\Http\Controllers\ExportPdfController::class, 'printTreasuryVoucher'])->name('exports.treasury-voucher');
     Route::get('/treasury/{transaction}/print', [\App\Http\Controllers\TreasuryVoucherController::class, 'print'])->name('treasury.voucher.print');
+    Route::get('/leaves/summary/print', [\App\Http\Controllers\LeavePrintController::class, 'summary'])->name('leaves.summary.print');
+    Route::get('/leaves/{employee}/statement/print', [\App\Http\Controllers\LeavePrintController::class, 'statement'])->name('leaves.statement.print');
     Route::get('/leaves/{leave}/print', [\App\Http\Controllers\LeavePrintController::class, 'print'])->name('leaves.print');
     Route::get('/leaves-report/print', [\App\Http\Controllers\LeavePrintController::class, 'printReport'])->name('leaves.report.print');
     Route::get('/contract-vouchers/{voucher}/print', [\App\Http\Controllers\ContractVoucherPrintController::class, 'print'])->name('contract_vouchers.print');
