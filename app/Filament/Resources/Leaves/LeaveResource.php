@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Leaves;
 
 use App\Filament\Resources\Leaves\Pages\CreateLeave;
 use App\Filament\Resources\Leaves\Pages\EditLeave;
+use App\Filament\Resources\Leaves\Pages\LeavesSummary;
 use App\Filament\Resources\Leaves\Pages\ListLeaves;
 use App\Filament\Resources\Leaves\Schemas\LeaveForm;
 use App\Filament\Resources\Leaves\Tables\LeavesTable;
@@ -49,7 +50,7 @@ class LeaveResource extends Resource
         $user = auth()->user();
         $query = Leave::where('status', 'pending');
 
-        if ($user && !$user->isSuperAdmin()) {
+        if ($user && ! $user->isSuperAdmin()) {
             if ($user->isOwner()) {
                 $query->whereHas('employee', fn ($q) => $q->whereIn('company_id', $user->getOwnedCompanyIds()));
             } elseif ($user->branch_id) {
@@ -58,6 +59,7 @@ class LeaveResource extends Resource
         }
 
         $pending = $query->count();
+
         return $pending > 0 ? (string) $pending : null;
     }
 
@@ -86,7 +88,8 @@ class LeaveResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListLeaves::route('/'),
+            'index' => LeavesSummary::route('/'),
+            'detailed' => ListLeaves::route('/detailed'),
             'create' => CreateLeave::route('/create'),
             'edit' => EditLeave::route('/{record}/edit'),
         ];
