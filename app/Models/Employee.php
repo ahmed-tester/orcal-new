@@ -100,30 +100,32 @@ class Employee extends Model
         static::saving(function (Employee $employee) {
             $employee->basic_salary = (float) ($employee->basic_salary ?? 0);
 
-            // Persist duration metrics in metadata JSON column
-            $meta = $employee->metadata ?? [];
-            if (is_string($meta)) {
-                $meta = json_decode($meta, true) ?? [];
-            }
-
-            if ($employee->hire_date) {
-                $days = EmployeeServiceDurationService::calculateDaysServed(
+            $employee->contract_duration = $employee->contract_duration
+                ?: EmployeeServiceDurationService::calculateContractDuration(
                     $employee->hire_date,
-                    $employee->termination_date ?? $employee->contract_end_date
+                    $employee->contract_end_date
                 );
-                $meta['days_served'] = $days;
-                $meta['days_served_formatted'] = $days !== null ? EmployeeServiceDurationService::formatDaysServed($days) : null;
-            } else {
-                unset($meta['days_served'], $meta['days_served_formatted']);
-            }
 
-            if ($employee->termination_date) {
-                $meta['time_since_termination'] = EmployeeServiceDurationService::calculateTimeSinceTermination($employee->termination_date);
-            } else {
-                unset($meta['time_since_termination']);
-            }
+            // Persist duration metrics in metadata JSON column without touching unrelated keys
+            $meta = is_array($employee->metadata)
+                ? $employee->metadata
+                : (is_string($employee->metadata) ? (json_decode($employee->metadata, true) ?? []) : []);
 
-            $employee->metadata = $meta;
+            $days = EmployeeServiceDurationService::calculateDaysServed(
+                $employee->hire_date,
+                $employee->termination_date ?? $employee->contract_end_date
+            );
+
+            $computed = [
+                'days_served' => $days,
+                'days_served_formatted' => $days !== null ? EmployeeServiceDurationService::formatDaysServed($days) : null,
+                'time_since_termination' => EmployeeServiceDurationService::calculateTimeSinceTermination($employee->termination_date),
+            ];
+
+            $employee->metadata = array_merge(
+                array_diff_key($meta, $computed),
+                array_filter($computed, fn ($value) => $value !== null)
+            );
         });
     }
 

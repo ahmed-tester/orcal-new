@@ -35,7 +35,7 @@ class JobTitleForm
                                 $component->state($record?->isGlobal() ? JobTitleScope::GLOBAL->value : JobTitleScope::COMPANY->value);
                             })
                             ->afterStateUpdated(function ($state, callable $set) {
-                                $isGlobal = ($state === JobTitleScope::GLOBAL->value);
+                                $isGlobal = JobTitleScope::isGlobalValue($state);
                                 $set('is_global', $isGlobal);
                                 if ($isGlobal) {
                                     $set('company_id', null);
@@ -49,11 +49,11 @@ class JobTitleForm
                             ->dehydrated(true),
 
                         CompanyFormService::makeCompanySelect('company_id', __('organization.job_titles.fields.company'))
-                            ->visible(fn (callable $get) => $get('title_scope') !== JobTitleScope::GLOBAL->value)
-                            ->required(fn (callable $get) => $get('title_scope') !== JobTitleScope::GLOBAL->value),
+                            ->visible(fn (callable $get) => ! JobTitleScope::isGlobalValue($get('title_scope')))
+                            ->required(fn (callable $get) => ! JobTitleScope::isGlobalValue($get('title_scope'))),
 
                         CompanyFormService::makeDepartmentSelect('department_id', __('organization.job_titles.fields.department'))
-                            ->visible(fn (callable $get) => $get('title_scope') !== JobTitleScope::GLOBAL->value)
+                            ->visible(fn (callable $get) => ! JobTitleScope::isGlobalValue($get('title_scope')))
                             ->nullable(),
 
                         TextInput::make('name')
