@@ -3,16 +3,31 @@
 namespace App\Filament\Pages;
 
 use App\Models\Company;
+use App\Models\Debt;
 use App\Models\Employee;
+use App\Models\Invoice;
+use App\Models\Leave;
+use App\Models\ServiceTransaction;
+use App\Models\Task;
+use App\Models\TaskAssignment;
+use App\Models\TaskAssignmentItem;
 use App\Models\User;
+use App\Models\Violation;
+use App\Notifications\BaseSystemNotification;
 use App\Services\CompanyFormService;
 use App\Services\FilterBarService;
 use App\Services\Notifications\NotificationAlertsService;
+use App\Services\Notifications\NotificationDispatcher;
+use App\Services\Notifications\NotificationRecipientService;
 use Carbon\Carbon;
+use Filament\Notifications\Notification as FilamentNotification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Livewire\WithPagination;
 
 class NotificationsReport extends Page
@@ -28,6 +43,7 @@ class NotificationsReport extends Page
     public static function canAccess(): bool
     {
         $user = auth()->user();
+
         return $user && ($user->isSuperAdminOrOwner() || $user->can('view_notifications_report'));
     }
 
@@ -53,38 +69,46 @@ class NotificationsReport extends Page
 
     // Standard FilterBar State
     public ?string $search = '';
+
     public mixed $companyId = [];
+
     public ?string $dateFrom = null;
+
     public ?string $dateTo = null;
+
     public mixed $status = []; // all, overdue, urgent, warning, safe
+
     public int|string $perPage = 20;
 
     // Report-Specific Filter States
     public mixed $targetType = null;   // null/all, employees, companies
+
     public mixed $documentType = [];    // array of types e.g. ['iqama', 'insurance'], or string/null
+
     public string $category = 'all';     // all, documents, violations, tasks, invoices
+
     public string $viewMode = 'matrix';  // matrix, list
 
     protected $queryString = [
-        'search'       => ['except' => ''],
-        'companyId'    => ['except' => []],
-        'dateFrom'     => ['except' => null],
-        'dateTo'       => ['except' => null],
-        'status'       => ['except' => []],
-        'targetType'   => ['except' => null],
+        'search' => ['except' => ''],
+        'companyId' => ['except' => []],
+        'dateFrom' => ['except' => null],
+        'dateTo' => ['except' => null],
+        'status' => ['except' => []],
+        'targetType' => ['except' => null],
         'documentType' => ['except' => []],
-        'category'     => ['except' => 'all'],
-        'viewMode'     => ['except' => 'matrix'],
+        'category' => ['except' => 'all'],
+        'viewMode' => ['except' => 'matrix'],
     ];
 
     public function mount(): void
     {
         $this->documentType = is_array($this->documentType) ? $this->documentType : ($this->documentType && $this->documentType !== 'all' ? [$this->documentType] : []);
-        $this->status       = is_array($this->status) ? $this->status : ($this->status && $this->status !== 'all' ? [$this->status] : []);
-        $this->companyId    = is_array($this->companyId) ? $this->companyId : ($this->companyId ? [$this->companyId] : []);
-        $this->targetType   = (filled($this->targetType) && $this->targetType !== 'all') ? (string) $this->targetType : null;
-        $this->category     = $this->category ?: 'all';
-        $this->viewMode     = $this->viewMode ?: 'matrix';
+        $this->status = is_array($this->status) ? $this->status : ($this->status && $this->status !== 'all' ? [$this->status] : []);
+        $this->companyId = is_array($this->companyId) ? $this->companyId : ($this->companyId ? [$this->companyId] : []);
+        $this->targetType = (filled($this->targetType) && $this->targetType !== 'all') ? (string) $this->targetType : null;
+        $this->category = $this->category ?: 'all';
+        $this->viewMode = $this->viewMode ?: 'matrix';
     }
 
     public function __get($property): mixed
@@ -108,16 +132,19 @@ class NotificationsReport extends Page
     {
         if ($property === 'documentType') {
             $this->documentType = is_array($value) ? $value : (empty($value) || $value === 'all' ? [] : [$value]);
+
             return;
         }
 
         if ($property === 'targetType') {
             $this->targetType = (filled($value) && $value !== 'all') ? (string) $value : null;
+
             return;
         }
 
         if ($property === 'status') {
             $this->status = is_array($value) ? $value : (empty($value) || $value === 'all' ? [] : [$value]);
+
             return;
         }
 
@@ -236,20 +263,16 @@ class NotificationsReport extends Page
     {
         $counts = $this->summaryCounts['types'] ?? [];
 
-        $allOptions = [
-            'iqama'         => '🪪 الإقامة (' . ($counts['iqama'] ?? 0) . ')',
-            'work_permit'   => '💼 رخصة العمل (' . ($counts['work_permit'] ?? 0) . ')',
-            'insurance'     => '🏥 التأمين الطبي (' . ($counts['insurance'] ?? 0) . ')',
-            'contract'      => '📝 عقد العمل (' . ($counts['contract'] ?? 0) . ')',
-            'passport'      => '🛂 جواز السفر (' . ($counts['passport'] ?? 0) . ')',
-            'cr'            => '📜 السجل التجاري (' . ($counts['cr'] ?? 0) . ')',
-            'municipality'  => '🏛️ رخصة البلدية (' . ($counts['municipality'] ?? 0) . ')',
-            'civil_defense' => '🚒 الدفاع المدني (' . ($counts['civil_defense'] ?? 0) . ')',
-            'leave_overdue' => '🏖️ إجازات متأخرة',
-            'violations'    => '⚖️ مخالفات وغرامات (' . ($this->summaryCounts['violations'] ?? 0) . ')',
-            'tasks'         => '📋 مهام عمل (' . ($this->summaryCounts['tasks'] ?? 0) . ')',
-            'invoices'      => '💰 فواتير واستحقاقات (' . ($this->summaryCounts['invoices'] ?? 0) . ')',
-        ];
+        $allOptions = [];
+        foreach (['iqama' => '🪪', 'work_permit' => '💼', 'insurance' => '🏥', 'contract' => '📝', 'passport' => '🛂', 'cr' => '📜', 'municipality' => '🏛️', 'civil_defense' => '🚒'] as $type => $icon) {
+            $document = $type === 'insurance' ? 'health_insurance' : $type;
+            $allOptions[$type] = $icon.' '.__('notifications.documents.'.$document).' ('.($counts[$type] ?? 0).')';
+        }
+        $allOptions['leave_overdue'] = __('notifications.ui.overdue_leaves');
+        foreach (['violations', 'tasks', 'invoices'] as $type) {
+            $key = $type === 'violations' ? 'violations_option' : $type;
+            $allOptions[$type] = __('notifications.ui.'.$key).' ('.($this->summaryCounts[$type] ?? 0).')';
+        }
 
         if ($this->targetType === 'employees') {
             unset($allOptions['cr'], $allOptions['municipality'], $allOptions['civil_defense']);
@@ -267,9 +290,109 @@ class NotificationsReport extends Page
         return $allOptions;
     }
 
+    /**
+     * Human readable list of the currently applied filters, used by the print header.
+     */
+    public function getPrintFilterTagsProperty(): array
+    {
+        $tags = [];
+
+        if (filled($this->search)) {
+            $tags[] = ['label' => __('reports.filters.search'), 'value' => $this->search];
+        }
+
+        $companyIds = FilterBarService::values($this->companyId);
+        if ($companyIds !== []) {
+            $names = $this->companies
+                ->whereIn('id', $companyIds)
+                ->pluck('trade_name')
+                ->filter()
+                ->implode(', ');
+
+            if ($names !== '') {
+                $tags[] = ['label' => __('reports.filters.company'), 'value' => $names];
+            }
+        }
+
+        if (filled($this->dateFrom) || filled($this->dateTo)) {
+            $tags[] = [
+                'label' => __('reports.period'),
+                'value' => ($this->dateFrom ?: '—').' '.__('reports.to').' '.($this->dateTo ?: '—'),
+            ];
+        }
+
+        if ($this->targetType) {
+            $tags[] = [
+                'label' => __('notifications.ui.scope'),
+                'value' => $this->targetType === 'employees'
+                    ? __('notifications.ui.employees')
+                    : __('notifications.ui.companies'),
+            ];
+        }
+
+        $documentTypes = FilterBarService::values($this->documentType, ['all']);
+        if ($documentTypes !== []) {
+            $documentLabels = $this->printDocumentLabels();
+            $tags[] = [
+                'label' => __('notifications.ui.reason'),
+                'value' => collect($documentTypes)->map(fn ($type) => $documentLabels[$type] ?? $type)->implode(', '),
+            ];
+        }
+
+        $statuses = FilterBarService::values($this->status, ['all']);
+        if ($statuses !== []) {
+            $statusLabels = [
+                'overdue' => __('notifications.ui.expired'),
+                'urgent' => __('notifications.ui.urgent_option'),
+                'warning' => __('notifications.ui.expiring'),
+                'safe' => __('notifications.ui.safe'),
+            ];
+            $tags[] = [
+                'label' => __('notifications.ui.urgency'),
+                'value' => collect($statuses)->map(fn ($status) => $statusLabels[$status] ?? $status)->implode(', '),
+            ];
+        }
+
+        if ($this->category !== 'all') {
+            $categoryLabels = [
+                'documents' => __('notifications.ui.documents_contracts'),
+                'violations' => __('notifications.ui.violations_option'),
+                'tasks' => __('notifications.ui.tasks'),
+                'invoices' => __('notifications.ui.invoices'),
+            ];
+            $tags[] = [
+                'label' => __('notifications.ui.category'),
+                'value' => $categoryLabels[$this->category] ?? $this->category,
+            ];
+        }
+
+        return $tags;
+    }
+
+    /**
+     * Plain document type labels (without counters) for print summaries.
+     */
+    protected function printDocumentLabels(): array
+    {
+        return [
+            'iqama' => __('notifications.documents.iqama'),
+            'work_permit' => __('notifications.documents.work_permit'),
+            'insurance' => __('notifications.documents.health_insurance'),
+            'contract' => __('notifications.documents.contract'),
+            'passport' => __('notifications.documents.passport'),
+            'cr' => __('notifications.documents.cr'),
+            'municipality' => __('notifications.documents.municipality'),
+            'civil_defense' => __('notifications.documents.civil_defense'),
+            'leave_overdue' => __('notifications.ui.overdue_leaves'),
+            'violations' => __('notifications.ui.violations_option'),
+            'tasks' => __('notifications.ui.tasks'),
+            'invoices' => __('notifications.ui.invoices'),
+        ];
+    }
+
     public function formatDocCell(?string $dateString): ?array
     {
-        if (!$dateString) {
+        if (! $dateString) {
             return null;
         }
 
@@ -312,18 +435,28 @@ class NotificationsReport extends Page
 
         // Selected document types (supports multi-select array or single)
         $selectedDocTypes = FilterBarService::values($this->documentType, ['all']);
-        $employeeTypes    = ['iqama', 'work_permit', 'insurance', 'contract', 'passport', 'leave_overdue'];
-        $companyTypes     = ['cr', 'municipality', 'civil_defense'];
+        $employeeTypes = ['iqama', 'work_permit', 'insurance', 'contract', 'passport', 'leave_overdue'];
+        $companyTypes = ['cr', 'municipality', 'civil_defense'];
 
         // Determine if selected document types include employee or company types
         $hasEmployeeTypes = empty($selectedDocTypes) || count(array_intersect($selectedDocTypes, $employeeTypes)) > 0;
-        $hasCompanyTypes  = empty($selectedDocTypes) || count(array_intersect($selectedDocTypes, $companyTypes)) > 0;
+        $hasCompanyTypes = empty($selectedDocTypes) || count(array_intersect($selectedDocTypes, $companyTypes)) > 0;
 
         $showEmployees = (empty($this->targetType) || $this->targetType === 'all' || $this->targetType === 'employees') && $hasEmployeeTypes;
         $showCompanies = (empty($this->targetType) || $this->targetType === 'all' || $this->targetType === 'companies') && $hasCompanyTypes;
 
-        $companyIds       = FilterBarService::values($this->companyId);
+        $companyIds = FilterBarService::values($this->companyId);
         $selectedStatuses = FilterBarService::values($this->status, ['all']);
+
+        $user = auth()->user();
+        $authorizedCompanyIds = ($user && ! $user->isSuperAdmin())
+            ? array_map('intval', CompanyFormService::getAuthorizedCompanyIds($user))
+            : null;
+
+        // If user is restricted to specific companies, restrict the query
+        $effectiveCompanyIds = $companyIds !== []
+            ? ($authorizedCompanyIds !== null ? array_values(array_intersect($companyIds, $authorizedCompanyIds)) : $companyIds)
+            : ($authorizedCompanyIds ?? []);
 
         try {
             // 1. Employees query
@@ -331,12 +464,16 @@ class NotificationsReport extends Page
                 $employeesQuery = Employee::with(['user', 'company', 'detail'])
                     ->where('status', 'active');
 
+                if ($authorizedCompanyIds !== null) {
+                    $employeesQuery->whereIn('company_id', ! empty($effectiveCompanyIds) ? $effectiveCompanyIds : [0]);
+                }
+
                 // Apply centralized FilterBarService filters
                 FilterBarService::applyFilters($employeesQuery, [
-                    'search'     => $this->search,
+                    'search' => $this->search,
                     'company_id' => $companyIds,
                 ], [
-                    'company'        => ! empty($companyIds),
+                    'company' => ! empty($companyIds),
                     'search_columns' => [
                         'user.name',
                         'user.email',
@@ -352,10 +489,10 @@ class NotificationsReport extends Page
                 foreach ($employees as $emp) {
                     $detail = $emp->detail;
 
-                    $iqamaCell      = ($matchAllDocs || in_array('iqama', $selectedDocTypes))       ? $this->formatDocCell($detail?->iqama_expiry)       : null;
+                    $iqamaCell = ($matchAllDocs || in_array('iqama', $selectedDocTypes)) ? $this->formatDocCell($detail?->iqama_expiry) : null;
                     $workPermitCell = ($matchAllDocs || in_array('work_permit', $selectedDocTypes)) ? $this->formatDocCell($detail?->work_permit_expiry) : null;
-                    $insuranceCell  = ($matchAllDocs || in_array('insurance', $selectedDocTypes))   ? $this->formatDocCell($detail?->insurance_expiry)   : null;
-                    $contractCell   = ($matchAllDocs || in_array('contract', $selectedDocTypes))    ? $this->formatDocCell($emp->contract_end_date)      : null;
+                    $insuranceCell = ($matchAllDocs || in_array('insurance', $selectedDocTypes)) ? $this->formatDocCell($detail?->insurance_expiry) : null;
+                    $contractCell = ($matchAllDocs || in_array('contract', $selectedDocTypes)) ? $this->formatDocCell($emp->contract_end_date) : null;
 
                     if (! $matchAllDocs) {
                         if (! $iqamaCell && ! $workPermitCell && ! $insuranceCell && ! $contractCell) {
@@ -389,10 +526,10 @@ class NotificationsReport extends Page
                     }
 
                     $minDays = min(array_filter([
-                        $iqamaCell['days']      ?? 9999,
+                        $iqamaCell['days'] ?? 9999,
                         $workPermitCell['days'] ?? 9999,
-                        $insuranceCell['days']  ?? 9999,
-                        $contractCell['days']   ?? 9999,
+                        $insuranceCell['days'] ?? 9999,
+                        $contractCell['days'] ?? 9999,
                     ]) ?: [9999]);
 
                     // Apply Status / Urgency filter (multi-select supported)
@@ -401,10 +538,10 @@ class NotificationsReport extends Page
                         foreach ($selectedStatuses as $st) {
                             $matches = match ($st) {
                                 'overdue' => $minDays < 0,
-                                'urgent'  => $minDays >= 0 && $minDays <= 15,
+                                'urgent' => $minDays >= 0 && $minDays <= 15,
                                 'warning' => $minDays > 15 && $minDays <= 90,
-                                'safe'    => $minDays > 90,
-                                default   => true,
+                                'safe' => $minDays > 90,
+                                default => true,
                             };
                             if ($matches) {
                                 $matchesStatus = true;
@@ -418,20 +555,20 @@ class NotificationsReport extends Page
 
                     $iqamaNum = $detail?->iqama_number ?? $detail?->national_id ?? '—';
                     $maskedIqama = strlen($iqamaNum) >= 6
-                        ? (substr($iqamaNum, 0, 2) . '******' . substr($iqamaNum, -4))
+                        ? (substr($iqamaNum, 0, 2).'******'.substr($iqamaNum, -4))
                         : $iqamaNum;
 
                     $matrix->push([
-                        'is_company'       => false,
-                        'name'             => $emp->user?->name ?? __('notifications.alerts.employee_fallback', ['id' => $emp->id]),
-                        'company_name'     => $emp->company?->trade_name,
-                        'iqama_number'     => $maskedIqama,
+                        'is_company' => false,
+                        'name' => $emp->user?->name ?? __('notifications.alerts.employee_fallback', ['id' => $emp->id]),
+                        'company_name' => $emp->company?->trade_name,
+                        'iqama_number' => $maskedIqama,
                         'raw_iqama_number' => $iqamaNum,
-                        'iqama'            => $iqamaCell,
-                        'work_permit'      => $workPermitCell,
-                        'insurance'        => $insuranceCell,
-                        'contract'         => $contractCell,
-                        'min_days'         => $minDays,
+                        'iqama' => $iqamaCell,
+                        'work_permit' => $workPermitCell,
+                        'insurance' => $insuranceCell,
+                        'contract' => $contractCell,
+                        'min_days' => $minDays,
                     ]);
                 }
             }
@@ -440,12 +577,16 @@ class NotificationsReport extends Page
             if ($showCompanies) {
                 $compQuery = Company::where('status', 'active');
 
+                if ($authorizedCompanyIds !== null) {
+                    $compQuery->whereIn('id', ! empty($effectiveCompanyIds) ? $effectiveCompanyIds : [0]);
+                }
+
                 // Apply centralized FilterBarService filters
                 FilterBarService::applyFilters($compQuery, [
-                    'search'     => $this->search,
+                    'search' => $this->search,
                     'company_id' => $companyIds,
                 ], [
-                    'company'        => ! empty($companyIds),
+                    'company' => ! empty($companyIds),
                     'company_column' => 'id',
                     'search_columns' => [
                         'trade_name',
@@ -458,9 +599,9 @@ class NotificationsReport extends Page
                 $matchAllDocs = empty($selectedDocTypes);
 
                 foreach ($comps as $c) {
-                    $crCell  = ($matchAllDocs || in_array('cr', $selectedDocTypes))           ? $this->formatDocCell($c->commercial_registration_expiry) : null;
-                    $munCell = ($matchAllDocs || in_array('municipality', $selectedDocTypes))  ? $this->formatDocCell($c->municipality_license_expiry)    : null;
-                    $cdCell  = ($matchAllDocs || in_array('civil_defense', $selectedDocTypes)) ? $this->formatDocCell($c->civil_defense_license_expiry)   : null;
+                    $crCell = ($matchAllDocs || in_array('cr', $selectedDocTypes)) ? $this->formatDocCell($c->commercial_registration_expiry) : null;
+                    $munCell = ($matchAllDocs || in_array('municipality', $selectedDocTypes)) ? $this->formatDocCell($c->municipality_license_expiry) : null;
+                    $cdCell = ($matchAllDocs || in_array('civil_defense', $selectedDocTypes)) ? $this->formatDocCell($c->civil_defense_license_expiry) : null;
 
                     if (! $matchAllDocs) {
                         if (! $crCell && ! $munCell && ! $cdCell) {
@@ -493,9 +634,9 @@ class NotificationsReport extends Page
                     }
 
                     $minDays = min(array_filter([
-                        $crCell['days']  ?? 9999,
+                        $crCell['days'] ?? 9999,
                         $munCell['days'] ?? 9999,
-                        $cdCell['days']  ?? 9999,
+                        $cdCell['days'] ?? 9999,
                     ]) ?: [9999]);
 
                     // Apply Status / Urgency filter (multi-select supported)
@@ -504,10 +645,10 @@ class NotificationsReport extends Page
                         foreach ($selectedStatuses as $st) {
                             $matches = match ($st) {
                                 'overdue' => $minDays < 0,
-                                'urgent'  => $minDays >= 0 && $minDays <= 15,
+                                'urgent' => $minDays >= 0 && $minDays <= 15,
                                 'warning' => $minDays > 15 && $minDays <= 90,
-                                'safe'    => $minDays > 90,
-                                default   => true,
+                                'safe' => $minDays > 90,
+                                default => true,
                             };
                             if ($matches) {
                                 $matchesStatus = true;
@@ -520,19 +661,21 @@ class NotificationsReport extends Page
                     }
 
                     $matrix->push([
-                        'is_company'   => true,
-                        'name'         => $c->trade_name . ' (' . __('notifications.documents.company_documents') . ')',
+                        'is_company' => true,
+                        'name' => $c->trade_name.' ('.__('notifications.documents.company_documents').')',
                         'company_name' => $c->trade_name,
                         'iqama_number' => '—',
-                        'cr'           => $crCell,
+                        'cr' => $crCell,
                         'municipality' => $munCell,
-                        'civil_defense'=> $cdCell,
-                        'min_days'     => $minDays,
+                        'civil_defense' => $cdCell,
+                        'min_days' => $minDays,
                     ]);
                 }
             }
         } catch (\Throwable $e) {
-            // graceful
+            Log::error('[NotificationsReport] Error building documents matrix: '.$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
         }
 
         return $matrix->sortBy('min_days')->values();
@@ -564,7 +707,7 @@ class NotificationsReport extends Page
         $perPage = $this->perPage === 'all' ? ($total ?: 20) : (int) $this->perPage;
         $page = $this->getPage();
 
-        return new \Illuminate\Pagination\LengthAwarePaginator(
+        return new LengthAwarePaginator(
             $this->perPage === 'all' ? $matrix : $matrix->forPage($page, $perPage),
             $total,
             $perPage,
@@ -580,12 +723,120 @@ class NotificationsReport extends Page
         $perPage = $this->perPage === 'all' ? ($total ?: 20) : (int) $this->perPage;
         $page = $this->getPage();
 
-        return new \Illuminate\Pagination\LengthAwarePaginator(
+        return new LengthAwarePaginator(
             $this->perPage === 'all' ? $alerts : $alerts->forPage($page, $perPage),
             $total,
             $perPage,
             $page,
             ['path' => request()->url(), 'query' => request()->query()]
+        );
+    }
+
+    /**
+     * Dispatch a manual in-app reminder for a specific alert item after verifying server-side update permissions.
+     */
+    public function sendManualReminder(string $type, int|string $recordId, ?string $documentType = null): void
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return;
+        }
+
+        // 1. Resolve target entity record
+        $record = match ($type) {
+            'employee', 'iqama', 'passport', 'work_permit', 'insurance', 'contract' => Employee::with(['user', 'company', 'detail'])->find($recordId),
+            'company', 'cr', 'municipality', 'civil_defense' => Company::find($recordId),
+            'leave', 'leave_overdue' => Leave::with(['employee.user', 'employee.company'])->find($recordId),
+            'debt', 'debt_due' => Debt::with(['company'])->find($recordId),
+            'violation', 'legal_deadline', 'admin_execution', 'suspended', 'stage_deadline' => Violation::with(['company'])->find($recordId),
+            'task' => Task::find($recordId),
+            'task_assignment_item' => TaskAssignmentItem::find($recordId)?->taskAssignment,
+            'invoice' => Invoice::with(['company'])->find($recordId),
+            'service', 'service_due' => ServiceTransaction::with(['company'])->find($recordId),
+            default => null,
+        };
+
+        if (! $record) {
+            FilamentNotification::make()
+                ->title(__('notifications.delivery.missing_record'))
+                ->body(__('notifications.delivery.missing_record_body'))
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        // 2. Server-side authorization check: current user MUST have update rights on this record
+        $defaultPerms = NotificationRecipientService::resolveDefaultUpdatePermissions($record);
+        $companyId = NotificationRecipientService::resolveCompanyId($record);
+        $branchId = NotificationRecipientService::resolveBranchId($record);
+
+        if (! NotificationRecipientService::isUserEligibleToReceive($user, $record, $defaultPerms, $companyId, $branchId)) {
+            FilamentNotification::make()
+                ->title(__('notifications.delivery.forbidden'))
+                ->body(__('notifications.delivery.forbidden_body'))
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        // 4. Dispatch the contextual notification through Laravel Queue
+        try {
+            $notification = $this->buildNotificationForRecord($record, $type, $documentType);
+            $count = NotificationDispatcher::send($record, $notification);
+
+            if ($count === 0) {
+                FilamentNotification::make()->title(__('notifications.delivery.no_recipients'))->warning()->send();
+
+                return;
+            }
+
+            FilamentNotification::make()
+                ->title(__('notifications.delivery.queued'))
+                ->body(__('notifications.delivery.queued_body', ['count' => $count]))
+                ->success()
+                ->send();
+        } catch (\Throwable $e) {
+            Log::error('[NotificationsReport] Error dispatching manual reminder: '.$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            FilamentNotification::make()
+                ->title(__('notifications.delivery.failed'))
+                ->body(__('notifications.delivery.failed_body'))
+                ->danger()
+                ->send();
+        }
+    }
+
+    /**
+     * Build contextual BaseSystemNotification for the target entity record.
+     */
+    protected function buildNotificationForRecord(Model $record, string $type, ?string $docType = null): BaseSystemNotification
+    {
+        [$kind, $event, $name, $icon, $color] = match (true) {
+            $record instanceof Employee => ['employee', 'IqamaExpiryAlert', $record->user?->name ?? '#'.$record->id, 'heroicon-o-identification', 'warning'],
+            $record instanceof Company => ['company', 'CompanyLicenseExpiryAlert', $record->trade_name, 'heroicon-o-building-office', 'warning'],
+            $record instanceof Leave => ['leave', 'LeaveOverdueAlert', $record->employee?->user?->name ?? '#'.$record->employee_id, 'heroicon-o-clock', 'danger'],
+            $record instanceof Debt => ['debt', 'DebtDueAlert', $record->debt_number ?? '#'.$record->id, 'heroicon-o-currency-dollar', 'warning'],
+            $record instanceof Violation => ['violation', 'ViolationDeadlineAlert', $record->violation_number ?? '#'.$record->id, 'heroicon-o-scale', 'danger'],
+            $record instanceof TaskAssignment => ['task', 'TaskDueAlert', $record->transaction_number ?? '#'.$record->id, 'heroicon-o-clipboard-document-check', 'info'],
+            $record instanceof Task => ['task', 'TaskDueAlert', $record->title ?? '#'.$record->id, 'heroicon-o-clipboard-document-check', 'info'],
+            $record instanceof Invoice => ['invoice', 'InvoiceDueAlert', $record->invoice_number ?? '#'.$record->id, 'heroicon-o-document-text', 'info'],
+            $record instanceof ServiceTransaction => ['service', 'ServiceDueAlert', $record->transaction_number ?? '#'.$record->id, 'heroicon-o-document-text', 'info'],
+            default => ['generic', 'GenericAlert', '#'.$record->id, 'heroicon-o-bell', 'primary'],
+        };
+
+        $document = $docType ? __('notifications.documents.'.($docType === 'insurance' ? 'health_insurance' : $docType)) : __('notifications.documents.iqama');
+        $parameters = ['name' => $name, 'document' => $document];
+
+        return new BaseSystemNotification(
+            eventKey: $event,
+            customTitle: __("notifications.manual.{$kind}_title", $parameters),
+            customMessage: __("notifications.manual.{$kind}_body", $parameters),
+            icon: $icon,
+            color: $color,
         );
     }
 }

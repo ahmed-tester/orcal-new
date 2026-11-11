@@ -41,7 +41,7 @@ class OwnerFormService
             Select::make('selected_employee_id')
                 ->label(__('owners.fields.selected_employee'))
                 ->placeholder(__('owners.fields.selected_employee_placeholder'))
-                ->options(fn () => static::getSaudiEmployeeOptions())
+                ->options(fn (callable $get) => static::getSaudiEmployeeOptions($get('company_id')))
                 ->searchable()
                 ->preload()
                 ->live()
@@ -87,9 +87,6 @@ class OwnerFormService
                 ->placeholder(__('owners.fields.other_financials_placeholder'))
                 ->rows(2)
                 ->columnSpanFull()
-                ->placeholder(__('owners.fields.other_financials_placeholder'))
-                ->rows(2)
-                ->columnSpanFull()
                 ->nullable(),
         ];
     }
@@ -97,12 +94,18 @@ class OwnerFormService
     /**
      * Get Saudi employee options for owner selection, excluding already registered owners.
      */
-    public static function getSaudiEmployeeOptions(): array
+    public static function getSaudiEmployeeOptions(?int $companyId = null): array
     {
-        $ownerUserIds = Owner::pluck('user_id')->filter()->unique();
-
         return Employee::saudi()
-            ->whereNotIn('user_id', $ownerUserIds)
+            ->when($companyId, function ($query, $companyId) {
+                $query->whereDoesntHave('user.owners', function ($q) use ($companyId) {
+                    $q->where('company_id', $companyId);
+                });
+            }, function ($query) {
+                $query->whereDoesntHave('user.owners', function ($q) {
+                    $q->whereColumn('owners.company_id', 'employees.company_id');
+                });
+            })
             ->with(['user', 'details'])
             ->get()
             ->mapWithKeys(fn ($e) => [
@@ -121,6 +124,7 @@ class OwnerFormService
         }
 
         $set('user_name', $emp->user?->name);
+        $set('name_en', $emp->name_en ?? $emp->metadata['name_en'] ?? null);
         $set('user_email', $emp->user?->email);
         $set('user_phone', $emp->user?->phone);
         $set('national_id', $emp->details?->national_id);
@@ -128,7 +132,7 @@ class OwnerFormService
         $set('birth_date', $emp->details?->birth_date?->format('Y-m-d'));
         $set('company_id', $emp->company_id);
         $set('address', $emp->details?->address);
-        $set('employment_date', $emp->hire_date?->format('Y-m-d') ?? now()->toDateString());
+        $set('employment_date', now()->toDateString());
     }
 
     /**
@@ -189,8 +193,16 @@ class OwnerFormService
 
         $data['user_id'] = $employee->user_id;
 
+        $email = ! empty($data['user_email']) ? trim($data['user_email']) : null;
+        if ($email && User::where('email', $email)->where('id', '!=', $employee->user_id)->exists()) {
+            throw ValidationException::withMessages([
+                'user_email' => __('employees.fields.errors.email_exists'),
+            ]);
+        }
+
         $userUpdates = array_filter([
             'name' => $data['user_name'] ?? null,
+            'email' => $email,
             'phone' => ! empty($data['user_phone']) ? PhoneService::normalize($data['user_phone']) : null,
         ]);
 

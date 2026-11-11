@@ -188,6 +188,8 @@ return [
         'edit' => 'Edit',
         'delete' => 'Delete',
         'delete_selected' => 'Delete Selected',
+        'create_saudi' => 'Add Saudi Employee',
+        'create_foreign' => 'Add Foreign Employee',
     ],
 
     'placeholders' => [
@@ -198,5 +200,36 @@ return [
         'auto_calculated' => 'Calculated automatically',
         'time_since_termination_placeholder' => 'Appears automatically when resignation date is set',
         'specify_reason' => 'Specify termination reason...',
+    ],
+    'statement' => [
+        'action_label' => 'Print & Export Statement 🖨️',
+        'modal_heading' => 'Employees & Owners Statement Options (View & Print)',
+        'modal_description' => 'Select statement type, company, and nationality to preview or print.',
+        'modal_submit' => 'Open & Preview Statement 🖨️',
+        'statement_type' => 'Statement Type',
+        'types' => [
+            'all' => 'Comprehensive Statement (All: Employees & Owners with Capacity)',
+            'employees_only' => 'Employees Statement',
+            'owners_only' => 'Owners Statement',
+            'dual_only' => 'Dual Capacity Only (Employee & Owner)',
+        ],
+        'company' => 'Company / Establishment',
+        'all_authorized_companies' => 'All Authorized Companies',
+        'status' => 'Records Status',
+        'statuses' => [
+            'all' => 'All (Active and Inactive)',
+            'active' => 'Active Only',
+        ],
+        'nationality' => 'Employee Nationality',
+        'nationalities' => [
+            'all' => 'All Nationalities (Saudi & Resident)',
+            'saudi' => 'Saudi Employees Only',
+            'foreign' => 'Resident Employees Only',
+        ],
+        'export_mode' => 'View Mode',
+        'modes' => [
+            'print' => 'Screen Preview & Instant Print (HTML Print View)',
+            'pdf' => 'Direct PDF Export & Download',
+        ],
     ],
 ];

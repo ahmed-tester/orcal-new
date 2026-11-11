@@ -16,6 +16,12 @@ class ListAttendance extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('summaryView')
+                ->label(__('attendance.summary.summary_view'))
+                ->icon('heroicon-o-users')
+                ->color('gray')
+                ->url(fn (): string => AttendanceResource::getUrl('index')),
+
             Action::make('markAbsent')
                 ->label(__('attendance.actions.check_absent'))
                 ->icon('heroicon-m-bolt')

@@ -34,18 +34,19 @@ class CheckLeaveOverdueCommand extends Command
 
         foreach ($approvedLeaves as $leave) {
             $employee = $leave->employee;
-            if (!$employee) {
+            if (! $employee) {
                 continue;
             }
 
-            $endDate = Carbon::parse($leave->end_date);
+            $endDate = Carbon::parse($leave->end_date)->startOfDay();
+            $expectedReturnDate = $endDate->copy()->addDay()->startOfDay();
 
-            if ($today->greaterThan($endDate)) {
-                // Overdue return
-                $daysOverdue = (int) $endDate->diffInDays($today);
-                $empName = $employee->user?->name ?? ('#' . $employee->id);
+            if ($today->greaterThan($expectedReturnDate)) {
+                // Overdue return: strictly when today is past the expected return date
+                $daysOverdue = (int) $expectedReturnDate->diffInDays($today);
+                $empName = $employee->user?->name ?? ('#'.$employee->id);
 
-                $this->line("🚨 <error>[OVERDUE]</error> " . __('notifications.leaves.overdue_console', ['employee' => $empName, 'days' => $daysOverdue]));
+                $this->line('🚨 <error>[OVERDUE]</error> '.__('notifications.leaves.overdue_console', ['employee' => $empName, 'days' => $daysOverdue]));
 
                 event(new LeaveOverdueAlertEvent(
                     employee: $employee,
@@ -54,13 +55,13 @@ class CheckLeaveOverdueCommand extends Command
                 ));
 
                 $overdueCount++;
-            } elseif ($today->lessThanOrEqualTo($endDate)) {
-                // Upcoming return check
-                $daysRemaining = (int) $today->diffInDays($endDate);
+            } else {
+                // Upcoming return check: days remaining until expected return date
+                $daysRemaining = (int) $today->diffInDays($expectedReturnDate, false);
 
-                if ($daysRemaining <= $upcomingThreshold) {
-                    $empName = $employee->user?->name ?? ('#' . $employee->id);
-                    $this->line("✈️ <comment>[UPCOMING RETURN]</comment> " . __('notifications.leaves.upcoming_console', ['employee' => $empName, 'days' => $daysRemaining]));
+                if ($daysRemaining >= 0 && $daysRemaining <= $upcomingThreshold) {
+                    $empName = $employee->user?->name ?? ('#'.$employee->id);
+                    $this->line('✈️ <comment>[UPCOMING RETURN]</comment> '.__('notifications.leaves.upcoming_console', ['employee' => $empName, 'days' => $daysRemaining]));
 
                     event(new LeaveReturnUpcomingAlertEvent(
                         employee: $employee,

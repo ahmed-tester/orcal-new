@@ -4,6 +4,7 @@ namespace App\Events;
 
 use App\Interfaces\NotificationEventInterface;
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -12,15 +13,29 @@ class DueDateReminderEvent implements NotificationEventInterface
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     /**
-     * @param mixed $recipient The selected recipient (User, Employee, etc.)
-     * @param string|null $customMessage Custom message entered by the user
-     * @param array<string, mixed> $placeholders Dynamic variables
+     * @param  mixed  $recipient  The selected recipient (User, Employee, etc.)
+     * @param  string|null  $customMessage  Custom message entered by the user
+     * @param  array<string, mixed>  $placeholders  Dynamic variables
+     * @param  Model|null  $record  Associated entity model if available
+     * @param  string|null  $actionUrl  URL for detail view
      */
     public function __construct(
         public mixed $recipient,
         public ?string $customMessage = null,
-        public array $placeholders = []
+        public array $placeholders = [],
+        public ?Model $record = null,
+        public ?string $actionUrl = null
     ) {}
+
+    public function getRecord(): ?Model
+    {
+        return $this->record;
+    }
+
+    public function getActionUrl(): ?string
+    {
+        return $this->actionUrl;
+    }
 
     public function getNotifiable(): mixed
     {

@@ -1,249 +1,179 @@
 <?php
 
 return [
-    /*
-    |--------------------------------------------------------------------------
-    | Default Channels
-    |--------------------------------------------------------------------------
-    | The default channels to use when an event does not specify channels.
-    */
     'default_channels' => ['database'],
-
-    /*
-    |--------------------------------------------------------------------------
-    | System Notification Events
-    |--------------------------------------------------------------------------
-    | Each event defines its supported channels, localized message templates,
-    | and description of placeholders.
-    */
+    'sms' => [
+        'enabled' => env('NOTIFICATIONS_SMS_ENABLED', false),
+        'provider' => env('NOTIFICATIONS_SMS_PROVIDER', 'mock'),
+        'api_url' => env('SMS_API_URL', ''),
+        'api_key' => env('SMS_API_KEY', ''),
+        'sender_name' => env('SMS_SENDER_NAME', 'ORCAL'),
+    ],
     'events' => [
         'IqamaExpiryAlert' => [
-            'name' => [
-                'ar' => 'تنبيه اقتراب انتهاء الإقامة',
-                'en' => 'Iqama Expiry Alert',
+            'name' => 'notifications.events.IqamaExpiryAlert.name',
+            'channels' => [
+                0 => 'database',
             ],
-            'channels' => ['database', 'sms'],
-            'required_permissions' => ['update_foreign_employee'],
+            'required_permissions' => [
+                0 => 'update_foreign_employee',
+            ],
             'database' => [
-                'title' => [
-                    'ar' => '[{alert_stage}] إقامة موظف',
-                    'en' => '[{alert_stage}] Iqama Expiry Alert',
-                ],
-                'body' => [
-                    'ar' => '{alert_stage}: إقامة الموظف {employee_name} برقم ({iqama_number}) {status_text} (بتاريخ {expiry_date}).',
-                    'en' => '{alert_stage}: Iqama for {employee_name} ({iqama_number}) expires on {expiry_date} ({status_text}).',
-                ],
+                'title' => 'notifications.events.IqamaExpiryAlert.database.title',
+                'body' => 'notifications.events.IqamaExpiryAlert.database.body',
             ],
-            'sms' => [
-                'ar' => '{alert_stage}: إقامتكم برقم {iqama_number} ستنتهي بتاريخ {expiry_date} ({status_text}). يرجى مراجعة إدارة الموارد البشرية.',
-                'en' => '{alert_stage}: Your Iqama {iqama_number} expires on {expiry_date} ({status_text}). Please contact HR.',
-            ],
+            'sms' => 'notifications.events.IqamaExpiryAlert.sms',
             'placeholders' => [
-                'alert_stage' => 'مرحلة التنبيه (الأول / الثاني / الحرج)',
-                'employee_name' => 'اسم الموظف',
-                'iqama_number' => 'رقم الإقامة',
-                'expiry_date' => 'تاريخ الانتهاء',
-                'days_remaining' => 'الأيام المتبقية',
-                'status_text' => 'نص الحالة والمتبقي',
+                0 => 'alert_stage',
+                1 => 'employee_name',
+                2 => 'iqama_number',
+                3 => 'expiry_date',
+                4 => 'days_remaining',
+                5 => 'status_text',
             ],
         ],
-
         'DueDateReminder' => [
-            'name' => [
-                'ar' => 'تنبيه استحقاق دفعة / سلفة',
-                'en' => 'Due Date Reminder',
+            'name' => 'notifications.events.DueDateReminder.name',
+            'channels' => [
+                0 => 'database',
             ],
-            'channels' => ['database', 'sms'],
-            'required_permissions' => ['update_installment', 'update_installment_payment'],
+            'required_permissions' => [
+                0 => 'update_installment',
+                1 => 'update_installment_payment',
+            ],
             'database' => [
-                'title' => [
-                    'ar' => 'تنبيه استحقاق',
-                    'en' => 'Due Date Alert',
-                ],
-                'body' => [
-                    'ar' => 'تنبيه: سلفة {employee_name} ({code}) استحقت — الرجاء المتابعة.',
-                    'en' => 'Alert: Due date for {employee_name} ({code}) has arrived — please follow up.',
-                ],
+                'title' => 'notifications.events.DueDateReminder.database.title',
+                'body' => 'notifications.events.DueDateReminder.database.body',
             ],
-            'sms' => [
-                'ar' => 'تنبيه استحقاق: سلفة {employee_name} برقم {code} استحقت اليوم. الرجاء المتابعة.',
-                'en' => 'Due Date Alert: Loan for {employee_name} ({code}) is due today.',
-            ],
+            'sms' => 'notifications.events.DueDateReminder.sms',
             'placeholders' => [
-                'employee_name' => 'اسم الموظف / العميل',
-                'code' => 'رقم المعاملة / كود السلفة',
-                'amount' => 'المبلغ المستحق',
-                'due_date' => 'تاريخ الاستحقاق',
+                0 => 'employee_name',
+                1 => 'code',
+                2 => 'amount',
+                3 => 'due_date',
             ],
         ],
-
         'NewServiceRequest' => [
-            'name' => [
-                'ar' => 'إنشاء طلب خدمة جديد',
-                'en' => 'New Service Request',
+            'name' => 'notifications.events.NewServiceRequest.name',
+            'channels' => [
+                0 => 'database',
             ],
-            'channels' => ['database', 'sms'],
-            'required_permissions' => ['update_service'],
+            'required_permissions' => [
+                0 => 'update_service',
+            ],
             'database' => [
-                'title' => [
-                    'ar' => 'طلب خدمة جديد',
-                    'en' => 'New Service Request',
-                ],
-                'body' => [
-                    'ar' => 'تم استلام طلب لخدمة {service_name} برقم #{order_id}.',
-                    'en' => 'Received request for {service_name} with number #{order_id}.',
-                ],
+                'title' => 'notifications.events.NewServiceRequest.database.title',
+                'body' => 'notifications.events.NewServiceRequest.database.body',
             ],
-            'sms' => [
-                'ar' => 'تم استلام طلبك لخدمة {service_name} برقم #{order_id}.',
-                'en' => 'Your request for {service_name} #{order_id} has been received.',
-            ],
+            'sms' => 'notifications.events.NewServiceRequest.sms',
             'placeholders' => [
-                'order_id' => 'رقم الطلب',
-                'service_name' => 'اسم الخدمة',
+                0 => 'order_id',
+                1 => 'service_name',
             ],
         ],
-
         'CompanyLicenseExpiryAlert' => [
-            'name' => [
-                'ar' => 'تنبيه انتهاء تراخيص ووثائق المنشأة',
-                'en' => 'Company License Expiry Alert',
+            'name' => 'notifications.events.CompanyLicenseExpiryAlert.name',
+            'channels' => [
+                0 => 'database',
             ],
-            'channels' => ['database', 'sms'],
-            'required_permissions' => ['update_company'],
+            'required_permissions' => [
+                0 => 'update_company',
+            ],
             'database' => [
-                'title' => [
-                    'ar' => 'تنبيه ترخيص/وثيقة منشأة: {company_name}',
-                    'en' => 'Company License Alert: {company_name}',
-                ],
-                'body' => [
-                    'ar' => '{alert_stage}: وثيقة ({license_type}) للمنشأة {company_name} برقم ({license_number}) {status_text} (بتاريخ {expiry_date}).',
-                    'en' => '{alert_stage}: Document ({license_type}) for {company_name} ({license_number}) {status_text} (expires on {expiry_date}).',
-                ],
+                'title' => 'notifications.events.CompanyLicenseExpiryAlert.database.title',
+                'body' => 'notifications.events.CompanyLicenseExpiryAlert.database.body',
             ],
-            'sms' => [
-                'ar' => '{alert_stage}: وثيقة {license_type} للمنشأة {company_name} {status_text} (بتاريخ {expiry_date}). يرجى المتابعة والتجديد.',
-                'en' => '{alert_stage}: {license_type} for {company_name} {status_text} ({expiry_date}). Please follow up.',
-            ],
+            'sms' => 'notifications.events.CompanyLicenseExpiryAlert.sms',
             'placeholders' => [
-                'company_name' => 'اسم المنشأة / الفرع',
-                'license_type' => 'نوع الوثيقة (سجل تجاري / رخصة بلدية / دفاع مدني / عقد إيجار)',
-                'license_number' => 'رقم الوثيقة / الرخصة',
-                'expiry_date' => 'تاريخ الانتهاء',
-                'days_remaining' => 'الأيام المتبقية',
-                'status_text' => 'نص الحالة والمتبقي',
-                'alert_stage' => 'مرحلة التنبيه (الأول / الثاني / الحرج)',
+                0 => 'company_name',
+                1 => 'license_type',
+                2 => 'license_number',
+                3 => 'expiry_date',
+                4 => 'days_remaining',
+                5 => 'status_text',
+                6 => 'alert_stage',
             ],
         ],
-
         'LeaveOverdueAlert' => [
-            'name' => [
-                'ar' => 'تنبيه تأخر العودة من الإجازة',
-                'en' => 'Leave Return Overdue Alert',
+            'name' => 'notifications.events.LeaveOverdueAlert.name',
+            'channels' => [
+                0 => 'database',
             ],
-            'channels' => ['database', 'sms'],
-            'required_permissions' => ['update_leave', 'change_leave_status'],
+            'required_permissions' => [
+                0 => 'update_leave',
+            ],
             'database' => [
-                'title' => [
-                    'ar' => 'تنبيه تأخر عودة موظف من الإجازة',
-                    'en' => 'Leave Return Overdue Alert',
-                ],
-                'body' => [
-                    'ar' => 'تنبيه: الموظف {employee_name} ({company_name}) تأخر عن العودة من الإجازة. كان تاريخ العودة المتوقع: {expected_return_date} (متأخر {days_overdue} يوم).',
-                    'en' => 'Alert: Employee {employee_name} ({company_name}) is overdue from leave. Expected return was {expected_return_date} ({days_overdue} days overdue).',
-                ],
+                'title' => 'notifications.events.LeaveOverdueAlert.database.title',
+                'body' => 'notifications.events.LeaveOverdueAlert.database.body',
             ],
-            'sms' => [
-                'ar' => 'تنبيه موارد بشرية: الموظف {employee_name} متأخر عن العودة من إجازته منذ {days_overdue} يوم. تاريخ العودة المتوقع كان {expected_return_date}.',
-                'en' => 'HR Alert: Employee {employee_name} is overdue from leave by {days_overdue} days.',
-            ],
+            'sms' => 'notifications.events.LeaveOverdueAlert.sms',
             'placeholders' => [
-                'employee_name' => 'اسم الموظف',
-                'company_name' => 'اسم الشركة / الفرع',
-                'leave_type' => 'نوع الإجازة',
-                'expected_return_date' => 'تاريخ العودة المتوقع',
-                'days_overdue' => 'عدد أيام التأخير',
+                0 => 'employee_name',
+                1 => 'company_name',
+                2 => 'leave_type',
+                3 => 'expected_return_date',
+                4 => 'days_overdue',
             ],
         ],
-
         'LeaveReturnUpcomingAlert' => [
-            'name' => [
-                'ar' => 'تنبيه اقتراب موعد عودة الموظف من الإجازة',
-                'en' => 'Leave Return Upcoming Alert',
+            'name' => 'notifications.events.LeaveReturnUpcomingAlert.name',
+            'channels' => [
+                0 => 'database',
             ],
-            'channels' => ['database'],
-            'required_permissions' => ['update_leave', 'change_leave_status'],
+            'required_permissions' => [
+                0 => 'update_leave',
+            ],
             'database' => [
-                'title' => [
-                    'ar' => 'تنبيه اقتراب عودة موظف من الإجازة',
-                    'en' => 'Upcoming Leave Return Alert',
-                ],
-                'body' => [
-                    'ar' => 'تنبيه: الموظف {employee_name} ستنتهي إجازته بتاريخ {leave_end_date} وعودته المتوقعة {expected_return_date} (متبقي {days_remaining} يوم).',
-                    'en' => 'Alert: Employee {employee_name} leave ends on {leave_end_date}, expected return on {expected_return_date} ({days_remaining} days remaining).',
-                ],
+                'title' => 'notifications.events.LeaveReturnUpcomingAlert.database.title',
+                'body' => 'notifications.events.LeaveReturnUpcomingAlert.database.body',
             ],
             'placeholders' => [
-                'employee_name' => 'اسم الموظف',
-                'company_name' => 'اسم الشركة / الفرع',
-                'leave_end_date' => 'تاريخ نهاية الإجازة',
-                'expected_return_date' => 'تاريخ العودة المتوقع',
-                'days_remaining' => 'الأيام المتبقية على العودة',
+                0 => 'employee_name',
+                1 => 'company_name',
+                2 => 'leave_end_date',
+                3 => 'expected_return_date',
+                4 => 'days_remaining',
             ],
         ],
-
         'CustomSulafAlert' => [
-            'name' => [
-                'ar' => 'تنبيه استحقاق سلفة مخصص',
-                'en' => 'Custom Sulaf Due Alert',
+            'name' => 'notifications.events.CustomSulafAlert.name',
+            'channels' => [
+                0 => 'database',
             ],
-            'channels' => ['database', 'sms'],
-            'required_permissions' => ['update_installment', 'update_installment_payment'],
+            'required_permissions' => [
+                0 => 'update_installment',
+                1 => 'update_installment_payment',
+            ],
             'database' => [
-                'title' => [
-                    'ar' => 'تنبيه استحقاق سلفة: {employee_name}',
-                    'en' => 'Sulaf Expiry Alert: {employee_name}',
-                ],
-                'body' => [
-                    'ar' => '{custom_message}',
-                    'en' => '{custom_message}',
-                ],
+                'title' => 'notifications.events.CustomSulafAlert.database.title',
+                'body' => 'notifications.events.CustomSulafAlert.database.body',
             ],
-            'sms' => [
-                'ar' => '{custom_message}',
-                'en' => '{custom_message}',
-            ],
+            'sms' => 'notifications.events.CustomSulafAlert.sms',
             'placeholders' => [
-                'employee_name' => 'اسم الموظف',
-                'code' => 'رقم السلفة / الكود',
-                'amount' => 'قيمة السلفة',
-                'due_date' => 'تاريخ الاستحقاق',
-                'custom_message' => 'نص الرسالة المخصص',
+                0 => 'employee_name',
+                1 => 'code',
+                2 => 'amount',
+                3 => 'due_date',
+                4 => 'custom_message',
             ],
         ],
-
         'PendingLeaveApprovalAlert' => [
-            'name' => [
-                'ar' => 'تنبيه طلب إجازة جديد بانتظار الاعتماد',
-                'en' => 'Pending Leave Approval Alert',
+            'name' => 'notifications.events.PendingLeaveApprovalAlert.name',
+            'channels' => [
+                0 => 'database',
             ],
-            'channels' => ['database'],
-            'required_permissions' => ['change_leave_status', 'update_leave'],
+            'required_permissions' => [
+                0 => 'update_leave',
+            ],
             'database' => [
-                'title' => [
-                    'ar' => 'طلب إجازة بانتظار الاعتماد',
-                    'en' => 'Leave Request Pending Approval',
-                ],
-                'body' => [
-                    'ar' => 'طلب إجازة جديد مقدم من الموظف {employee_name} ({leave_type}) للفترة من {start_date} إلى {end_date} يتطلب موافقتك.',
-                    'en' => 'New leave request from {employee_name} ({leave_type}) from {start_date} to {end_date} awaits your approval.',
-                ],
+                'title' => 'notifications.events.PendingLeaveApprovalAlert.database.title',
+                'body' => 'notifications.events.PendingLeaveApprovalAlert.database.body',
             ],
             'placeholders' => [
-                'employee_name' => 'اسم الموظف',
-                'leave_type' => 'نوع الإجازة',
-                'start_date' => 'تاريخ البداية',
-                'end_date' => 'تاريخ النهاية',
+                0 => 'employee_name',
+                1 => 'leave_type',
+                2 => 'start_date',
+                3 => 'end_date',
             ],
         ],
     ],

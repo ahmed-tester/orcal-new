@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Attendance;
 
+use App\Filament\Resources\Attendance\Pages\AttendanceSummary;
 use App\Filament\Resources\Attendance\Pages\CreateAttendance;
 use App\Filament\Resources\Attendance\Pages\EditAttendance;
 use App\Filament\Resources\Attendance\Pages\ListAttendance;
@@ -66,7 +67,8 @@ class AttendanceResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListAttendance::route('/'),
+            'index' => AttendanceSummary::route('/'),
+            'detailed' => ListAttendance::route('/detailed'),
             'create' => CreateAttendance::route('/create'),
             'edit' => EditAttendance::route('/{record}/edit'),
         ];

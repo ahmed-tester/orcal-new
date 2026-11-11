@@ -42,7 +42,20 @@ class OwnersTable
                     ->label(__('owners.fields.name'))
                     ->searchable()
                     ->sortable()
-                    ->description(fn ($record) => ($record->user?->phone ? '📱 '.PhoneService::format($record->user->phone) : '').($record->user?->email ? ' | ✉️ '.$record->user->email : '')),
+                    ->description(function ($record) {
+                        $parts = [];
+                        if (! empty($record->name_en)) {
+                            $parts[] = '🔤 '.$record->name_en;
+                        }
+                        if ($record->user?->phone) {
+                            $parts[] = '📱 '.PhoneService::format($record->user->phone);
+                        }
+                        if ($record->user?->email) {
+                            $parts[] = '✉️ '.$record->user->email;
+                        }
+
+                        return implode(' | ', $parts);
+                    }),
 
                 PersonCapacityService::makeTableColumn('owner'),
 

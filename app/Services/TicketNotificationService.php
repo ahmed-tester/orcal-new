@@ -6,211 +6,69 @@ use App\Enums\TicketStatus;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
 use App\Models\User;
-use Filament\Actions\Action;
-use Filament\Notifications\Notification as FilamentNotification;
+use App\Services\Notifications\NotificationDispatcher;
+use App\Services\Notifications\NotificationRecipientService;
 use Illuminate\Support\Collection;
-
 
 class TicketNotificationService
 {
-    /**
-     * Get all users who should receive support staff alerts.
-     */
-    public static function getSupportManagers(): Collection
+    public static function getSupportManagers(Ticket $ticket, array $excludeUserIds = []): Collection
     {
-        return User::all()->filter(function (User $user) {
-            return $user->isSuperAdminOrOwner()
-                || $user->can('manage_tickets')
-                || $user->can('update_ticket');
-        })->unique('id');
+        return NotificationRecipientService::getQualifiedRecipients($ticket, excludeUserIds: $excludeUserIds);
     }
 
-    /**
-     * Send notification when a new ticket is created.
-     */
     public static function notifyTicketCreated(Ticket $ticket): void
     {
-
-
-        $creatorName = $ticket->user?->name ?? __('tickets.unknown_user');
-        $managers = self::getSupportManagers()->reject(fn ($u) => $u->id === $ticket->user_id);
-
-        $viewUrl = url("/tickets/{$ticket->id}");
-
-
-
-        foreach ($managers as $manager) {
-            FilamentNotification::make()
-                ->title(__('tickets.notifications.new_ticket_title'))
-                ->body(__('tickets.notifications.new_ticket_body', [
-                    'number' => $ticket->ticket_number,
-                    'subject' => $ticket->subject,
-                    'user' => $creatorName,
-                ]))
-                ->icon('heroicon-o-ticket')
-                ->status('info')
-                ->actions([
-                    Action::make('view')
-                        ->label(__('tickets.actions.view_ticket'))
-                        ->url($viewUrl)
-                        ->button(),
-                ])
-                ->sendToDatabase($manager);
-
-
-        }
+        static::send($ticket, 'TicketCreated', 'new_ticket', [
+            'user' => $ticket->user?->name ?? __('tickets.unknown_user'),
+        ], 'heroicon-o-ticket', 'info', [$ticket->user_id]);
     }
 
-    /**
-     * Send notification when a new reply/message is added.
-     */
     public static function notifyTicketReplied(TicketMessage $message): void
     {
-
-
-        $ticket = $message->ticket;
-        if (!$ticket) {
+        if (! $ticket = $message->ticket) {
             return;
         }
 
-        $author = $message->user;
-        $authorName = $author?->name ?? __('tickets.unknown_user');
-        $viewUrl = url("/tickets/{$ticket->id}");
+        [$event, $key, $icon, $color] = match (true) {
+            (bool) $message->is_internal_note => ['TicketInternalNote', 'internal_note', 'heroicon-o-chat-bubble-left-ellipsis', 'warning'],
+            $message->user_id === $ticket->user_id => ['TicketUserReplied', 'user_replied', 'heroicon-o-chat-bubble-bottom-center-text', 'info'],
+            default => ['TicketStaffReplied', 'staff_replied', 'heroicon-o-chat-bubble-left-right', 'success'],
+        };
 
-        // If internal note -> only notify managers/assigned agent
-        if ($message->is_internal_note) {
-            $recipients = self::getSupportManagers()->reject(fn ($u) => $u->id === $message->user_id);
-            foreach ($recipients as $recipient) {
-                FilamentNotification::make()
-                    ->title(__('tickets.notifications.internal_note_title', ['number' => $ticket->ticket_number]))
-                    ->body(__('tickets.notifications.internal_note_body', [
-                        'user' => $authorName,
-                        'subject' => $ticket->subject,
-                    ]))
-                    ->icon('heroicon-o-chat-bubble-left-ellipsis')
-                    ->status('warning')
-                    ->actions([
-                        Action::make('view')
-                            ->label(__('tickets.actions.view_ticket'))
-                            ->url($viewUrl)
-                            ->button(),
-                    ])
-                    ->sendToDatabase($recipient);
-
-
-            }
-            return;
-        }
-
-        // Check if author is the ticket creator
-        if ($message->user_id === $ticket->user_id) {
-            // User replied -> notify assigned agent or managers
-            $recipients = collect();
-            if ($ticket->assignedTo && $ticket->assignedTo->id !== $message->user_id) {
-                $recipients->push($ticket->assignedTo);
-            } else {
-                $recipients = self::getSupportManagers()->reject(fn ($u) => $u->id === $message->user_id);
-            }
-
-            foreach ($recipients as $recipient) {
-                FilamentNotification::make()
-                    ->title(__('tickets.notifications.user_replied_title', ['number' => $ticket->ticket_number]))
-                    ->body(__('tickets.notifications.user_replied_body', [
-                        'user' => $authorName,
-                        'subject' => $ticket->subject,
-                    ]))
-                    ->icon('heroicon-o-chat-bubble-bottom-center-text')
-                    ->status('info')
-                    ->actions([
-                        Action::make('view')
-                            ->label(__('tickets.actions.view_ticket'))
-                            ->url($viewUrl)
-                            ->button(),
-                    ])
-                    ->sendToDatabase($recipient);
-
-
-            }
-        } else {
-            // Support agent replied -> notify the ticket owner
-            if ($ticket->user && $ticket->user->id !== $message->user_id) {
-                FilamentNotification::make()
-                    ->title(__('tickets.notifications.staff_replied_title', ['number' => $ticket->ticket_number]))
-                    ->body(__('tickets.notifications.staff_replied_body', [
-                        'subject' => $ticket->subject,
-                    ]))
-                    ->icon('heroicon-o-chat-bubble-left-right')
-                    ->status('success')
-                    ->actions([
-                        Action::make('view')
-                            ->label(__('tickets.actions.view_ticket'))
-                            ->url($viewUrl)
-                            ->button(),
-                    ])
-                    ->sendToDatabase($ticket->user);
-
-
-            }
-        }
+        static::send($ticket, $event, $key, [
+            'user' => $message->user?->name ?? __('tickets.unknown_user'),
+        ], $icon, $color, [$message->user_id]);
     }
 
-    /**
-     * Send notification when ticket status changes.
-     */
     public static function notifyStatusChanged(Ticket $ticket, TicketStatus $newStatus): void
     {
-
-
-        if (!$ticket->user) {
-
-            return;
-        }
-
-        $viewUrl = url("/tickets/{$ticket->id}");
-
-        FilamentNotification::make()
-            ->title(__('tickets.notifications.status_changed_title', ['number' => $ticket->ticket_number]))
-            ->body(__('tickets.notifications.status_changed_body', [
-                'subject' => $ticket->subject,
-                'status' => $newStatus->getLabel(),
-            ]))
-            ->icon('heroicon-o-arrow-path')
-            ->status('info')
-            ->actions([
-                Action::make('view')
-                    ->label(__('tickets.actions.view_ticket'))
-                    ->url($viewUrl)
-                    ->button(),
-            ])
-            ->sendToDatabase($ticket->user);
-
-
+        static::send($ticket, 'TicketStatusChanged', 'status_changed', ['status' => $newStatus->getLabel()], 'heroicon-o-arrow-path');
     }
 
-    /**
-     * Send notification when ticket is assigned to staff.
-     */
     public static function notifyTicketAssigned(Ticket $ticket, User $assignedUser): void
     {
+        static::send($ticket, 'TicketAssigned', 'assigned', [], 'heroicon-o-user-plus');
+    }
 
-
-        $viewUrl = url("/tickets/{$ticket->id}");
-
-        FilamentNotification::make()
-            ->title(__('tickets.notifications.assigned_title', ['number' => $ticket->ticket_number]))
-            ->body(__('tickets.notifications.assigned_body', [
-                'subject' => $ticket->subject,
-            ]))
-            ->icon('heroicon-o-user-plus')
-            ->status('info')
-            ->actions([
-                Action::make('view')
-                    ->label(__('tickets.actions.view_ticket'))
-                    ->url($viewUrl)
-                    ->button(),
-            ])
-            ->sendToDatabase($assignedUser);
-
-
+    private static function send(
+        Ticket $ticket,
+        string $event,
+        string $key,
+        array $parameters = [],
+        string $icon = 'heroicon-o-bell',
+        string $color = 'info',
+        array $excludeUserIds = [],
+    ): void {
+        NotificationDispatcher::translated(
+            record: $ticket,
+            eventKey: $event,
+            titleKey: "tickets.notifications.{$key}_title",
+            bodyKey: "tickets.notifications.{$key}_body",
+            parameters: $parameters + ['number' => $ticket->ticket_number, 'subject' => $ticket->subject],
+            icon: $icon,
+            color: $color,
+            excludeUserIds: array_filter($excludeUserIds),
+        );
     }
 }

@@ -3,13 +3,78 @@
 namespace App\Http\Controllers;
 
 use App\Models\Company;
+use App\Models\Employee;
 use App\Models\Leave;
 use App\Models\LeaveType;
 use App\Services\LeaveBalanceService;
+use App\Services\LeaveSummaryService;
 use Illuminate\Http\Request;
 
 class LeavePrintController extends Controller
 {
+    /**
+     * Print summary of leaves for all employees matching filters.
+     */
+    public function summary(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user?->can('viewAny', Leave::class), 403);
+
+        $filters = $request->validate([
+            'year' => ['nullable', 'regex:/^(all|[0-9]{4})$/'],
+            'search' => ['nullable', 'string', 'max:255'],
+            'company_id' => ['nullable', 'array'],
+            'company_id.*' => ['integer'],
+            'branch_id' => ['nullable', 'array'],
+            'branch_id.*' => ['integer'],
+            'employment_status' => ['nullable', 'in:all,active,inactive'],
+            'leave_filter' => ['nullable', 'in:all,on_leave,has_pending'],
+        ]);
+
+        $year = LeaveSummaryService::resolveYear(array_key_exists('year', $filters) ? $filters['year'] : now()->year);
+        $filters['year'] = $year ?? 'all';
+        $query = LeaveSummaryService::summaryQuery($filters);
+        $rows = $query->orderBy('is_on_leave_today', 'desc')
+            ->orderBy('pending_leaves_count', 'desc')
+            ->orderBy('employees.id')
+            ->get();
+
+        $stats = LeaveSummaryService::getStats($filters);
+
+        return view('leaves.summary-print', [
+            'rows' => $rows,
+            'stats' => $stats,
+            'year' => $year,
+        ]);
+    }
+
+    /**
+     * Print leave statement and balance sheet for an employee.
+     */
+    public function statement(Employee $employee, Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user?->can('viewAny', Leave::class), 403);
+
+        if (! LeaveSummaryService::canAccessEmployee($employee)) {
+            abort(403);
+        }
+
+        $request->validate(['year' => ['nullable', 'regex:/^(all|[0-9]{4})$/']]);
+        $year = LeaveSummaryService::resolveYear($request->query('year', now()->year));
+        $details = LeaveSummaryService::getEmployeeLeaveDetails($employee->id, $year);
+
+        if (! $details) {
+            abort(404);
+        }
+
+        return view('leaves.employee-statement-print', [
+            'details' => $details,
+            'employee' => $employee,
+            'year' => $year,
+        ]);
+    }
+
     /**
      * Print single leave document / voucher.
      */

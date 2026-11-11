@@ -2,47 +2,73 @@
 
 namespace App\Notifications;
 
-use App\Channels\SmsChannel;
-use App\Channels\TelegramChannel;
+use App\Models\User;
+use App\Services\Notifications\NotificationRecipientService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\Notification;
 
-class BaseSystemNotification extends Notification
+class BaseSystemNotification extends Notification implements ShouldQueue
 {
     use Queueable;
+
+    /**
+     * The number of times the job may be attempted.
+     */
+    public int $tries = 3;
+
+    /**
+     * The number of seconds the job can run before timing out.
+     */
+    public int $timeout = 60;
+
+    /**
+     * Backoff delay between retry attempts in seconds.
+     */
+    public int $backoff = 10;
 
     public function __construct(
         public string $eventKey,
         public array $placeholders = [],
         public ?string $customMessage = null,
         public ?string $customTitle = null,
-        public ?string $actionUrl = null
-    ) {}
+        public ?string $actionUrl = null,
+        public ?string $recordType = null,
+        public int|string|null $recordId = null,
+        public ?string $icon = 'heroicon-o-bell',
+        public ?string $color = 'primary'
+    ) {
+        $this->afterCommit = true;
+    }
 
     /**
      * Get the notification's delivery channels.
+     * Centralized guard: Database channel only.
      *
-     * @return array<int, string|class-string>
+     * @return array<int, string>
      */
     public function via(mixed $notifiable): array
     {
-        $configuredChannels = config("notifications.events.{$this->eventKey}.channels")
-            ?? config('notifications.default_channels', ['database']);
+        return $notifiable instanceof User && $notifiable->status === 'active' ? ['database'] : [];
+    }
 
-        $channels = [];
-
-        foreach ($configuredChannels as $channel) {
-            match ($channel) {
-                'database', 'db' => $channels[] = 'database',
-                'mail', 'email'  => $channels[] = 'mail',
-                'telegram'       => $channels[] = TelegramChannel::class,
-                'sms'            => $channels[] = SmsChannel::class,
-                default          => null,
-            };
+    public function shouldSend(mixed $notifiable, string $channel): bool
+    {
+        if ($channel !== 'database' || ! $notifiable instanceof User || $notifiable->status !== 'active'
+            || ! $this->recordType || ! is_subclass_of($this->recordType, Model::class)) {
+            return false;
         }
 
-        return array_unique($channels);
+        $record = $this->recordType::query()->find($this->recordId);
+
+        return $record !== null && NotificationRecipientService::isUserEligibleToReceive(
+            $notifiable,
+            $record,
+            NotificationRecipientService::resolveDefaultUpdatePermissions($record),
+            NotificationRecipientService::resolveCompanyId($record),
+            NotificationRecipientService::resolveBranchId($record),
+        );
     }
 
     /**
@@ -50,10 +76,10 @@ class BaseSystemNotification extends Notification
      */
     public function toDatabase(mixed $notifiable): array
     {
-        $titleTemplate = $this->getLocalizedConfig('database.title') ?? 'إشعار جديد في النظام';
+        $titleTemplate = $this->getLocalizedConfig('database.title') ?? __('notifications.general.title');
         $bodyTemplate = $this->customMessage
             ?? $this->getLocalizedConfig('database.body')
-            ?? 'لديك إشعار جديد في النظام.';
+            ?? __('notifications.general.body');
 
         $title = $this->customTitle ?? $this->renderString($titleTemplate, $this->placeholders);
         $body = $this->renderString($bodyTemplate, $this->placeholders);
@@ -62,7 +88,7 @@ class BaseSystemNotification extends Notification
         if ($this->actionUrl) {
             $actions[] = [
                 'name' => 'view',
-                'label' => 'عرض التفاصيل',
+                'label' => __('notifications.general.view_details'),
                 'url' => $this->actionUrl,
                 'shouldOpenInNewTab' => false,
                 'shouldMarkAsRead' => true,
@@ -72,13 +98,15 @@ class BaseSystemNotification extends Notification
         return [
             'title' => $title,
             'body' => $body,
-            'icon' => 'heroicon-o-bell',
-            'iconColor' => 'primary',
-            'color' => 'primary',
+            'icon' => $this->icon ?: 'heroicon-o-bell',
+            'iconColor' => $this->color ?: 'primary',
+            'color' => $this->color ?: 'primary',
             'duration' => 5000,
             'actions' => $actions,
             'format' => 'filament',
             'event_key' => $this->eventKey,
+            'record_type' => $this->recordType,
+            'record_id' => $this->recordId,
             'action_url' => $this->actionUrl,
             'placeholders' => $this->placeholders,
             'created_at' => now()->toIso8601String(),
@@ -91,50 +119,15 @@ class BaseSystemNotification extends Notification
     }
 
     /**
-     * Telegram notification payload.
-     */
-    public function toTelegram(mixed $notifiable): ?string
-    {
-        if ($this->customMessage) {
-            return $this->renderString($this->customMessage, $this->placeholders);
-        }
-
-        $template = $this->getLocalizedConfig('telegram');
-        if (!$template) {
-            return null;
-        }
-
-        return $this->renderString($template, $this->placeholders);
-    }
-
-
-
-    /**
-     * SMS notification payload.
-     */
-    public function toSms(mixed $notifiable): ?string
-    {
-        if ($this->customMessage) {
-            return $this->renderString($this->customMessage, $this->placeholders);
-        }
-
-        $template = $this->getLocalizedConfig('sms');
-        if (!$template) {
-            return null;
-        }
-
-        return $this->renderString($template, $this->placeholders);
-    }
-
-    /**
      * Render template string by substituting placeholders.
      */
     public function renderString(string $template, array $placeholders): string
     {
         $rendered = $template;
         foreach ($placeholders as $key => $value) {
-            $rendered = str_replace('{' . $key . '}', (string) ($value ?? ''), $rendered);
+            $rendered = str_replace('{'.$key.'}', (string) ($value ?? ''), $rendered);
         }
+
         return $rendered;
     }
 
@@ -151,6 +144,6 @@ class BaseSystemNotification extends Notification
             ?? config("{$path}.en")
             ?? config($path);
 
-        return is_string($config) ? $config : null;
+        return is_string($config) ? __($config) : null;
     }
 }

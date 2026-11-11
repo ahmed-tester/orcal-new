@@ -392,6 +392,162 @@
             flex-shrink: 0 !important;
             display: inline-block !important;
         }
+
+        /* ----------------------------------------------------
+           Print Styles (filter-aware report)
+        ---------------------------------------------------- */
+        @media print {
+            @page {
+                size: A4 {{ $viewMode === 'matrix' ? 'landscape' : 'portrait' }};
+                margin: 8mm;
+            }
+
+            *, *::before, *::after {
+                background: transparent !important;
+                color: #000000 !important;
+                box-shadow: none !important;
+                text-shadow: none !important;
+            }
+
+            html, body {
+                background: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            /* Hide the interactive screen UI and keep only the print wrapper visible */
+            body * { visibility: hidden !important; }
+            .notif-print-wrapper, .notif-print-wrapper * { visibility: visible !important; }
+
+            .notif-screen-ui, .fi-topbar, .fi-sidebar, .fi-breadcrumbs, .fi-header,
+            .fi-main-ctn > nav { display: none !important; }
+
+            a[href]:after, a:after { content: none !important; }
+
+            .notif-print-wrapper {
+                position: absolute !important;
+                inset-inline-start: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                direction: rtl !important;
+                background: #ffffff !important;
+            }
+
+            .notif-print-header {
+                border-bottom: 2px solid #000000;
+                padding-bottom: 6px;
+                margin-bottom: 8px;
+            }
+
+            .notif-print-header-top {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .notif-print-title {
+                font-size: 15px !important;
+                font-weight: 800 !important;
+                margin: 0 0 2px 0 !important;
+            }
+
+            .notif-print-sub {
+                font-size: 10px !important;
+                color: #333333 !important;
+            }
+
+            .notif-print-meta {
+                text-align: left !important;
+                font-size: 9.5px !important;
+                line-height: 1.4;
+            }
+
+            .notif-print-filters {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 4px;
+                margin-top: 5px;
+                font-size: 9px !important;
+            }
+
+            .notif-print-tag {
+                border: 1px solid #999999;
+                border-radius: 3px;
+                padding: 1px 5px;
+                background-color: #f8f8f8 !important;
+            }
+
+            .notif-print-table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+                font-size: 9.5px !important;
+                margin-top: 6px;
+                table-layout: auto !important;
+            }
+
+            .notif-print-table thead { display: table-header-group !important; }
+
+            .notif-print-table th {
+                border: 1px solid #000000 !important;
+                background-color: #f0f0f0 !important;
+                padding: 4px 5px !important;
+                font-weight: 700 !important;
+                text-align: center !important;
+                word-break: break-word !important;
+            }
+
+            .notif-print-table td {
+                border: 1px solid #666666 !important;
+                padding: 3px 5px !important;
+                text-align: center !important;
+                vertical-align: middle !important;
+                word-break: break-word !important;
+            }
+
+            .notif-print-table td.notif-print-text {
+                text-align: right !important;
+            }
+
+            .notif-print-table tbody tr {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
+            .notif-print-table tbody tr:nth-child(even) td {
+                background-color: #fafafa !important;
+            }
+
+            .notif-print-cell-date {
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                font-weight: 700 !important;
+                font-size: 9px !important;
+            }
+
+            .notif-print-cell-note {
+                font-size: 8.5px !important;
+                color: #333333 !important;
+            }
+
+            .notif-print-footer {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 8px;
+                padding-top: 4px;
+                border-top: 1px solid #cccccc;
+                font-size: 8.5px !important;
+                color: #555555 !important;
+                page-break-inside: avoid !important;
+            }
+        }
+
+        @media screen {
+            .notif-print-wrapper {
+                display: none !important;
+            }
+        }
     </style>
 
     @php
@@ -400,29 +556,164 @@
         $paginatedAlerts = $this->paginatedAlerts;
     @endphp
 
-    <div class="notif-page-ctn" dir="rtl">
+    {{-- ==========================================
+         PRINT-ONLY REPORT (ALL FILTERED ROWS)
+         ========================================== --}}
+    <div class="notif-print-wrapper" dir="rtl">
+        @php
+            $printRows = $viewMode === 'matrix' ? $this->documentsMatrix : $this->alerts;
+            $printTags = $this->printFilterTags;
+        @endphp
+
+        <div class="notif-print-header">
+            <div class="notif-print-header-top">
+                <div>
+                    <h1 class="notif-print-title">{{ __('notifications.report_label') }}</h1>
+                    <div class="notif-print-sub">
+                        {{ config('app.name', 'Orcal') }} — {{ $viewMode === 'matrix' ? __('notifications.ui.matrix') : __('notifications.ui.alert_log') }}
+                    </div>
+                </div>
+                <div class="notif-print-meta">
+                    <div><strong>{{ __('reports.printed_at') }}:</strong> {{ now()->format('Y-m-d H:i') }}</div>
+                    <div><strong>{{ __('reports.total_records') }}:</strong> {{ $printRows->count() }}</div>
+                </div>
+            </div>
+
+            @if (! empty($printTags))
+                <div class="notif-print-filters">
+                    @foreach ($printTags as $tag)
+                        <span class="notif-print-tag"><strong>{{ $tag['label'] }}:</strong> {{ $tag['value'] }}</span>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
+        @if ($viewMode === 'matrix')
+            <table class="notif-print-table">
+                <thead>
+                    <tr>
+                        <th style="width: 30px;">#</th>
+                        <th>{{ __('notifications.ui.beneficiary') }}</th>
+                        <th>{{ __('notifications.ui.identity') }}</th>
+                        <th>{{ __('notifications.ui.iqama_cr') }}</th>
+                        <th>{{ __('notifications.ui.work_municipality') }}</th>
+                        <th>{{ __('notifications.ui.insurance_defense') }}</th>
+                        <th>{{ __('notifications.ui.contract') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($printRows as $index => $row)
+                        @php
+                            $docColumns = $row['is_company']
+                                ? [$row['cr'] ?? null, $row['municipality'] ?? null, $row['civil_defense'] ?? null]
+                                : [$row['iqama'] ?? null, $row['work_permit'] ?? null, $row['insurance'] ?? null];
+                        @endphp
+                        <tr>
+                            <td>{{ $index + 1 }}</td>
+                            <td class="notif-print-text">
+                                <div style="font-weight: 700;">{{ $row['name'] }}</div>
+                                @if (! $row['is_company'] && ! empty($row['company_name']))
+                                    <div class="notif-print-cell-note">{{ $row['company_name'] }}</div>
+                                @endif
+                            </td>
+                            <td>{{ $row['iqama_number'] ?? '—' }}</td>
+                            @foreach ($docColumns as $cell)
+                                <td>
+                                    @if (! empty($cell))
+                                        <div class="notif-print-cell-date">{{ $cell['date'] }}</div>
+                                        <div class="notif-print-cell-note">{{ $cell['text'] }}</div>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                            @endforeach
+                            <td>
+                                @if (! $row['is_company'] && ! empty($row['contract']))
+                                    <div class="notif-print-cell-date">{{ $row['contract']['date'] }}</div>
+                                    <div class="notif-print-cell-note">{{ $row['contract']['text'] }}</div>
+                                @else
+                                    —
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7">{{ __('notifications.ui.no_matches') }}</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        @else
+            <table class="notif-print-table">
+                <thead>
+                    <tr>
+                        <th style="width: 30px;">#</th>
+                        <th>{{ __('notifications.ui.alert_type') }}</th>
+                        <th>{{ __('notifications.ui.recipient') }}</th>
+                        <th>{{ __('notifications.ui.details') }}</th>
+                        <th>{{ __('notifications.ui.due_date') }}</th>
+                        <th>{{ __('notifications.ui.remaining') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($printRows as $index => $item)
+                        <tr>
+                            <td>{{ $index + 1 }}</td>
+                            <td>{{ $item['type_label'] }}</td>
+                            <td class="notif-print-text">{{ $item['title'] }}</td>
+                            <td class="notif-print-text">
+                                {{ $item['subtitle'] }}
+                                @if (! empty($item['company_name']))
+                                    <div class="notif-print-cell-note">{{ $item['company_name'] }}</div>
+                                @endif
+                            </td>
+                            <td>{{ $item['due_date'] }}</td>
+                            <td>{{ $item['status_text'] }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6">{{ __('notifications.ui.no_alerts') }}</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        @endif
+
+        <div class="notif-print-footer">
+            <span>{{ __('reports.print.footer_generated') }}</span>
+            <span>{{ __('reports.print.footer_summary', ['count' => $printRows->count()]) }}</span>
+        </div>
+    </div>
+
+    <div class="notif-page-ctn notif-screen-ui" dir="rtl">
         
         <!-- Header Bar with View Mode Tabs -->
         <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;">
             <div>
                 <h1 style="font-size: 1.35rem; font-weight: 800; color: #0f172a; margin: 0; letter-spacing: -0.3px;" class="dark:text-white">
-                    تقرير الإشعارات والتنبيهات
+                    {{ __('notifications.report_label') }}
                 </h1>
                 <p style="font-size: 0.8rem; color: #64748b; margin-top: 0.15rem;" class="dark:text-gray-400">
-                    متابعة مواعيد انتهاء وثائق وتراخيص الموظفين والمنشآت ومراحل المخالفات
+                    {{ __('notifications.ui.subtitle') }}
                 </p>
             </div>
 
-            <!-- View Switcher -->
-            <div class="fi-tabs-segmented">
-                <button wire:click="switchViewMode('matrix')" class="fi-tab-item {{ $viewMode === 'matrix' ? 'active' : '' }}">
-                    <span>📊</span>
-                    <span>مصفوفة الوثائق</span>
-                </button>
-                <button wire:click="switchViewMode('list')" class="fi-tab-item {{ $viewMode === 'list' ? 'active' : '' }}">
-                    <span>🔔</span>
-                    <span>سجل التنبيهات ({{ $counts['total'] }})</span>
-                </button>
+            <!-- Actions & View Switcher -->
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;">
+                <x-filament::button color="gray" size="sm" icon="heroicon-o-printer" onclick="window.print()">
+                    {{ __('notifications.ui.print') }}
+                </x-filament::button>
+
+                <div class="fi-tabs-segmented">
+                    <button wire:click="switchViewMode('matrix')" class="fi-tab-item {{ $viewMode === 'matrix' ? 'active' : '' }}">
+                        <span>📊</span>
+                        <span>{{ __('notifications.ui.matrix') }}</span>
+                    </button>
+                    <button wire:click="switchViewMode('list')" class="fi-tab-item {{ $viewMode === 'list' ? 'active' : '' }}">
+                        <span>🔔</span>
+                        <span>{{ __('notifications.ui.alert_log') }} ({{ $counts['total'] }})</span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -431,7 +722,7 @@
             <!-- Overdue -->
             <div class="fi-stat-card">
                 <div>
-                    <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;" class="dark:text-gray-400">تنبيهات منتهية</div>
+                    <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;" class="dark:text-gray-400">{{ __('notifications.ui.overdue') }}</div>
                     <div style="font-size: 1.45rem; font-weight: 800; color: #dc2626; margin-top: 0.15rem; font-variant-numeric: tabular-nums;">
                         {{ $counts['overdue'] ?? 0 }}
                     </div>
@@ -444,7 +735,7 @@
             <!-- Urgent -->
             <div class="fi-stat-card">
                 <div>
-                    <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;" class="dark:text-gray-400">تنبيهات عاجلة (≤ 15 يوم)</div>
+                    <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;" class="dark:text-gray-400">{{ __('notifications.ui.urgent') }}</div>
                     <div style="font-size: 1.45rem; font-weight: 800; color: #d97706; margin-top: 0.15rem; font-variant-numeric: tabular-nums;">
                         {{ $counts['urgent'] ?? 0 }}
                     </div>
@@ -457,7 +748,7 @@
             <!-- Documents -->
             <div class="fi-stat-card">
                 <div>
-                    <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;" class="dark:text-gray-400">وثائق وتراخيص</div>
+                    <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;" class="dark:text-gray-400">{{ __('notifications.ui.documents') }}</div>
                     <div style="font-size: 1.45rem; font-weight: 800; color: #2563eb; margin-top: 0.15rem; font-variant-numeric: tabular-nums;">
                         {{ $counts['documents'] ?? 0 }}
                     </div>
@@ -470,7 +761,7 @@
             <!-- Violations -->
             <div class="fi-stat-card">
                 <div>
-                    <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;" class="dark:text-gray-400">مخالفات وغرامات</div>
+                    <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;" class="dark:text-gray-400">{{ __('notifications.ui.violations') }}</div>
                     <div style="font-size: 1.45rem; font-weight: 800; color: #ea580c; margin-top: 0.15rem; font-variant-numeric: tabular-nums;">
                         {{ $counts['violations'] ?? 0 }}
                     </div>
@@ -483,7 +774,7 @@
             <!-- Tasks & Invoices -->
             <div class="fi-stat-card">
                 <div>
-                    <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;" class="dark:text-gray-400">مهام وفواتير</div>
+                    <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;" class="dark:text-gray-400">{{ __('notifications.ui.tasks_invoices') }}</div>
                     <div style="font-size: 1.45rem; font-weight: 800; color: #059669; margin-top: 0.15rem; font-variant-numeric: tabular-nums;">
                         {{ ($counts['tasks'] ?? 0) + ($counts['invoices'] ?? 0) }}
                     </div>
@@ -500,51 +791,51 @@
                 :title="__('reports.filters.title')"
                 :icon="'heroicon-o-funnel'"
                 :show-search="true"
-                :search-placeholder="'ابحث بالاسم، رقم الهوية/الإقامة، أو اسم المنشأة...'"
+                :search-placeholder="__('notifications.ui.search')"
                 :show-dates="true"
                 :date-from-label="__('reports.filters.date_from')"
                 :date-to-label="__('reports.filters.date_to')"
                 :show-company="true"
                 :companies="$this->companies"
-                :company-label="'🏢 المنشأة'"
+                :company-label="__('notifications.ui.company')"
                 :multiple-company="true"
                 :show-status="false"
                 :has-active="$this->hasActiveFilters()"
                 reset-method="resetFilters"
             >
                 <x-slot name="prepend">
-                    {{-- 1. الجهة / النطاق --}}
+                    
                     <x-filter-select
                         wire:model.live="targetType"
-                        label="الجهة / النطاق"
-                        :placeholder="'🌐 الكل (موظفون ومنشآت)'"
+                        :label="__('notifications.ui.scope')"
+                        :placeholder="__('notifications.ui.all_entities')"
                         :options="[
-                            'employees' => '👤 الموظفون ككل',
-                            'companies' => '🏢 المنشآت ككل',
+                            'employees' => __('notifications.ui.employees'),
+                            'companies' => __('notifications.ui.companies'),
                         ]"
                         :searchable="false"
                     />
 
-                    {{-- 2. السبب / نوع الوثيقة --}}
+                    
                     <x-filter-select
                         wire:model.live="documentType"
-                        label="السبب / نوع الوثيقة"
-                        :placeholder="'الكل (جميع الأسباب)'"
+                        :label="__('notifications.ui.reason')"
+                        :placeholder="__('notifications.ui.all_reasons')"
                         :options="$this->documentTypeOptions"
                         :multiple="true"
                         :searchable="true"
                     />
 
-                    {{-- 3. الحالة / درجة الإلحاح --}}
+                    
                     <x-filter-select
                         wire:model.live="status"
-                        label="الحالة / درجة الإلحاح"
-                        :placeholder="'الكل (جميع الحالات)'"
+                        :label="__('notifications.ui.urgency')"
+                        :placeholder="__('notifications.ui.all_statuses')"
                         :options="[
-                            'overdue' => '🚨 منتهية بالفعل',
-                            'urgent'  => '⚠️ عاجلة (≤ 15 يوم)',
-                            'warning' => '⏳ تنتهي قريباً (≤ 90 يوم)',
-                            'safe'    => '✅ سارية ومستقرة (> 90 يوم)',
+                            'overdue' => __('notifications.ui.expired'),
+                            'urgent'  => __('notifications.ui.urgent_option'),
+                            'warning' => __('notifications.ui.expiring'),
+                            'safe'    => __('notifications.ui.safe'),
                         ]"
                         :multiple="true"
                         :searchable="false"
@@ -560,12 +851,12 @@
                     <thead>
                         <tr>
                             <th style="width: 44px;">#</th>
-                            <th style="text-align: right; padding-right: 1.1rem; min-width: 180px;">المستفيد / المنشأة</th>
-                            <th style="min-width: 120px;">رقم الهوية / الإقامة</th>
-                            <th style="min-width: 130px;">🪪 الإقامة / السجل التجاري</th>
-                            <th style="min-width: 130px;">💼 رخصة العمل / البلدية</th>
-                            <th style="min-width: 130px;">🏥 التأمين / الدفاع المدني</th>
-                            <th style="min-width: 130px;">📝 عقد العمل</th>
+                            <th style="text-align: right; padding-right: 1.1rem; min-width: 180px;">{{ __('notifications.ui.beneficiary') }}</th>
+                            <th style="min-width: 120px;">{{ __('notifications.ui.identity') }}</th>
+                            <th style="min-width: 130px;">{{ __('notifications.ui.iqama_cr') }}</th>
+                            <th style="min-width: 130px;">{{ __('notifications.ui.work_municipality') }}</th>
+                            <th style="min-width: 130px;">{{ __('notifications.ui.insurance_defense') }}</th>
+                            <th style="min-width: 130px;">{{ __('notifications.ui.contract') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -654,12 +945,12 @@
                                         <div style="font-weight: 700; color: #0f172a; font-size: 0.85rem; display: flex; align-items: center; gap: 0.35rem;" class="dark:text-white">
                                             <span>🏢</span>
                                             <span>{{ $row['company_name'] }}</span>
-                                            <span style="font-size: 0.68rem; background-color: #eff6ff; color: #2563eb; padding: 0.1rem 0.4rem; border-radius: 0.3rem; font-weight: 600;" class="dark:bg-blue-900/30 dark:text-blue-400">منشأة</span>
+                                            <span style="font-size: 0.68rem; background-color: #eff6ff; color: #2563eb; padding: 0.1rem 0.4rem; border-radius: 0.3rem; font-weight: 600;" class="dark:bg-blue-900/30 dark:text-blue-400">{{ __('notifications.ui.company_badge') }}</span>
                                         </div>
                                     </td>
                                     <td style="color: #94a3b8;">—</td>
 
-                                    <!-- 1. Commercial Registration (السجل التجاري) -->
+                                    
                                     <td>
                                         @if(!empty($row['cr']))
                                             <div class="matrix-doc-cell">
@@ -673,7 +964,7 @@
                                         @endif
                                     </td>
 
-                                    <!-- 2. Municipality License (رخصة البلدية) -->
+                                    
                                     <td>
                                         @if(!empty($row['municipality']))
                                             <div class="matrix-doc-cell">
@@ -687,7 +978,7 @@
                                         @endif
                                     </td>
 
-                                    <!-- 3. Civil Defense License (الدفاع المدني) -->
+                                    
                                     <td>
                                         @if(!empty($row['civil_defense']))
                                             <div class="matrix-doc-cell">
@@ -711,8 +1002,8 @@
                             <tr>
                                 <td colspan="7" style="padding: 3rem 1rem; text-align: center; color: #94a3b8;">
                                     <div style="font-size: 2rem; margin-bottom: 0.35rem;">🔍</div>
-                                    <div style="font-size: 0.9rem; font-weight: 600; color: #475569;" class="dark:text-gray-300">لا توجد سجلات مطابقة لمعايير البحث</div>
-                                    <div style="font-size: 0.78rem; margin-top: 0.2rem; color: #94a3b8;">يرجى تجربة تعديل الكيان أو إزالة التواريخ المحددة.</div>
+                                    <div style="font-size: 0.9rem; font-weight: 600; color: #475569;" class="dark:text-gray-300">{{ __('notifications.ui.no_matches') }}</div>
+                                    <div style="font-size: 0.78rem; margin-top: 0.2rem; color: #94a3b8;">{{ __('notifications.ui.adjust_filters') }}</div>
                                 </td>
                             </tr>
                         @endforelse
@@ -733,24 +1024,24 @@
                 <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.6rem;">
                     <div style="display: flex; flex-wrap: wrap; gap: 0.3rem;">
                         <button wire:click="setCategory('all')" class="fi-tab-item {{ $category === 'all' ? 'active' : '' }}" style="{{ $category === 'all' ? 'background-color: #ffffff; color: #0f172a; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);' : 'background-color: #f1f5f9; color: #64748b;' }}">
-                            الكل ({{ $counts['total'] }})
+                            {{ __('notifications.ui.all') }} ({{ $counts['total'] }})
                         </button>
                         <button wire:click="setCategory('documents')" class="fi-tab-item {{ $category === 'documents' ? 'active' : '' }}" style="{{ $category === 'documents' ? 'background-color: #ffffff; color: #0f172a; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);' : 'background-color: #f1f5f9; color: #64748b;' }}">
-                            🪪 وثائق وعقود ({{ $counts['documents'] }})
+                            {{ __('notifications.ui.documents_contracts') }} ({{ $counts['documents'] }})
                         </button>
                         <button wire:click="setCategory('violations')" class="fi-tab-item {{ $category === 'violations' ? 'active' : '' }}" style="{{ $category === 'violations' ? 'background-color: #ffffff; color: #0f172a; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);' : 'background-color: #f1f5f9; color: #64748b;' }}">
-                            ⚖️ مخالفات وغرامات ({{ $counts['violations'] ?? 0 }})
+                            ⚖️ {{ __('notifications.ui.violations') }} ({{ $counts['violations'] ?? 0 }})
                         </button>
                         <button wire:click="setCategory('tasks')" class="fi-tab-item {{ $category === 'tasks' ? 'active' : '' }}" style="{{ $category === 'tasks' ? 'background-color: #ffffff; color: #0f172a; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);' : 'background-color: #f1f5f9; color: #64748b;' }}">
-                            📋 مهام عمل ({{ $counts['tasks'] }})
+                            {{ __('notifications.ui.tasks') }} ({{ $counts['tasks'] }})
                         </button>
                         <button wire:click="setCategory('invoices')" class="fi-tab-item {{ $category === 'invoices' ? 'active' : '' }}" style="{{ $category === 'invoices' ? 'background-color: #ffffff; color: #0f172a; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);' : 'background-color: #f1f5f9; color: #64748b;' }}">
-                            💰 فواتير واستحقاقات ({{ $counts['invoices'] }})
+                            {{ __('notifications.ui.invoices') }} ({{ $counts['invoices'] }})
                         </button>
                     </div>
 
                     <div style="font-size: 0.8rem; color: #64748b; font-weight: 600;">
-                        إجمالي النتائج: <span style="color: #2563eb; font-weight: 800;">{{ $paginatedAlerts->total() }}</span>
+                        {{ __('notifications.ui.total_results') }} <span style="color: #2563eb; font-weight: 800;">{{ $paginatedAlerts->total() }}</span>
                     </div>
                 </div>
             </div>
@@ -759,15 +1050,20 @@
                 <table class="fi-native-table">
                     <thead>
                         <tr>
-                            <th style="min-width: 100px;">نوع التنبيه</th>
-                            <th style="text-align: right; padding-right: 1.1rem; min-width: 150px;">المعني / المستلم</th>
-                            <th style="text-align: right; min-width: 160px;">التفاصيل / الجهة</th>
-                            <th style="min-width: 95px;">تاريخ الاستحقاق</th>
-                            <th style="min-width: 110px;">الحالة والمتبقي</th>
+                            <th style="min-width: 100px;">{{ __('notifications.ui.alert_type') }}</th>
+                            <th style="text-align: right; padding-right: 1.1rem; min-width: 150px;">{{ __('notifications.ui.recipient') }}</th>
+                            <th style="text-align: right; min-width: 160px;">{{ __('notifications.ui.details') }}</th>
+                            <th style="min-width: 95px;">{{ __('notifications.ui.due_date') }}</th>
+                            <th style="min-width: 110px;">{{ __('notifications.ui.remaining') }}</th>
+                            <th style="min-width: 100px; text-align: center;">{{ __('notifications.ui.actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse ($paginatedAlerts as $item)
+                            @php
+                                $idParts = explode('_', $item['id']);
+                                $rawRecordId = end($idParts);
+                            @endphp
                             <tr>
                                 <td>
                                     <span class="fi-badge-custom {{ $item['category'] === 'documents' ? 'fi-badge-success' : ($item['category'] === 'violations' ? 'fi-badge-danger' : ($item['category'] === 'tasks' ? 'fi-badge-warning' : 'fi-badge-success')) }}">
@@ -791,12 +1087,23 @@
                                         {{ $item['status_text'] }}
                                     </span>
                                 </td>
+                                <td style="text-align: center;">
+                                    <button 
+                                        type="button"
+                                        wire:click="sendManualReminder('{{ $item['type'] }}', '{{ $rawRecordId }}', '{{ $item['type'] }}')"
+                                        wire:loading.attr="disabled"
+                                        class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md bg-primary-50 text-primary-700 hover:bg-primary-100 dark:bg-primary-950 dark:text-primary-300 transition"
+                                        title="{{ __('notifications.ui.remind_tooltip') }}">
+                                        <span wire:loading.remove wire:target="sendManualReminder('{{ $item['type'] }}', '{{ $rawRecordId }}', '{{ $item['type'] }}')">{{ __('notifications.ui.remind') }}</span>
+                                        <span wire:loading wire:target="sendManualReminder('{{ $item['type'] }}', '{{ $rawRecordId }}', '{{ $item['type'] }}')">{{ __('notifications.ui.queuing') }}</span>
+                                    </button>
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" style="padding: 3rem 1rem; text-align: center; color: #94a3b8;">
+                                <td colspan="6" style="padding: 3rem 1rem; text-align: center; color: #94a3b8;">
                                     <div style="font-size: 2rem; margin-bottom: 0.35rem;">🎉</div>
-                                    <div style="font-size: 0.9rem; font-weight: 600; color: #475569;" class="dark:text-gray-300">لا توجد تنبيهات نشطة حالياً</div>
+                                    <div style="font-size: 0.9rem; font-weight: 600; color: #475569;" class="dark:text-gray-300">{{ __('notifications.ui.no_alerts') }}</div>
                                 </td>
                             </tr>
                         @endforelse

@@ -3,12 +3,24 @@
 namespace App\Filament\Resources\Leaves\Pages;
 
 use App\Filament\Resources\Leaves\LeaveResource;
-use App\Models\LeaveType;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateLeave extends CreateRecord
 {
     protected static string $resource = LeaveResource::class;
+
+    public function mount(): void
+    {
+        parent::mount();
+
+        $employeeId = request()->query('employee_id');
+        if ($employeeId) {
+            $this->form->fill([
+                'employee_id' => (int) $employeeId,
+                'start_date' => now()->toDateString(),
+            ]);
+        }
+    }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
