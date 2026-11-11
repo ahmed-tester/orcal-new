@@ -5,6 +5,7 @@ namespace App\Filament\Resources\EmployeeRewards\Pages;
 use App\Filament\Resources\EmployeeRewards\EmployeeRewardResource;
 use App\Filament\Traits\HasFilterBarState;
 use App\Services\FilterBarService;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,6 +19,12 @@ class ListEmployeeRewards extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('summaryView')
+                ->label(__('finance.employee_rewards.summary.title'))
+                ->icon('heroicon-o-users')
+                ->color('gray')
+                ->url(fn (): string => EmployeeRewardResource::getUrl('index')),
+
             CreateAction::make(),
         ];
     }
