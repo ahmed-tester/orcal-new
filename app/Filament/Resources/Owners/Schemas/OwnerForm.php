@@ -31,6 +31,11 @@ class OwnerForm
                             ->label(__('owners.fields.name'))
                             ->required(),
 
+                        TextInput::make('name_en')
+                            ->label(__('owners.fields.name_en'))
+                            ->placeholder(__('owners.fields.name_en_placeholder'))
+                            ->maxLength(255),
+
                         TextInput::make('user_email')
                             ->label(__('owners.fields.email'))
                             ->email()

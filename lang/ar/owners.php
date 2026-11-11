@@ -10,6 +10,8 @@ return [
     'fields' => [
         'user' => 'حساب المستخدم',
         'name' => 'اسم المالك',
+        'name_en' => 'الاسم بالإنجليزية',
+        'name_en_placeholder' => 'أدخل الاسم بالإنجليزية (e.g. Mohammed Ali)',
         'email' => 'البريد الإلكتروني',
         'phone' => 'رقم الجوال',
         'password' => 'كلمة المرور',

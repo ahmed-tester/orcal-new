@@ -35,6 +35,7 @@ class Owner extends Model
         'ownership_percentage',
         'status',
         'metadata',
+        'name_en',
         'monthly_deduction_percentage',
         'owner_advances',
         'debts',
@@ -76,6 +77,22 @@ class Owner extends Model
     public function getIdentityNumberAttribute(): ?string
     {
         return $this->national_id;
+    }
+
+    public function getNameEnAttribute(): ?string
+    {
+        return $this->metadata['name_en'] ?? null;
+    }
+
+    public function setNameEnAttribute(?string $value): void
+    {
+        $meta = is_array($this->metadata) ? $this->metadata : [];
+        if ($value !== null && trim($value) !== '') {
+            $meta['name_en'] = trim($value);
+        } else {
+            unset($meta['name_en']);
+        }
+        $this->metadata = $meta;
     }
 
     public function getMonthlyDeductionPercentageAttribute(): ?float

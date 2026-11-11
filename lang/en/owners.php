@@ -12,6 +12,8 @@ return [
     'fields' => [
         'user' => 'User Account',
         'name' => 'Owner Name',
+        'name_en' => 'Name (English)',
+        'name_en_placeholder' => 'Enter English name (e.g. Mohammed Ali)',
         'email' => 'Email Address',
         'phone' => 'Phone Number',
         'password' => 'Password',

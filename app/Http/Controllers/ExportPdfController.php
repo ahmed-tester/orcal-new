@@ -554,6 +554,7 @@ class ExportPdfController extends Controller
      * - statement_type: 'all' | 'employees_only' | 'owners_only'
      * - company_id: ID | 'all'
      * - status: 'all' | 'active'
+     * - nationality: 'all' | 'saudi' | 'foreign'
      * - export_mode: 'print' | 'pdf'
      */
     public function exportEmployeesStatement(Request $request)
@@ -561,10 +562,25 @@ class ExportPdfController extends Controller
         $statementType = $request->query('statement_type', 'all');
         $companyId = $request->query('company_id', 'all');
         $status = $request->query('status', 'all');
+        $nationality = $request->query('nationality', 'all');
         $exportMode = $request->query('export_mode', 'print');
 
         $user = auth()->user();
-        $authorizedCompanyIds = $user ? CompanyFormService::getAuthorizedCompanyIds($user) : [];
+        $isSuperAdmin = $user?->isSuperAdmin() ?? false;
+        $authorizedCompanyIds = $user ? array_map('intval', CompanyFormService::getAuthorizedCompanyIds($user)) : [];
+
+        // Security check: non-superadmins must have authorized companies and cannot query unauthorized companies
+        if (! $isSuperAdmin) {
+            if (empty($authorizedCompanyIds)) {
+                abort(403, 'لا تملك صلاحية الوصول إلى أي منشأة.');
+            }
+
+            if (! empty($companyId) && $companyId !== 'all') {
+                if (! in_array((int) $companyId, $authorizedCompanyIds, true)) {
+                    abort(403, 'غير مصرح لك بالوصول لبيانات هذه المنشأة.');
+                }
+            }
+        }
 
         $companyTitle = 'كافة المنشآت المصرح بها';
         if (! empty($companyId) && $companyId !== 'all') {
@@ -574,37 +590,51 @@ class ExportPdfController extends Controller
 
         // Query employees if needed
         $employees = collect();
-        if ($statementType === 'all' || $statementType === 'employees_only') {
+        if ($statementType === 'all' || $statementType === 'employees_only' || $statementType === 'dual_only') {
             $empQuery = Employee::with(['user.owners', 'company', 'branch', 'department', 'jobTitle', 'details']);
-            if ($statementType === 'employees_only') {
-                $empQuery->whereDoesntHave('user.owners');
+
+            if ($statementType === 'dual_only') {
+                $empQuery->whereHas('user.owners');
             }
+
             if (! empty($companyId) && $companyId !== 'all') {
-                $empQuery->where('company_id', $companyId);
-            } elseif (! empty($authorizedCompanyIds) && ! ($user?->isSuperAdmin())) {
+                $empQuery->where('company_id', (int) $companyId);
+            } elseif (! $isSuperAdmin) {
                 $empQuery->whereIn('company_id', $authorizedCompanyIds);
             }
+
             if (! empty($status) && $status !== 'all') {
                 $empQuery->where('status', $status);
             }
+
+            if ($nationality === 'saudi') {
+                $empQuery->saudi();
+            } elseif ($nationality === 'foreign') {
+                $empQuery->foreign();
+            }
+
             $employees = $empQuery->orderBy('id', 'desc')->get();
         }
 
         // Query owners if needed
         $owners = collect();
-        if ($statementType === 'all' || $statementType === 'owners_only') {
+        if ($statementType === 'all' || $statementType === 'owners_only' || $statementType === 'dual_only') {
             $ownerQuery = Owner::with(['user.employee', 'company']);
-            if ($statementType === 'owners_only') {
-                $ownerQuery->whereDoesntHave('user.employee');
+
+            if ($statementType === 'dual_only') {
+                $ownerQuery->whereHas('user.employee');
             }
+
             if (! empty($companyId) && $companyId !== 'all') {
-                $ownerQuery->where('company_id', $companyId);
-            } elseif (! empty($authorizedCompanyIds) && ! ($user?->isSuperAdmin())) {
+                $ownerQuery->where('company_id', (int) $companyId);
+            } elseif (! $isSuperAdmin) {
                 $ownerQuery->whereIn('company_id', $authorizedCompanyIds);
             }
+
             if (! empty($status) && $status !== 'all') {
                 $ownerQuery->where('status', $status);
             }
+
             $owners = $ownerQuery->orderBy('id', 'desc')->get();
         }
 
@@ -617,12 +647,17 @@ class ExportPdfController extends Controller
 
         if ($statementType === 'employees_only') {
             foreach ($employees as $emp) {
-                $stats['employees_only_count']++;
+                $isOwner = $emp->user?->owners?->isNotEmpty() ?? false;
+                if ($isOwner) {
+                    $stats['dual_count']++;
+                } else {
+                    $stats['employees_only_count']++;
+                }
 
                 $records[] = [
                     'name' => $emp->user?->name ?? '—',
-                    'capacity' => __('employees.fields.capacity_employee'),
-                    'capacity_code' => 'employee',
+                    'capacity' => $isOwner ? __('employees.fields.capacity_employee_and_owner') : __('employees.fields.capacity_employee'),
+                    'capacity_code' => $isOwner ? 'employee_and_owner' : 'employee',
                     'national_id' => $emp->details?->national_id ?? $emp->details?->iqama_number ?? '—',
                     'company_name' => $emp->company?->trade_name ?? '—',
                     'branch_name' => $emp->branch?->name ?? '—',
@@ -634,12 +669,17 @@ class ExportPdfController extends Controller
             }
         } elseif ($statementType === 'owners_only') {
             foreach ($owners as $owner) {
-                $stats['owners_only_count']++;
+                $isEmployee = (bool) $owner->user?->employee;
+                if ($isEmployee) {
+                    $stats['dual_count']++;
+                } else {
+                    $stats['owners_only_count']++;
+                }
 
                 $records[] = [
                     'name' => $owner->user?->name ?? '—',
-                    'capacity' => __('owners.fields.capacity_owner'),
-                    'capacity_code' => 'owner',
+                    'capacity' => $isEmployee ? __('owners.fields.capacity_employee_and_owner') : __('owners.fields.capacity_owner'),
+                    'capacity_code' => $isEmployee ? 'employee_and_owner' : 'owner',
                     'national_id' => $owner->national_id ?? '—',
                     'company_name' => $owner->company?->trade_name ?? '—',
                     'branch_name' => '—',
@@ -648,6 +688,57 @@ class ExportPdfController extends Controller
                     'phone' => $owner->user?->phone ?? '—',
                     'status' => $owner->status instanceof \BackedEnum ? $owner->status->value : (string) ($owner->status ?? 'active'),
                 ];
+            }
+        } elseif ($statementType === 'dual_only') {
+            // 'dual_only': Persons holding both Employee and Owner capacities
+            $seenUserIds = [];
+
+            foreach ($employees as $emp) {
+                if ($emp->user?->owners?->isNotEmpty()) {
+                    $stats['dual_count']++;
+                    if ($emp->user_id) {
+                        $seenUserIds[$emp->user_id] = true;
+                    }
+
+                    $records[] = [
+                        'name' => $emp->user?->name ?? '—',
+                        'capacity' => __('employees.fields.capacity_employee_and_owner'),
+                        'capacity_code' => 'employee_and_owner',
+                        'national_id' => $emp->details?->national_id ?? $emp->details?->iqama_number ?? '—',
+                        'company_name' => $emp->company?->trade_name ?? '—',
+                        'branch_name' => $emp->branch?->name ?? '—',
+                        'department_name' => $emp->department?->name ?? '—',
+                        'job_title' => $emp->metadata['job_title'] ?? $emp->jobTitle?->name ?? $emp->details?->profession ?? '—',
+                        'phone' => $emp->user?->phone ?? '—',
+                        'status' => $emp->status instanceof \BackedEnum ? $emp->status->value : (string) ($emp->status ?? 'active'),
+                    ];
+                }
+            }
+
+            foreach ($owners as $owner) {
+                if ($owner->user_id && isset($seenUserIds[$owner->user_id])) {
+                    continue;
+                }
+
+                if ((bool) $owner->user?->employee) {
+                    $stats['dual_count']++;
+                    if ($owner->user_id) {
+                        $seenUserIds[$owner->user_id] = true;
+                    }
+
+                    $records[] = [
+                        'name' => $owner->user?->name ?? '—',
+                        'capacity' => __('owners.fields.capacity_employee_and_owner'),
+                        'capacity_code' => 'employee_and_owner',
+                        'national_id' => $owner->national_id ?? '—',
+                        'company_name' => $owner->company?->trade_name ?? '—',
+                        'branch_name' => '—',
+                        'department_name' => 'الإدارة العليا / المُلّاك',
+                        'job_title' => $owner->ownership_percentage ? "نسبة الملكية: {$owner->ownership_percentage}%" : 'مالك',
+                        'phone' => $owner->user?->phone ?? '—',
+                        'status' => $owner->status instanceof \BackedEnum ? $owner->status->value : (string) ($owner->status ?? 'active'),
+                    ];
+                }
             }
         } else {
             // 'all': Combined records of employees and owners
@@ -685,12 +776,17 @@ class ExportPdfController extends Controller
                     continue;
                 }
 
-                $stats['owners_only_count']++;
+                $isEmployee = (bool) $owner->user?->employee;
+                if ($isEmployee) {
+                    $stats['dual_count']++;
+                } else {
+                    $stats['owners_only_count']++;
+                }
 
                 $records[] = [
                     'name' => $owner->user?->name ?? '—',
-                    'capacity' => __('owners.fields.capacity_owner'),
-                    'capacity_code' => 'owner',
+                    'capacity' => $isEmployee ? __('owners.fields.capacity_employee_and_owner') : __('owners.fields.capacity_owner'),
+                    'capacity_code' => $isEmployee ? 'employee_and_owner' : 'owner',
                     'national_id' => $owner->national_id ?? '—',
                     'company_name' => $owner->company?->trade_name ?? '—',
                     'branch_name' => '—',
@@ -702,16 +798,24 @@ class ExportPdfController extends Controller
             }
         }
 
+        $nationalitySuffix = match ($nationality) {
+            'saudi' => ' (الموظفون السعوديون)',
+            'foreign' => ' (الموظفون المقيمون)',
+            default => '',
+        };
+
         $title = match ($statementType) {
             'owners_only' => 'كشف وبيان مُلّاك المنشأة',
-            'employees_only' => 'كشف وبيان موظفي المنشأة',
-            default => 'كشف وبيان الموظفين والمُلّاك',
+            'employees_only' => 'كشف وبيان موظفي المنشأة'.$nationalitySuffix,
+            'dual_only' => 'كشف من يجمع بين صفتي موظف ومالك منشأة'.$nationalitySuffix,
+            default => 'كشف وبيان الموظفين والمُلّاك'.$nationalitySuffix,
         };
 
         $typeLabel = match ($statementType) {
-            'owners_only' => 'كشف المُلّاك فقط',
-            'employees_only' => 'كشف الموظفين فقط',
-            default => 'كشف شامل للموظفين والمُلّاك معاً (مع إظهار الصفة)',
+            'owners_only' => 'كشف المُلّاك',
+            'employees_only' => 'كشف الموظفين'.$nationalitySuffix,
+            'dual_only' => 'كشف من يجمع بين الصفتين (موظف ومالك منشأة)'.$nationalitySuffix,
+            default => 'كشف شامل للموظفين والمُلّاك معاً (مع إظهار الصفة)'.$nationalitySuffix,
         };
 
         if ($exportMode === 'pdf') {

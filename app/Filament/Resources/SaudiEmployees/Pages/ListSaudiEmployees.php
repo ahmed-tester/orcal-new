@@ -28,36 +28,40 @@ class ListSaudiEmployees extends ListRecords
     {
         return [
             CreateAction::make('create_saudi')
-                ->label('إضافة موظف سعودي')
+                ->label(__('employees.actions.create_saudi'))
                 ->icon('heroicon-o-user-plus')
                 ->color('success'),
 
             Action::make('create_foreign')
-                ->label('إضافة موظف غير سعودي')
+                ->label(__('employees.actions.create_foreign'))
                 ->icon('heroicon-o-globe-alt')
                 ->color('info')
                 ->url(ForeignEmployeeResource::getUrl('create')),
 
             Action::make('print_statement')
-                ->label('طباعة وتصدير كشف 🖨️')
+                ->label(__('employees.statement.action_label'))
                 ->icon('heroicon-o-printer')
                 ->color('warning')
-                ->modalHeading('خيارات كشف الموظفين والمُلّاك (عرض وطباعة)')
-                ->modalDescription('اختر نوع الكشف والمنشأة المراد استعراضها أو طباعتها.')
-                ->modalSubmitActionLabel('فتح واستعراض الكشف 🖨️')
+                ->modalHeading(__('employees.statement.modal_heading'))
+                ->modalDescription(__('employees.statement.modal_description'))
+                ->modalSubmitActionLabel(__('employees.statement.modal_submit'))
                 ->form([
                     Select::make('statement_type')
-                        ->label('نوع الكشف')
-                        ->options([
-                            'all' => 'كشف شامل (الكل: الموظفين والمُلّاك معاً مع إظهار الصفة)',
-                            'employees_only' => 'كشف للموظفين فقط',
-                            'owners_only' => 'كشف للمُلّاك فقط',
-                        ])
+                        ->label(__('employees.statement.statement_type'))
+                        ->options(__('employees.statement.types'))
                         ->default('all')
+                        ->live()
+                        ->required(),
+
+                    Select::make('nationality')
+                        ->label(__('employees.statement.nationality'))
+                        ->options(__('employees.statement.nationalities'))
+                        ->default('saudi')
+                        ->visible(fn ($get) => in_array($get('statement_type'), ['all', 'employees_only', 'dual_only']))
                         ->required(),
 
                     Select::make('company_id')
-                        ->label('المنشأة / الشركة')
+                        ->label(__('employees.statement.company'))
                         ->options(function () {
                             $user = auth()->user();
                             $query = Company::query();
@@ -68,27 +72,21 @@ class ListSaudiEmployees extends ListRecords
                                 }
                             }
 
-                            return ['all' => 'كافة المنشآت المصرح بها'] + $query->orderBy('trade_name')->pluck('trade_name', 'id')->toArray();
+                            return ['all' => __('employees.statement.all_authorized_companies')] + $query->orderBy('trade_name')->pluck('trade_name', 'id')->toArray();
                         })
                         ->default('all')
                         ->searchable()
                         ->required(),
 
                     Select::make('status')
-                        ->label('حالة السجلات')
-                        ->options([
-                            'all' => 'الكل (نشط وغير نشط)',
-                            'active' => 'النشطين / على رأس العمل فقط',
-                        ])
+                        ->label(__('employees.statement.status'))
+                        ->options(__('employees.statement.statuses'))
                         ->default('all')
                         ->required(),
 
                     Select::make('export_mode')
-                        ->label('طريقة العرض')
-                        ->options([
-                            'print' => 'معاينة شاشة وطباعة فورية (HTML Print View)',
-                            'pdf' => 'تصدير وتحميل مستند PDF مباشر',
-                        ])
+                        ->label(__('employees.statement.export_mode'))
+                        ->options(__('employees.statement.modes'))
                         ->default('print')
                         ->required(),
                 ])

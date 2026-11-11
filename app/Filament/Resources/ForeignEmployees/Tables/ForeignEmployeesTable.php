@@ -6,6 +6,7 @@ use App\Filament\Components\OrgSelect;
 use App\Models\Guarantor;
 use App\Services\CompanyFormService;
 use App\Services\EmployeeAgeService;
+use App\Services\EmployeeServiceDurationService;
 use App\Services\PhoneService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -152,6 +153,9 @@ class ForeignEmployeesTable
                     ->money('SAR')
                     ->sortable(),
 
+                EmployeeServiceDurationService::makeDaysServedTableColumn(),
+                EmployeeServiceDurationService::makeTerminationReasonTableColumn(),
+
                 TextColumn::make('status')
                     ->label(__('employees.fields.status'))
                     ->badge(),
@@ -203,6 +207,8 @@ class ForeignEmployeesTable
                 SelectFilter::make('status')
                     ->label(__('employees.fields.status'))
                     ->options(__('employees.statuses')),
+
+                EmployeeServiceDurationService::makeTerminationReasonTableFilter(),
             ])
             ->recordActions([
                 EditAction::make()->label(__('employees.actions.edit')),
