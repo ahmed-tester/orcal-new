@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ServiceTransactions\Pages;
 use App\Filament\Resources\ServiceTransactions\ServiceTransactionResource;
 use App\Filament\Traits\HasFilterBarState;
 use App\Services\FilterBarService;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,6 +26,10 @@ class ListServiceTransactions extends ListRecords
     {
         return [
             CreateAction::make(),
+            Action::make('financial_indicators')
+                ->label(__('financial.indicators.title'))
+                ->icon('heroicon-o-chart-bar')
+                ->url(fn (): string => ServiceTransactionResource::getUrl('financial-indicators')),
         ];
     }
 

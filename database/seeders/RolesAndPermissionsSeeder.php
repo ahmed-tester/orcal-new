@@ -190,6 +190,12 @@ class RolesAndPermissionsSeeder extends Seeder
                 'update_service_transaction' => 'تعديل معاملة خدمة',
                 'delete_service_transaction' => 'حذف معاملة خدمة',
                 'approve_service_transaction' => 'اعتماد معاملات الخدمات',
+                'escalate_service_transaction' => 'تصعيد معاملة الخدمة للإدارة',
+                'resolve_service_escalation' => 'حل وفك تصعيد معاملات الخدمات',
+                'manage_batch_deposits' => 'إجراء وإدارة الإيداعات البنكية المجمعة',
+                'manage_suspense_amounts' => 'إدارة وربط المبالغ والحوالات المعلقة',
+                'resolve_deficiency_task' => 'معالجة وإغلاق مهام النواقص الرقابية',
+                'view_operational_dashboard' => 'استعراض لوحة المسار والرقابة التشغيلية',
                 'view_any_asset_fund' => 'استعراض صناديق الأصول',
                 'create_asset_fund' => 'إنشاء صندوق أصول',
                 'update_asset_fund' => 'تعديل صندوق أصول',
@@ -287,7 +293,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $generalManagerRole = Role::firstOrCreate(['name' => 'مدير عام', 'guard_name' => 'web']);
         $generalManagerRole->syncPermissions($allPermissionNames);
 
-        // 2. HR Manager Role (مدير موارد بشرية)
+        // 2. HR Manager Role
         $hrManagerRole = Role::firstOrCreate(['name' => 'مدير موارد بشرية', 'guard_name' => 'web']);
         $hrManagerRole->syncPermissions([
             'view_any_company', 'view_any_branch', 'view_any_department', 'view_any_job_title',
@@ -301,7 +307,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view_any_installment', 'create_installment', 'update_installment',
         ]);
 
-        // 3. Attendance Officer Role (مسؤول حضور وانصراف)
+        // 3. Attendance Officer Role
         $attendanceOfficerRole = Role::firstOrCreate(['name' => 'مسؤول حضور وانصراف', 'guard_name' => 'web']);
         $attendanceOfficerRole->syncPermissions([
             'view_any_attendance', 'create_attendance', 'update_attendance', 'check_attendance_absent',
@@ -309,7 +315,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view_any_saudi_employee', 'view_any_foreign_employee',
         ]);
 
-        // 4. Branch Manager Role (مدير فرع)
+        // 4. Branch Manager Role
         $branchManagerRole = Role::firstOrCreate(['name' => 'مدير فرع', 'guard_name' => 'web']);
         $branchManagerRole->syncPermissions([
             'view_any_branch', 'view_any_department', 'view_any_job_title',
@@ -323,7 +329,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'view_any_weekly_note', 'create_weekly_note', 'update_weekly_note',
         ]);
 
-        // 5. Accountant / Financial Manager Role (مدير مالي ومحاسب)
+        // 5. Accountant / Financial Manager Role
         $accountantRole = Role::firstOrCreate(['name' => 'مدير مالي ومحاسب', 'guard_name' => 'web']);
         $accountantRole->syncPermissions([
             'view_any_payment_collection_item',
@@ -371,13 +377,37 @@ class RolesAndPermissionsSeeder extends Seeder
             'create_service_transaction',
             'update_service_transaction',
             'approve_service_transaction',
+            'manage_batch_deposits',
+            'manage_suspense_amounts',
+            'view_operational_dashboard',
         ]);
 
-        // Also alias 'محاسب مالي'
+        // Also alias financial accountant role
         $finAccountantRole = Role::firstOrCreate(['name' => 'محاسب مالي', 'guard_name' => 'web']);
-        $finAccountantRole->syncPermissions($accountantRole->permissions);
+        $finAccountantRole->syncPermissions([
+            'view_any_payment_collection_item',
+            'create_payment_collection_item',
+            'update_payment_collection_item',
+            'view_any_pos_device',
+            'create_pos_device',
+            'update_pos_device',
+            'view_any_treasury_transaction',
+            'create_treasury_transaction',
+            'update_treasury_transaction',
+            'view_any_invoice',
+            'create_invoice',
+            'update_invoice',
+            'view_any_daily_journal',
+            'create_daily_journal',
+            'update_daily_journal',
+            'view_any_service_transaction',
+            'manage_batch_deposits',
+            'manage_suspense_amounts',
+            'view_operational_dashboard',
+            'view_any_faq',
+        ]);
 
-        // دور مسؤول المقاولات والعقود والفوترة
+        // 6. Contracting and Invoicing Manager Role
         $contractingRole = Role::firstOrCreate(['name' => 'مسؤول المقاولات والعقود', 'guard_name' => 'web']);
         $contractingRole->syncPermissions([
             'view_any_customer', 'create_customer', 'update_customer',
@@ -386,13 +416,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'manage_contract_categories',
         ]);
 
-        // 6. Operations Manager Role (مدير عمليات / مشرف عمليات)
+        // 7. Operations Manager Role
         $operationsRole = Role::firstOrCreate(['name' => 'مدير عمليات', 'guard_name' => 'web']);
         $operationsRole->syncPermissions([
-            'view_any_admin',
-            'create_admin',
-            'update_admin',
-            'view_any_role',
             'view_any_company',
             'view_any_branch',
             'view_any_department',
@@ -402,18 +428,66 @@ class RolesAndPermissionsSeeder extends Seeder
             'view_any_leave',
             'view_any_task',
             'view_any_task_assignment',
+            'create_task_assignment',
+            'update_task_assignment',
             'view_any_weekly_note',
+            'create_weekly_note',
+            'update_weekly_note',
+            'view_any_customer',
+            'create_customer',
+            'update_customer',
+            'view_any_service',
+            'create_service',
+            'update_service',
+            'view_any_service_transaction',
+            'create_service_transaction',
+            'update_service_transaction',
+            'approve_service_transaction',
+            'escalate_service_transaction',
+            'resolve_service_escalation',
+            'resolve_deficiency_task',
+            'view_operational_dashboard',
+            'manage_batch_deposits',
+            'manage_suspense_amounts',
+            'view_any_faq',
         ]);
 
         $opsSupervisorRole = Role::firstOrCreate(['name' => 'مشرف عمليات', 'guard_name' => 'web']);
-        $opsSupervisorRole->syncPermissions($operationsRole->permissions);
+        $opsSupervisorRole->syncPermissions([
+            'view_any_service_transaction',
+            'create_service_transaction',
+            'update_service_transaction',
+            'escalate_service_transaction',
+            'resolve_service_escalation',
+            'resolve_deficiency_task',
+            'view_operational_dashboard',
+            'view_any_customer',
+            'view_any_service',
+            'view_any_task',
+            'create_task',
+            'update_task',
+            'view_any_weekly_note',
+            'create_weekly_note',
+            'update_weekly_note',
+            'view_any_faq',
+            'view_any_leave',
+            'create_leave',
+        ]);
 
-        // 7. Regular Employee Role (موظف)
+        // 8. Regular Employee Role
         $employeeRole = Role::firstOrCreate(['name' => 'موظف', 'guard_name' => 'web']);
         $employeeRole->syncPermissions([
-            'view_any_leave', 'create_leave',
+            'view_any_service_transaction',
+            'create_service_transaction',
+            'update_service_transaction',
+            'escalate_service_transaction',
+            'view_operational_dashboard',
+            'view_any_customer',
+            'view_any_service',
             'view_any_task',
             'view_any_faq',
+            'view_any_leave',
+            'create_leave',
         ]);
 
         // ── FAQ permissions for other roles ────────────────────────────────────

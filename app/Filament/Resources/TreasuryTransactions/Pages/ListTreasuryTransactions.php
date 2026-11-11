@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\TreasuryTransactions\Pages;
 
+use App\Filament\Components\CashHandoverActions;
 use App\Filament\Resources\TreasuryTransactions\TreasuryTransactionResource;
 use App\Filament\Traits\HasFilterBarState;
 use App\Models\Company;
 use App\Services\FilterBarService;
+use App\Services\TreasuryCustodyService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms\Components\DatePicker;
@@ -24,6 +26,10 @@ class ListTreasuryTransactions extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            TreasuryCustodyService::receiveCustodyHeaderAction(),
+            CashHandoverActions::receiveHeaderAction(),
+            CashHandoverActions::rejectHeaderAction(),
+
             Action::make('summaryView')
                 ->label(__('finance.treasury_transactions.summary.summary_view'))
                 ->icon('heroicon-o-chart-pie')
