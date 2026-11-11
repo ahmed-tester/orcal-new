@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DebtSummaryPrintController;
 use App\Http\Controllers\OfferPdfController;
 
 use Illuminate\Support\Facades\Route;
@@ -33,6 +34,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/official-letters/{letter}/pdf', [\App\Http\Controllers\OfficialLetterPrintController::class, 'pdf'])->name('official_letters.pdf');
 
     // Debts PDF Export & Print Routes
+    Route::get('/debts/summary/print/{debt?}', DebtSummaryPrintController::class)
+        ->whereNumber('debt')->name('debts.summary.print');
     Route::get('/exports/debts-statement', [\App\Http\Controllers\ExportPdfController::class, 'exportDebtsStatement'])->name('exports.debts-statement');
     Route::get('/exports/debt-voucher/{debt}', [\App\Http\Controllers\ExportPdfController::class, 'printDebtVoucher'])->name('exports.debt-voucher');
 

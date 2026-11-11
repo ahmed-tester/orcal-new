@@ -15,10 +15,12 @@ use App\Models\ViolationRegulation;
 use App\Models\ViolationTransaction;
 use App\Models\ViolationType;
 use App\Services\CompanyFormService;
+use App\Services\DebtSummaryService;
 use App\Services\ExportPdfService;
 use App\Services\HijriDateService;
 use App\Services\TafqeetService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 class ExportPdfController extends Controller
@@ -301,18 +303,20 @@ class ExportPdfController extends Controller
      */
     public function exportDebtsStatement(Request $request)
     {
+        Gate::authorize('viewAny', Debt::class);
+
         $companyId = $request->query('company_id');
         $debtorType = $request->query('debtor_type', 'all');
         $status = $request->query('status', 'all');
         $fromDate = $request->query('from_date');
         $toDate = $request->query('to_date');
 
-        $query = Debt::with(['company', 'employee.user', 'guarantor']);
+        $query = DebtSummaryService::debts()->with(['company', 'employee.user', 'guarantor']);
 
         $companyTitle = 'كافة المنشآت والشركات (الكل)';
         if (! empty($companyId) && $companyId !== 'all') {
             $query->where('company_id', $companyId);
-            $comp = Company::find($companyId);
+            $comp = $query->first()?->company;
             $companyTitle = $comp?->trade_name ?? "منشأة #{$companyId}";
         }
 
@@ -415,7 +419,8 @@ class ExportPdfController extends Controller
      */
     public function printDebtVoucher(Debt $debt)
     {
-        $debt->load(['company', 'employee.user', 'guarantor']);
+        Gate::authorize('view', $debt);
+        $debt = DebtSummaryService::debts()->with(['company', 'employee.user', 'guarantor'])->findOrFail($debt->id);
 
         $amount = (float) $debt->total_amount;
         $amountWords = TafqeetService::inArabic($amount);

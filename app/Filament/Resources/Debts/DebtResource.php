@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Debts;
 
 use App\Filament\Resources\Debts\Pages\CreateDebt;
+use App\Filament\Resources\Debts\Pages\DebtsSummary;
 use App\Filament\Resources\Debts\Pages\EditDebt;
 use App\Filament\Resources\Debts\Pages\ListDebts;
 use App\Filament\Resources\Debts\Schemas\DebtForm;
@@ -57,9 +58,10 @@ class DebtResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => ListDebts::route('/'),
+            'index' => DebtsSummary::route('/'),
+            'detailed' => ListDebts::route('/detailed'),
             'create' => CreateDebt::route('/create'),
-            'edit'   => EditDebt::route('/{record}/edit'),
+            'edit' => EditDebt::route('/{record}/edit'),
         ];
     }
 }
