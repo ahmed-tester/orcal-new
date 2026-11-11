@@ -8,6 +8,7 @@ use App\Enums\FinancialPaymentMethod;
 use App\Models\CashHandover;
 use App\Models\Employee;
 use App\Models\FinancialDisbursement;
+use App\Models\FinancialReceipt;
 use App\Models\ServiceTransaction;
 use App\Models\UnifiedSuspenseAmount;
 use App\Services\CashHandoverService;

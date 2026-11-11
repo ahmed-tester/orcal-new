@@ -42,6 +42,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/exports/debts-statement', [\App\Http\Controllers\ExportPdfController::class, 'exportDebtsStatement'])->name('exports.debts-statement');
     Route::get('/exports/debt-voucher/{debt}', [\App\Http\Controllers\ExportPdfController::class, 'printDebtVoucher'])->name('exports.debt-voucher');
 
+    // Daily Journals Summary Print Route
+    Route::get('/daily-journals/summary/print/{journal?}', \App\Http\Controllers\DailyJournalSummaryPrintController::class)
+        ->whereNumber('journal')->name('daily-journals.summary.print');
+
     // Employees & Owners Statement Export & Print Route
     Route::get('/exports/employees-statement', [\App\Http\Controllers\ExportPdfController::class, 'exportEmployeesStatement'])->name('exports.employees-statement');
 

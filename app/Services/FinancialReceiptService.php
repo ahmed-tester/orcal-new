@@ -32,8 +32,12 @@ class FinancialReceiptService
             ]);
         }
 
-        $method = FinancialPaymentMethod::tryFrom((string) ($data['payment_method'] ?? FinancialPaymentMethod::CASH->value));
-        if (! $method) {
+        $method = $data['payment_method'] ?? FinancialPaymentMethod::CASH;
+        if (is_string($method)) {
+            $method = FinancialPaymentMethod::tryFrom($method);
+        }
+
+        if (! $method instanceof FinancialPaymentMethod) {
             throw ValidationException::withMessages([
                 'payment_method' => __('financial.errors.invalid_payment_method'),
             ]);
