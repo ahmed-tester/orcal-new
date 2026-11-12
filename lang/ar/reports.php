@@ -7,43 +7,154 @@ return [
         'title' => 'التقارير العامة',
     ],
     'reports' => [
-        'users' => ['title' => 'المديرين', 'label' => 'تقرير المديرين'],
-        'employees' => ['title' => 'الموظفين', 'label' => 'تقرير الموظفين'],
-        'departments' => ['title' => 'الأقسام والهيكل الإداري', 'label' => 'تقرير الأقسام والهيكل الإداري'],
-        'attendance' => ['title' => 'الحضور والانصراف', 'label' => 'تقرير الحضور والانصراف'],
-        'leaves' => ['title' => 'الإجازات', 'label' => 'تقرير الإجازات'],
-        'leave_types' => ['title' => 'أنواع الإجازات', 'label' => 'تقرير أنواع الإجازات'],
-        'payroll_records' => ['title' => 'مسيرات الرواتب', 'label' => 'تقرير مسيرات الرواتب والاستحقاقات'],
-        'employee_rewards' => ['title' => 'المكافآت والحوافز', 'label' => 'تقرير المكافآت وساعات التميز'],
-        'treasury_transactions' => ['title' => 'حركات الخزينة', 'label' => 'تقرير حركات الخزينة والمقبوضات والمصروفات'],
-        'daily_journals' => ['title' => 'اليومية العامة', 'label' => 'تقرير القيود اليومية والمبيعات'],
-        'invoices' => ['title' => 'الفواتير', 'label' => 'تقرير الفواتير المالية'],
-        'invoice_types' => ['title' => 'أنواع الفواتير', 'label' => 'تقرير أنواع وتصنيفات الفواتير'],
-        'installments' => ['title' => 'عقود الأقساط', 'label' => 'تقرير عقود الأقساط والمديونيات'],
-        'installment_payments' => ['title' => 'سدادات الأقساط', 'label' => 'تقرير دفعات وسداد الأقساط المحصلة'],
-        'offers' => ['title' => 'عروض الأسعار', 'label' => 'تقرير عروض الأسعار والعقود'],
-        'task_assignments' => ['title' => 'إسناد المهام والإنتاجية', 'label' => 'تقرير إسناد المهام ونسب الإنجاز'],
-        'customers' => ['title' => 'العملاء', 'label' => 'تقرير العملاء'],
-        'owners' => ['title' => 'الملاك والشركاء', 'label' => 'تقرير الملاك'],
-        'companies' => ['title' => 'المنشآت', 'label' => 'تقرير المنشآت والشركات'],
-        'branches' => ['title' => 'الفروع', 'label' => 'تقرير الفروع'],
-        'pos_devices' => ['title' => 'نقاط البيع (POS)', 'label' => 'تقرير أجهزة نقاط البيع'],
-        'services' => ['title' => 'الخدمات', 'label' => 'تقرير قائمة أسعار الخدمات'],
-        'job_titles' => ['title' => 'المسميات الوظيفية', 'label' => 'تقرير المسميات والسلم الوظيفي'],
-        'violations' => ['title' => 'المخالفات والغرامات', 'label' => 'تقرير المخالفات والغرامات ومراحلها'],
-        'violation_transactions' => ['title' => 'حصيلة وسداد المخالفات', 'label' => 'تقرير حركات حصيلة وسداد المخالفات'],
-        'loan_funds' => ['title' => 'صناديق القروض والسلف', 'label' => 'تقرير صناديق القروض والسلف التكافلية'],
-        'loan_fund_loans' => ['title' => 'قروض وسلف الصناديق', 'label' => 'تقرير قروض وسلف الأعضاء بالصناديق'],
-        'loan_fund_loan_payments' => ['title' => 'سدادات قروض الصناديق', 'label' => 'تقرير سندات ودفعات سداد قروض الصناديق'],
-        'rosca_funds' => ['title' => 'صناديق الادخار والجمعيات', 'label' => 'تقرير صناديق الادخار والجمعيات الشهرية'],
-        'rosca_fund_payments' => ['title' => 'دفعات واشتراكات الجمعيات', 'label' => 'تقرير دفعات واشتراكات أعضاء الجمعيات'],
-        'tickets' => ['title' => 'تذاكر الدعم الفني', 'label' => 'تقرير تذاكر الدعم الفني والمساعدة'],
-        'weekly_notes' => ['title' => 'الملاحظات الأسبوعية', 'label' => 'تقرير الملاحظات وتقارير الإنجاز الأسبوعية'],
-        'tasks' => ['title' => 'دليل المهام والمشاريع', 'label' => 'تقرير دليل المهام والمشاريع المسجلة'],
-        'attendance_devices' => ['title' => 'أجهزة البصمة', 'label' => 'تقرير أجهزة تسجيل البصمة والحضور'],
-        'payment_collection_items' => ['title' => 'بنود تحصيل الدفعات', 'label' => 'تقرير بنود وتصنيفات تحصيل الدفعات'],
-        'faqs' => ['title' => 'الأسئلة الشائعة والمعرفة', 'label' => 'تقرير بنك الأسئلة الشائعة وقاعدة المعرفة'],
-        'guarantors' => ['title' => 'تقرير باسم الضامن', 'label' => 'تقرير باسم الضامن والمكفولين'],
+        'users' => [
+            'title' => 'المديرين',
+            'label' => 'تقرير المديرين',
+        ],
+        'employees' => [
+            'title' => 'الموظفين',
+            'label' => 'تقرير الموظفين',
+        ],
+        'departments' => [
+            'title' => 'الأقسام والهيكل الإداري',
+            'label' => 'تقرير الأقسام والهيكل الإداري',
+        ],
+        'attendance' => [
+            'title' => 'الحضور والانصراف',
+            'label' => 'تقرير الحضور والانصراف',
+        ],
+        'leaves' => [
+            'title' => 'الإجازات',
+            'label' => 'تقرير الإجازات',
+        ],
+        'leave_types' => [
+            'title' => 'أنواع الإجازات',
+            'label' => 'تقرير أنواع الإجازات',
+        ],
+        'payroll_records' => [
+            'title' => 'مسيرات الرواتب',
+            'label' => 'تقرير مسيرات الرواتب والاستحقاقات',
+        ],
+        'employee_rewards' => [
+            'title' => 'المكافآت والحوافز',
+            'label' => 'تقرير المكافآت وساعات التميز',
+        ],
+        'treasury_transactions' => [
+            'title' => 'حركات الخزينة',
+            'label' => 'تقرير حركات الخزينة والمقبوضات والمصروفات',
+        ],
+        'daily_journals' => [
+            'title' => 'اليومية العامة',
+            'label' => 'تقرير القيود اليومية والمبيعات',
+        ],
+        'invoices' => [
+            'title' => 'الفواتير',
+            'label' => 'تقرير الفواتير المالية',
+        ],
+        'invoice_types' => [
+            'title' => 'أنواع الفواتير',
+            'label' => 'تقرير أنواع وتصنيفات الفواتير',
+        ],
+        'installments' => [
+            'title' => 'عقود الأقساط',
+            'label' => 'تقرير عقود الأقساط والمديونيات',
+        ],
+        'installment_payments' => [
+            'title' => 'سدادات الأقساط',
+            'label' => 'تقرير دفعات وسداد الأقساط المحصلة',
+        ],
+        'offers' => [
+            'title' => 'عروض الأسعار',
+            'label' => 'تقرير عروض الأسعار والعقود',
+        ],
+        'task_assignments' => [
+            'title' => 'إسناد المهام والإنتاجية',
+            'label' => 'تقرير إسناد المهام ونسب الإنجاز',
+        ],
+        'customers' => [
+            'title' => 'العملاء',
+            'label' => 'تقرير العملاء',
+        ],
+        'owners' => [
+            'title' => 'الملاك والشركاء',
+            'label' => 'تقرير الملاك',
+        ],
+        'companies' => [
+            'title' => 'المنشآت',
+            'label' => 'تقرير المنشآت والشركات',
+        ],
+        'branches' => [
+            'title' => 'الفروع',
+            'label' => 'تقرير الفروع',
+        ],
+        'pos_devices' => [
+            'title' => 'نقاط البيع (POS)',
+            'label' => 'تقرير أجهزة نقاط البيع',
+        ],
+        'services' => [
+            'title' => 'الخدمات',
+            'label' => 'تقرير قائمة أسعار الخدمات',
+        ],
+        'job_titles' => [
+            'title' => 'المسميات الوظيفية',
+            'label' => 'تقرير المسميات والسلم الوظيفي',
+        ],
+        'violations' => [
+            'title' => 'المخالفات والغرامات',
+            'label' => 'تقرير المخالفات والغرامات ومراحلها',
+        ],
+        'violation_transactions' => [
+            'title' => 'حصيلة وسداد المخالفات',
+            'label' => 'تقرير حركات حصيلة وسداد المخالفات',
+        ],
+        'loan_funds' => [
+            'title' => 'صناديق القروض والسلف',
+            'label' => 'تقرير صناديق القروض والسلف التكافلية',
+        ],
+        'loan_fund_loans' => [
+            'title' => 'قروض وسلف الصناديق',
+            'label' => 'تقرير قروض وسلف الأعضاء بالصناديق',
+        ],
+        'loan_fund_loan_payments' => [
+            'title' => 'سدادات قروض الصناديق',
+            'label' => 'تقرير سندات ودفعات سداد قروض الصناديق',
+        ],
+        'rosca_funds' => [
+            'title' => 'صناديق الادخار والجمعيات',
+            'label' => 'تقرير صناديق الادخار والجمعيات الشهرية',
+        ],
+        'rosca_fund_payments' => [
+            'title' => 'دفعات واشتراكات الجمعيات',
+            'label' => 'تقرير دفعات واشتراكات أعضاء الجمعيات',
+        ],
+        'tickets' => [
+            'title' => 'تذاكر الدعم الفني',
+            'label' => 'تقرير تذاكر الدعم الفني والمساعدة',
+        ],
+        'weekly_notes' => [
+            'title' => 'الملاحظات الأسبوعية',
+            'label' => 'تقرير الملاحظات وتقارير الإنجاز الأسبوعية',
+        ],
+        'tasks' => [
+            'title' => 'دليل المهام والمشاريع',
+            'label' => 'تقرير دليل المهام والمشاريع المسجلة',
+        ],
+        'attendance_devices' => [
+            'title' => 'أجهزة البصمة',
+            'label' => 'تقرير أجهزة تسجيل البصمة والحضور',
+        ],
+        'payment_collection_items' => [
+            'title' => 'بنود تحصيل الدفعات',
+            'label' => 'تقرير بنود وتصنيفات تحصيل الدفعات',
+        ],
+        'faqs' => [
+            'title' => 'الأسئلة الشائعة والمعرفة',
+            'label' => 'تقرير بنك الأسئلة الشائعة وقاعدة المعرفة',
+        ],
+        'guarantors' => [
+            'title' => 'تقرير باسم الضامن',
+            'label' => 'تقرير باسم الضامن والمكفولين',
+        ],
     ],
     'filters' => [
         'report_type' => 'نوع التقرير',
@@ -132,73 +243,60 @@ return [
         'total_amount_sub' => 'قيمة الفواتير',
         'unpaid_invoices' => 'مستحقات غير مدفوعة',
         'unpaid_invoices_sub' => 'إجمالي المبالغ المتبقية',
-        
-        // New Reports Stats
         'total_incoming' => 'إجمالي المقبوضات',
         'total_incoming_sub' => 'حركات الإيداع بالخزينة',
         'total_outgoing' => 'إجمالي المصروفات',
         'total_outgoing_sub' => 'حركات الصرف بالخزينة',
         'net_treasury' => 'صافي حركة الخزينة',
         'net_treasury_sub' => 'الفارق بين الإيداع والصرف',
-        
         'total_sales' => 'إجمالي المبيعات',
         'total_sales_sub' => 'مجموع مبيعات اليومية',
         'total_purchases' => 'إجمالي المشتريات',
         'total_purchases_sub' => 'مجموع مشتريات اليومية',
         'net_journal' => 'صافي اليومية',
         'net_journal_sub' => 'الفارق بين المبيعات والمشتريات',
-
         'total_installment_amount' => 'إجمالي عقود الأقساط',
         'total_installment_amount_sub' => 'القيمة الإجمالية للعقود',
         'total_installment_paid' => 'إجمالي المسدد',
         'total_installment_paid_sub' => 'المبالغ المحصلة فعلياً',
         'total_installment_remaining' => 'إجمالي المتبقي',
         'total_installment_remaining_sub' => 'المبالغ المتبقية للتحصيل',
-
         'total_installment_payments' => 'إجمالي السدادات المحصلة',
         'total_installment_payments_sub' => 'مجموع المبالغ المسددة',
         'installment_payments_count' => 'عدد عمليات السداد',
         'installment_payments_count_sub' => 'إجمالي سندات القبض للأقساط',
-
         'total_net_payroll' => 'إجمالي صافي الرواتب',
         'total_net_payroll_sub' => 'مجموع الاستحقاقات الشهرية',
         'total_paid_payroll' => 'الرواتب المصروفة',
         'total_paid_payroll_sub' => 'المبالغ المدفوعة للموظفين',
         'total_remaining_payroll' => 'المتبقي للصرف',
         'total_remaining_payroll_sub' => 'مستحقات الرواتب المعلقة',
-
         'total_rewards_amount' => 'إجمالي المكافآت',
         'total_rewards_amount_sub' => 'قيمة مكافآت وساعات التميز',
         'total_paid_rewards' => 'المكافآت المصروفة',
         'total_paid_rewards_sub' => 'المبالغ المنصرفة فعلياً',
         'pending_rewards_count' => 'مكافآت قيد الاعتماد',
         'pending_rewards_count_sub' => 'طلبات مكافآت معلقة',
-
         'total_offers' => 'إجمالي العروض',
         'total_offers_sub' => 'عروض الأسعار المسجلة',
         'approved_offers' => 'عروض معتمدة',
         'approved_offers_sub' => 'تمت الموافقة والتعاقد عليها',
         'pending_offers' => 'عروض قيد المراجعة',
         'pending_offers_sub' => 'عروض معلقة أو مسودة',
-
         'total_task_assignments' => 'إجمالي إسنادات المهام',
         'total_task_assignments_sub' => 'عدد مهام الإسناد للموظفين',
         'completed_task_assignments' => 'المهام المنجزة',
         'completed_task_assignments_sub' => 'تم إكمالها بالكامل',
         'avg_task_percentage' => 'متوسط نسبة الإنجاز',
         'avg_task_percentage_sub' => 'معدل الإنتاجية العام',
-
         'total_departments' => 'إجمالي الأقسام',
         'total_departments_sub' => 'الهيكل الإداري المسجل',
         'active_departments' => 'الأقسام النشطة',
         'active_departments_sub' => 'الأقسام المفعلة بالمنشأة',
-
         'total_pos_devices' => 'إجمالي أجهزة POS',
         'total_pos_devices_sub' => 'نقاط البيع المسجلة',
         'active_pos_devices' => 'الأجهزة النشطة',
         'active_pos_devices_sub' => 'نقاط البيع المفعلة',
-
-        // Violations Stats
         'violations_count' => 'إجمالي المخالفات',
         'violations_count_sub' => 'عدد المخالفات المسجلة',
         'violations_total_amount' => 'إجمالي الغرامات',
@@ -207,8 +305,6 @@ return [
         'violations_paid_amount_sub' => 'المبالغ المحصلة والمسددة',
         'violations_remaining_amount' => 'إجمالي المتبقي',
         'violations_remaining_amount_sub' => 'المبالغ المستحقة للتحصيل',
-
-        // Violation Transactions Stats
         'violation_trans_count' => 'إجمالي حركات الحصيلة',
         'violation_trans_count_sub' => 'عدد القيود بحساب الحصيلة',
         'violation_total_collections' => 'إجمالي الإيداعات والمقبوضات',
@@ -217,8 +313,6 @@ return [
         'violation_total_payments_sub' => 'سداد المخالفات للجهات',
         'violation_fund_balance' => 'رصيد الحصيلة الحالي',
         'violation_fund_balance_sub' => 'الرصيد القائم بحساب المخالفات',
-
-        // Loan Funds Stats
         'total_loan_funds' => 'إجمالي الصناديق',
         'total_loan_funds_sub' => 'صناديق القروض والسلف',
         'total_loan_target' => 'المستهدف الإجمالي',
@@ -237,8 +331,6 @@ return [
         'total_payments_count_sub' => 'سندات قبض قروض الصناديق',
         'total_payments_collected' => 'إجمالي المبالغ المحصلة',
         'total_payments_collected_sub' => 'مجموع دفعات السداد المحصلة',
-
-        // Rosca Funds Stats
         'total_rosca_funds' => 'إجمالي الجمعيات',
         'total_rosca_funds_sub' => 'صناديق الادخار والجمعيات',
         'total_rosca_pool' => 'إجمالي حصيلة الجمعيات',
@@ -251,42 +343,28 @@ return [
         'total_rosca_paid_sub' => 'المبالغ المسددة فعلياً',
         'total_rosca_scheduled' => 'المستهدف الشهري',
         'total_rosca_scheduled_sub' => 'إجمالي المطلوب تحصيله',
-
-        // Tickets Stats
         'total_tickets' => 'إجمالي التذاكر',
         'total_tickets_sub' => 'تذاكر الدعم الفني المسجلة',
         'open_tickets' => 'تذاكر جارية / مفتوحة',
         'open_tickets_sub' => 'قيد المعالجة والمتابعة',
         'resolved_tickets' => 'تذاكر مغلقة / تم حلها',
         'resolved_tickets_sub' => 'تم إنجازها بنجاح',
-
-        // Weekly Notes Stats
         'total_weekly_notes' => 'إجمالي الملاحظات',
         'total_weekly_notes_sub' => 'سجلات الملاحظات الأسبوعية',
-
-        // Tasks Catalog Stats
         'total_tasks_catalog' => 'إجمالي المهام المسجلة',
         'total_tasks_catalog_sub' => 'دليل المهام القياسية',
         'active_tasks' => 'المهام المفعلة',
         'active_tasks_sub' => 'مهام نشطة ومتاحة للإسناد',
-
-        // Attendance Devices Stats
         'total_attendance_devices' => 'إجمالي أجهزة البصمة',
         'total_attendance_devices_sub' => 'الأجهزة المسجلة بالفروع',
         'active_attendance_devices' => 'الأجهزة النشطة',
         'active_attendance_devices_sub' => 'أجهزة متصلة ونشطة',
-
-        // Payment Collection Items Stats
         'total_collection_items' => 'إجمالي بنود التحصيل',
         'total_collection_items_sub' => 'بنود الدفعات المقيدة',
-
-        // FAQs Stats
         'total_faqs' => 'إجمالي الأسئلة الشائعة',
         'total_faqs_sub' => 'المسجلة بقاعدة المعرفة',
         'active_faqs' => 'الأسئلة المنشورة',
         'active_faqs_sub' => 'مفعلة وتظهر للمستخدمين',
-
-        // Guarantors Stats
         'total_guarantors' => 'إجمالي الضامنين',
         'total_guarantors_sub' => 'الضامنون المسجلون',
         'total_guaranteed_staff' => 'إجمالي المكفولين',
@@ -358,8 +436,6 @@ return [
         'employees_count' => 'عدد الموظفين',
         'annual_balance' => 'الرصيد السنوي',
         'is_paid' => 'مدفوعة الأجر',
-
-        // Violations
         'violation_number' => 'رقم المخالفة',
         'violation_category' => 'تصنيف المخالفة',
         'violation_type' => 'نوع المخالفة',
@@ -369,8 +445,6 @@ return [
         'transaction_date' => 'تاريخ الحركة',
         'payment_method' => 'طريقة الدفع',
         'reference_number' => 'الرقم المرجعي',
-        
-        // Treasury
         'transaction_number' => 'رقم الحركة',
         'voucher_number' => 'رقم السند',
         'transaction_type' => 'نوع الحركة',
@@ -379,57 +453,41 @@ return [
         'balance_after' => 'الرصيد بعد الحركة',
         'executor_name' => 'الموظف المنفذ',
         'description' => 'البيان / الوصف',
-
-        // Daily Journals
         'entry_number' => 'رقم القيد',
         'sales' => 'المبيعات',
         'purchases' => 'المشتريات',
         'net_amount' => 'صافي المبلغ',
         'recorded_by' => 'المسؤول / المدخل',
         'notes' => 'ملاحظات',
-
-        // Installments
         'installment_number' => 'رقم العقد / القسط',
         'installment_type' => 'نوع القسط',
         'down_payment' => 'الدفعة الأولى',
         'monthly_amount' => 'القسط الشهري',
         'months_count' => 'عدد الأشهر',
         'payment_source' => 'مصدر السداد',
-
-        // Payroll
         'record_number' => 'رقم المسير',
         'payroll_month' => 'شهر الراتب',
         'basic_salary' => 'الراتب الأساسي',
         'additional_amount' => 'المكافآت والإضافي',
         'deduction_amount' => 'الخصومات والسلف',
-
-        // Rewards
         'reward_number' => 'رقم المكافأة',
         'hours_count' => 'الساعات',
         'minutes_count' => 'الدقائق',
         'paid_date' => 'تاريخ الصرف',
-
-        // Offers
         'offer_number' => 'رقم العرض',
         'offer_type' => 'نوع العرض',
         'subject' => 'الموضوع',
         'pricing_type' => 'طريقة التسعير',
         'valid_until' => 'صالح حتى',
-
-        // Tasks
         'total_score' => 'الدرجة المحققة',
         'overall_percentage' => 'نسبة الإنجاز',
         'is_completed' => 'حالة الإكمال',
-
-        // POS & Devices
         'device_number' => 'رقم الجهاز',
         'card_number' => 'رقم البطاقة / السيريال',
         'bank_or_wallet_name' => 'اسم البنك أو المحفظة',
         'account_number' => 'رقم الحساب',
         'accountant_name' => 'اسم المحاسب',
         'accountant_phone' => 'جوال المحاسب',
-
-        // Funds & Loans
         'fund_number' => 'رقم الصندوق / الجمعية',
         'fund_name' => 'اسم الصندوق / الجمعية',
         'target_amount' => 'المبلغ المستهدف',
@@ -449,8 +507,6 @@ return [
         'total_pool_amount' => 'إجمالي الصندوق',
         'ticket_number' => 'رقم التذكرة',
         'priority' => 'الأولوية',
-
-        // Guarantors Columns
         'guarantor_name' => 'اسم الضامن',
         'guarantor_type' => 'نوع الضامن',
         'guarantor_phone' => 'جوال الضامن',
@@ -484,4 +540,3 @@ return [
         'minutes' => ' د',
     ],
 ];
-

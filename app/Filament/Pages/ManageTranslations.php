@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Services\TranslationScreensService;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -166,7 +167,17 @@ class ManageTranslations extends Page
     }
 
     /**
-     * @return array<int, array{unique_key: string, source: string, key: string, full_key: string, value: string}>
+     * Get the screens associated with a translation file.
+     *
+     * @return array<int, string>
+     */
+    public function getFileScreens(string $fileName): array
+    {
+        return app(TranslationScreensService::class)->getScreensForFile($fileName, $this->selectedLocale);
+    }
+
+    /**
+     * @return array<int, array{unique_key: string, source: string, screens: array<int, string>, key: string, full_key: string, value: string}>
      */
     public function getAllTranslations(): array
     {
@@ -180,6 +191,7 @@ class ManageTranslations extends Page
             foreach ($files as $file) {
                 $fileName = $file->getFilename();
                 $baseName = $file->getBasename('.php');
+                $screens = $this->getFileScreens($fileName);
 
                 try {
                     $translations = include $file->getPathname();
@@ -191,6 +203,7 @@ class ManageTranslations extends Page
                                 $results[] = [
                                     'unique_key' => $uniqueKey,
                                     'source' => $fileName,
+                                    'screens' => $screens,
                                     'key' => $k,
                                     'full_key' => 'file::' . $fileName . '::' . $k,
                                     'value' => (string) $v,
@@ -263,6 +276,30 @@ class ManageTranslations extends Page
             'total' => count($all),
             'files_count' => count($this->availableFiles),
         ];
+    }
+
+    /**
+     * Get ALL filtered items (before pagination)
+     */
+    protected function getFilteredAll(): array
+    {
+        $all = $this->getAllTranslations();
+
+        // Filter by specific file
+        if ($this->fileFilter !== 'all') {
+            $all = array_filter($all, fn($item) => $item['source'] === $this->fileFilter);
+        }
+
+        if (filled($this->search)) {
+            $s = mb_strtolower(trim($this->search));
+            $all = array_filter($all, function ($item) use ($s) {
+                $val = mb_strtolower($this->editedValues[$item['unique_key']] ?? $item['value']);
+                $key = mb_strtolower($item['key']);
+                return str_contains($val, $s) || str_contains($key, $s) || str_contains(mb_strtolower($item['source']), $s);
+            });
+        }
+
+        return array_values($all);
     }
 
     /**

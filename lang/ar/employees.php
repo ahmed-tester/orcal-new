@@ -65,7 +65,7 @@ return [
         'company' => 'المنشأة / الشركة',
         'branch' => 'الفرع',
         'department' => 'القسم / الإدارة',
-        'job_title' => 'المسمى الوظيفي',
+        'job_title' => 'المسمي الوظيفي',
         'employment_type' => 'نوع العقد',
         'hire_date' => 'تاريخ المباشرة / التعيين',
         'annual_leave_days' => 'عدد أيام الإجازة السنوية',

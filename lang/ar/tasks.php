@@ -15,14 +15,12 @@ return [
         'tasks_list_desc' => 'إسناد المهام وتحديد الأوزان والتقييمات وحالات الإنجاز',
         'summary' => 'ملخص التقييم والأوزان',
     ],
-
     'fields' => [
         'task_code' => 'رقم الحركة / كود المهمة',
         'name' => 'اسم المهمة',
         'default_weight' => 'الوزن الافتراضي',
         'description' => 'الوصف والملاحظات',
         'status' => 'الحالة',
-
         'transaction_number' => 'رقم الحركة',
         'assignment_date' => 'تاريخ التكليف',
         'employee' => 'المسؤول عن التنفيذ (الموظف)',
@@ -35,7 +33,6 @@ return [
         'overall_percentage' => 'نسبة التقييم الإجمالية',
         'notes' => 'ملاحظات عامة',
         'created_by' => 'المستخدم المنشئ',
-
         'task' => 'المهمة',
         'item_status' => 'حالة المهمة',
         'weight' => 'الوزن النسبي (%)',
@@ -44,19 +41,16 @@ return [
         'due_date' => 'تاريخ الاستحقاق',
         'completed_at' => 'تاريخ الإنجاز الفعلي',
     ],
-
     'statuses' => [
         'pending' => 'لم يتم التنفيذ',
         'in_progress' => 'تنفيذ جزئي / قيد العمل',
         'completed' => 'منجز',
         'postponed' => 'مؤجل',
     ],
-
     'helpers' => [
         'weight_limit_hint' => 'مجموع الأوزان المسموح به هو 100%',
         'calculated_percentage' => 'تُحسب تلقائياً: (الدرجة / الوزن) × 100',
     ],
-
     'supervision_shifts' => [
         'single' => 'تكليف إشراف / مناوبة',
         'plural' => 'الإشراف والمناوبة',
@@ -343,9 +337,7 @@ return [
             ],
         ],
     ],
-
     'creator_default' => 'الإدارة',
-
     'notifications' => [
         'new_assignment_title' => 'تم تكليفك بمهمة جديدة',
         'new_assignment_body' => 'تم إسناد تكليف مهام جديد برقم (:number) إليك بواسطة :creator.',

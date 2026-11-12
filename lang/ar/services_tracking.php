@@ -4,7 +4,6 @@ return [
     'single' => 'معاملة خدمة',
     'plural' => 'الخدمات والمتابعة',
     'currency_sar' => 'ر.س',
-
     'sections' => [
         'scope_and_date' => 'نطاق وتاريخ الخدمة',
         'scope_and_date_desc' => 'تحديد ما إذا كانت الخدمة داخلية تابعة لمنشأة أو خارجية حرة',
@@ -39,7 +38,6 @@ return [
         'transaction_actions' => 'إجراءات المعاملة',
         'audit_actions' => 'الرقابة والتدقيق',
     ],
-
     'fields' => [
         'transaction_number' => 'رقم المعاملة (تلقائي)',
         'transaction_date' => 'تاريخ المعاملة',
@@ -67,7 +65,6 @@ return [
         'status' => 'حالة الاعتماد',
         'created_at' => 'تاريخ التسجيل',
     ],
-
     'actions' => [
         'open_transaction' => 'فتح المعاملة',
         'approve' => 'اعتماد',
@@ -75,14 +72,12 @@ return [
         'approved_success' => 'تم اعتماد المعاملة بنجاح',
         'unapproved_success' => 'تم إلغاء اعتماد المعاملة',
     ],
-
     'toggle_options' => [
         'internal' => 'خدمات داخلية (من قائمة المنشآت)',
         'external' => 'خدمات خارجية (من خارج المنشآت - إنشاء حر)',
         'target_company' => 'خدمات تخص المنشأة ككل',
         'target_employee' => 'خدمات تخص منسوبي المنشأة',
     ],
-
     'badges' => [
         'internal' => 'منشآت',
         'external' => 'خارجي',
@@ -95,19 +90,16 @@ return [
         'partial' => 'سداد جزئي',
         'paid' => 'مسدد بالكامل',
     ],
-
     'service_statuses' => [
         'active' => 'نشط (قيد الإجراء)',
         'completed' => 'مكتملة ومنجزة',
         'inactive' => 'غير نشط / ملغاة',
     ],
-
     'payment_statuses' => [
         'unpaid' => 'غير مسدد',
         'partial' => 'مسدد جزئياً',
         'paid' => 'مسدد بالكامل',
     ],
-
     'categories' => [
         'cr_licenses' => 'سجلات وتراخيص',
         'municipal' => 'بلديات ورخص بلدية',
@@ -117,7 +109,6 @@ return [
         'insurance' => 'تأمين طبي',
         'other' => 'خدمات أخرى',
     ],
-
     'quick_add' => [
         'modal_title' => 'إضافة خدمة جديدة إلى الدليل',
         'name' => 'اسم الخدمة',
@@ -126,7 +117,6 @@ return [
         'price' => 'سعر الخدمة الافتراضي (ر.س)',
         'notes' => 'ملاحظات وتفاصيل الخدمة',
     ],
-
     'placeholders' => [
         'service_name' => 'مثال: تفويض تأشيرة / استخراج سجل فرعي',
         'service_type' => 'مثال: تعقيب وتخليص / استشارات قانونية',
@@ -407,7 +397,6 @@ return [
             'notes' => 'ملاحظات',
         ],
     ],
-
     'table_heading' => 'سجل متابعة الخدمات والمعاملات — :count معاملة',
 
     'observer' => [

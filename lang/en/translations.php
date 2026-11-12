@@ -18,6 +18,7 @@ return [
     'per_page_label' => 'Show',
     'th_number' => '#',
     'th_file' => 'File',
+    'th_screens' => 'Screens',
     'th_key' => 'Key',
     'th_value' => 'Translation (Value)',
     'input_placeholder' => 'Enter translation...',
@@ -32,4 +33,15 @@ return [
     'save_permission_error' => 'File Permission Error',
     'save_permission_error_body' => 'Unable to write to the following files due to server permissions: :files',
     'no_changes_to_save' => 'No changes to save.',
+    'screens' => [
+        'common_ui' => 'Common UI (Statuses & Shared Actions)',
+        'auth' => 'Login & Authentication',
+        'guarantors' => 'Guarantors (Employees / Debts / Installments / Payroll)',
+        'sidebar_navigation' => 'Sidebar Navigation & Group Titles',
+        'notifications' => 'Notifications & Alerts',
+        'pagination' => 'Pagination',
+        'passwords' => 'Password Reset',
+        'user_types' => 'User Types',
+        'validation' => 'Validation Messages',
+    ],
 ];

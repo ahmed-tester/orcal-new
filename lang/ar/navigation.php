@@ -1,7 +1,6 @@
 <?php
 
 return [
-    // Navigation Groups
     'public_finance_and_services' => 'المالية العامة والخدمات',
     'org_group' => 'المنشآت والملاك',
     'organization_group' => 'المنشآت والملاك',
@@ -13,18 +12,14 @@ return [
     'reports_group' => 'التقارير والإشعارات',
     'violations_group' => 'قسم المخالفات',
     'funds_group' => 'صناديق التكافل والادخار',
-    'support_group'  => 'الدعم الفني والمساعدة',
-    'system_group'   => 'الإدارة والصلاحيات',
-    'faq_group'      => 'الأسئلة الشائعة والدعم',
-    'letters_group'  => 'الخطابات والمراسلات الرسمية',
-
-    // Group 1: Organization
+    'support_group' => 'الدعم الفني والمساعدة',
+    'system_group' => 'الإدارة والصلاحيات',
+    'faq_group' => 'الأسئلة الشائعة والدعم',
+    'letters_group' => 'الخطابات والمراسلات الرسمية',
     'companies' => 'المنشآت',
     'branches' => 'الفروع',
     'departments' => 'الأقسام والإدارات',
     'owners' => 'الشركاء والملاك',
-
-    // Group 2: HR
     'job_titles' => 'الإدارة والموظفين',
     'employees' => 'الموظفون',
     'saudi_employees' => 'الموظفون السعوديون',
@@ -34,8 +29,6 @@ return [
     'attendance_devices' => 'أجهزة البصمة (ADMS)',
     'leaves' => 'الإجازات',
     'leave_types' => 'أنواع الإجازات',
-
-    // Group 3: Finance & Accounting (المحاسبة)
     'treasury_transactions' => 'الخزنة وحركة الصندوق',
     'payment_collection_items' => 'بنود الدفع والتحصيل',
     'payroll_records' => 'مسيرات التحصيل والرواتب',
@@ -48,14 +41,10 @@ return [
     'debts' => 'الديون العامة',
     'debt_collections' => 'تحصيل الديون العامة',
     'services_tracking' => 'الخدمات والمتابعة',
-
-    // Group 4: Tasks
     'tasks' => 'تعريف وبنك المهام',
     'task_assignments' => 'توزيع ومتابعة المهام',
     'supervision_shifts' => 'الإشراف والمناوبة',
     'weekly_notes' => 'الملاحظات الأسبوعية',
-
-    // Group 5: Contracts & Operations
     'customers' => 'العملاء والجهات المستفيدة',
     'offers' => 'عروض الأسعار والعقود',
     'contract_vouchers' => 'الفواتير والمستخلصات',
@@ -63,30 +52,21 @@ return [
     'invoices' => 'الفواتير وسندات الخدمات',
     'invoice_types' => 'أنواع وتصنيفات الفواتير',
     'services' => 'قائمة أسعار الخدمات',
-
-    // Group 6: Violations
     'violation_categories' => 'أقسام وتصنيفات المخالفات',
     'violation_types' => 'أنواع ومسميات المخالفات',
     'violations' => 'سجل المخالفات',
     'violation_transactions' => 'صندوق تحصيل المخالفات',
     'violation_regulations' => 'لوائح وأنظمة المخالفات',
-
-    // Group 7: Reports & Alerts
+    'company_department_performance' => 'أداء المنشآت والأقسام',
     'general_reports' => 'الشاشة المركزية للتقارير',
     'notifications_report' => 'تقرير التنبيهات والوثائق',
-
-    // Group 8: System Settings
     'users' => 'المستخدمون',
     'roles' => 'الأدوار والصلاحيات',
     'manage_translations' => 'إدارة الترجمات',
     'smart_file_import' => 'المرفقات والاستيراد الذكي (AI)',
-    'settings'          => 'إعدادات النظام',
-    'system_logs'       => 'سجل الأخطاء والعمليات (Log Viewer)',
-
-    // Group 8: FAQ & Support
+    'settings' => 'إعدادات النظام',
+    'system_logs' => 'سجل الأخطاء والعمليات (Log Viewer)',
     'faqs' => 'الأسئلة الشائعة',
-
-    // Group 9: Funds & Societies
     'loan_funds' => 'صناديق سلفني',
     'loan_fund_members' => 'أعضاء صندوق سلفني',
     'loan_fund_loans' => 'صرف السلف (سلفني)',
@@ -96,17 +76,10 @@ return [
     'rosca_fund_members' => 'أعضاء الجمعية',
     'rosca_fund_payments' => 'كشف سداد أقساط الجمعية',
     'rosca_fund_policy' => 'شروط ولوائح الجمعية',
-
-    // Group 10: Support
-    'tickets'              => 'تذاكر الدعم الفني',
+    'tickets' => 'تذاكر الدعم الفني',
     'system_documentation' => 'دليل وشرح أقسام النظام',
-
-    // Group 11: Official Letters
     'official_letters' => 'الخطابات الرسمية',
-
-    // Group 12: Asset Funds
-    'asset_funds'          => 'صناديق الأصول',
-    'asset_fund_vouchers'  => 'سندات الإيداع والسحب',
+    'asset_funds' => 'صناديق الأصول',
+    'asset_fund_vouchers' => 'سندات الإيداع والسحب',
     'asset_fund_statement' => 'كشف حركة الصندوق',
 ];
-

@@ -132,6 +132,10 @@ return [
         'sections' => [
             'info' => 'Job Title & Hierarchy Information',
         ],
+        'scope' => [
+            'company' => 'Assigned to a specific company 🏢',
+            'global'  => 'Global job title for the entire group (not tied to any company) 🌐',
+        ],
         'fields' => [
             'company' => 'Company',
             'department' => 'Department',

@@ -50,7 +50,6 @@ return [
             'other' => 'أخرى',
         ],
     ],
-
     'pos_devices' => [
         'single' => 'جهاز نقطة بيع',
         'plural' => 'أجهزة وشبكات نقاط البيع',
@@ -104,7 +103,6 @@ return [
             'inactive' => 'غير مفعل',
         ],
     ],
-
     'treasury_transactions' => [
         'single' => 'حركة خزينة',
         'plural' => 'الخزينة ومستندات الصرف والقبض',
@@ -226,7 +224,6 @@ return [
             ],
         ],
     ],
-
     'daily_journals' => [
         'single' => 'قيد يومي',
         'plural' => 'قيود اليومية للمبيعات والمشتريات',
@@ -322,7 +319,6 @@ return [
             'entries_records' => 'قيود اليومية',
         ],
     ],
-
     'employee_rewards' => [
         'single' => 'مكافأة موظف',
         'plural' => 'سجل مكافآت الموظفين بالساعات والدقائق',
@@ -430,7 +426,6 @@ return [
             ],
         ],
     ],
-
     'payroll_records' => [
         'single' => 'مسير راتب',
         'plural' => 'تسليم وتحصيل الرواتب',
@@ -569,8 +564,6 @@ return [
             'empty_save_warning' => 'لا يوجد موظفون في الكشف للحفظ',
             'op_payroll' => 'الرواتب',
             'op_collection' => 'التحصيل',
-
-            // Scope & Filter Bar
             'filter_heading' => 'طريقة جلب وتحديد نطاق الكشف',
             'filter_subheading' => 'حدد أحد الخيارات المتاحة لتوليد كشف موظفي الرواتب أو التحصيل',
             'operation_label' => 'العملية:',
@@ -619,8 +612,6 @@ return [
             'lbl_instant_search' => '🔍 بحث فوري',
             'search_placeholder' => 'ابحث باسم الموظف، الرقم الوظيفي، المنشأة...',
             'search_companies_placeholder' => 'ابحث واختر المؤسسات...',
-
-            // Pagination
             'pagination_show' => 'عرض',
             'pagination_per_page' => 'موظف لكل صفحة',
             'pagination_total_employees' => 'إجمالي الموظفين: :count',
@@ -628,8 +619,6 @@ return [
             'pagination_prev' => 'السابق',
             'pagination_next' => 'التالي',
             'pagination_page_info' => 'صفحة :page من :total',
-
-            // Scopes & Payment Status Filter
             'scope_all' => 'الكل',
             'scope_paid_payroll' => 'تم الصرف لهم',
             'scope_unpaid_payroll' => 'لم يتم الصرف لهم',
@@ -638,8 +627,6 @@ return [
             'print_all_btn' => 'طباعة الكشف كاملاً',
             'print_paid_btn' => 'طباعة من تم الدفع له',
             'print_unpaid_btn' => 'طباعة من لم يدفع له',
-
-            // Print Header & Signatures
             'print_default_company' => 'مجموعة فواز القابضة',
             'print_dept' => 'إدارة الموارد البشرية والعمليات المالية',
             'print_payroll_title' => 'كشف مسير رواتب الموظفين (الشامل)',
@@ -668,8 +655,6 @@ return [
             'sig_hr' => 'مسؤول الموارد البشرية',
             'sig_financial_manager' => 'المدير المالي',
             'sig_approval' => 'الاعتماد والختم',
-
-            // Historical Archive
             'archive_title' => 'الأرشيف التاريخي للمسيرات والتحصيل',
             'archive_subtitle' => 'استعراض المسيرات وكشوفات التحصيل المعتمدة مصنفة بالسنوات والشهور كملفات مستقلة',
             'archive_year_label' => 'السنة المالية:',
@@ -733,7 +718,6 @@ return [
             'close_btn' => 'إغلاق',
         ],
     ],
-
     'installment_types' => [
         'single' => 'نوع قسط / سلفة',
         'plural' => 'أنواع وتصنيفات الأقساط',
@@ -757,7 +741,6 @@ return [
         'general_to_all' => 'عام لجميع المنشآت',
         'table_heading' => 'أنواع الأقساط — :count نوع',
     ],
-
     'installments' => [
         'single' => 'قسط / سلفة',
         'plural' => 'سجل الأقساط والسلف',
@@ -899,7 +882,6 @@ return [
         ],
         'table_heading' => 'سجل الأقساط والسلف — :count معاملة',
     ],
-
     'installment_payments' => [
         'single' => 'سند تسديد قسط / سلفة',
         'plural' => 'سندات تسديد الأقساط والسلف',
@@ -943,12 +925,10 @@ return [
         ],
         'table_heading' => 'سجل فواتير وسندات التسديد — :count سند',
     ],
-
     'approval_statuses' => [
         'approved' => 'معتمدة',
         'unapproved' => 'غير معتمدة',
     ],
-
     'approval_actions' => [
         'approve' => 'اعتماد',
         'unapprove' => 'إلغاء الاعتماد',

@@ -18,6 +18,7 @@ return [
     'per_page_label' => 'عرض',
     'th_number' => '#',
     'th_file' => 'الملف',
+    'th_screens' => 'الشاشات المرتبطة',
     'th_key' => 'المفتاح (Key)',
     'th_value' => 'الترجمة (Value)',
     'input_placeholder' => 'أدخل الترجمة...',
@@ -32,4 +33,15 @@ return [
     'save_permission_error' => 'خطأ في تصاريح الملفات',
     'save_permission_error_body' => 'تعذر حفظ الملفات التالية بسبب عدم توفر صلاحيات الكتابة على السيرفر: :files',
     'no_changes_to_save' => 'لا توجد تعديلات جديدة لحفظها.',
+    'screens' => [
+        'common_ui' => 'عام (الحالات والأزرار المشتركة)',
+        'auth' => 'تسجيل الدخول والمصادقة',
+        'guarantors' => 'الكفلاء (الموظفين / الديون / الأقساط / الرواتب)',
+        'sidebar_navigation' => 'القائمة الجانبية وعناوين المجموعات',
+        'notifications' => 'الإشعارات والتنبيهات',
+        'pagination' => 'ترقيم الصفحات (Pagination)',
+        'passwords' => 'إعادة تعيين كلمة المرور',
+        'user_types' => 'أنواع المستخدمين',
+        'validation' => 'رسائل التحقق من البيانات (Validation)',
+    ],
 ];
