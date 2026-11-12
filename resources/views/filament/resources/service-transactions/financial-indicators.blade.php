@@ -139,7 +139,7 @@
                                     <tr>
                                         <th scope="row">{{ $row['name'] ?? '—' }}</th>
                                         @foreach ($metrics as $metric)
-                                            <td><bdi dir="ltr">{{ number_format($row['amounts'][$metric], 2) }}</bdi></td>
+                                            <td><bdi dir="ltr">{{ number_format($row['amounts'][$metric] ?? 0, 2) }}</bdi></td>
                                         @endforeach
                                     </tr>
                                 @endforeach

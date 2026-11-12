@@ -8,6 +8,7 @@ use App\Enums\FinancialReceiptStatus;
 use App\Models\FinancialReceipt;
 use App\Models\ServiceTransaction;
 use App\Models\User;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -125,9 +126,11 @@ class FinancialReceiptService
                 userId: $user->id,
             );
 
-            DB::afterCommit(function () use ($transaction, $receipt, $user) {
-                OperationsNotificationService::notifyFinancialReceiptRecorded($transaction, $receipt, $user);
-            });
+            if (empty($data['confirm'])) {
+                DB::afterCommit(function () use ($transaction, $receipt, $user) {
+                    OperationsNotificationService::notifyFinancialReceiptRecorded($transaction, $receipt, $user);
+                });
+            }
         }
 
         if (! empty($data['confirm'])) {
@@ -218,6 +221,8 @@ class FinancialReceiptService
         DB::afterCommit(function () use ($transaction, $receipt) {
             OperationsNotificationService::notifyFinancialReceiptConfirmed($transaction, $receipt);
         });
+
+        static::fulfillPendingHandoverIntent($receipt);
 
         return $receipt->refresh();
     }
@@ -311,6 +316,51 @@ class FinancialReceiptService
         return $receipts
             ->filter(fn (FinancialReceipt $receipt) => $receipt->availableForHandover() > 0)
             ->values();
+    }
+
+    /**
+     * Convert a deferred handover intent into a real handover request exactly
+     * once, under the original requester's permissions and scope. Confirmation
+     * itself never fails because of the handover; the outcome is stored on the
+     * receipt metadata for the UI to surface.
+     */
+    private static function fulfillPendingHandoverIntent(FinancialReceipt $receipt): void
+    {
+        $meta = $receipt->metadata ?? [];
+        $intent = $meta['handover_intent'] ?? null;
+
+        if (! is_array($intent) || ! empty($meta['handover_intent_handled_at']) || ! $receipt->isCash()) {
+            return;
+        }
+
+        $meta['handover_intent_handled_at'] = now()->toDateTimeString();
+
+        try {
+            $requester = User::find($intent['requested_by'] ?? null);
+
+            if (! $requester) {
+                throw new AuthorizationException(__('financial.errors.missing_permission'));
+            }
+
+            $handover = CashHandoverService::request(
+                [(int) $receipt->id => round((float) $receipt->amount, 2)],
+                [
+                    'request_key' => (string) ($intent['request_key'] ?? CashHandoverService::newRequestKey()),
+                    'notes' => __('financial.descriptions.handover_intent_note', ['number' => $receipt->receipt_number]),
+                ],
+                $requester,
+            );
+
+            $meta['handover_intent_status'] = 'fulfilled';
+            $meta['handover_id'] = $handover->id;
+        } catch (AuthorizationException|ValidationException $e) {
+            $meta['handover_intent_status'] = 'failed';
+            $meta['handover_intent_error'] = $e instanceof ValidationException
+                ? ($e->validator?->errors()->first() ?? $e->getMessage())
+                : $e->getMessage();
+        }
+
+        $receipt->update(['metadata' => $meta]);
     }
 
     public static function sourceTransaction(FinancialReceipt $receipt): ServiceTransaction

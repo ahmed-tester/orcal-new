@@ -22,6 +22,7 @@ class CashHandover extends Model
         'confirmation_key',
         'collector_employee_id',
         'delivered_by_employee_id',
+        'requested_by',
         'received_by',
         'total_requested_amount',
         'total_confirmed_amount',

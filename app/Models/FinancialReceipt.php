@@ -164,6 +164,11 @@ class FinancialReceipt extends Model
         return max(0.0, (float) $this->amount - $this->reservedAmount() - $this->handedOverAmount());
     }
 
+    public function refundedAmount(): float
+    {
+        return round((float) array_sum(array_column($this->metadata['surplus_refunds'] ?? [], 'amount')), 2);
+    }
+
     public function isCash(): bool
     {
         return $this->payment_method === FinancialPaymentMethod::CASH;

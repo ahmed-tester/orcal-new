@@ -16,6 +16,8 @@ return [
         'service_desc' => 'اختيار الخدمة المطلوبة وتحديد تواريخ المعاملة والاستحقاق وحالة الاعتماد',
         'financial' => 'البيانات المالية والأتعاب',
         'financial_desc' => 'إجمالي سعر الخدمة، المبلغ المدفوع، والمتبقي المحسوب آلياً',
+        'receipt_at_creation' => 'القبض عند الإنشاء',
+        'receipt_at_creation_desc' => 'تسجيل ما استُلم من العميل فوراً مع إنشاء المعاملة، مع طلب توريد النقد للخزنة إن كان جاهزاً',
         'execution' => 'الإنجاز والمتابعة الإدارية',
         'execution_desc' => 'الموظف المنفذ، حالة إنجاز المعاملة، ومواعيد الاستحقاق والملاحظات',
     ],
@@ -34,6 +36,7 @@ return [
 
     'groups' => [
         'settlement_actions' => 'التسوية والإثباتات',
+        'transaction_actions' => 'إجراءات المعاملة',
         'audit_actions' => 'الرقابة والتدقيق',
     ],
 
@@ -66,6 +69,7 @@ return [
     ],
 
     'actions' => [
+        'open_transaction' => 'فتح المعاملة',
         'approve' => 'اعتماد',
         'unapprove' => 'إلغاء الاعتماد',
         'approved_success' => 'تم اعتماد المعاملة بنجاح',
@@ -346,6 +350,17 @@ return [
         'modal_desc' => 'سجل زمني ثابت غير قابل للتعديل أو الحذف يوثق كل إجراء تم على المعاملة بتفاصيله والمسؤول عنه.',
         'timeline_empty' => 'لا توجد حركات مسجلة في سجل التدقيق حتى الآن.',
         'action_created' => 'إنشاء المعاملة',
+        'action_financial_surplus_refunded' => 'رد فائض القبض للعميل',
+        'action_financial_cash_handover_confirmed' => 'تأكيد استلام النقد بالخزنة',
+        'action_financial_cash_handover_rejected' => 'رفض وصل توريد النقد',
+        'action_financial_cash_handover_reversed' => 'عكس وصل توريد النقد',
+        'action_financial_receipt_recorded' => 'تسجيل سند قبض',
+        'action_financial_receipt_confirmed' => 'تأكيد سند قبض',
+        'action_financial_receipt_reversed' => 'عكس سند قبض',
+        'action_financial_disbursement_recorded' => 'تسجيل سداد الرسوم',
+        'action_financial_claim_approved' => 'اعتماد السداد الشخصي',
+        'action_financial_reimbursement_paid' => 'صرف دفعة تعويض',
+        'action_financial_reimbursement_reversed' => 'عكس دفعة تعويض',
         'action_custody_received' => 'استلام العهدة النقدية بالخزينة',
         'action_proofs_attached' => 'إرفاق إثباتات السداد والإيداع',
         'action_disbursement_recorded' => 'توثيق السداد الحكومي',

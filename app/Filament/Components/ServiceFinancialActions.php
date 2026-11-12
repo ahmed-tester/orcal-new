@@ -10,10 +10,13 @@ use App\Models\Employee;
 use App\Models\FinancialDisbursement;
 use App\Models\FinancialReceipt;
 use App\Models\ServiceTransaction;
+use App\Models\TreasuryTransaction;
 use App\Models\UnifiedSuspenseAmount;
+use App\Services\BarcodeService;
 use App\Services\CashHandoverService;
 use App\Services\FinancialDisbursementService;
 use App\Services\FinancialReceiptService;
+use App\Services\FinancialSurplusRefundService;
 use App\Services\OperationsSettlementService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
@@ -26,6 +29,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ServiceFinancialActions
 {
@@ -36,7 +41,8 @@ class ServiceFinancialActions
             ->icon('heroicon-o-receipt-percent')
             ->color('success')
             ->modalWidth('2xl')
-            ->visible(fn (?ServiceTransaction $record) => static::visible($record, 'record_service_receipt'))
+            ->visible(fn (?ServiceTransaction $record) => static::visible($record, 'record_service_receipt')
+                && static::remainingToCollect($record) > 0)
             ->form([
                 Hidden::make('request_key')->default(fn () => FinancialReceiptService::newRequestKey()),
 
@@ -44,6 +50,19 @@ class ServiceFinancialActions
                     ->label(__('financial.fields.amount'))
                     ->numeric()
                     ->required()
+                    ->live(debounce: 400)
+                    ->default(function (?ServiceTransaction $record): ?float {
+                        $remaining = static::remainingToCollect($record);
+
+                        return $remaining > 0 ? $remaining : null;
+                    })
+                    ->helperText(function (callable $get, ?ServiceTransaction $record): ?string {
+                        $surplus = round((float) $get('amount') - static::remainingToCollect($record), 2);
+
+                        return $surplus > 0
+                            ? __('financial.creation_receipt.surplus_hint', ['amount' => number_format($surplus, 2)])
+                            : null;
+                    })
                     ->prefix(__('services_tracking.currency_sar')),
 
                 Select::make('payment_method')
@@ -179,7 +198,83 @@ class ServiceFinancialActions
                     ->title(__('financial.notifications.receipt_confirmed', ['number' => $receipt->receipt_number]))
                     ->success()
                     ->send();
+
+                static::notifyHandoverIntentOutcome($receipt->refresh());
             });
+    }
+
+    /**
+     * QR code per submitted cash handover of the transaction, identified by
+     * the handover number only.
+     */
+    public static function handoverQrAction(): Action
+    {
+        return Action::make('cash_handover_qr')
+            ->label(__('financial.actions.handover_receipts_qr'))
+            ->icon('heroicon-o-qr-code')
+            ->color('warning')
+            ->visible(fn (?ServiceTransaction $record) => $record instanceof ServiceTransaction
+                && $record->isFinancialManaged()
+                && static::submittedHandovers($record)->isNotEmpty())
+            ->modalWidth('2xl')
+            ->modalHeading(__('financial.handover_qr.modal_title'))
+            ->modalDescription(__('financial.handover_qr.modal_desc'))
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel(__('services_tracking.custody.close'))
+            ->modalContent(function (?ServiceTransaction $record = null) {
+                if (! $record) {
+                    return '';
+                }
+
+                $cards = static::submittedHandovers($record)
+                    ->map(fn (CashHandover $handover) => [
+                        'handover' => $handover,
+                        'qrSvg' => BarcodeService::generateQrSvg('HANDOVER:'.$handover->handover_number),
+                        'signatureCode' => CashHandoverService::signatureCodeForDelivery($handover),
+                    ])
+                    ->all();
+
+                return view('filament.modals.cash-handover-qr', ['cards' => $cards]);
+            });
+    }
+
+    /**
+     * Surface the deferred handover intent outcome stored by
+     * FinancialReceiptService::confirm().
+     */
+    private static function notifyHandoverIntentOutcome(FinancialReceipt $receipt): void
+    {
+        $meta = $receipt->metadata ?? [];
+        $status = $meta['handover_intent_status'] ?? null;
+
+        if ($status === 'fulfilled') {
+            Notification::make()
+                ->title(__('financial.notifications.handover_intent_fulfilled'))
+                ->success()
+                ->send();
+        } elseif ($status === 'failed') {
+            Notification::make()
+                ->title(__('financial.notifications.handover_intent_followup', [
+                    'error' => $meta['handover_intent_error'] ?? '',
+                ]))
+                ->warning()
+                ->send();
+        }
+    }
+
+    /**
+     * Submitted cash handovers linked to this transaction through its receipts.
+     *
+     * @return Collection<int, CashHandover>
+     */
+    private static function submittedHandovers(ServiceTransaction $record): Collection
+    {
+        return CashHandover::accessibleBy()
+            ->submitted()
+            ->whereHas('items', fn ($query) => $query->whereHas('receipt', fn ($receiptQuery) => $receiptQuery
+                ->forSource(FinancialReceipt::SOURCE_SERVICE_TRANSACTION, (int) $record->id)))
+            ->orderBy('id')
+            ->get();
     }
 
     public static function requestHandover(): Action
@@ -190,7 +285,7 @@ class ServiceFinancialActions
             ->color('warning')
             ->modalWidth('3xl')
             ->visible(fn (?ServiceTransaction $record) => static::visible($record, 'request_cash_handover')
-                && $record->financialReceipts()->confirmed()->cash()->exists())
+                && FinancialReceiptService::availableForHandover($record)->isNotEmpty())
             ->form(fn (?ServiceTransaction $record) => [
                 Hidden::make('request_key')->default(fn () => CashHandoverService::newRequestKey()),
 
@@ -260,7 +355,15 @@ class ServiceFinancialActions
             ->icon('heroicon-o-banknotes')
             ->color('primary')
             ->modalWidth('2xl')
-            ->visible(fn (?ServiceTransaction $record) => static::visible($record, 'record_service_disbursement'))
+            ->visible(function (?ServiceTransaction $record): bool {
+                if (! static::visible($record, 'record_service_disbursement')) {
+                    return false;
+                }
+
+                $summary = $record->financialSummary();
+
+                return $summary['fee_defined'] && (float) $summary['fee_remaining'] > (float) $summary['awaiting_approval'];
+            })
             ->form([
                 Hidden::make('request_key')->default(fn () => FinancialDisbursementService::newRequestKey()),
 
@@ -402,29 +505,82 @@ class ServiceFinancialActions
             });
     }
 
+    public static function refundCashSurplus(): Action
+    {
+        return Action::make('refund_cash_surplus')
+            ->label(__('financial.actions.refund_surplus'))
+            ->icon('heroicon-o-arrow-uturn-left')
+            ->visible(fn (?ServiceTransaction $record) => static::visible($record, 'confirm_cash_handover')
+                && auth()->user()->can('create', TreasuryTransaction::class)
+                && FinancialSurplusRefundService::quote($record) !== null)
+            ->modalDescription(__('financial.refund.description'))
+            ->modalSubmitActionLabel(__('financial.actions.confirm_surplus_refund'))
+            ->fillForm(function (ServiceTransaction $record): array {
+                $quote = FinancialSurplusRefundService::quote($record);
+                $receipt = $quote['receipt'] ?? null;
+
+                return [
+                    'refund_request_key' => (string) Str::uuid(),
+                    'refund_receipt_id' => $receipt?->id,
+                    'refund_receipt_number' => $receipt?->receipt_number,
+                    'refund_payer' => $receipt?->payer_name ?: $record->display_beneficiary,
+                    'refund_amount' => $quote['amount'] ?? null,
+                ];
+            })
+            ->schema([
+                Hidden::make('refund_request_key'),
+                Hidden::make('refund_receipt_id'),
+                TextInput::make('refund_receipt_number')->label(__('financial.refund.receipt'))->disabled(),
+                TextInput::make('refund_payer')->label(__('financial.fields.payer_name'))->disabled(),
+                TextInput::make('refund_amount')
+                    ->label(__('financial.refund.amount'))
+                    ->prefix(__('services_tracking.currency_sar'))
+                    ->disabled()
+                    ->dehydrated(),
+            ])
+            ->action(function (ServiceTransaction $record, array $data, Action $action): void {
+                try {
+                    FinancialSurplusRefundService::confirm(
+                        $record,
+                        (int) ($data['refund_receipt_id'] ?? 0),
+                        (float) ($data['refund_amount'] ?? 0),
+                        (string) ($data['refund_request_key'] ?? ''),
+                    );
+                } catch (ValidationException $exception) {
+                    Notification::make()->title($exception->validator->errors()->first())->danger()->send();
+                    $action->halt();
+                }
+
+                Notification::make()->title(__('financial.refund.success'))->success()->send();
+            });
+    }
+
+    private static function remainingToCollect(?ServiceTransaction $record): float
+    {
+        if (! $record) {
+            return 0.0;
+        }
+
+        $summary = $record->financialSummary();
+
+        return max(0, round($summary['client_remaining'] - $summary['pending_receipts'], 2));
+    }
+
     public static function allocateCashSurplus(): Action
     {
         return Action::make('allocate_cash_surplus')
             ->label(__('financial.actions.allocate_cash_surplus'))
             ->icon('heroicon-o-banknotes')
-            ->visible(fn (?ServiceTransaction $record) => static::visible($record, 'manage_suspense_amounts'))
+            ->visible(fn (?ServiceTransaction $record) => static::visible($record, 'manage_suspense_amounts')
+                && static::availableCashSurpluses($record)->isNotEmpty())
             ->schema([
                 Select::make('suspense_amount_id')
                     ->label(__('financial.summary.surplus'))
-                    ->options(function (ServiceTransaction $record) {
-                        $ids = CashHandover::accessibleBy()->confirmed()
-                            ->where('company_id', $record->company_id)
-                            ->whereNotNull('metadata->suspense_amount_id')
-                            ->get(['metadata'])
-                            ->map(fn (CashHandover $handover) => $handover->metadata['suspense_amount_id']);
-
-                        return UnifiedSuspenseAmount::whereIn('id', $ids)->where('status', 'pending')
-                            ->orderByDesc('id')->get()
-                            ->mapWithKeys(fn (UnifiedSuspenseAmount $surplus) => [
-                                $surplus->id => $surplus->reference_number.' · '.number_format((float) $surplus->amount, 2)
-                                    .($surplus->notes ? ' · '.$surplus->notes : ''),
-                            ]);
-                    })
+                    ->options(fn (ServiceTransaction $record) => static::availableCashSurpluses($record)
+                        ->mapWithKeys(fn (UnifiedSuspenseAmount $surplus) => [
+                            $surplus->id => $surplus->reference_number.' · '.number_format((float) $surplus->amount, 2)
+                                .($surplus->notes ? ' · '.$surplus->notes : ''),
+                        ]))
                     ->searchable()
                     ->required(),
                 Textarea::make('notes')->label(__('financial.fields.notes')),
@@ -460,6 +616,28 @@ class ServiceFinancialActions
                 OperationsSettlementService::reverseCashSurplusAllocation($record, $receipt, $data['reason']);
                 Notification::make()->title(__('financial.actions.reverse_cash_surplus_allocation'))->success()->send();
             });
+    }
+
+    private static function availableCashSurpluses(ServiceTransaction $record): Collection
+    {
+        $remaining = (float) $record->financialSummary()['client_remaining'];
+
+        if ($remaining <= 0) {
+            return collect();
+        }
+
+        $ids = CashHandover::accessibleBy()->confirmed()
+            ->where('company_id', $record->company_id)
+            ->whereNotNull('metadata->suspense_amount_id')
+            ->get(['metadata'])
+            ->map(fn (CashHandover $handover) => $handover->metadata['suspense_amount_id']);
+
+        return UnifiedSuspenseAmount::whereIn('id', $ids)
+            ->where('company_id', $record->company_id)
+            ->where('status', 'pending')
+            ->where('amount', '<=', $remaining)
+            ->latest('id')
+            ->get();
     }
 
     private static function visible(?ServiceTransaction $record, string $permission): bool

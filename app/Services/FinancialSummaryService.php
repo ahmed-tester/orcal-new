@@ -95,7 +95,9 @@ class FinancialSummaryService
             fn (FinancialDisbursement $disbursement) => $disbursement->reimbursedTotal()
         );
 
-        $treasuryPaid = round($directPaid + $reimbursedPaid, 2);
+        $refunded = round((float) $confirmedReceipts->sum(fn (FinancialReceipt $receipt) => $receipt->refundedAmount()), 2);
+        $netReceived = round($received - $refunded, 2);
+        $treasuryPaid = round($directPaid + $reimbursedPaid + $refunded, 2);
         $netCash = round($treasuryReceived - $treasuryPaid, 2);
 
         $clientDue = array_key_exists('client_due_amount', $snapshot)
@@ -106,8 +108,8 @@ class FinancialSummaryService
             && $snapshot['expected_fee_amount'] !== null;
         $feeExpected = $feeDefined ? (float) $snapshot['expected_fee_amount'] : null;
 
-        $clientRemaining = max(0.0, round($clientDue - $received, 2));
-        $surplus = max(0.0, round($received - $clientDue, 2));
+        $clientRemaining = max(0.0, round($clientDue - $netReceived, 2));
+        $surplus = max(0.0, round($netReceived - $clientDue, 2));
         $feePaid = round($directPaid + $personalSettled, 2);
         $feeRemaining = $feeExpected === null ? null : max(0.0, round($feeExpected - $feePaid, 2));
 
@@ -117,9 +119,10 @@ class FinancialSummaryService
         return [
             'client_due' => round($clientDue, 2),
             'received' => round($received, 2),
-            'applied_to_client' => round(min($received, $clientDue), 2),
+            'applied_to_client' => round(min($netReceived, $clientDue), 2),
             'client_remaining' => $clientRemaining,
             'surplus' => $surplus,
+            'surplus_refunded' => $refunded,
             'cash_received' => round($cashReceived, 2),
             'non_cash_received' => round($nonCashReceived, 2),
             'custody' => round($custody, 2),

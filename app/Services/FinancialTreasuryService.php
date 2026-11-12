@@ -115,7 +115,8 @@ class FinancialTreasuryService
 
     public static function isAlreadyLinked(TreasuryTransaction $transaction): bool
     {
-        return CashHandover::where('treasury_transaction_id', $transaction->id)->exists()
+        return ($transaction->metadata['source'] ?? null) === FinancialSurplusRefundService::TREASURY_SOURCE
+            || CashHandover::where('treasury_transaction_id', $transaction->id)->exists()
             || FinancialDisbursement::where('treasury_transaction_id', $transaction->id)->exists()
             || FinancialDisbursementPayment::where('treasury_transaction_id', $transaction->id)->exists();
     }

@@ -26,7 +26,7 @@ class ListTreasuryTransactions extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            TreasuryCustodyService::receiveCustodyHeaderAction(),
+            // TreasuryCustodyService::receiveCustodyHeaderAction(),
             CashHandoverActions::receiveHeaderAction(),
             CashHandoverActions::rejectHeaderAction(),
 

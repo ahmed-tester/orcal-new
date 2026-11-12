@@ -20,6 +20,7 @@ use App\Services\CashHandoverService;
 use App\Services\FinancialDisbursementService;
 use App\Services\FinancialReceiptService;
 use App\Services\FinancialSummaryService;
+use App\Services\FinancialSurplusRefundService;
 use App\Services\FinancialTreasuryService;
 use App\Services\OperationsSettlementService;
 use App\Services\ServiceFinancialIndicatorsService;
@@ -29,6 +30,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
@@ -126,6 +128,7 @@ class FinancialWorkflowTest extends TestCase
         $handover = $this->confirmHandover([$receipt->id => 200], 'hnd-idem');
 
         $again = CashHandoverService::confirm($handover, [
+            'signature_code' => CashHandoverService::signatureCodeForDelivery($handover, $this->admin),
             'confirmation_key' => 'hnd-confirm:hnd-idem',
             'confirmed_amounts' => $handover->items()->pluck('requested_amount', 'id')->map(fn ($amount) => (float) $amount)->all(),
         ]);
@@ -158,6 +161,7 @@ class FinancialWorkflowTest extends TestCase
         ], ['request_key' => 'hnd-distributed']);
 
         CashHandoverService::confirm($handover, [
+            'signature_code' => CashHandoverService::signatureCodeForDelivery($handover, $this->admin),
             'confirmation_key' => 'hnd-distributed-confirm',
             'confirmed_amounts' => $handover->items()->pluck('requested_amount', 'id')->map(fn ($amount) => (float) $amount)->all(),
         ]);
@@ -227,6 +231,7 @@ class FinancialWorkflowTest extends TestCase
         $item = $handover->items()->firstOrFail();
 
         CashHandoverService::confirm($handover, [
+            'signature_code' => CashHandoverService::signatureCodeForDelivery($handover, $this->admin),
             'confirmation_key' => 'hnd-under-confirm',
             'confirmed_amounts' => [$item->id => 350],
         ]);
@@ -244,6 +249,7 @@ class FinancialWorkflowTest extends TestCase
         $secondItem = $secondHandover->items()->firstOrFail();
 
         CashHandoverService::confirm($secondHandover, [
+            'signature_code' => CashHandoverService::signatureCodeForDelivery($secondHandover, $this->admin),
             'confirmation_key' => 'hnd-over-confirm',
             'confirmed_amounts' => [$secondItem->id => 60],
         ]);
@@ -259,6 +265,7 @@ class FinancialWorkflowTest extends TestCase
 
         try {
             CashHandoverService::confirm($handover, [
+                'signature_code' => CashHandoverService::signatureCodeForDelivery($handover, $this->admin),
                 'confirmation_key' => 'hnd-extra-no-note',
                 'confirmed_amounts' => $amounts,
                 'extra_amount' => 50,
@@ -270,6 +277,7 @@ class FinancialWorkflowTest extends TestCase
         }
 
         CashHandoverService::confirm($handover, [
+            'signature_code' => CashHandoverService::signatureCodeForDelivery($handover, $this->admin),
             'confirmation_key' => 'hnd-extra-note',
             'confirmed_amounts' => $amounts,
             'extra_amount' => 50,
@@ -574,6 +582,7 @@ class FinancialWorkflowTest extends TestCase
 
         $this->expectException(AuthorizationException::class);
         CashHandoverService::confirm($handover, [
+            'signature_code' => CashHandoverService::signatureCodeForDelivery($handover, $this->admin),
             'confirmation_key' => 'hnd-conf:branch-scope',
             'confirmed_amounts' => [$handover->items()->first()->id => 200],
         ], $userRestricted);
@@ -589,6 +598,7 @@ class FinancialWorkflowTest extends TestCase
         ], $this->admin);
 
         $confirmed = CashHandoverService::confirm($handover, [
+            'signature_code' => CashHandoverService::signatureCodeForDelivery($handover, $this->admin),
             'confirmation_key' => 'hnd-conf:surplus-alloc',
             'confirmed_amounts' => [$handover->items()->first()->id => 500],
             'extra_amount' => 100,
@@ -683,6 +693,32 @@ class FinancialWorkflowTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_cash_surplus_refund_posts_once_and_resolves_the_deficiency(): void
+    {
+        $transaction = $this->makeTransaction(0);
+        $receipt = $this->confirmedCashReceipt($transaction, 2200);
+
+        $this->assertNull(FinancialSurplusRefundService::quote($transaction));
+        $handover = $this->confirmHandover([$receipt->id => 2200], 'hnd-cash-surplus-refund');
+        $this->assertSame(1200.0, FinancialSurplusRefundService::quote($transaction)['amount']);
+
+        $key = (string) Str::uuid();
+        $refund = FinancialSurplusRefundService::confirm($transaction, $receipt->id, 1200, $key, $this->admin);
+        $retried = FinancialSurplusRefundService::confirm($transaction, $receipt->id, 1200, $key, $this->admin);
+
+        $this->assertSame($refund->id, $retried->id);
+        $this->assertSame(2, TreasuryTransaction::count());
+        $this->assertSame(1000.0, FinancialTreasuryService::balance(1));
+        $summary = FinancialSummaryService::for($transaction->fresh());
+        $this->assertSame(0.0, $summary['surplus']);
+        $this->assertSame(1200.0, $summary['surplus_refunded']);
+        $this->assertSame(1000.0, $summary['applied_to_client']);
+        $this->assertSame('resolved', $transaction->deficiencyTasks()->where('deficiency_type', 'surplus_pending')->value('status'));
+
+        $this->expectException(ValidationException::class);
+        CashHandoverService::reverse($handover, 'Cannot reverse a refunded handover', $this->admin);
+    }
+
     private function makeTransaction(?float $fee, bool $explicitFee = true): ServiceTransaction
     {
         $metadata = ['cost_bearer' => 'client_paid'];
@@ -734,6 +770,7 @@ class FinancialWorkflowTest extends TestCase
             ->all();
 
         return CashHandoverService::confirm($handover, [
+            'signature_code' => CashHandoverService::signatureCodeForDelivery($handover, $this->admin),
             'confirmation_key' => 'hnd-confirm:'.$key,
             'confirmed_amounts' => $amounts,
         ], $this->admin)->fresh();

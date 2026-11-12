@@ -16,6 +16,8 @@ return [
         'service_desc' => 'Select requested service, transaction dates, due date and approval status',
         'financial' => 'Financials & Fees',
         'financial_desc' => 'Total service cost, paid amount, and auto-calculated remaining balance',
+        'receipt_at_creation' => 'Collection on Creation',
+        'receipt_at_creation_desc' => 'Record what was received from the client immediately with creating the transaction, and request the treasury cash handover when ready',
         'execution' => 'Execution & Administrative Tracking',
         'execution_desc' => 'Executing employee, transaction status, due dates, and notes',
     ],
@@ -34,6 +36,7 @@ return [
 
     'groups' => [
         'settlement_actions' => 'Settlement & Proofs',
+        'transaction_actions' => 'Transaction actions',
         'audit_actions' => 'Audit & Control',
     ],
 
@@ -66,6 +69,7 @@ return [
     ],
 
     'actions' => [
+        'open_transaction' => 'Open transaction',
         'approve' => 'Approve',
         'unapprove' => 'Unapprove',
         'approved_success' => 'Service transaction approved successfully',
@@ -346,6 +350,17 @@ return [
         'modal_desc' => 'Immutable, append-only chronological audit log documenting every action performed on this transaction.',
         'timeline_empty' => 'No audit log entries recorded yet.',
         'action_created' => 'Transaction Created',
+        'action_financial_surplus_refunded' => 'Collection surplus refunded to payer',
+        'action_financial_cash_handover_confirmed' => 'Cash handover confirmed',
+        'action_financial_cash_handover_rejected' => 'Cash handover rejected',
+        'action_financial_cash_handover_reversed' => 'Cash handover reversed',
+        'action_financial_receipt_recorded' => 'Collection receipt recorded',
+        'action_financial_receipt_confirmed' => 'Collection receipt confirmed',
+        'action_financial_receipt_reversed' => 'Collection receipt reversed',
+        'action_financial_disbursement_recorded' => 'Fee payment recorded',
+        'action_financial_claim_approved' => 'Employee-paid claim approved',
+        'action_financial_reimbursement_paid' => 'Reimbursement payment recorded',
+        'action_financial_reimbursement_reversed' => 'Reimbursement payment reversed',
         'action_custody_received' => 'Cash Custody Received at Treasury',
         'action_disbursement_recorded' => 'Government Disbursement Recorded',
         'action_self_paid_approved' => 'Employee Self-Paid Approved',

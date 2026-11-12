@@ -4,7 +4,9 @@ namespace App\Filament\Resources\ForeignEmployees;
 
 use App\Filament\Resources\ForeignEmployees\Pages\CreateForeignEmployee;
 use App\Filament\Resources\ForeignEmployees\Pages\EditForeignEmployee;
+use App\Filament\Resources\ForeignEmployees\Pages\EmployeePerformance;
 use App\Filament\Resources\ForeignEmployees\Pages\ListForeignEmployees;
+use App\Filament\Resources\ForeignEmployees\Pages\ViewForeignEmployee;
 use App\Filament\Resources\ForeignEmployees\Schemas\ForeignEmployeeForm;
 use App\Filament\Resources\ForeignEmployees\Tables\ForeignEmployeesTable;
 use App\Filament\Traits\HasCompanyScope;
@@ -72,6 +74,8 @@ class ForeignEmployeeResource extends Resource
             'index' => ListForeignEmployees::route('/'),
             'create' => CreateForeignEmployee::route('/create'),
             'edit' => EditForeignEmployee::route('/{record}/edit'),
+            'performance' => EmployeePerformance::route('/{record}/performance'),
+            'view' => ViewForeignEmployee::route('/{record}'),
         ];
     }
 }

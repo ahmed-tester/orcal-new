@@ -6,6 +6,7 @@ use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Models\User;
 use App\Services\EmployeeAgeService;
 use App\Services\PhoneService;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Hash;
@@ -18,6 +19,12 @@ class EditSaudiEmployee extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('performance')
+                ->label(__('tasks.performance.action'))
+                ->icon('heroicon-o-chart-bar')
+                ->color('gray')
+                ->url(fn (): string => SaudiEmployeeResource::getUrl('performance', ['record' => $this->record])),
+
             DeleteAction::make()->label(__('employees.actions.delete')),
         ];
     }

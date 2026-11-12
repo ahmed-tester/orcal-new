@@ -3,17 +3,24 @@
 namespace App\Filament\Resources\ServiceTransactions\Schemas;
 
 use App\Enums\ApprovalStatus;
+use App\Enums\FinancialPaymentMethod;
 use App\Filament\Components\OrgSelect;
 use App\Models\Employee;
 use App\Models\Service;
 use App\Models\ServiceTransaction;
+use App\Services\CashHandoverService;
 use App\Services\CompanyFormService;
+use App\Services\FinancialReceiptService;
 use App\Services\PhoneService;
+use App\Services\ServiceFinancialWorkflowService;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -24,6 +31,7 @@ use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class ServiceTransactionForm
 {
@@ -53,16 +61,9 @@ class ServiceTransactionForm
                                 View::make('filament.resources.service-transactions.operational-dashboard'),
                             ]),
 
-                        Tab::make('financial_summary')
-                            ->label(__('financial.summary.title'))
-                            ->icon('heroicon-o-chart-pie')
-                            ->visible(fn () => $record->isFinancialManaged())
-                            ->schema([
-                                View::make('filament.resources.service-transactions.financial-summary'),
-                            ]),
-
                         Tab::make('edit_fields')
                             ->label(__('services_tracking.tabs.edit_data'))
+                            ->visible(fn () => $schema->getOperation() !== 'view')
                             ->icon('heroicon-o-pencil-square')
                             ->schema([
                                 $wizard,
@@ -73,6 +74,20 @@ class ServiceTransactionForm
 
     public static function getWizard(): Wizard
     {
+        $isCashReceipt = function (callable $get): bool {
+            $method = $get('receipt_payment_method');
+            if ($method instanceof FinancialPaymentMethod) {
+                return $method->isCash();
+            }
+
+            return $method === FinancialPaymentMethod::CASH->value || $method === 'cash';
+        };
+
+        $clientDue = fn (callable $get): float => ServiceFinancialWorkflowService::resolveShares(
+            $get('metadata') ?? [],
+            (float) $get('total_amount'),
+        )[0];
+
         return Wizard::make([
             Step::make('service_and_party_step')
                 ->label(__('services_tracking.wizard.step_1_title'))
@@ -333,6 +348,10 @@ class ServiceTransactionForm
                 ->description(__('services_tracking.wizard.step_2_desc'))
                 ->icon('heroicon-o-banknotes')
                 ->schema([
+                    Hidden::make('submission_key')
+                        ->default(fn () => (string) Str::uuid())
+                        ->visible(fn ($record) => $record === null),
+
                     Section::make(__('services_tracking.sections.financial'))
                         ->description(__('services_tracking.sections.financial_desc'))
                         ->columns(3)
@@ -453,6 +472,93 @@ class ServiceTransactionForm
                                 ->dehydrated(false),
                         ]),
 
+                    Section::make(__('services_tracking.sections.receipt_at_creation'))
+                        ->description(__('services_tracking.sections.receipt_at_creation_desc'))
+                        ->icon('heroicon-o-receipt-percent')
+                        ->columns(2)
+                        ->visible(fn ($record) => $record === null && (auth()->user()?->can('record_service_receipt') ?? false))
+                        ->schema([
+                            Hidden::make('receipt_request_key')
+                                ->default(fn () => FinancialReceiptService::newRequestKey()),
+
+                            Hidden::make('handover_request_key')
+                                ->default(fn () => CashHandoverService::newRequestKey()),
+
+                            Toggle::make('receipt_received')
+                                ->label(__('financial.creation_receipt.received_from_client'))
+                                ->default(false)
+                                ->live()
+                                ->afterStateUpdated(function (bool $state, callable $get, callable $set) use ($clientDue) {
+                                    if ($state && blank($get('receipt_amount'))) {
+                                        $due = $clientDue($get);
+                                        $set('receipt_amount', $due > 0 ? $due : null);
+                                    }
+                                })
+                                ->columnSpanFull(),
+
+                            TextInput::make('receipt_amount')
+                                ->label(__('financial.fields.amount'))
+                                ->numeric()
+                                ->minValue(0.01)
+                                ->live(debounce: 400)
+                                ->prefix(__('services_tracking.currency_sar'))
+                                ->helperText(function (callable $get) use ($clientDue): ?string {
+                                    $surplus = round((float) $get('receipt_amount') - $clientDue($get), 2);
+
+                                    return $surplus > 0
+                                        ? __('financial.creation_receipt.surplus_hint', ['amount' => number_format($surplus, 2)])
+                                        : null;
+                                })
+                                ->required(fn (callable $get) => (bool) $get('receipt_received'))
+                                ->visible(fn (callable $get) => (bool) $get('receipt_received')),
+
+                            Select::make('receipt_payment_method')
+                                ->label(__('financial.fields.payment_method'))
+                                ->options(FinancialPaymentMethod::class)
+                                ->default(FinancialPaymentMethod::CASH->value)
+                                ->required(fn (callable $get) => (bool) $get('receipt_received'))
+                                ->live()
+                                ->visible(fn (callable $get) => (bool) $get('receipt_received')),
+
+                            TextInput::make('receipt_reference_number')
+                                ->label(__('financial.fields.reference_number'))
+                                ->maxLength(100)
+                                ->visible(fn (callable $get) => (bool) $get('receipt_received') && ! $isCashReceipt($get)),
+
+                            Select::make('receipt_destination_type')
+                                ->label(__('financial.fields.destination_type'))
+                                ->options(__('financial.destination_types'))
+                                ->visible(fn (callable $get) => (bool) $get('receipt_received') && ! $isCashReceipt($get)),
+
+                            TextInput::make('receipt_destination_reference')
+                                ->label(__('financial.fields.destination_reference'))
+                                ->maxLength(100)
+                                ->visible(fn (callable $get) => (bool) $get('receipt_received') && ! $isCashReceipt($get)),
+
+                            FileUpload::make('receipt_proof_path')
+                                ->label(__('financial.fields.proof'))
+                                ->disk('public')
+                                ->directory('financial-receipts')
+                                ->openable()
+                                ->downloadable()
+                                ->maxSize(10240)
+                                ->visible(fn (callable $get) => (bool) $get('receipt_received') && ! $isCashReceipt($get)),
+
+                            DateTimePicker::make('receipt_received_at')
+                                ->label(__('financial.fields.received_at'))
+                                ->default(now())
+                                ->visible(fn (callable $get) => (bool) $get('receipt_received')),
+
+                            Toggle::make('receipt_request_handover')
+                                ->label(__('financial.creation_receipt.request_handover'))
+                                ->helperText(__('financial.creation_receipt.request_handover_hint'))
+                                ->default(false)
+                                ->columnSpanFull()
+                                ->visible(fn (callable $get) => (bool) $get('receipt_received')
+                                    && $isCashReceipt($get)
+                                    && (auth()->user()?->can('request_cash_handover') ?? false)),
+                        ]),
+
                     Section::make(__('services_tracking.sections.execution'))
                         ->columns(2)
                         ->schema([
@@ -473,6 +579,7 @@ class ServiceTransactionForm
                                 required: false,
                                 relationshipName: 'executor',
                             )
+                                ->required(fn (callable $get) => (bool) $get('receipt_received') && $isCashReceipt($get))
                                 ->default(fn () => auth()->user()?->employee?->id)
                                 ->disabled(fn () => ! (auth()->user()?->isSuperAdmin() ?? false))
                                 ->dehydrated(),

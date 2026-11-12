@@ -4,13 +4,36 @@
 
     // Financial numbers
     $totalAmount = (float) $record->total_amount;
-    $paidAmount = (float) $record->paid_amount;
-    $remainingAmount = (float) $record->remaining_amount;
-    $custodyStatus = $meta['custody_status'] ?? 'on_employee';
-    $isPaidToTreasury = in_array($custodyStatus, ['in_treasury', 'settled'], true);
-    $treasuryAmount = $isPaidToTreasury ? $paidAmount : 0.0;
-    $disbursedAmount = (float) ($meta['gov_fee'] ?? ($meta['disbursed_amount'] ?? 0.0));
-    $currentCustody = $isPaidToTreasury ? 0.0 : $paidAmount;
+    $isManaged = $record->isFinancialManaged();
+    $summary = $isManaged ? $record->financialSummary() : null;
+
+    if ($summary) {
+        $paidAmount = (float) $summary['received'];
+        $remainingAmount = (float) $summary['client_remaining'];
+        $currentCustody = (float) $summary['custody'];
+        $treasuryAmount = (float) $summary['treasury_received'];
+        $disbursedAmount = (float) $summary['fee_paid'];
+        $surplusRefunded = (float) $summary['surplus_refunded'];
+        $netCash = (float) $summary['net_cash'];
+        $feeExpected = $summary['fee_defined'] ? (float) $summary['fee_expected'] : null;
+        $employeeDue = (float) $summary['employee_due'];
+        $isPaidToTreasury = $currentCustody <= 0.001 && $treasuryAmount > 0;
+    } else {
+        $paidAmount = (float) $record->paid_amount;
+        $remainingAmount = (float) $record->remaining_amount;
+        $custodyStatus = $meta['custody_status'] ?? 'on_employee';
+        $isPaidToTreasury = in_array($custodyStatus, ['in_treasury', 'settled'], true);
+        $treasuryAmount = $isPaidToTreasury ? $paidAmount : 0.0;
+        $disbursedAmount = (float) ($meta['gov_fee'] ?? ($meta['disbursed_amount'] ?? 0.0));
+        $currentCustody = $isPaidToTreasury ? 0.0 : $paidAmount;
+        $surplusRefunded = 0.0;
+        $netCash = $treasuryAmount - $disbursedAmount;
+        $feeExpected = null;
+        $employeeDue = 0.0;
+    }
+
+    $receipts = $record->financialReceipts()->with(['collector.user'])->latest()->take(5)->get();
+    $disbursements = $record->financialDisbursements()->latest()->take(5)->get();
 
     // Workflow status
     $workflowStatus = \App\Enums\OperationWorkflowStatus::tryFrom((string) $record->workflow_status) ?? \App\Enums\OperationWorkflowStatus::NEW;
@@ -286,6 +309,24 @@
                         <span class="op-data-label">{{ __('services_tracking.dashboard.total_amount') }}:</span>
                         <span class="op-data-val" style="font-size: 13px; color: #047857;">{{ number_format($totalAmount, 2) }} {{ $currency }}</span>
                     </div>
+                    @if($surplusRefunded > 0)
+                        <div class="op-data-row">
+                            <span class="op-data-label">{{ __('financial.summary.surplus_refunded') }}:</span>
+                            <span class="op-data-val" style="color: #0891b2;">{{ number_format($surplusRefunded, 2) }} {{ $currency }}</span>
+                        </div>
+                    @endif
+                    @if($isManaged)
+                        <div class="op-data-row">
+                            <span class="op-data-label">{{ __('financial.summary.net_cash') }}:</span>
+                            <span class="op-data-val" style="color: #0f172a; font-weight: 800;">{{ number_format($netCash, 2) }} {{ $currency }}</span>
+                        </div>
+                        <div class="op-data-row">
+                            <span class="op-data-label">{{ __('financial.summary.client_remaining') }}:</span>
+                            <span class="op-data-val" style="color: {{ $remainingAmount > 0 ? '#dc2626' : '#16a34a' }};">
+                                {{ $remainingAmount > 0 ? (number_format($remainingAmount, 2).' '.$currency) : __('financial.summary.cleared').' ✓' }}
+                            </span>
+                        </div>
+                    @endif
                     <div class="op-data-row">
                         <span class="op-data-label">{{ __('services_tracking.dashboard.created_at') }}:</span>
                         <span class="op-data-val" style="font-size: 11px; font-family: monospace;">{{ $record->created_at?->format('Y-m-d') }}</span>
@@ -351,37 +392,77 @@
 
                 {{-- QR Code Section --}}
                 @php
-                    $qrPayload = __('services_tracking.custody.qr_payload_format', [
-                        'code' => $record->transaction_number,
-                        'pin' => $digitalSignatureCode,
-                    ]);
-                    $qrCodeSvg = \App\Services\BarcodeService::generateQrSvg($qrPayload, 5);
+                    $isManaged = $record->isFinancialManaged();
+                    $submittedHandover = null;
+                    if ($isManaged) {
+                        $submittedHandover = \App\Models\CashHandover::accessibleBy()
+                            ->submitted()
+                            ->whereHas('items', fn ($query) => $query->whereHas('receipt', fn ($receiptQuery) => $receiptQuery
+                                ->forSource(\App\Models\FinancialReceipt::SOURCE_SERVICE_TRANSACTION, (int) $record->id)))
+                            ->latest('id')
+                            ->first();
+                    }
+
+                    $signatureCode = $isManaged
+                        ? ($submittedHandover ? \App\Services\CashHandoverService::signatureCodeForDelivery($submittedHandover) : null)
+                        : $digitalSignatureCode;
+
+                    if ($isManaged) {
+                        if ($submittedHandover) {
+                            $qrPayload = 'HANDOVER:' . $submittedHandover->handover_number;
+                            $qrCodeSvg = \App\Services\BarcodeService::generateQrSvg($qrPayload, 5);
+                            $displayNumber = $submittedHandover->handover_number;
+                            $scanHint = __('financial.handover_qr.scan_hint');
+                        } else {
+                            $qrPayload = null;
+                            $qrCodeSvg = null;
+                            $displayNumber = null;
+                            $scanHint = __('financial.handover_qr.no_pending_handover');
+                        }
+                    } else {
+                        $qrPayload = __('services_tracking.custody.qr_payload_format', [
+                            'code' => $record->transaction_number,
+                            'pin' => $digitalSignatureCode,
+                        ]);
+                        $qrCodeSvg = \App\Services\BarcodeService::generateQrSvg($qrPayload, 5);
+                        $displayNumber = $record->transaction_number;
+                        $scanHint = __('services_tracking.dashboard.qr_scan_hint');
+                    }
                 @endphp
                 <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; text-align: center; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
-                    <div style="max-width: 140px; margin: 0 auto 8px auto;">
-                        {!! $qrCodeSvg !!}
-                    </div>
-                    <div style="font-size: 12px; font-weight: 800; color: #1e293b; font-family: monospace; letter-spacing: 1px;">
-                        {{ $record->transaction_number }}
-                    </div>
-                    <div style="font-size: 10px; color: #64748b; margin-top: 3px;">
-                        {{ __('services_tracking.dashboard.qr_scan_hint') }}
-                    </div>
+                    @if($qrCodeSvg)
+                        <div style="max-width: 140px; margin: 0 auto 8px auto;">
+                            {!! $qrCodeSvg !!}
+                        </div>
+                    @else
+                        <div style="padding: 12px 6px; color: #64748b; font-size: 11px;">
+                            <div style="font-size: 20px; margin-bottom: 4px;">ℹ️</div>
+                            {{ $scanHint }}
+                        </div>
+                    @endif
+                    @if($displayNumber !== null)
+                        <div style="font-size: 12px; font-weight: 800; color: #1e293b; font-family: monospace; letter-spacing: 1px;">
+                            {{ $displayNumber }}
+                        </div>
+                    @endif
+                    @if($qrCodeSvg)
+                        <div style="font-size: 10px; color: #64748b; margin-top: 3px;">
+                            {{ $scanHint }}
+                        </div>
+                    @endif
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: center;">
-                    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
-                        <div style="font-size: 10px; color: #64748b; margin-bottom: 2px;">{{ __('services_tracking.dashboard.employee_signature') }}</div>
-                        @if($digitalSignatureCode)
-                            <div style="font-size: 18px; font-weight: 900; font-family: monospace; color: #0f172a; letter-spacing: 2px;">
-                                {{ $digitalSignatureCode }}
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; text-align: center;">
+                    @if($signatureCode !== null)
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
+                            <div style="font-size: 10px; color: #64748b; margin-bottom: 2px;">
+                                {{ $isManaged ? __('financial.fields.handover_signature') : __('services_tracking.dashboard.employee_signature') }}
                             </div>
-                        @else
-                            <div style="font-size: 11px; font-weight: 700; color: #94a3b8; margin-top: 4px;">
-                                {{ __('services_tracking.dashboard.waiting_signature') }}
+                            <div dir="ltr" style="font-size: 18px; font-weight: 900; font-family: monospace; color: #0f172a; letter-spacing: 2px;">
+                                {{ $signatureCode }}
                             </div>
-                        @endif
-                    </div>
+                        </div>
+                    @endif
 
                     <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
                         <div style="font-size: 10px; color: #64748b; margin-bottom: 2px;">{{ __('services_tracking.dashboard.treasury_signature') }}</div>
@@ -585,6 +666,38 @@
                     </div>
                 </div>
 
+                @if($isManaged)
+                    <div class="op-kpi-grid" style="margin-top: -4px;">
+                        <div class="op-kpi-box" style="background: {{ $remainingAmount <= 0.001 ? '#f0fdf4' : '#fff1f2' }}; border-color: {{ $remainingAmount <= 0.001 ? '#bbf7d0' : '#fecdd3' }};">
+                            <div class="op-kpi-label" style="color: {{ $remainingAmount <= 0.001 ? '#166534' : '#be123c' }};">{{ __('financial.summary.client_remaining') }}</div>
+                            <div class="op-kpi-val" style="color: {{ $remainingAmount <= 0.001 ? '#15803d' : '#9f1239' }};">
+                                {{ number_format($remainingAmount, 2) }} <span style="font-size: 11px; font-weight: 500;">{{ $currency }}</span>
+                            </div>
+                        </div>
+
+                        <div class="op-kpi-box" style="background: #ecfeff; border-color: #a5f3fc;">
+                            <div class="op-kpi-label" style="color: #0e7490;">{{ __('financial.summary.surplus_refunded') }}</div>
+                            <div class="op-kpi-val" style="color: #155e75;">
+                                {{ number_format($surplusRefunded, 2) }} <span style="font-size: 11px; font-weight: 500;">{{ $currency }}</span>
+                            </div>
+                        </div>
+
+                        <div class="op-kpi-box" style="background: #f0fdf4; border-color: #bbf7d0;">
+                            <div class="op-kpi-label" style="color: #166534;">{{ __('financial.summary.net_cash') }}</div>
+                            <div class="op-kpi-val" style="color: #15803d;">
+                                {{ number_format($netCash, 2) }} <span style="font-size: 11px; font-weight: 500;">{{ $currency }}</span>
+                            </div>
+                        </div>
+
+                        <div class="op-kpi-box" style="background: #f8fafc; border-color: #e2e8f0;">
+                            <div class="op-kpi-label" style="color: #475569;">{{ __('financial.summary.employee_due') }}</div>
+                            <div class="op-kpi-val" style="color: #0f172a;">
+                                {{ number_format($employeeDue, 2) }} <span style="font-size: 11px; font-weight: 500;">{{ $currency }}</span>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
                 {{-- Financial Flow Steps --}}
                 <div class="op-trail-step">
                     <div>
@@ -642,6 +755,22 @@
                     </span>
                 </div>
 
+                @if($surplusRefunded > 0)
+                    <div class="op-trail-step">
+                        <div>
+                            <div style="font-weight: 700; font-size: 12px; color: #1e293b;">
+                                {{ __('financial.summary.step_surplus_title') }}
+                            </div>
+                            <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+                                {{ __('financial.summary.surplus_refunded') }}: {{ number_format($surplusRefunded, 2) }} {{ $currency }}
+                            </div>
+                        </div>
+                        <span style="background: #ecfeff; color: #0e7490; padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 11px;">
+                            {{ __('financial.summary.status_refunded') }}
+                        </span>
+                    </div>
+                @endif
+
                 {{-- Proofs Box --}}
                 <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; background: #ffffff; margin-top: 10px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -677,6 +806,127 @@
                         </div>
                     </div>
                 </div>
+
+                {{-- 5. Linked Receipts & Disbursements --}}
+                @if($receipts->isNotEmpty() || $disbursements->isNotEmpty())
+                    <div style="border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; background: #ffffff; margin-top: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div style="font-weight: 700; font-size: 12px; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                                <span style="width: 7px; height: 7px; border-radius: 50%; background: #0284c7;"></span>
+                                {{ __('financial.summary.recent_receipts') }}
+                            </div>
+                            <span style="font-size: 10px; font-weight: 700; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px;">
+                                {{ $receipts->count() }}
+                            </span>
+                        </div>
+
+                        @if($receipts->isNotEmpty())
+                            <div style="width: 100%; overflow-x: auto; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 12px;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: right;">
+                                    <thead>
+                                        <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                                            <th style="padding: 7px 10px; font-weight: 700; color: #475569;">{{ __('financial.summary.receipt_number') }}</th>
+                                            <th style="padding: 7px 10px; font-weight: 700; color: #475569;">{{ __('financial.fields.amount') }}</th>
+                                            <th style="padding: 7px 10px; font-weight: 700; color: #475569;">{{ __('financial.fields.payment_method') }}</th>
+                                            <th style="padding: 7px 10px; font-weight: 700; color: #475569;">{{ __('financial.summary.collector') }}</th>
+                                            <th style="padding: 7px 10px; font-weight: 700; color: #475569;">{{ __('financial.summary.status') }}</th>
+                                            <th style="padding: 7px 10px; font-weight: 700; color: #475569;">{{ __('financial.summary.date') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($receipts as $rcp)
+                                            @php
+                                                $methodLabel = match($rcp->payment_method?->value ?? $rcp->payment_method) {
+                                                    'cash' => __('financial.payment_methods.cash'),
+                                                    'bank_transfer' => __('financial.payment_methods.bank_transfer'),
+                                                    'pos' => __('financial.payment_methods.pos'),
+                                                    default => (string) ($rcp->payment_method?->value ?? $rcp->payment_method),
+                                                };
+                                                $statusKey = $rcp->status?->value ?? $rcp->status;
+                                                $statusLabel = match($statusKey) {
+                                                    'confirmed' => __('financial.receipt_statuses.confirmed'),
+                                                    'pending_confirmation' => __('financial.receipt_statuses.pending_confirmation'),
+                                                    'reversed' => __('financial.receipt_statuses.reversed'),
+                                                    default => (string) $statusKey,
+                                                };
+                                            @endphp
+                                            <tr style="border-bottom: 1px solid #f1f5f9;">
+                                                <td style="padding: 7px 10px; font-weight: 700; font-family: monospace;">{{ $rcp->receipt_number }}</td>
+                                                <td style="padding: 7px 10px; font-weight: 800; color: #166534;">{{ number_format((float) $rcp->amount, 2) }} {{ $currency }}</td>
+                                                <td style="padding: 7px 10px;">{{ $methodLabel }}</td>
+                                                <td style="padding: 7px 10px;">{{ $rcp->collector?->user?->name ?? '—' }}</td>
+                                                <td style="padding: 7px 10px;">
+                                                    <span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; background: {{ $statusKey === 'confirmed' ? '#dcfce7' : '#fef3c7' }}; color: {{ $statusKey === 'confirmed' ? '#166534' : '#b45309' }};">
+                                                        {{ $statusLabel }}
+                                                    </span>
+                                                </td>
+                                                <td style="padding: 7px 10px; color: #64748b; font-family: monospace;">{{ $rcp->received_at?->format('Y-m-d') ?? $rcp->created_at?->format('Y-m-d') }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
+
+                        @if($disbursements->isNotEmpty())
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin: 12px 0 8px 0;">
+                                <div style="font-weight: 700; font-size: 12px; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                                    <span style="width: 7px; height: 7px; border-radius: 50%; background: #d97706;"></span>
+                                    {{ __('financial.summary.recent_disbursements') }}
+                                </div>
+                                <span style="font-size: 10px; font-weight: 700; background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 6px;">
+                                    {{ $disbursements->count() }}
+                                </span>
+                            </div>
+
+                            <div style="width: 100%; overflow-x: auto; border-radius: 8px; border: 1px solid #e2e8f0;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: right;">
+                                    <thead>
+                                        <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                                            <th style="padding: 7px 10px; font-weight: 700; color: #475569;">{{ __('financial.summary.disbursement_number') }}</th>
+                                            <th style="padding: 7px 10px; font-weight: 700; color: #475569;">{{ __('financial.fields.amount') }}</th>
+                                            <th style="padding: 7px 10px; font-weight: 700; color: #475569;">{{ __('financial.fields.disbursement_type') }}</th>
+                                            <th style="padding: 7px 10px; font-weight: 700; color: #475569;">{{ __('financial.summary.status') }}</th>
+                                            <th style="padding: 7px 10px; font-weight: 700; color: #475569;">{{ __('financial.summary.date') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($disbursements as $dsb)
+                                            @php
+                                                $typeKey = $dsb->disbursement_type?->value ?? $dsb->disbursement_type;
+                                                $typeLabel = match($typeKey) {
+                                                    'treasury_direct' => __('financial.disbursement_types.treasury_direct'),
+                                                    'employee_personal' => __('financial.disbursement_types.employee_personal'),
+                                                    default => (string) $typeKey,
+                                                };
+                                                $dsbStatusKey = $dsb->status?->value ?? $dsb->status;
+                                                $dsbStatusLabel = match($dsbStatusKey) {
+                                                    'paid' => __('financial.disbursement_statuses.paid'),
+                                                    'pending_approval' => __('financial.disbursement_statuses.pending_approval'),
+                                                    'approved' => __('financial.disbursement_statuses.approved'),
+                                                    'partially_reimbursed' => __('financial.disbursement_statuses.partially_reimbursed'),
+                                                    'fully_reimbursed' => __('financial.disbursement_statuses.fully_reimbursed'),
+                                                    default => (string) $dsbStatusKey,
+                                                };
+                                            @endphp
+                                            <tr style="border-bottom: 1px solid #f1f5f9;">
+                                                <td style="padding: 7px 10px; font-weight: 700; font-family: monospace;">{{ $dsb->disbursement_number }}</td>
+                                                <td style="padding: 7px 10px; font-weight: 800; color: #dc2626;">{{ number_format((float) $dsb->amount, 2) }} {{ $currency }}</td>
+                                                <td style="padding: 7px 10px;">{{ $typeLabel }}</td>
+                                                <td style="padding: 7px 10px;">
+                                                    <span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; background: {{ in_array($dsbStatusKey, ['paid', 'fully_reimbursed']) ? '#dcfce7' : '#eff6ff' }}; color: {{ in_array($dsbStatusKey, ['paid', 'fully_reimbursed']) ? '#166534' : '#1e40af' }};">
+                                                        {{ $dsbStatusLabel }}
+                                                    </span>
+                                                </td>
+                                                <td style="padding: 7px 10px; color: #64748b; font-family: monospace;">{{ $dsb->created_at?->format('Y-m-d') }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
+                    </div>
+                @endif
             </div>
 
         </div>
@@ -706,19 +956,11 @@
             <div style="display: flex; flex-direction: column; gap: 8px;">
                 @foreach($auditLogs as $log)
                     @php
-                        $actionLabel = match ($log->action_type) {
-                            'created' => __('services_tracking.audit.action_created'),
-                            'custody_received' => __('services_tracking.audit.action_custody_received'),
-                            'proofs_attached' => __('services_tracking.audit.action_proofs_attached'),
-                            'disbursement_recorded' => __('services_tracking.audit.action_disbursement_recorded'),
-                            'self_paid_approved' => __('services_tracking.audit.action_self_paid_approved'),
-                            'batch_deposited' => __('services_tracking.audit.action_batch_deposited'),
-                            'reconciled' => __('services_tracking.audit.action_reconciled'),
-                            'task_resolved' => __('services_tracking.audit.action_task_resolved'),
-                            'escalated' => __('services_tracking.audit.action_escalated'),
-                            'escalation_resolved' => __('services_tracking.audit.action_escalation_resolved'),
-                            default => $log->action_type,
-                        };
+                        $actionKey = 'services_tracking.audit.action_'.$log->action_type;
+                        $actionLabel = __($actionKey);
+                        if ($actionLabel === $actionKey) {
+                            $actionLabel = $log->action_type;
+                        }
                     @endphp
                     <div style="background: #ffffff; border: 1px solid #f1f5f9; border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 11px;">
                         <div style="display: flex; align-items: center; gap: 8px;">

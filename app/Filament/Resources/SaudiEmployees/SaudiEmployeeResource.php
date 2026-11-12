@@ -4,7 +4,9 @@ namespace App\Filament\Resources\SaudiEmployees;
 
 use App\Filament\Resources\SaudiEmployees\Pages\CreateSaudiEmployee;
 use App\Filament\Resources\SaudiEmployees\Pages\EditSaudiEmployee;
+use App\Filament\Resources\SaudiEmployees\Pages\EmployeePerformance;
 use App\Filament\Resources\SaudiEmployees\Pages\ListSaudiEmployees;
+use App\Filament\Resources\SaudiEmployees\Pages\ViewSaudiEmployee;
 use App\Filament\Resources\SaudiEmployees\Schemas\SaudiEmployeeForm;
 use App\Filament\Resources\SaudiEmployees\Tables\SaudiEmployeesTable;
 use App\Filament\Traits\HasCompanyScope;
@@ -73,6 +75,8 @@ class SaudiEmployeeResource extends Resource
             'index' => ListSaudiEmployees::route('/'),
             'create' => CreateSaudiEmployee::route('/create'),
             'edit' => EditSaudiEmployee::route('/{record}/edit'),
+            'performance' => EmployeePerformance::route('/{record}/performance'),
+            'view' => ViewSaudiEmployee::route('/{record}'),
         ];
     }
 }

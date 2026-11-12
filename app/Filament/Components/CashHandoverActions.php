@@ -11,12 +11,15 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Grid;
+use Illuminate\Validation\ValidationException;
 
 class CashHandoverActions
 {
     /**
      * Treasury screen: receive and confirm a submitted cash handover with the
-     * confirmed amount per receipt.
+     * confirmed amount per receipt. The handover is picked manually or by
+     * scanning its QR code; both load the same form.
      */
     public static function receiveHeaderAction(): Action
     {
@@ -29,33 +32,71 @@ class CashHandoverActions
             ->form([
                 Hidden::make('confirmation_key')->default(fn () => CashHandoverService::newConfirmationKey()),
 
-                Select::make('cash_handover_id')
-                    ->label(__('financial.fields.handover_receipts'))
-                    ->options(fn () => CashHandover::accessibleBy()
-                        ->submitted()
-                        ->orderBy('id')
-                        ->get()
-                        ->mapWithKeys(fn (CashHandover $handover) => [
-                            $handover->id => $handover->handover_number.' • '.number_format((float) $handover->total_requested_amount, 2).' '.__('services_tracking.currency_sar'),
-                        ])
-                        ->all())
-                    ->required()
-                    ->live()
-                    ->afterStateUpdated(function ($state, callable $set): void {
-                        $handover = CashHandover::accessibleBy()->submitted()->with('items')->find($state);
+                Grid::make(2)
+                    ->schema([
+                        Select::make('cash_handover_id')
+                            ->label(__('financial.fields.handover_receipts'))
+                            ->options(fn () => CashHandover::accessibleBy()
+                                ->submitted()
+                                ->orderBy('id')
+                                ->get()
+                                ->mapWithKeys(fn (CashHandover $handover) => [
+                                    $handover->id => $handover->handover_number.' • '.number_format((float) $handover->total_requested_amount, 2).' '.__('services_tracking.currency_sar'),
+                                ])
+                                ->all())
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(function ($state, callable $set): void {
+                                $set('signature_code', null);
+                                $handover = CashHandover::accessibleBy()->submitted()->with('items')->find($state);
 
-                        if (! $handover) {
-                            $set('items', []);
+                                if (! $handover) {
+                                    $set('items', []);
 
-                            return;
-                        }
+                                    return;
+                                }
 
-                        $set('items', $handover->items->map(fn ($item) => [
-                            'item_id' => $item->id,
-                            'requested_amount' => (float) $item->requested_amount,
-                            'confirmed_amount' => (float) $item->requested_amount,
-                        ])->all());
-                    }),
+                                $set('items', static::confirmedItemsState($handover));
+                            }),
+
+                        TextInput::make('handover_scan')
+                            ->label(__('financial.fields.scan_handover_qr'))
+                            ->prefixIcon('heroicon-o-qr-code')
+                            ->live(debounce: 400)
+                            ->afterStateUpdated(function ($state, callable $set): void {
+                                if (blank($state)) {
+                                    return;
+                                }
+
+                                $handover = CashHandoverService::findSubmittedByScan((string) $state);
+
+                                $set('handover_scan', null);
+                                $set('signature_code', null);
+
+                                if (! $handover) {
+                                    $set('cash_handover_id', null);
+                                    $set('items', []);
+
+                                    Notification::make()
+                                        ->title(__('financial.errors.handover_qr_unavailable'))
+                                        ->danger()
+                                        ->send();
+
+                                    return;
+                                }
+
+                                $set('cash_handover_id', $handover->id);
+                                $set('items', static::confirmedItemsState($handover));
+                            }),
+                    ]),
+
+                TextInput::make('signature_code')
+                    ->label(__('financial.fields.handover_signature'))
+                    ->helperText(__('financial.handover_qr.signature_input_hint'))
+                    ->password()
+                    ->maxLength(4)
+                    ->extraInputAttributes(['inputmode' => 'numeric'])
+                    ->required(),
 
                 Repeater::make('items')
                     ->label(__('financial.fields.confirmed_amounts'))
@@ -89,7 +130,7 @@ class CashHandoverActions
                     ->rows(2)
                     ->columnSpanFull(),
             ])
-            ->action(function (array $data) {
+            ->action(function (array $data, Action $action) {
                 $handover = CashHandover::accessibleBy()->findOrFail($data['cash_handover_id']);
 
                 $confirmedAmounts = collect($data['items'] ?? [])
@@ -97,13 +138,25 @@ class CashHandoverActions
                     ->mapWithKeys(fn ($item) => [(int) $item['item_id'] => (float) $item['confirmed_amount']])
                     ->all();
 
-                CashHandoverService::confirm($handover, [
-                    'confirmation_key' => $data['confirmation_key'],
-                    'confirmed_amounts' => $confirmedAmounts,
-                    'extra_amount' => (float) ($data['extra_amount'] ?? 0),
-                    'extra_note' => $data['extra_note'] ?? null,
-                    'notes' => $data['notes'] ?? null,
-                ]);
+                try {
+                    CashHandoverService::confirm($handover, [
+                        'confirmation_key' => $data['confirmation_key'],
+                        'signature_code' => $data['signature_code'],
+                        'confirmed_amounts' => $confirmedAmounts,
+                        'extra_amount' => (float) ($data['extra_amount'] ?? 0),
+                        'extra_note' => $data['extra_note'] ?? null,
+                        'notes' => $data['notes'] ?? null,
+                    ]);
+                } catch (ValidationException $exception) {
+                    $message = $exception->errors()['signature_code'][0] ?? null;
+
+                    if ($message === null) {
+                        throw $exception;
+                    }
+
+                    Notification::make()->title($message)->danger()->send();
+                    $action->halt();
+                }
 
                 Notification::make()
                     ->title(__('financial.actions.confirm_handover'))
@@ -147,5 +200,19 @@ class CashHandoverActions
                     ->warning()
                     ->send();
             });
+    }
+
+    /**
+     * Load the handover items into the confirmation form.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private static function confirmedItemsState(CashHandover $handover): array
+    {
+        return $handover->items->map(fn ($item) => [
+            'item_id' => $item->id,
+            'requested_amount' => (float) $item->requested_amount,
+            'confirmed_amount' => (float) $item->requested_amount,
+        ])->all();
     }
 }

@@ -10,6 +10,7 @@ use App\Models\CashHandoverItem;
 use App\Models\FinancialReceipt;
 use App\Models\ServiceTransaction;
 use App\Models\TreasuryTransaction;
+use App\Models\UnifiedSuspenseAmount;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +24,7 @@ class CashHandoverService
         $user = $user ?? auth()->user();
 
         if (! $user) {
-            throw new \Illuminate\Auth\Access\AuthorizationException(__('financial.errors.unauthenticated'));
+            throw new AuthorizationException(__('financial.errors.unauthenticated'));
         }
 
         if ($user->isSuperAdmin()) {
@@ -34,11 +35,12 @@ class CashHandoverService
 
         if ($handover->branch_id && $user->branch_id && ! $user->canAccessAllBranches()
             && (int) $user->branch_id !== (int) $handover->branch_id) {
-            throw new \Illuminate\Auth\Access\AuthorizationException(__('financial.errors.out_of_branch_scope'));
+            throw new AuthorizationException(__('financial.errors.out_of_branch_scope'));
         }
 
         return $user;
     }
+
     /**
      * Request a cash handover for confirmed cash receipts of the same collector.
      *
@@ -101,7 +103,7 @@ class CashHandoverService
 
                 if ($branchId && $user->branch_id && ! $user->canAccessAllBranches()
                     && (int) $user->branch_id !== (int) $branchId) {
-                    throw new \Illuminate\Auth\Access\AuthorizationException(__('financial.errors.out_of_branch_scope'));
+                    throw new AuthorizationException(__('financial.errors.out_of_branch_scope'));
                 }
             }
 
@@ -231,6 +233,17 @@ class CashHandoverService
             if ($locked->status !== FinancialHandoverStatus::SUBMITTED) {
                 throw ValidationException::withMessages([
                     'status' => __('financial.errors.handover_not_submitted'),
+                ]);
+            }
+
+            $signature = strtr(trim((string) ($data['signature_code'] ?? '')), [
+                '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+                '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+            ]);
+
+            if (! hash_equals(static::signatureCode($locked), $signature)) {
+                throw ValidationException::withMessages([
+                    'signature_code' => __('financial.errors.invalid_handover_signature'),
                 ]);
             }
 
@@ -409,7 +422,7 @@ class CashHandoverService
         $user = static::authorizeHandover($handover, 'request_cash_handover', $user);
 
         if (! $user->isSuperAdmin() && (int) $handover->requested_by !== (int) $user->id) {
-            throw new \Illuminate\Auth\Access\AuthorizationException(__('financial.errors.only_requester_can_cancel'));
+            throw new AuthorizationException(__('financial.errors.only_requester_can_cancel'));
         }
 
         $handover = DB::transaction(function () use ($handover, $user, $reason) {
@@ -468,10 +481,19 @@ class CashHandoverService
                 ]);
             }
 
+            $receiptIds = $locked->items()->where('confirmed_amount', '>', 0)->pluck('financial_receipt_id');
+            $receipts = FinancialReceipt::whereIn('id', $receiptIds)->orderBy('id')->lockForUpdate()->get();
+
+            if ($receipts->contains(fn (FinancialReceipt $receipt) => $receipt->refundedAmount() > 0)) {
+                throw ValidationException::withMessages([
+                    'status' => __('financial.errors.cannot_reverse_refunded_handover'),
+                ]);
+            }
+
             // Check if extra cash surplus was recorded and verify its status
             $suspenseId = $locked->metadata['suspense_amount_id'] ?? null;
             if ($suspenseId) {
-                $suspense = \App\Models\UnifiedSuspenseAmount::whereKey($suspenseId)->lockForUpdate()->first();
+                $suspense = UnifiedSuspenseAmount::whereKey($suspenseId)->lockForUpdate()->first();
                 if ($suspense) {
                     if ($suspense->status === 'allocated') {
                         throw ValidationException::withMessages([
@@ -562,6 +584,71 @@ class CashHandoverService
     public static function newRequestKey(): string
     {
         return 'hnd:'.Str::uuid()->toString();
+    }
+
+    /**
+     * Parse a handover QR payload ("HANDOVER:<handover_number>") into the
+     * handover number. The code identifies the handover only and carries no
+     * amounts or other data. Arabic digits are normalized first.
+     */
+    public static function parseHandoverScanPayload(string $raw): ?string
+    {
+        $raw = strtr(trim($raw), [
+            '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+            '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+        ]);
+
+        if (preg_match('/^(?:HANDOVER\s*:\s*)?([A-Za-z0-9\-]+)$/i', $raw, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * Find a submitted handover within the user's scope from a scanned code.
+     * The confirming user's permission and company/branch scope are re-checked
+     * on save by CashHandoverService::confirm().
+     */
+    public static function findSubmittedByScan(string $raw, ?User $user = null): ?CashHandover
+    {
+        $number = static::parseHandoverScanPayload($raw);
+
+        if ($number === null) {
+            return null;
+        }
+
+        return CashHandover::accessibleBy($user)
+            ->submitted()
+            ->where('handover_number', $number)
+            ->first();
+    }
+
+    public static function signatureCodeForDelivery(CashHandover $handover, ?User $user = null): ?string
+    {
+        $user ??= auth()->user();
+
+        if (! $user || ! $handover->isSubmitted()) {
+            return null;
+        }
+
+        $requesterId = $handover->requested_by ?? $handover->metadata['submitted_by'] ?? null;
+        $isRequester = $requesterId && (int) $requesterId === (int) $user->id;
+        $isDeliverer = $user->employee?->id
+            && (int) $handover->delivered_by_employee_id === (int) $user->employee->id;
+
+        return $isRequester || $isDeliverer ? static::signatureCode($handover) : null;
+    }
+
+    private static function signatureCode(CashHandover $handover): string
+    {
+        $digest = hash_hmac(
+            'sha256',
+            'cash-handover-signature:'.$handover->id.':'.$handover->request_key,
+            app('encrypter')->getKey(),
+        );
+
+        return (string) (1000 + (hexdec(substr($digest, 0, 7)) % 9000));
     }
 
     public static function newConfirmationKey(): string

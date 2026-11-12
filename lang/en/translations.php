@@ -28,4 +28,8 @@ return [
     'save_changes' => 'Save Changes',
     'saving' => 'Saving...',
     'save_success' => 'Translation files updated successfully!',
+    'save_error' => 'An error occurred while saving',
+    'save_permission_error' => 'File Permission Error',
+    'save_permission_error_body' => 'Unable to write to the following files due to server permissions: :files',
+    'no_changes_to_save' => 'No changes to save.',
 ];

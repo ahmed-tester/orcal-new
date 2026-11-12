@@ -78,7 +78,7 @@ class ServiceTransaction extends Model
     {
         $meta = $this->metadata ?? [];
 
-        if (! empty($meta['escalated_at'])) {
+        if ($meta['is_escalated'] ?? ! empty($meta['escalated_at'])) {
             return OperationWorkflowStatus::ESCALATED->value;
         }
 

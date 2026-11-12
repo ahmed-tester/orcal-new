@@ -6,6 +6,7 @@ use App\Filament\Resources\ServiceTransactions\Pages\CreateServiceTransaction;
 use App\Filament\Resources\ServiceTransactions\Pages\EditServiceTransaction;
 use App\Filament\Resources\ServiceTransactions\Pages\FinancialIndicators;
 use App\Filament\Resources\ServiceTransactions\Pages\ListServiceTransactions;
+use App\Filament\Resources\ServiceTransactions\Pages\ViewServiceTransaction;
 use App\Filament\Resources\ServiceTransactions\Schemas\ServiceTransactionForm;
 use App\Filament\Resources\ServiceTransactions\Tables\ServiceTransactionsTable;
 use App\Filament\Traits\HasCompanyScope;
@@ -61,6 +62,7 @@ class ServiceTransactionResource extends Resource
             'index' => ListServiceTransactions::route('/'),
             'create' => CreateServiceTransaction::route('/create'),
             'financial-indicators' => FinancialIndicators::route('/financial-indicators'),
+            'view' => ViewServiceTransaction::route('/{record}'),
             'edit' => EditServiceTransaction::route('/{record}/edit'),
         ];
     }

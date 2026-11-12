@@ -5,6 +5,7 @@ namespace App\Filament\Resources\TaskAssignments;
 use App\Filament\Resources\TaskAssignments\Pages\CreateTaskAssignment;
 use App\Filament\Resources\TaskAssignments\Pages\EditTaskAssignment;
 use App\Filament\Resources\TaskAssignments\Pages\ListTaskAssignments;
+use App\Filament\Resources\TaskAssignments\Pages\TaskAssignmentsSummary;
 use App\Filament\Resources\TaskAssignments\Schemas\TaskAssignmentForm;
 use App\Filament\Resources\TaskAssignments\Tables\TaskAssignmentsTable;
 use App\Filament\Traits\HasCompanyScope;
@@ -57,7 +58,8 @@ class TaskAssignmentResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListTaskAssignments::route('/'),
+            'index' => TaskAssignmentsSummary::route('/'),
+            'detailed' => ListTaskAssignments::route('/detailed'),
             'create' => CreateTaskAssignment::route('/create'),
             'edit' => EditTaskAssignment::route('/{record}/edit'),
         ];
