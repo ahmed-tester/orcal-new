@@ -42,12 +42,15 @@ class SaudiEmployeeForm
 
                         Select::make('selected_owner_id')
                             ->label(__('employees.fields.selected_owner'))
-                            ->options(fn () => Owner::with('user')->get()->mapWithKeys(function ($owner) {
-                                $name = $owner->user?->name ?? '—';
-                                $nid = $owner->national_id ? " ({$owner->national_id})" : '';
+                            ->options(fn () => Owner::with('user')
+                                ->whereHas('user', fn ($q) => $q->whereDoesntHave('employee'))
+                                ->get()
+                                ->mapWithKeys(function ($owner) {
+                                    $name = $owner->user?->name ?? '—';
+                                    $nid = $owner->national_id ? " ({$owner->national_id})" : '';
 
-                                return [$owner->id => "{$name}{$nid}"];
-                            }))
+                                    return [$owner->id => "{$name}{$nid}"];
+                                }))
                             ->searchable()
                             ->preload()
                             ->live()
