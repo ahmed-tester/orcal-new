@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Violations;
 use App\Filament\Resources\Violations\Pages\CreateViolation;
 use App\Filament\Resources\Violations\Pages\EditViolation;
 use App\Filament\Resources\Violations\Pages\ListViolations;
+use App\Filament\Resources\Violations\Pages\ViolationsSummary;
 use App\Filament\Resources\Violations\Schemas\ViolationForm;
 use App\Filament\Resources\Violations\Tables\ViolationsTable;
 use App\Filament\Traits\HasCompanyScope;
@@ -64,7 +65,8 @@ class ViolationResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListViolations::route('/'),
+            'index' => ViolationsSummary::route('/'),
+            'detailed' => ListViolations::route('/detailed'),
             'create' => CreateViolation::route('/create'),
             'edit' => EditViolation::route('/{record}/edit'),
         ];

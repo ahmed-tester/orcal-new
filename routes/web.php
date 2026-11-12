@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DebtSummaryPrintController;
 use App\Http\Controllers\OfferPdfController;
 
 use Illuminate\Support\Facades\Route;
@@ -12,7 +13,6 @@ Route::get('/documentation', [\App\Http\Controllers\DocumentationController::cla
 Route::middleware('auth')->group(function () {
     Route::get('/offers/{offer}/pdf', [OfferPdfController::class, 'download'])->name('offers.pdf');
     Route::get('/offers/{offer}/print', [OfferPdfController::class, 'preview'])->name('offers.print');
-    Route::get('/treasury/{transaction}/print', [\App\Http\Controllers\ExportPdfController::class, 'printTreasuryVoucher'])->name('treasury.voucher.print');
 
     // Centralized PDF Export Routes
     Route::get('/exports/violations/{section}', [\App\Http\Controllers\ExportPdfController::class, 'exportViolations'])->name('exports.violations');
@@ -32,7 +32,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/official-letters/{letter}/print', [\App\Http\Controllers\OfficialLetterPrintController::class, 'print'])->name('official_letters.print');
     Route::get('/official-letters/{letter}/pdf', [\App\Http\Controllers\OfficialLetterPrintController::class, 'pdf'])->name('official_letters.pdf');
 
+    // Violations PDF Export & Print Routes
+    Route::get('/violations/summary/print/{company?}', \App\Http\Controllers\ViolationSummaryPrintController::class)
+        ->whereNumber('company')->name('violations.summary.print');
+
     // Debts PDF Export & Print Routes
+    Route::get('/debts/summary/print/{debt?}', DebtSummaryPrintController::class)
+        ->whereNumber('debt')->name('debts.summary.print');
     Route::get('/exports/debts-statement', [\App\Http\Controllers\ExportPdfController::class, 'exportDebtsStatement'])->name('exports.debts-statement');
     Route::get('/exports/debt-voucher/{debt}', [\App\Http\Controllers\ExportPdfController::class, 'printDebtVoucher'])->name('exports.debt-voucher');
 
@@ -63,74 +69,6 @@ Route::middleware('auth')->group(function () {
     // Asset Fund Statement PDF
     Route::get('/asset-fund-statement/pdf', [\App\Http\Controllers\AssetFundStatementController::class, 'pdf'])->name('asset-fund.statement.pdf');
 
-    // Operations Workflow Permissions Sync Route
-    Route::get('/system/sync-operations-permissions', function () {
-        $result = \App\Services\OperationsPermissionService::syncPermissions();
-
-        return response()->json([
-            'status' => 'success',
-            'message' => __('services_tracking.permissions.sync_success'),
-            'details' => $result,
-        ]);
-    })->name('system.sync-operations-permissions');
-
-    // Operations Demo Seeder Route (for automated browser testing)
-    Route::get('/system/seed-operations-demo', function () {
-        $seeder = new \Database\Seeders\OperationsDemoSeeder;
-        $result = $seeder->run();
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Operations demo data seeded successfully',
-            'data' => $result,
-        ]);
-    })->name('system.seed-operations-demo');
-});
-
-// Also allow accessible invocation via GET for administrators
-Route::get('/sync-operations-permissions', function () {
-    (new \Database\Seeders\RolesAndPermissionsSeeder)->run();
-    $result = \App\Services\OperationsPermissionService::syncPermissions();
-
-    return response()->json([
-        'status' => 'success',
-        'message' => 'All system roles and operations permissions seeded successfully',
-        'details' => $result,
-    ]);
-});
-
-Route::get('/seed-operations-demo', function () {
-    $seeder = new \Database\Seeders\OperationsDemoSeeder;
-    $result = $seeder->run();
-
-    return response()->json([
-        'status' => 'success',
-        'message' => 'Operations demo data seeded successfully',
-        'data' => $result,
-    ]);
-});
-
-Route::get('/test-notification', function () {
-    $user = auth()->user()
-        ?? \App\Models\User::where('email', 'finance@orcal.test')->first()
-        ?? \App\Models\User::where('email', 'admin@admin.com')->first();
-
-    if (! $user) {
-        return response()->json(['status' => 'error', 'message' => 'No user found']);
-    }
-
-    \Filament\Notifications\Notification::make()
-        ->title(__('services_tracking.notifications.test_title'))
-        ->body(__('services_tracking.notifications.test_body'))
-        ->icon('heroicon-o-bell-alert')
-        ->status('success')
-        ->sendToDatabase($user);
-
-    return response()->json([
-        'status' => 'success',
-        'message' => 'Test notification sent to user: '.$user->email,
-        'user_id' => $user->id,
-    ]);
 });
 
 // ─── ZKTeco Biometric ADMS / Push Protocol Routes ───────────────────────────

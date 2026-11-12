@@ -2,6 +2,52 @@
 
 return [
     // ====================================================
+    // Violations and Payments Summary
+    // ====================================================
+    'summary' => [
+        'title' => 'Violations and Payments Summary',
+        'create_violation' => 'Register Violation',
+        'detailed' => 'Detailed Violations Register',
+        'companies' => 'Registered Companies',
+        'companies_unit' => 'company',
+        'company' => 'Company',
+        'commercial_registration' => 'Commercial Registration',
+        'violation_count' => 'Violations Count',
+        'violations_unit' => 'violations registered',
+        'total_sum' => 'Total Violations',
+        'paid_sum' => 'Recorded Payments',
+        'remaining_sum' => 'Outstanding Balance',
+        'overdue_sum' => 'Overdue / Execution',
+        'currency' => 'SAR',
+        'currency_sar' => 'SAR',
+        'no_company' => 'No company',
+        'filter_title' => 'Filter and search violations',
+        'search_placeholder' => 'Search by violation number, external ref, authority, or company...',
+        'date_from' => 'Violation date from',
+        'date_to' => 'Violation date to',
+        'open' => 'Outstanding',
+        'empty' => 'No violations match the filters.',
+        'statement' => 'Company Violations Statement',
+        'no_transactions' => 'No payment transactions recorded for this violation.',
+        'pay_violation' => 'Record Payment',
+        'print_summary' => 'Print Summary',
+        'print_statement' => 'Print Company Statement',
+        'export' => 'Export CSV',
+        'export_excel' => 'Export Excel',
+        'print' => 'Print',
+        'close' => 'Close',
+        'print_date' => 'Print Date',
+        'total' => 'Total',
+        'violations_records' => 'Violations Register',
+        'transactions_records' => 'Payment Transactions',
+        'category' => 'Category',
+        'type' => 'Type',
+        'all_categories' => 'All Categories',
+        'all_types' => 'All Types',
+        'all_stages' => 'All Stages',
+    ],
+
+    // ====================================================
     // Violation Categories
     // ====================================================
     'categories' => [

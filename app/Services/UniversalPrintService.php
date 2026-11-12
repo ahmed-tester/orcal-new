@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\DebtCollection;
 use App\Models\InstallmentPayment;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class UniversalPrintService
@@ -43,7 +44,8 @@ class UniversalPrintService
      */
     protected static function renderDebtCollection($id, array $params = []): Response
     {
-        $collection = DebtCollection::with([
+        Gate::authorize('viewAny', DebtCollection::class);
+        $collection = DebtSummaryService::collections()->with([
             'company',
             'employee.user',
             'debt.employee.user',

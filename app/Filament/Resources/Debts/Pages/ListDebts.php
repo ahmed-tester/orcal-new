@@ -22,6 +22,10 @@ class ListDebts extends ListRecords
     {
         return [
             CreateAction::make(),
+            Action::make('summary')
+                ->label(__('debts.summary.title'))
+                ->icon('heroicon-o-chart-bar')
+                ->url(fn () => DebtResource::getUrl('index')),
             Action::make('print_all')
                 ->label(__('debts.actions.print_statement'))
                 ->icon('heroicon-o-printer')
