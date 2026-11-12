@@ -530,7 +530,7 @@ return [
         'financial_receipt_confirmed_title' => 'تم تأكيد سند قبض',
         'financial_receipt_confirmed_body' => 'تم تأكيد سند القبض :receipt للمعاملة رقم :number بمبلغ :amount ر.س (:method).',
         'financial_handover_requested_title' => 'طلب توريد نقد جديد للخزنة',
-        'financial_handover_requested_body' => 'وصل التوريد :handover بمبلغ :amount ر.س بانتظار استلام الخزنة.',
+        'financial_handover_requested_body' => 'طلب توريد بمبلغ :amount ر.س بانتظار استلام الخزنة.',
         'financial_handover_confirmed_title' => 'تم استلام وتأكيد توريد النقد',
         'financial_handover_confirmed_body' => 'تم تأكيد وصل التوريد :handover للمعاملة رقم :number بمبلغ :amount ر.س، والفارق :difference ر.س.',
         'financial_handover_rejected_title' => 'تم رفض وصل توريد النقد',

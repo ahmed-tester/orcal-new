@@ -113,7 +113,7 @@ class OperationsDemoSeeder extends Seeder
                     'name' => 'نايف بن خالد الدوسري',
                     'email' => 'ops.supervisor@orcal.test',
                     'role' => 'مشرف عمليات',
-                    'type' => UserType::SAUDI_EMPLOYEE,
+                    'type' => UserType::SUPERVISOR,
                     'dept' => $opsDept,
                     'job' => $titleSupervisor,
                     'is_saudi' => true,
@@ -132,7 +132,7 @@ class OperationsDemoSeeder extends Seeder
                     'salary' => 11000,
                 ],
                 'operator' => [
-                    'name' => 'أحمد بن سعيد الموظف',
+                    'name' => 'أحمد بن سعيد المنفذ',
                     'email' => 'operator@orcal.test',
                     'role' => 'موظف',
                     'type' => UserType::SAUDI_EMPLOYEE,
@@ -142,9 +142,21 @@ class OperationsDemoSeeder extends Seeder
                     'emp_no' => 'EMP-SRV-01',
                     'salary' => 8500,
                 ],
+                'beneficiary' => [
+                    'name' => 'خالد بن فهد المستفيد',
+                    'email' => 'beneficiary@orcal.test',
+                    'role' => 'موظف',
+                    'type' => UserType::SAUDI_EMPLOYEE,
+                    'dept' => $opsDept,
+                    'job' => $titleOfficer,
+                    'is_saudi' => true,
+                    'emp_no' => 'EMP-BEN-01',
+                    'salary' => 7000,
+                ],
             ];
 
             $seededUsers = [];
+            $createdEmployees = [];
 
             foreach ($usersMeta as $key => $meta) {
                 $user = User::updateOrCreate(
@@ -190,6 +202,8 @@ class OperationsDemoSeeder extends Seeder
                     ]
                 );
 
+                $createdEmployees[$key] = $employee;
+
                 FilamentNotification::make()
                     ->title(__('services_tracking.notifications.welcome_title'))
                     ->body(__('services_tracking.notifications.welcome_body', ['role' => $meta['role']]))
@@ -198,15 +212,54 @@ class OperationsDemoSeeder extends Seeder
                     ->sendToDatabase($user);
 
                 $seededUsers[] = [
+                    'key' => $key,
                     'role' => $meta['role'],
                     'name' => $meta['name'],
                     'email' => $meta['email'],
                     'password' => 'password',
+                    'permissions_count' => $user->getAllPermissions()->count(),
                 ];
             }
 
-            // 5. Seed diversified services catalog
+            // 5. Active supervision shift for supervisor testing
+            $supervisorEmp = $createdEmployees['ops_supervisor'] ?? null;
+            $operatorEmp = $createdEmployees['operator'] ?? null;
+            if ($supervisorEmp && $operatorEmp) {
+                \App\Models\SupervisionShift::updateOrCreate(
+                    [
+                        'company_id' => $company->id,
+                        'supervisor_id' => $supervisorEmp->id,
+                        'title' => 'نوبة إشراف ومتابعة العمليات الشهرية',
+                    ],
+                    [
+                        'type' => 'supervision',
+                        'assigned_employees' => [(int) $operatorEmp->id],
+                        'start_date' => now()->startOfMonth()->toDateString(),
+                        'end_date' => now()->endOfMonth()->toDateString(),
+                        'status' => 'active',
+                        'notes' => 'نوبة إشراف نشطة لتغطية متابعة أداء الموظف المنفذ',
+                    ]
+                );
+            }
+
+            // 6. Demonstration test customer
+            \App\Models\Customer::updateOrCreate(
+                ['commercial_registration_number' => '1010998877'],
+                [
+                    'company_id' => $company->id,
+                    'name' => 'شركة الرواد للتجارة والمقاولات (عميل تجريبي)',
+                    'customer_type' => 'company',
+                    'phone' => '0551122334',
+                    'tax_number' => '300099887700003',
+                    'status' => 'active',
+                ]
+            );
+
+            // 7. Seed diversified services catalog
             $servicesResult = (new ServicesCatalogSeeder)->run($company->id);
+
+            // 8. Reset cached permissions
+            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
             return [
                 'company' => $company->trade_name,

@@ -3,10 +3,12 @@
 namespace App\Filament\Resources\ServiceTransactions\Pages;
 
 use App\Filament\Resources\ServiceTransactions\ServiceTransactionResource;
+use App\Models\Service;
 use App\Services\ServiceReceiptCreationService;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class CreateServiceTransaction extends CreateRecord
 {
@@ -26,6 +28,18 @@ class CreateServiceTransaction extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        if (($data['scope_type'] ?? 'internal') === 'internal') {
+            $price = Service::query()->whereKey($data['service_id'] ?? null)->value('price');
+
+            if ($price === null) {
+                throw ValidationException::withMessages([
+                    'data.service_id' => __('validation.exists', ['attribute' => __('services_tracking.fields.service')]),
+                ]);
+            }
+
+            $data['total_amount'] = $price;
+        }
+
         $payload = ServiceReceiptCreationService::extract($data);
         $this->receiptPayload = $payload['receipt'];
 

@@ -27,6 +27,13 @@ class EditServiceTransaction extends EditRecord
         $this->refreshFormData(['workflow_status', 'metadata', 'service_status']);
     }
 
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        unset($data['total_amount']);
+
+        return $data;
+    }
+
     protected function afterSave(): void
     {
         OperationsReconciliationService::reconcile($this->getRecord());

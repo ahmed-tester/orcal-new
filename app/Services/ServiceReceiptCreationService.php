@@ -189,23 +189,8 @@ class ServiceReceiptCreationService
                 || empty($recordData['destination_reference'])
                 || empty($recordData['proof_path']));
 
-        if ($canConfirm && ! $nonCashIncomplete) {
+        if (! $method->isCash() && $canConfirm && ! $nonCashIncomplete) {
             $recordData['confirm'] = true;
-        }
-
-        // Recorder cannot confirm: attach the explicit handover request as an
-        // intent on the pending receipt. FinancialReceiptService::confirm()
-        // converts it once into a real handover request for the original
-        // requester's permissions and scope.
-        if (! $canConfirm && $method->isCash() && $wantsHandover) {
-            $recordData['metadata'] = [
-                'handover_intent' => [
-                    'request_key' => (string) ($receipt['handover_request_key'] ?? CashHandoverService::newRequestKey()),
-                    'amount' => round((float) $receipt['amount'], 2),
-                    'requested_by' => $user->id,
-                    'requested_at' => now()->toDateTimeString(),
-                ],
-            ];
         }
 
         $receiptModel = FinancialReceiptService::record($transaction, $recordData);
@@ -227,7 +212,6 @@ class ServiceReceiptCreationService
             'receipt' => $receiptModel,
             'confirmed' => $confirmed,
             'handover' => $handover,
-            'handover_intent' => isset($recordData['metadata']['handover_intent']),
             'non_cash_needs_proof' => $nonCashIncomplete,
         ];
     }
@@ -248,7 +232,6 @@ class ServiceReceiptCreationService
                 __('financial.creation_receipt.confirmed_with_handover'), 'success',
             ],
             $outcome['confirmed'] => [__('financial.creation_receipt.confirmed'), 'success'],
-            $outcome['handover_intent'] => [__('financial.creation_receipt.pending_with_intent'), 'warning'],
             $outcome['non_cash_needs_proof'] => [__('financial.creation_receipt.pending_needs_proof'), 'warning'],
             default => [__('financial.creation_receipt.pending'), 'warning'],
         };

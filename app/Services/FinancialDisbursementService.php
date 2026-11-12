@@ -26,8 +26,12 @@ class FinancialDisbursementService
         $user = ServiceFinancialWorkflowService::authorize($transaction, 'record_service_disbursement', $user);
         ServiceFinancialWorkflowService::assertManaged($transaction);
 
-        $type = FinancialDisbursementType::tryFrom((string) ($data['disbursement_type'] ?? ''));
-        if (! $type) {
+        $type = $data['disbursement_type'] ?? null;
+        if (is_string($type)) {
+            $type = FinancialDisbursementType::tryFrom($type);
+        }
+
+        if (! $type instanceof FinancialDisbursementType) {
             throw ValidationException::withMessages([
                 'disbursement_type' => __('financial.errors.invalid_disbursement_type'),
             ]);

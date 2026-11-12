@@ -534,7 +534,7 @@ return [
         'financial_receipt_confirmed_title' => 'Collection receipt confirmed',
         'financial_receipt_confirmed_body' => 'Receipt :receipt for transaction :number was confirmed, amount :amount SAR (:method).',
         'financial_handover_requested_title' => 'New cash handover request',
-        'financial_handover_requested_body' => 'Handover :handover for :amount SAR is awaiting treasury receipt.',
+        'financial_handover_requested_body' => 'A cash handover request for :amount SAR is awaiting treasury receipt.',
         'financial_handover_confirmed_title' => 'Cash handover confirmed',
         'financial_handover_confirmed_body' => 'Handover :handover for transaction :number was confirmed, amount :amount SAR, difference :difference SAR.',
         'financial_handover_rejected_title' => 'Cash handover rejected',

@@ -17,7 +17,7 @@ use Illuminate\Validation\ValidationException;
 class FinancialReceiptService
 {
     /**
-     * Register a collection receipt. Money is only counted after confirmation.
+     * Register cash as employee custody and verify other payment methods separately.
      *
      * @param  array<string, mixed>  $data
      */
@@ -73,7 +73,7 @@ class FinancialReceiptService
             'reference' => $data['reference_number'] ?? null,
         ]);
 
-        $receipt = DB::transaction(function () use ($transaction, $data, $user, $amount, $method, $requestKey, $collectorId, $fingerprint) {
+        return DB::transaction(function () use ($transaction, $data, $user, $amount, $method, $requestKey, $collectorId, $fingerprint) {
             $existing = FinancialReceipt::where('request_key', $requestKey)->lockForUpdate()->first();
 
             if ($existing) {
@@ -86,17 +86,22 @@ class FinancialReceiptService
                 return $existing;
             }
 
-            return FinancialReceipt::create([
+            $isCash = $method->isCash();
+            if ($isCash) {
+                $transaction = ServiceTransaction::whereKey($transaction->id)->lockForUpdate()->firstOrFail();
+            }
+
+            $receipt = FinancialReceipt::create([
                 'company_id' => $transaction->company_id,
                 'branch_id' => $transaction->employee?->branch_id ?? $transaction->executor?->branch_id,
                 'source_type' => FinancialReceipt::SOURCE_SERVICE_TRANSACTION,
                 'source_id' => $transaction->id,
                 'request_key' => $requestKey,
-                'collector_employee_id' => $method->isCash() ? $collectorId : ($collectorId ?: null),
+                'collector_employee_id' => $collectorId ?: null,
                 'payer_name' => $data['payer_name'] ?? $transaction->display_beneficiary,
                 'amount' => $amount,
                 'payment_method' => $method->value,
-                'status' => FinancialReceiptStatus::PENDING_CONFIRMATION->value,
+                'status' => $isCash ? FinancialReceiptStatus::CONFIRMED->value : FinancialReceiptStatus::PENDING_CONFIRMATION->value,
                 'reference_number' => $data['reference_number'] ?? null,
                 'proof_path' => $data['proof_path'] ?? null,
                 'destination_type' => $data['destination_type'] ?? null,
@@ -104,14 +109,13 @@ class FinancialReceiptService
                 'received_at' => $data['received_at'] ?? now(),
                 'notes' => $data['notes'] ?? null,
                 'created_by' => $user->id,
+                'confirmed_by' => $isCash ? $user->id : null,
+                'confirmed_at' => $isCash ? now() : null,
                 'metadata' => array_merge($data['metadata'] ?? [], [
                     'fingerprint' => $fingerprint,
                     'confirmed_item_amounts' => [],
                 ]),
             ]);
-        });
-
-        if ($receipt->wasRecentlyCreated) {
             OperationsAuditService::record(
                 companyId: (int) $transaction->company_id,
                 transactionId: $transaction->id,
@@ -126,23 +130,18 @@ class FinancialReceiptService
                 userId: $user->id,
             );
 
-            if (empty($data['confirm'])) {
+            if ($isCash) {
+                static::afterConfirmation($transaction, $receipt, $user);
+            } elseif (! empty($data['confirm'])) {
+                return static::confirm($receipt, [], $user);
+            } else {
                 DB::afterCommit(function () use ($transaction, $receipt, $user) {
                     OperationsNotificationService::notifyFinancialReceiptRecorded($transaction, $receipt, $user);
                 });
             }
-        }
 
-        if (! empty($data['confirm'])) {
-            $receipt = static::confirm($receipt, [
-                'reference_number' => $data['reference_number'] ?? null,
-                'proof_path' => $data['proof_path'] ?? null,
-                'destination_type' => $data['destination_type'] ?? null,
-                'destination_reference' => $data['destination_reference'] ?? null,
-            ], $user);
-        }
-
-        return $receipt->refresh();
+            return $receipt->refresh();
+        });
     }
 
     /**
@@ -153,15 +152,9 @@ class FinancialReceiptService
     public static function confirm(FinancialReceipt $receipt, array $data = [], ?User $user = null): FinancialReceipt
     {
         $transaction = static::sourceTransaction($receipt);
-        $user = $user ?? auth()->user();
+        $user = ServiceFinancialWorkflowService::authorize($transaction, 'confirm_service_receipt', $user);
 
-        if ($user) {
-            ServiceFinancialWorkflowService::authorize($transaction, 'confirm_service_receipt', $user);
-        } else {
-            ServiceFinancialWorkflowService::authorize($transaction, 'confirm_service_receipt');
-        }
-
-        $receipt = DB::transaction(function () use ($receipt, $data) {
+        return DB::transaction(function () use ($transaction, $receipt, $data, $user) {
             $locked = FinancialReceipt::whereKey($receipt->id)->lockForUpdate()->firstOrFail();
 
             if ($locked->status === FinancialReceiptStatus::CONFIRMED) {
@@ -189,7 +182,7 @@ class FinancialReceiptService
 
             $locked->update([
                 'status' => FinancialReceiptStatus::CONFIRMED->value,
-                'confirmed_by' => auth()->id(),
+                'confirmed_by' => $user->id,
                 'confirmed_at' => now(),
                 'reference_number' => $reference,
                 'proof_path' => $proof,
@@ -197,9 +190,14 @@ class FinancialReceiptService
                 'destination_reference' => $destinationReference,
             ]);
 
-            return $locked;
-        });
+            static::afterConfirmation($transaction, $locked, $user);
 
+            return $locked->refresh();
+        });
+    }
+
+    private static function afterConfirmation(ServiceTransaction $transaction, FinancialReceipt $receipt, User $user): void
+    {
         ServiceFinancialWorkflowService::sync($transaction);
         OperationsReconciliationService::reconcile($transaction);
 
@@ -215,7 +213,7 @@ class FinancialReceiptService
                 'payment_method' => $receipt->payment_method?->value,
                 'cash' => $receipt->isCash(),
             ],
-            userId: auth()->id(),
+            userId: $user->id,
         );
 
         DB::afterCommit(function () use ($transaction, $receipt) {
@@ -223,8 +221,6 @@ class FinancialReceiptService
         });
 
         static::fulfillPendingHandoverIntent($receipt);
-
-        return $receipt->refresh();
     }
 
     public static function reverse(FinancialReceipt $receipt, string $reason, ?User $user = null): FinancialReceipt

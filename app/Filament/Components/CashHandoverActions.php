@@ -12,14 +12,15 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Validation\ValidationException;
 
 class CashHandoverActions
 {
     /**
      * Treasury screen: receive and confirm a submitted cash handover with the
-     * confirmed amount per receipt. The handover is picked manually or by
-     * scanning its QR code; both load the same form.
+     * confirmed amount per receipt, after entering or scanning the voucher.
      */
     public static function receiveHeaderAction(): Action
     {
@@ -27,76 +28,41 @@ class CashHandoverActions
             ->label(__('financial.actions.confirm_handover'))
             ->icon('heroicon-o-inbox-arrow-down')
             ->color('success')
-            ->modalWidth('3xl')
+            ->modalWidth('2xl')
             ->visible(fn () => auth()->user()?->can('confirm_cash_handover') ?? false)
             ->form([
                 Hidden::make('confirmation_key')->default(fn () => CashHandoverService::newConfirmationKey()),
 
-                Grid::make(2)
+                Grid::make(['default' => 1, 'sm' => 2])
                     ->schema([
-                        Select::make('cash_handover_id')
-                            ->label(__('financial.fields.handover_receipts'))
-                            ->options(fn () => CashHandover::accessibleBy()
-                                ->submitted()
-                                ->orderBy('id')
-                                ->get()
-                                ->mapWithKeys(fn (CashHandover $handover) => [
-                                    $handover->id => $handover->handover_number.' • '.number_format((float) $handover->total_requested_amount, 2).' '.__('services_tracking.currency_sar'),
-                                ])
-                                ->all())
-                            ->required()
-                            ->live()
-                            ->afterStateUpdated(function ($state, callable $set): void {
-                                $set('signature_code', null);
-                                $handover = CashHandover::accessibleBy()->submitted()->with('items')->find($state);
-
-                                if (! $handover) {
-                                    $set('items', []);
-
-                                    return;
-                                }
-
-                                $set('items', static::confirmedItemsState($handover));
-                            }),
-
                         TextInput::make('handover_scan')
                             ->label(__('financial.fields.scan_handover_qr'))
                             ->prefixIcon('heroicon-o-qr-code')
+                            ->autocomplete(false)
+                            ->autofocus()
+                            ->extraInputAttributes(['x-on:keydown.enter.prevent.stop' => ''])
+                            ->columnSpan(fn (Get $get): int|string => filled($get('items')) ? 1 : 'full')
+                            ->required()
                             ->live(debounce: 400)
-                            ->afterStateUpdated(function ($state, callable $set): void {
-                                if (blank($state)) {
-                                    return;
-                                }
+                            ->afterStateUpdated(function (?string $state, callable $set): void {
+                                $handover = static::findScannedHandover($state);
 
-                                $handover = CashHandoverService::findSubmittedByScan((string) $state);
-
-                                $set('handover_scan', null);
                                 $set('signature_code', null);
-
-                                if (! $handover) {
-                                    $set('cash_handover_id', null);
-                                    $set('items', []);
-
-                                    Notification::make()
-                                        ->title(__('financial.errors.handover_qr_unavailable'))
-                                        ->danger()
-                                        ->send();
-
-                                    return;
-                                }
-
-                                $set('cash_handover_id', $handover->id);
-                                $set('items', static::confirmedItemsState($handover));
+                                $set('items', $handover ? static::confirmedItemsState($handover) : []);
+                                $set('extra_amount', null);
+                                $set('extra_note', null);
                             }),
-                    ]),
 
-                TextInput::make('signature_code')
-                    ->label(__('financial.fields.handover_signature'))
-                    ->helperText(__('financial.handover_qr.signature_input_hint'))
-                    ->password()
-                    ->maxLength(4)
-                    ->extraInputAttributes(['inputmode' => 'numeric'])
-                    ->required(),
+                        TextInput::make('signature_code')
+                            ->label(__('financial.fields.handover_signature'))
+                            ->helperText(__('financial.handover_qr.signature_input_hint'))
+                            ->password()
+                            ->autocomplete('new-password')
+                            ->maxLength(4)
+                            ->extraInputAttributes(['inputmode' => 'numeric'])
+                            ->visible(fn (Get $get): bool => filled($get('items')))
+                            ->required(),
+                    ]),
 
                 Repeater::make('items')
                     ->label(__('financial.fields.confirmed_amounts'))
@@ -109,9 +75,22 @@ class CashHandoverActions
                         TextInput::make('confirmed_amount')
                             ->label(__('financial.fields.confirmed_amounts'))
                             ->numeric()
+                            ->minValue(0)
+                            ->live(debounce: 300)
+                            ->afterStateUpdated(function (Get $get, Set $set): void {
+                                $items = collect($get('../../items') ?? []);
+                                [, $extra] = CashHandoverService::splitCountedAmounts(
+                                    $items->pluck('confirmed_amount', 'item_id')->all(),
+                                    $items->pluck('requested_amount', 'item_id')->all(),
+                                );
+
+                                $set('../../extra_amount', $extra);
+                            })
                             ->required(),
                     ])
                     ->columns(2)
+                    ->defaultItems(0)
+                    ->visible(fn (Get $get): bool => filled($get('items')))
                     ->addable(false)
                     ->deletable(false)
                     ->columnSpanFull(),
@@ -119,10 +98,13 @@ class CashHandoverActions
                 TextInput::make('extra_amount')
                     ->label(__('financial.fields.extra_amount'))
                     ->numeric()
-                    ->default(0),
+                    ->disabled()
+                    ->visible(fn (Get $get): bool => (float) $get('extra_amount') > 0),
 
                 TextInput::make('extra_note')
                     ->label(__('financial.fields.extra_note'))
+                    ->visible(fn (Get $get): bool => (float) $get('extra_amount') > 0)
+                    ->required()
                     ->maxLength(255),
 
                 Textarea::make('notes')
@@ -131,19 +113,28 @@ class CashHandoverActions
                     ->columnSpanFull(),
             ])
             ->action(function (array $data, Action $action) {
-                $handover = CashHandover::accessibleBy()->findOrFail($data['cash_handover_id']);
+                $handover = static::findScannedHandover($data['handover_scan']);
 
-                $confirmedAmounts = collect($data['items'] ?? [])
+                if (! $handover) {
+                    Notification::make()->title(__('financial.errors.handover_qr_unavailable'))->danger()->send();
+                    $action->halt();
+                }
+
+                $countedAmounts = collect($data['items'] ?? [])
                     ->filter(fn ($item) => ! empty($item['item_id']))
                     ->mapWithKeys(fn ($item) => [(int) $item['item_id'] => (float) $item['confirmed_amount']])
                     ->all();
+                [$confirmedAmounts, $extraAmount] = CashHandoverService::splitCountedAmounts(
+                    $countedAmounts,
+                    $handover->items()->pluck('requested_amount', 'id')->all(),
+                );
 
                 try {
                     CashHandoverService::confirm($handover, [
                         'confirmation_key' => $data['confirmation_key'],
-                        'signature_code' => $data['signature_code'],
+                        'signature_code' => $data['signature_code'] ?? '',
                         'confirmed_amounts' => $confirmedAmounts,
-                        'extra_amount' => (float) ($data['extra_amount'] ?? 0),
+                        'extra_amount' => $extraAmount,
                         'extra_note' => $data['extra_note'] ?? null,
                         'notes' => $data['notes'] ?? null,
                     ]);
@@ -163,6 +154,15 @@ class CashHandoverActions
                     ->success()
                     ->send();
             });
+    }
+
+    private static function findScannedHandover(?string $scan): ?CashHandover
+    {
+        if ($scan === null || trim($scan) === '') {
+            return null;
+        }
+
+        return CashHandoverService::findSubmittedByScan($scan);
     }
 
     public static function rejectHeaderAction(): Action

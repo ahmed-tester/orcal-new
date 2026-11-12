@@ -723,11 +723,11 @@
                         </div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        @if($digitalSignatureCode)
+                        @if(! $isManaged && $digitalSignatureCode)
                             <span style="font-family: monospace; font-weight: 700; font-size: 11px; background: #ffffff; border: 1px solid #cbd5e1; padding: 2px 6px; border-radius: 4px;">
                                 {{ __('services_tracking.dashboard.code_label') }}: {{ $digitalSignatureCode }}
                             </span>
-                        @else
+                        @elseif(! $isManaged)
                             <span style="font-size: 10px; color: #94a3b8; font-weight: 600;">
                                 ({{ __('services_tracking.dashboard.waiting_signature') }})
                             </span>

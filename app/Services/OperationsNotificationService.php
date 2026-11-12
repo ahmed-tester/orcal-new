@@ -78,7 +78,6 @@ class OperationsNotificationService
             titleKey: 'services_tracking.notifications.financial_handover_requested_title',
             bodyKey: 'services_tracking.notifications.financial_handover_requested_body',
             parameters: [
-                'handover' => $handover->handover_number,
                 'amount' => number_format((float) $handover->total_requested_amount, 2),
             ],
             icon: 'heroicon-o-inbox-arrow-down',

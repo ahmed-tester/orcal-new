@@ -229,11 +229,11 @@ class ServiceTransactionForm
                                 ->visible(fn (callable $get) => ($get('scope_type') ?? 'internal') === 'internal')
                                 ->required(fn (callable $get) => ($get('scope_type') ?? 'internal') === 'internal')
                                 ->reactive()
-                                ->afterStateUpdated(function ($state, callable $set, callable $get) {
+                                ->afterStateUpdated(function ($state, callable $set, callable $get, ?Model $record) {
                                     if ($state) {
                                         $svc = Service::find($state);
                                         if ($svc) {
-                                            $price = (float) $svc->price;
+                                            $price = (float) ($record?->exists ? $record->total_amount : $svc->price);
 
                                             $set('total_amount', $price);
                                             $costBearer = $get('metadata.cost_bearer') ?? 'client_paid';
@@ -433,6 +433,7 @@ class ServiceTransactionForm
                                 ->numeric()
                                 ->prefix(__('services_tracking.currency_sar'))
                                 ->default(0)
+                                ->disabled(fn (callable $get, ?Model $record): bool => ($record?->exists ?? false) || $get('scope_type') !== 'external')
                                 ->required()
                                 ->reactive()
                                 ->afterStateUpdated(function ($state, callable $set, callable $get) {

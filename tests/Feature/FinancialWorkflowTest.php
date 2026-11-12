@@ -4,8 +4,11 @@ namespace Tests\Feature;
 
 use App\Enums\FinancialDisbursementStatus;
 use App\Enums\FinancialDisbursementType;
+use App\Enums\FinancialHandoverStatus;
 use App\Enums\FinancialPaymentMethod;
 use App\Enums\FinancialReceiptStatus;
+use App\Filament\Resources\ServiceTransactions\Pages\CreateServiceTransaction;
+use App\Filament\Resources\ServiceTransactions\Pages\EditServiceTransaction;
 use App\Filament\Resources\ServiceTransactions\Pages\FinancialIndicators;
 use App\Models\Branch;
 use App\Models\CashHandover;
@@ -15,7 +18,9 @@ use App\Models\FinancialReceipt;
 use App\Models\Service;
 use App\Models\ServiceTransaction;
 use App\Models\TreasuryTransaction;
+use App\Models\UnifiedSuspenseAmount;
 use App\Models\User;
+use App\Notifications\BaseSystemNotification;
 use App\Services\CashHandoverService;
 use App\Services\FinancialDisbursementService;
 use App\Services\FinancialReceiptService;
@@ -24,6 +29,7 @@ use App\Services\FinancialSurplusRefundService;
 use App\Services\FinancialTreasuryService;
 use App\Services\OperationsSettlementService;
 use App\Services\ServiceFinancialIndicatorsService;
+use App\Services\ServiceReceiptCreationService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\MySqlConnection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -33,6 +39,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
+use ReflectionMethod;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
@@ -215,7 +222,7 @@ class FinancialWorkflowTest extends TestCase
         $handover = CashHandoverService::request([$receipt->id => 100], $options, $this->admin);
         CashHandoverService::request([$receipt->id => 100], $options, $this->admin);
 
-        $notifications = Notification::sent($receiver, \App\Notifications\BaseSystemNotification::class,
+        $notifications = Notification::sent($receiver, BaseSystemNotification::class,
             fn ($notification) => $notification->eventKey === 'ServiceFinancialHandoverRequested');
         $this->assertCount(1, $notifications);
         $this->assertTrue($notifications->first()->shouldSend($receiver->fresh(), 'database'));
@@ -308,7 +315,7 @@ class FinancialWorkflowTest extends TestCase
         }
 
         FinancialDisbursementService::record($transaction, [
-            'disbursement_type' => FinancialDisbursementType::TREASURY_DIRECT->value,
+            'disbursement_type' => FinancialDisbursementType::TREASURY_DIRECT,
             'amount' => 200,
             'reference_number' => 'GOV-2',
             'request_key' => 'dsb-funded',
@@ -360,7 +367,7 @@ class FinancialWorkflowTest extends TestCase
         $this->confirmHandover([$receipt->id => 500], 'hnd-personal');
 
         $claim = FinancialDisbursementService::record($transaction, [
-            'disbursement_type' => FinancialDisbursementType::EMPLOYEE_PERSONAL->value,
+            'disbursement_type' => FinancialDisbursementType::EMPLOYEE_PERSONAL,
             'amount' => 500,
             'reference_number' => 'GOV-PERSONAL',
             'paid_by_employee_id' => $this->employee->id,
@@ -556,6 +563,89 @@ class FinancialWorkflowTest extends TestCase
         $this->assertSame(0.0, FinancialSummaryService::for($transaction->fresh())['treasury_received']);
     }
 
+    public function test_transaction_form_uses_catalog_price_on_creation_and_keeps_saved_totals(): void
+    {
+        $create = new ReflectionMethod(CreateServiceTransaction::class, 'mutateFormDataBeforeCreate');
+        $page = new CreateServiceTransaction;
+
+        $internal = $create->invoke($page, [
+            'scope_type' => 'internal',
+            'service_id' => $this->service->id,
+            'total_amount' => 1,
+        ]);
+        $external = $create->invoke($page, ['scope_type' => 'external', 'total_amount' => 150]);
+
+        $this->assertEquals($this->service->price, $internal['total_amount']);
+        $this->assertSame(150, $external['total_amount']);
+
+        $transaction = $this->makeTransaction(1000);
+        $edit = new ReflectionMethod(EditServiceTransaction::class, 'mutateFormDataBeforeSave');
+        $transaction->update($edit->invoke(new EditServiceTransaction, ['total_amount' => 1, 'notes' => 'Edited notes']));
+
+        $this->assertSame('1000.00', $transaction->fresh()->total_amount);
+        $this->assertSame('Edited notes', $transaction->fresh()->notes);
+    }
+
+    public function test_cash_recorded_by_an_employee_counts_immediately_and_can_be_requested_for_handover(): void
+    {
+        $collector = User::create([
+            'name' => 'Cash Collector',
+            'email' => 'cash-collector@example.test',
+            'password' => bcrypt('password'),
+            'user_type' => 'saudi_employee',
+        ]);
+        $employee = Employee::create(['user_id' => $collector->id, 'company_id' => 1, 'branch_id' => 1]);
+        $collector->givePermissionTo([Permission::findOrCreate('record_service_receipt', 'web'), 'request_cash_handover']);
+        $transaction = $this->makeTransaction(300);
+        $transaction->update(['executed_by' => $employee->id]);
+        $this->actingAs($collector);
+        $this->assertFalse($collector->can('confirm_service_receipt'));
+        $this->assertFalse($collector->can('confirm_cash_handover'));
+
+        $outcome = ServiceReceiptCreationService::process($transaction, [
+            'amount' => 350,
+            'payment_method' => FinancialPaymentMethod::CASH,
+            'request_key' => 'rcp:employee-create',
+            'request_handover' => true,
+            'handover_request_key' => 'hnd:employee-create',
+        ]);
+
+        $receipt = $outcome['receipt'];
+        $handover = $outcome['handover'];
+        $this->assertSame(FinancialReceiptStatus::CONFIRMED, $receipt->status);
+        $this->assertEquals($collector->id, $receipt->confirmed_by);
+        $this->assertEquals($employee->id, $receipt->collector_employee_id);
+        $this->assertSame(FinancialHandoverStatus::SUBMITTED, $handover->status);
+        $this->assertEquals($receipt->id, $handover->items()->sole()->financial_receipt_id);
+
+        $data = [
+            'amount' => 650,
+            'payment_method' => FinancialPaymentMethod::CASH,
+            'payer_name' => 'Test Client',
+            'request_key' => 'rcp:employee-topup',
+        ];
+        $topUp = FinancialReceiptService::record($transaction, $data);
+        $this->assertSame(FinancialReceiptStatus::CONFIRMED, $topUp->status);
+        $this->assertSame($topUp->id, FinancialReceiptService::record($transaction, $data)->id);
+        $this->assertSame(2, $transaction->financialReceipts()->count());
+
+        $summary = FinancialSummaryService::for($transaction->fresh());
+        $this->assertSame(0.0, $summary['client_remaining']);
+        $this->assertSame(1000.0, $summary['custody']);
+        $this->assertSame(0.0, $summary['treasury_received']);
+        $this->assertSame(0, TreasuryTransaction::count());
+
+        $transfer = FinancialReceiptService::record($transaction, array_replace($data, [
+            'amount' => 10,
+            'payment_method' => FinancialPaymentMethod::BANK_TRANSFER,
+            'request_key' => 'rcp:employee-transfer',
+        ]));
+        $this->assertSame(FinancialReceiptStatus::PENDING_CONFIRMATION, $transfer->status);
+
+        $this->expectException(AuthorizationException::class);
+        FinancialReceiptService::confirm($transfer);
+    }
+
     public function test_handover_branch_scoping_enforcement(): void
     {
         $branch2 = Branch::create(['company_id' => 1, 'name' => 'Branch 2', 'branch_code' => 'B2']);
@@ -608,12 +698,12 @@ class FinancialWorkflowTest extends TestCase
         $this->assertSame(600.0, FinancialTreasuryService::balance(1));
         $this->assertNotNull($confirmed->metadata['suspense_amount_id'] ?? null);
 
-        $suspense = \App\Models\UnifiedSuspenseAmount::find($confirmed->metadata['suspense_amount_id']);
+        $suspense = UnifiedSuspenseAmount::find($confirmed->metadata['suspense_amount_id']);
         $this->assertNotNull($suspense);
         $this->assertSame('pending', $suspense->status);
 
         $secondTx = $this->makeTransaction(1000);
-        \App\Services\OperationsSettlementService::allocateSuspenseAmount($suspense, $secondTx, 'Allocated extra surplus', $this->admin->id);
+        OperationsSettlementService::allocateSuspenseAmount($suspense, $secondTx, 'Allocated extra surplus', $this->admin->id);
 
         $this->assertSame('allocated', $suspense->fresh()->status);
         $allocated = $secondTx->financialReceipts()->firstOrFail();
@@ -744,7 +834,7 @@ class FinancialWorkflowTest extends TestCase
 
     private function confirmedCashReceipt(ServiceTransaction $transaction, float $amount): FinancialReceipt
     {
-        $receipt = FinancialReceiptService::record($transaction, [
+        return FinancialReceiptService::record($transaction, [
             'amount' => $amount,
             'payment_method' => FinancialPaymentMethod::CASH->value,
             'collector_employee_id' => $this->employee->id,
@@ -752,7 +842,6 @@ class FinancialWorkflowTest extends TestCase
             'request_key' => 'rcp:'.uniqid('', true),
         ], $this->admin);
 
-        return FinancialReceiptService::confirm($receipt, [], $this->admin)->fresh();
     }
 
     /**

@@ -21,6 +21,16 @@ class ServicesCatalogSeeder extends Seeder
         }
 
         $services = [
+            // ── 0. UAT Test Service (خدمة اختبار الدورة المالية المعتمدة) ─────────
+            [
+                'name' => 'خدمة تجريبية لاختبار الدورة المالية (UAT 500/300)',
+                'target_type' => 'employee',
+                'category' => 'government',
+                'price' => 500.00,
+                'default_gov_fee' => 300.00,
+                'notes' => 'خدمة تجريبية مخصصة لاختبار الدورة المالية وسيناريو UAT: السعر 500 ر.س والرسوم الحكومية 300 ر.س',
+            ],
+
             // ── 1. General Services (خدمات عامة) ──────────────────────────
             [
                 'name' => 'إصدار وطباعة شهادة سعودة وتأمينات',

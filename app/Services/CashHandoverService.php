@@ -587,6 +587,27 @@ class CashHandoverService
     }
 
     /**
+     * Split the counted cash into receipt amounts and unattributed surplus.
+     *
+     * @return array{0: array<int, float>, 1: float}
+     */
+    public static function splitCountedAmounts(array $countedAmounts, array $requestedAmounts): array
+    {
+        $confirmedAmounts = [];
+        $extra = 0.0;
+
+        foreach (array_intersect_key($countedAmounts, $requestedAmounts) as $itemId => $amount) {
+            $counted = round((float) $amount, 2);
+            $requested = round((float) $requestedAmounts[$itemId], 2);
+
+            $confirmedAmounts[$itemId] = min($counted, $requested);
+            $extra += max(0, $counted - $requested);
+        }
+
+        return [$confirmedAmounts, round($extra, 2)];
+    }
+
+    /**
      * Parse a handover QR payload ("HANDOVER:<handover_number>") into the
      * handover number. The code identifies the handover only and carries no
      * amounts or other data. Arabic digits are normalized first.

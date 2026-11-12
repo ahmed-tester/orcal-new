@@ -27,7 +27,9 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -111,7 +113,9 @@ class ServiceFinancialActions
 
                 Toggle::make('confirm')
                     ->label(__('financial.actions.confirm_receipt'))
-                    ->default(false),
+                    ->default(false)
+                    ->visible(fn (callable $get): bool => $get('payment_method') !== FinancialPaymentMethod::CASH->value
+                        && (auth()->user()?->can('confirm_service_receipt') ?? false)),
 
                 Textarea::make('notes')
                     ->label(__('financial.fields.notes'))
@@ -300,7 +304,8 @@ class ServiceFinancialActions
                                 ])
                                 ->all())
                             ->required()
-                            ->distinct(),
+                            ->distinct()
+                            ->live(),
 
                         TextInput::make('amount')
                             ->label(__('financial.fields.amount'))
@@ -318,28 +323,48 @@ class ServiceFinancialActions
                     ->minItems(1)
                     ->columnSpanFull(),
 
-                Select::make('delivered_by_employee_id')
+                TextEntry::make('handover_collector')
                     ->label(__('financial.fields.collector'))
-                    ->options(fn (?ServiceTransaction $record) => static::employees($record))
-                    ->default(fn (?ServiceTransaction $record) => $record?->executed_by)
-                    ->searchable(),
+                    ->state(function (Get $get, ?ServiceTransaction $record): ?string {
+                        $receiptId = collect($get('items'))->pluck('financial_receipt_id')->filter()->first();
+
+                        if (! $record || ! $receiptId) {
+                            return null;
+                        }
+
+                        $collector = $record->financialReceipts()
+                            ->confirmed()
+                            ->cash()
+                            ->with('collector.user')
+                            ->find($receiptId)?->collector;
+
+                        return $collector?->user?->name ?? $collector?->name;
+                    }),
 
                 Textarea::make('notes')
                     ->label(__('financial.fields.notes'))
                     ->rows(2)
                     ->columnSpanFull(),
             ])
-            ->action(function (ServiceTransaction $record, array $data) {
+            ->action(function (ServiceTransaction $record, array $data, Action $action) {
                 $amounts = collect($data['items'] ?? [])
                     ->filter(fn ($item) => ! empty($item['financial_receipt_id']))
                     ->mapWithKeys(fn ($item) => [(int) $item['financial_receipt_id'] => (float) $item['amount']])
                     ->all();
 
-                CashHandoverService::requestForTransaction($record, $amounts, [
-                    'request_key' => $data['request_key'],
-                    'delivered_by_employee_id' => $data['delivered_by_employee_id'] ?? null,
-                    'notes' => $data['notes'] ?? null,
-                ]);
+                try {
+                    CashHandoverService::requestForTransaction($record, $amounts, [
+                        'request_key' => $data['request_key'],
+                        'notes' => $data['notes'] ?? null,
+                    ]);
+                } catch (ValidationException $exception) {
+                    Notification::make()
+                        ->title($exception->validator->errors()->first())
+                        ->danger()
+                        ->send();
+
+                    $action->halt();
+                }
 
                 Notification::make()
                     ->title(__('financial.actions.request_handover'))
@@ -408,8 +433,17 @@ class ServiceFinancialActions
                     ->rows(2)
                     ->columnSpanFull(),
             ])
-            ->action(function (ServiceTransaction $record, array $data) {
-                FinancialDisbursementService::record($record, $data);
+            ->action(function (ServiceTransaction $record, array $data, Action $action) {
+                try {
+                    FinancialDisbursementService::record($record, $data);
+                } catch (ValidationException $exception) {
+                    Notification::make()
+                        ->title($exception->validator->errors()->first())
+                        ->danger()
+                        ->send();
+
+                    $action->halt();
+                }
 
                 Notification::make()
                     ->title(__('financial.actions.record_disbursement'))

@@ -254,7 +254,7 @@ return [
         'reversal_reason' => 'Reversal reason',
         'payment_request_key' => 'Request key',
         'handover_signature' => 'Employee signature code',
-        'scan_handover_qr' => 'Scan handover voucher QR',
+        'scan_handover_qr' => 'Handover voucher number or QR scan',
     ],
 
     'destination_types' => [
@@ -267,7 +267,7 @@ return [
         'surplus_hint' => 'Collection surplus: :amount SAR. If you returned the change immediately, record the amount you actually kept.',
         'received_from_client' => 'Received from the client on creation?',
         'request_handover' => 'Request cash handover with this save',
-        'request_handover_hint' => 'Creates a handover request for the cash receipt once confirmed; treasury receives it by scan or manual selection.',
+        'request_handover_hint' => 'Creates a handover request for the confirmed cash receipt. At delivery, enter the voucher number or scan its QR code, then enter its signature code.',
         'confirmed_with_handover' => 'The transaction, a confirmed receipt and a cash handover request pending treasury receipt were created in one save.',
         'confirmed' => 'The transaction and a confirmed receipt were saved.',
         'pending_with_intent' => 'The receipt is pending confirmation. Once an authorized user confirms it, the handover request is created automatically exactly once.',
@@ -285,7 +285,7 @@ return [
     'handover_qr' => [
         'modal_title' => 'Cash handover vouchers',
         'modal_desc' => 'Shows a QR code per handover voucher submitted from this transaction. The code carries the voucher number only.',
-        'scan_hint' => 'Scan it from the treasury receive-and-confirm screen, or use the voucher number for manual selection.',
+        'scan_hint' => 'In the treasury receive-and-confirm screen, enter the voucher number or scan its QR code, then enter its signature code.',
         'signature_input_hint' => 'Enter the four-digit signature code provided by the employee when handing over the cash.',
         'no_pending_handover' => 'No pending cash handover vouchers for this transaction.',
     ],
