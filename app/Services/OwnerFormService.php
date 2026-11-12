@@ -34,6 +34,7 @@ class OwnerFormService
                 ->default('manual')
                 ->inline()
                 ->live()
+                ->afterStateUpdated(fn ($state, callable $set) => $set('person_capacity', $state === 'from_saudi_employee' ? 'employee_and_owner' : 'owner'))
                 ->dehydrated()
                 ->visible(fn ($livewire) => $livewire instanceof CreateOwner)
                 ->columnSpanFull(),
@@ -133,6 +134,7 @@ class OwnerFormService
         $set('company_id', $emp->company_id);
         $set('address', $emp->details?->address);
         $set('employment_date', now()->toDateString());
+        $set('person_capacity', 'employee_and_owner');
     }
 
     /**

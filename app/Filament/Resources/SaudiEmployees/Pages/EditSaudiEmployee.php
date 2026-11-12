@@ -5,6 +5,7 @@ namespace App\Filament\Resources\SaudiEmployees\Pages;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Models\User;
 use App\Services\EmployeeAgeService;
+use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -44,6 +45,7 @@ class EditSaudiEmployee extends EditRecord
         }
 
         $data['name_en'] = $employee->metadata['name_en'] ?? null;
+        $data['person_capacity'] = PersonCapacityService::resolveKey($employee, 'employee');
 
         return $data;
     }
@@ -53,16 +55,19 @@ class EditSaudiEmployee extends EditRecord
         $employee = $this->record;
         $userId = $employee->user_id;
 
+        $metadata = $employee->metadata ?? [];
         if (array_key_exists('name_en', $data)) {
-            $metadata = $employee->metadata ?? [];
             if (! empty($data['name_en'])) {
                 $metadata['name_en'] = trim($data['name_en']);
             } else {
                 unset($metadata['name_en']);
             }
-            $data['metadata'] = $metadata;
             unset($data['name_en']);
         }
+
+        $capacity = $data['person_capacity'] ?? $this->form->getRawState()['person_capacity'] ?? null;
+        $data['metadata'] = PersonCapacityService::mergeIntoMetadata($metadata, $capacity, 'employee');
+        unset($data['person_capacity']);
 
         if (! empty($data['user_email'])) {
             $email = trim($data['user_email']);

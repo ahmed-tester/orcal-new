@@ -10,6 +10,7 @@ use App\Models\EmployeeDetail;
 use App\Models\Owner;
 use App\Models\User;
 use App\Services\EmployeeAgeService;
+use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Hash;
@@ -111,7 +112,10 @@ class CreateSaudiEmployee extends CreateRecord
             unset($data['name_en']);
         }
 
-        unset($data['registration_source'], $data['selected_owner_id']);
+        $capacity = $data['person_capacity'] ?? $rawState['person_capacity'] ?? null;
+        $data['metadata'] = PersonCapacityService::mergeIntoMetadata($data['metadata'] ?? [], $capacity, 'employee');
+
+        unset($data['registration_source'], $data['selected_owner_id'], $data['person_capacity']);
 
         return $data;
     }

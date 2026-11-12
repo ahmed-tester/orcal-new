@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\CompanyFormService;
 use App\Services\EmployeeAgeService;
 use App\Services\EmployeeServiceDurationService;
+use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
 use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;
@@ -38,6 +39,7 @@ class SaudiEmployeeForm
                             ->default('manual')
                             ->inline()
                             ->live()
+                            ->afterStateUpdated(fn ($state, callable $set) => $set('person_capacity', $state === 'from_owner' ? 'employee_and_owner' : 'employee'))
                             ->columnSpanFull(),
 
                         Select::make('selected_owner_id')
@@ -76,6 +78,7 @@ class SaudiEmployeeForm
                                     if ($owner->company_id) {
                                         $set('company_id', $owner->company_id);
                                     }
+                                    $set('person_capacity', 'employee_and_owner');
                                 }
                             })
                             ->columnSpanFull(),
@@ -113,6 +116,8 @@ class SaudiEmployeeForm
                             ->label(__('employees.fields.profession'))
                             ->placeholder(__('employees.placeholders.profession'))
                             ->maxLength(255),
+
+                        PersonCapacityService::makeFormField('employee'),
 
                         PhoneService::makeFormField('user_phone', __('employees.fields.phone'), required: true)
                             ->live(onBlur: true)

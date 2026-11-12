@@ -7,6 +7,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\CompanyFormService;
 use App\Services\OwnerFormService;
+use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -92,6 +93,8 @@ class OwnerForm
                             ->label(__('owners.fields.status'))
                             ->options(__('owners.statuses'))
                             ->default('active'),
+
+                        PersonCapacityService::makeFormField('owner'),
 
                         TextInput::make('address')
                             ->label(__('owners.fields.address')),
