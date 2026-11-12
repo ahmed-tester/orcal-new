@@ -3,7 +3,6 @@
 return [
     'single' => 'دين عام',
     'plural' => 'سجل الديون العامة',
-
     'sections' => [
         'debtor_source' => 'مصدر وبيانات المدين',
         'debtor_source_desc' => 'تحديد ما إذا كان الدين مسجلاً على منشأة وموظف أو على طرف خارجي حر',
@@ -18,7 +17,6 @@ return [
         'notification' => 'تنبيه الاستحقاق والمتابعة',
         'notification_desc' => 'مسؤول المتابعة وتاريخ الاستحقاق ونص التنبيه',
     ],
-
     'fields' => [
         'debt_number' => 'رقم الدين (تلقائي)',
         'debt_date' => 'تاريخ نشوء الدين',
@@ -43,12 +41,10 @@ return [
         'notification_notes' => 'نص التنبيه والمتابعة',
         'executed_by' => 'المسؤول المسجل',
     ],
-
     'toggle_options' => [
         'internal' => 'خدمات داخلية (منشآت وموظفين)',
         'external' => 'خارج المنشآت (تسجيل حر)',
     ],
-
     'badges' => [
         'internal' => 'منشآت',
         'external' => 'خارجي',
@@ -57,14 +53,12 @@ return [
         'paid' => 'مسدد بالكامل',
         'overdue' => 'متعثر / متأخر',
     ],
-
     'statuses' => [
         'pending' => 'مستحق (غير محصل)',
         'partial' => 'محصل جزئياً',
         'paid' => 'مسدد بالكامل',
         'overdue' => 'متأخر عن الاستحقاق',
     ],
-
     'placeholders' => [
         'external_name' => 'اسم المدين أو المنشأة بالكامل',
         'external_national_id' => 'رقم الهوية الوطنية أو الإقامة أو 700',
@@ -73,14 +67,12 @@ return [
         'debt_reason' => 'مثال: مشتريات بضاعة آجلة / مستحقات عقد تشغيل',
         'notification_notes' => 'تنبيه: حل موعد استحقاق الدين — يرجى التواصل للتحصيل',
     ],
-
     'actions' => [
         'print_voucher' => 'طباعة سند الدين',
         'save_and_print' => 'حفظ وطباعة سند الدين',
         'view_debt' => 'عرض تفاصيل الدين',
         'print_statement' => 'طباعة وحفظ الكشف 🖨️',
     ],
-
     'notifications' => [
         'due_alert_title' => 'استحقاق دين: :number',
         'due_today_title' => 'تنبيه: حل موعد استحقاق دين (:number)',
@@ -88,10 +80,7 @@ return [
         'upcoming_title' => 'تذكير: اقتراب موعد استحقاق دين (:number) — متبقي :days يوم',
         'body' => 'المدين: :debtor | المبلغ المتبقي: :remaining | تاريخ الاستحقاق: :due_date',
     ],
-
     'table_heading' => 'سجل الديون العامة — :count دين',
-
-    // Collections
     'collections' => [
         'single' => 'سند تحصيل دين',
         'plural' => 'تحصيل الديون العامة',

@@ -7,7 +7,6 @@ return [
     'title' => 'إدارة الإجازات',
     'group' => 'إدارة شؤون الموظفين',
     'breadcrumb' => 'الموارد البشرية',
-
     'sections' => [
         'request_data' => 'بيانات طلب الإجازة',
         'employee_selection' => 'تحديد الموظف ومصدر البيانات',
@@ -21,7 +20,6 @@ return [
         'attachments_desc' => 'رفع التقارير الطبية أو الوثائق والمستندات المؤيدة للإجازة',
         'employee_selection_desc' => 'اختر مصدر جلب بيانات الموظف وفق الخيارات المتاحة',
     ],
-
     'selection' => [
         'mode_label' => 'طريقة جلب واختيار الموظف',
         'description' => 'اختر مصدر جلب بيانات الموظف وفق الخيارات المتاحة',
@@ -43,7 +41,6 @@ return [
         'id_iqama' => ':id',
         'id_national' => ':id',
     ],
-
     'summary' => [
         'title' => 'ملخص إجازات وأرصدة الموظفين',
         'create_record' => 'طلب إجازة جديد',
@@ -52,7 +49,6 @@ return [
         'annual_available' => 'رصيد الإجازة السنوية المتاح: :available يوم (مستحق تراكمياً: :accrued يوم عن مدة خدمة :months شهر برصيد :rate يوم/سنة محدد من شاشة الموظف — مستهلك تاريخياً: :used يوم)',
         'other_available' => 'رصيد :name المتاح: :available يوم (الرصيد السنوي: :quota يوم — المستهلك هذا العام: :used يوم)',
         'not_available' => '—',
-
         'cards' => [
             'total_employees' => 'إجمالي الموظفين',
             'on_leave_today' => 'في إجازة اليوم',
@@ -63,7 +59,6 @@ return [
             'days_unit' => 'يوم',
             'requests_unit' => 'طلب',
         ],
-
         'filters' => [
             'search' => 'تصفية وبحث في الإجازات والأرصدة',
             'search_placeholder' => 'ابحث باسم الموظف، الرقم الوظيفي، أو الهوية/الإقامة...',
@@ -82,7 +77,6 @@ return [
             ],
             'export_excel' => 'تصدير CSV',
         ],
-
         'columns' => [
             'number' => '#',
             'employee' => 'الموظف',
@@ -101,13 +95,11 @@ return [
             'actions' => 'الإجراءات',
             'view_details' => 'عرض السجل والتفاصيل',
         ],
-
         'status' => [
             'working' => 'على رأس العمل',
             'on_leave' => 'في إجازة',
             'pending' => 'طلب معلق',
         ],
-
         'modal' => [
             'title' => 'كشف أرصدة وسجل إجازات الموظف',
             'hire_date' => 'تاريخ المباشرة:',
@@ -132,7 +124,6 @@ return [
             'quick_reject' => 'رفض',
             'rejection_reason_prompt' => 'سبب الرفض (اختياري):',
         ],
-
         'print' => [
             'summary_action' => 'طباعة الملخص',
             'summary_title' => 'تقرير ملخص إجازات وأرصدة الموظفين',
@@ -150,7 +141,6 @@ return [
             ],
         ],
     ],
-
     'fields' => [
         'record_number' => 'الرقم الوظيفي',
         'employee' => 'اسم الموظف',
@@ -179,12 +169,10 @@ return [
         'attachments' => 'المرفقات والمستندات',
         'attachment_file' => 'ملف المرفق / التقرير الطبي أو الوثيقة المؤيدة',
     ],
-
     'units' => [
         'day' => 'يوم',
         'days' => 'أيام',
     ],
-
     'statuses' => [
         'pending' => 'معلقة قيد المراجعة',
         'pending_short' => 'معلقة',
@@ -193,7 +181,6 @@ return [
         'rejected' => 'مرفوضة',
         'cancelled' => 'ملغاة',
     ],
-
     'return_statuses' => [
         'pending_approval' => 'معلقة — بانتظار الموافقة',
         'rejected' => 'مرفوضة',
@@ -204,7 +191,6 @@ return [
         'overdue' => 'تأخر عن العودة (:days :unit)',
         'on_leave' => 'في إجازة',
     ],
-
     'actions' => [
         'save' => 'حفظ الإجازة',
         'update' => 'تحديث الإجازة',
@@ -228,7 +214,6 @@ return [
         'all_companies' => 'جميع المنشآت',
         'all_types' => 'جميع الأنواع',
     ],
-
     'notifications' => [
         'invalid_status' => 'تم اتخاذ قرار بشأن هذا الطلب بالفعل. حدّث التفاصيل وحاول مجددًا.',
         'no_permission' => 'ليس لديك صلاحية تغيير أو اعتماد حالة الإجازة',
@@ -250,7 +235,6 @@ return [
         'manager_override_warning' => '⚠️ تنبيه للمدير: الأيام المطلوبة (:days) تتجاوز الرصيد المتاح (:available يوم). مسموح لك بالتجاوز.',
         'balance_exceeded_warning' => '⛔ لا يمكن التجاوز: الرصيد المتاح نظاماً هو :available يوم فقط.',
     ],
-
     'validation' => [
         'employee_required' => 'يرجى اختيار الموظف',
         'leave_type_required' => 'يرجى اختيار نوع الإجازة',
@@ -259,7 +243,6 @@ return [
         'end_date_after_or_equal' => 'تاريخ النهاية يجب أن يكون بعد أو يساوي تاريخ البداية',
         'balance_exceeded_no_override' => 'عدد الأيام المطلوبة (:days يوم) يتجاوز الرصيد المتاح للموظف (:available يوم)، ولا تملك صلاحية تجاوز الرصيد المتاح.',
     ],
-
     'table' => [
         'search_placeholder' => 'بحث سريع باسم الموظف، نوع الإجازة، أو التاريخ...',
         'total_records' => 'إجمالي السجلات:',
