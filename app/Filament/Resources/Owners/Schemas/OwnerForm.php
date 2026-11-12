@@ -39,11 +39,10 @@ class OwnerForm
                         TextInput::make('user_email')
                             ->label(__('owners.fields.email'))
                             ->email()
-                            ->nullable()
+                            ->required()
                             ->unique(User::class, 'email', ignoreRecord: false, modifyRuleUsing: OwnerFormService::ignoreSelectedEmployeeUserId()),
 
-                        PhoneService::makeFormField('user_phone', __('owners.fields.phone'))
-                            ->nullable()
+                        PhoneService::makeFormField('user_phone', __('owners.fields.phone'), required: true)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn ($state, callable $set) => $set('user_phone', PhoneService::normalize($state) ?? $state))
                             ->unique(User::class, 'phone', ignoreRecord: false, modifyRuleUsing: OwnerFormService::ignoreSelectedEmployeeUserId()),
