@@ -124,6 +124,7 @@ class CreateSaudiEmployee extends CreateRecord
             'employee_id' => $this->record->id,
             'nationality' => 'saudi',
             'national_id' => $data['national_id'] ?? null,
+            'profession' => $data['profession'] ?? null,
             'birth_date' => $data['birth_date'] ?? null,
             'metadata' => ! empty($data['birth_date']) ? ['age' => EmployeeAgeService::calculateAge($data['birth_date'])] : null,
             'address' => $data['address'] ?? null,

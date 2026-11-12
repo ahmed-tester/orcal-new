@@ -106,6 +106,11 @@ class SaudiEmployeeForm
                             ->length(10)
                             ->required(),
 
+                        TextInput::make('profession')
+                            ->label(__('employees.fields.profession'))
+                            ->placeholder(__('employees.placeholders.profession'))
+                            ->maxLength(255),
+
                         PhoneService::makeFormField('user_phone', __('employees.fields.phone'), required: true)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn ($state, callable $set) => $set('user_phone', PhoneService::normalize($state) ?? $state))

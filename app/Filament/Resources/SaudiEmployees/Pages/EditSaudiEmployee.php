@@ -37,6 +37,7 @@ class EditSaudiEmployee extends EditRecord
 
         if ($details) {
             $data['national_id'] = $details->national_id;
+            $data['profession'] = $details->profession;
             $data['address'] = $details->address;
             $data['birth_date'] = $details->birth_date?->format('Y-m-d');
             $data['age'] = EmployeeAgeService::calculateAge($details->birth_date);
@@ -112,6 +113,7 @@ class EditSaudiEmployee extends EditRecord
             [
                 'nationality' => 'saudi',
                 'national_id' => $data['national_id'] ?? null,
+                'profession' => $data['profession'] ?? null,
                 'birth_date' => $data['birth_date'] ?? null,
                 'metadata' => ! empty($data['birth_date']) ? ['age' => EmployeeAgeService::calculateAge($data['birth_date'])] : null,
                 'address' => $data['address'] ?? null,

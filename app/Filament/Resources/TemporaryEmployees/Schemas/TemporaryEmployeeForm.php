@@ -104,6 +104,9 @@ class TemporaryEmployeeForm
                                     if ($emp->details?->national_id) {
                                         $set('national_id', $emp->details->national_id);
                                     }
+                                    if ($emp->details?->profession) {
+                                        $set('profession', $emp->details->profession);
+                                    }
                                     if ($emp->details?->birth_date) {
                                         $bdate = $emp->details->birth_date instanceof Carbon ? $emp->details->birth_date->format('Y-m-d') : (string) $emp->details->birth_date;
                                         $set('birth_date', $bdate);
@@ -170,6 +173,11 @@ class TemporaryEmployeeForm
                             ->placeholder('1087654321')
                             ->length(10)
                             ->required(),
+
+                        TextInput::make('profession')
+                            ->label(__('employees.fields.profession'))
+                            ->placeholder(__('employees.placeholders.profession'))
+                            ->maxLength(255),
 
                         PhoneService::makeFormField('user_phone', __('employees.fields.phone'), required: true)
                             ->live(onBlur: true)
