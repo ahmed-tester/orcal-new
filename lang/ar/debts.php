@@ -3,7 +3,6 @@
 return [
     'single' => 'دين عام',
     'plural' => 'سجل الديون العامة',
-
     'summary' => [
         'title' => 'ملخص الديون والتحصيل',
         'create_debt' => 'إضافة دين',
@@ -43,7 +42,6 @@ return [
         'debts_records' => 'سجل الديون',
         'collections_records' => 'سندات التحصيل',
     ],
-
     'sections' => [
         'debtor_source' => 'مصدر وبيانات المدين',
         'debtor_source_desc' => 'تحديد ما إذا كان الدين مسجلاً على منشأة وموظف أو على طرف خارجي حر',

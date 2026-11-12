@@ -18,6 +18,7 @@ return [
     'per_page_label' => 'عرض',
     'th_number' => '#',
     'th_file' => 'الملف',
+    'th_screens' => 'الشاشات المرتبطة',
     'th_key' => 'المفتاح (Key)',
     'th_value' => 'الترجمة (Value)',
     'input_placeholder' => 'أدخل الترجمة...',
@@ -28,4 +29,15 @@ return [
     'save_changes' => 'حفظ التغييرات',
     'saving' => 'جاري الحفظ...',
     'save_success' => 'تم حفظ وتحديث ملفات الترجمة بنجاح!',
+    'screens' => [
+        'common_ui' => 'عام (الحالات والأزرار المشتركة)',
+        'auth' => 'تسجيل الدخول والمصادقة',
+        'guarantors' => 'الكفلاء (الموظفين / الديون / الأقساط / الرواتب)',
+        'sidebar_navigation' => 'القائمة الجانبية وعناوين المجموعات',
+        'notifications' => 'الإشعارات والتنبيهات',
+        'pagination' => 'ترقيم الصفحات (Pagination)',
+        'passwords' => 'إعادة تعيين كلمة المرور',
+        'user_types' => 'أنواع المستخدمين',
+        'validation' => 'رسائل التحقق من البيانات (Validation)',
+    ],
 ];
