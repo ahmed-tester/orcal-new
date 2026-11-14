@@ -3,7 +3,8 @@
 namespace App\Services;
 
 use App\Enums\TaskStatus;
-use App\Enums\UserType;
+use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
+use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Models\Company;
 use App\Models\Department;
 use App\Models\Employee;
@@ -119,15 +120,7 @@ class CompanyDepartmentPerformanceService
 
         if ($authorizedCompanyIds === []) {
             return (object) [
-                'active_services' => 0,
-                'completed_services' => 0,
-                'overdue_services' => 0,
-                'on_time_rate' => null,
-                'open_deficiencies' => 0,
-                'task_due_in_period' => 0,
-                'task_completed_in_period' => 0,
-                'task_overdue' => 0,
-                'task_completion_rate' => null,
+                ...self::metrics(null, null, null),
                 'companies_count' => 0,
                 'departments_count' => 0,
                 'employees_count' => 0,
@@ -136,7 +129,6 @@ class CompanyDepartmentPerformanceService
 
         [$startDate, $endDate] = self::resolveDateRange($filters);
         $branchId = self::resolveBranchId($filters, $user);
-
         $scopedCompanyIds = filled($filters['company_id'] ?? null)
             ? array_values(array_intersect($authorizedCompanyIds, (array) $filters['company_id']))
             : $authorizedCompanyIds;
@@ -145,50 +137,26 @@ class CompanyDepartmentPerformanceService
             $scopedCompanyIds = [0];
         }
 
+        $teamIds = self::isSupervisorViewer($user) ? self::supervisorTeamIds($user, $startDate, $endDate) : null;
+
         // Services summary
-        $serviceRow = self::servicesAggregateQuery($scopedCompanyIds, $branchId, $startDate, $endDate, $user)
-            ->selectRaw('
-                COUNT(CASE WHEN service_transactions.service_status = "active" AND service_transactions.transaction_date BETWEEN ? AND ? THEN 1 END) as active_services,
-                COUNT(CASE WHEN service_transactions.service_status = "completed" AND service_transactions.completion_date BETWEEN ? AND ? THEN 1 END) as completed_services,
-                COUNT(CASE WHEN service_transactions.service_status = "active" AND service_transactions.due_date BETWEEN ? AND ? AND service_transactions.due_date < ? THEN 1 END) as overdue_services,
-                COUNT(CASE WHEN service_transactions.service_status = "completed" AND service_transactions.completion_date BETWEEN ? AND ? AND service_transactions.due_date IS NOT NULL AND service_transactions.completion_date <= service_transactions.due_date THEN 1 END) as on_time_completed,
-                COUNT(CASE WHEN service_transactions.service_status = "completed" AND service_transactions.completion_date BETWEEN ? AND ? AND service_transactions.due_date IS NOT NULL THEN 1 END) as dated_completed
-            ', [
-                $startDate, $endDate,
-                $startDate, $endDate,
-                $startDate, $endDate, today()->toDateString(),
-                $startDate, $endDate,
-                $startDate, $endDate,
-            ])
-            ->first();
+        $serviceRow = self::selectServiceMetrics(
+            self::servicesAggregateQuery($scopedCompanyIds, $branchId, $teamIds),
+            $startDate,
+            $endDate,
+        )->first();
 
         // Deficiencies summary
-        $deficiencyRow = self::deficienciesAggregateQuery($scopedCompanyIds, $branchId, $startDate, $endDate, $user)
+        $deficiencyRow = self::deficienciesAggregateQuery($scopedCompanyIds, $branchId, $startDate, $endDate, $teamIds)
             ->selectRaw('COUNT(*) as open_deficiencies')
             ->first();
 
         // Tasks summary
-        $taskRow = self::tasksAggregateQuery($scopedCompanyIds, $branchId, $startDate, $endDate, $user)
-            ->selectRaw('
-                SUM(CASE WHEN task_assignment_items.status = ? AND task_assignment_items.completed_at BETWEEN ? AND ? THEN 1 ELSE 0 END) as task_completed_in_period,
-                SUM(CASE WHEN task_assignment_items.due_date BETWEEN ? AND ? THEN 1 ELSE 0 END) as task_due_in_period,
-                SUM(CASE WHEN task_assignment_items.due_date BETWEEN ? AND ? AND task_assignment_items.status = ? AND task_assignment_items.completed_at IS NOT NULL AND task_assignment_items.completed_at <= ? THEN 1 ELSE 0 END) as task_due_completed,
-                SUM(CASE WHEN task_assignment_items.status IN (?, ?) AND task_assignment_items.due_date IS NOT NULL AND task_assignment_items.due_date < ? THEN 1 ELSE 0 END) as task_overdue
-            ', [
-                TaskStatus::COMPLETED->value, $startDate, $endDate,
-                $startDate, $endDate,
-                $startDate, $endDate, TaskStatus::COMPLETED->value, $endDate,
-                TaskStatus::PENDING->value, TaskStatus::IN_PROGRESS->value, today()->toDateString(),
-            ])
-            ->first();
-
-        $datedCompleted = (int) ($serviceRow->dated_completed ?? 0);
-        $onTimeCompleted = (int) ($serviceRow->on_time_completed ?? 0);
-        $onTimeRate = $datedCompleted > 0 ? round(($onTimeCompleted / $datedCompleted) * 100, 1) : null;
-
-        $taskDueInPeriod = (int) ($taskRow->task_due_in_period ?? 0);
-        $taskDueCompleted = (int) ($taskRow->task_due_completed ?? 0);
-        $taskCompletionRate = $taskDueInPeriod > 0 ? round(($taskDueCompleted / $taskDueInPeriod) * 100, 1) : null;
+        $taskRow = self::selectTaskMetrics(
+            self::tasksAggregateQuery($scopedCompanyIds, $branchId, $teamIds),
+            $startDate,
+            $endDate,
+        )->first();
 
         // Counts
         $companiesCount = count($scopedCompanyIds);
@@ -207,21 +175,12 @@ class CompanyDepartmentPerformanceService
             $employeesCountQuery->where('branch_id', $branchId);
         }
 
-        if (self::isSupervisorViewer($user)) {
-            $teamIds = self::supervisorTeamIds($user, $startDate, $endDate);
+        if ($teamIds !== null) {
             $employeesCountQuery->whereIn('id', $teamIds);
         }
 
         return (object) [
-            'active_services' => (int) ($serviceRow->active_services ?? 0),
-            'completed_services' => (int) ($serviceRow->completed_services ?? 0),
-            'overdue_services' => (int) ($serviceRow->overdue_services ?? 0),
-            'on_time_rate' => $onTimeRate,
-            'open_deficiencies' => (int) ($deficiencyRow->open_deficiencies ?? 0),
-            'task_due_in_period' => $taskDueInPeriod,
-            'task_completed_in_period' => (int) ($taskRow->task_completed_in_period ?? 0),
-            'task_overdue' => (int) ($taskRow->task_overdue ?? 0),
-            'task_completion_rate' => $taskCompletionRate,
+            ...self::metrics($serviceRow, $deficiencyRow, $taskRow),
             'companies_count' => $companiesCount,
             'departments_count' => $departmentsCount,
             'employees_count' => $employeesCountQuery->count(),
@@ -244,7 +203,6 @@ class CompanyDepartmentPerformanceService
 
         [$startDate, $endDate] = self::resolveDateRange($filters);
         $branchId = self::resolveBranchId($filters, $user);
-
         $scopedCompanyIds = filled($filters['company_id'] ?? null)
             ? array_values(array_intersect($authorizedCompanyIds, (array) $filters['company_id']))
             : $authorizedCompanyIds;
@@ -252,70 +210,6 @@ class CompanyDepartmentPerformanceService
         if ($scopedCompanyIds === []) {
             return collect();
         }
-
-        // 1. Services by company_id
-        $servicesMap = self::servicesAggregateQuery($scopedCompanyIds, $branchId, $startDate, $endDate, $user)
-            ->selectRaw('
-                service_transactions.company_id,
-                COUNT(CASE WHEN service_transactions.service_status = "active" AND service_transactions.transaction_date BETWEEN ? AND ? THEN 1 END) as active_services,
-                COUNT(CASE WHEN service_transactions.service_status = "completed" AND service_transactions.completion_date BETWEEN ? AND ? THEN 1 END) as completed_services,
-                COUNT(CASE WHEN service_transactions.service_status = "active" AND service_transactions.due_date BETWEEN ? AND ? AND service_transactions.due_date < ? THEN 1 END) as overdue_services,
-                COUNT(CASE WHEN service_transactions.service_status = "completed" AND service_transactions.completion_date BETWEEN ? AND ? AND service_transactions.due_date IS NOT NULL AND service_transactions.completion_date <= service_transactions.due_date THEN 1 END) as on_time_completed,
-                COUNT(CASE WHEN service_transactions.service_status = "completed" AND service_transactions.completion_date BETWEEN ? AND ? AND service_transactions.due_date IS NOT NULL THEN 1 END) as dated_completed
-            ', [
-                $startDate, $endDate,
-                $startDate, $endDate,
-                $startDate, $endDate, today()->toDateString(),
-                $startDate, $endDate,
-                $startDate, $endDate,
-            ])
-            ->groupBy('service_transactions.company_id')
-            ->get()
-            ->keyBy('company_id');
-
-        // 2. Deficiencies by company_id
-        $deficienciesMap = self::deficienciesAggregateQuery($scopedCompanyIds, $branchId, $startDate, $endDate, $user)
-            ->selectRaw('
-                unified_deficiency_tasks.company_id,
-                COUNT(*) as open_deficiencies
-            ')
-            ->groupBy('unified_deficiency_tasks.company_id')
-            ->get()
-            ->keyBy('company_id');
-
-        // 3. Tasks by employees.company_id
-        $tasksMap = self::tasksAggregateQuery($scopedCompanyIds, $branchId, $startDate, $endDate, $user)
-            ->selectRaw('
-                employees.company_id,
-                SUM(CASE WHEN task_assignment_items.status = ? AND task_assignment_items.completed_at BETWEEN ? AND ? THEN 1 ELSE 0 END) as task_completed_in_period,
-                SUM(CASE WHEN task_assignment_items.due_date BETWEEN ? AND ? THEN 1 ELSE 0 END) as task_due_in_period,
-                SUM(CASE WHEN task_assignment_items.due_date BETWEEN ? AND ? AND task_assignment_items.status = ? AND task_assignment_items.completed_at IS NOT NULL AND task_assignment_items.completed_at <= ? THEN 1 ELSE 0 END) as task_due_completed,
-                SUM(CASE WHEN task_assignment_items.status IN (?, ?) AND task_assignment_items.due_date IS NOT NULL AND task_assignment_items.due_date < ? THEN 1 ELSE 0 END) as task_overdue
-            ', [
-                TaskStatus::COMPLETED->value, $startDate, $endDate,
-                $startDate, $endDate,
-                $startDate, $endDate, TaskStatus::COMPLETED->value, $endDate,
-                TaskStatus::PENDING->value, TaskStatus::IN_PROGRESS->value, today()->toDateString(),
-            ])
-            ->groupBy('employees.company_id')
-            ->get()
-            ->keyBy('company_id');
-
-        // 4. Counts
-        $employeesCountMap = Employee::query()
-            ->nonTemporary()
-            ->whereIn('company_id', $scopedCompanyIds)
-            ->when($branchId !== null, fn (Builder $q) => $q->where('branch_id', $branchId))
-            ->when(self::isSupervisorViewer($user), fn (Builder $q) => $q->whereIn('id', self::supervisorTeamIds($user, $startDate, $endDate)))
-            ->selectRaw('company_id, COUNT(*) as count')
-            ->groupBy('company_id')
-            ->pluck('count', 'company_id');
-
-        $departmentsCountMap = Department::query()
-            ->whereIn('company_id', $scopedCompanyIds)
-            ->selectRaw('company_id, COUNT(*) as count')
-            ->groupBy('company_id')
-            ->pluck('count', 'company_id');
 
         $companies = Company::query()
             ->whereIn('id', $scopedCompanyIds)
@@ -326,7 +220,60 @@ class CompanyDepartmentPerformanceService
                     ->orWhere('company_number', 'like', "%{$term}%"));
             })
             ->orderBy('trade_name')
-            ->get();
+            ->get(['id', 'trade_name', 'trade_name_en', 'company_number']);
+
+        if ($companies->isEmpty()) {
+            return collect();
+        }
+
+        $scopedCompanyIds = $companies->modelKeys();
+        $teamIds = self::isSupervisorViewer($user) ? self::supervisorTeamIds($user, $startDate, $endDate) : null;
+
+        // 1. Services by company_id
+        $servicesMap = self::selectServiceMetrics(
+            self::servicesAggregateQuery($scopedCompanyIds, $branchId, $teamIds)
+                ->selectRaw('service_transactions.company_id'),
+            $startDate,
+            $endDate,
+        )->groupBy('service_transactions.company_id')
+            ->get()
+            ->keyBy('company_id');
+
+        // 2. Deficiencies by company_id
+        $deficienciesMap = self::deficienciesAggregateQuery($scopedCompanyIds, $branchId, $startDate, $endDate, $teamIds)
+            ->selectRaw('
+                unified_deficiency_tasks.company_id,
+                COUNT(*) as open_deficiencies
+            ')
+            ->groupBy('unified_deficiency_tasks.company_id')
+            ->get()
+            ->keyBy('company_id');
+
+        // 3. Tasks by employees.company_id
+        $tasksMap = self::selectTaskMetrics(
+            self::tasksAggregateQuery($scopedCompanyIds, $branchId, $teamIds)
+                ->selectRaw('employees.company_id'),
+            $startDate,
+            $endDate,
+        )->groupBy('employees.company_id')
+            ->get()
+            ->keyBy('company_id');
+
+        // 4. Counts
+        $employeesCountMap = Employee::query()
+            ->nonTemporary()
+            ->whereIn('company_id', $scopedCompanyIds)
+            ->when($branchId !== null, fn (Builder $q) => $q->where('branch_id', $branchId))
+            ->when($teamIds !== null, fn (Builder $q) => $q->whereIn('id', $teamIds))
+            ->selectRaw('company_id, COUNT(*) as count')
+            ->groupBy('company_id')
+            ->pluck('count', 'company_id');
+
+        $departmentsCountMap = Department::query()
+            ->whereIn('company_id', $scopedCompanyIds)
+            ->selectRaw('company_id, COUNT(*) as count')
+            ->groupBy('company_id')
+            ->pluck('count', 'company_id');
 
         return $companies->map(function (Company $company) use (
             $servicesMap,
@@ -340,27 +287,11 @@ class CompanyDepartmentPerformanceService
             $def = $deficienciesMap->get($cid);
             $tsk = $tasksMap->get($cid);
 
-            $datedCompleted = (int) ($srv->dated_completed ?? 0);
-            $onTimeCompleted = (int) ($srv->on_time_completed ?? 0);
-            $onTimeRate = $datedCompleted > 0 ? round(($onTimeCompleted / $datedCompleted) * 100, 1) : null;
-
-            $taskDueInPeriod = (int) ($tsk->task_due_in_period ?? 0);
-            $taskDueCompleted = (int) ($tsk->task_due_completed ?? 0);
-            $taskCompletionRate = $taskDueInPeriod > 0 ? round(($taskDueCompleted / $taskDueInPeriod) * 100, 1) : null;
-
             return (object) [
                 'company_id' => $cid,
-                'company_name' => $company->trade_name ?: ($company->trade_name_en ?: "منشأة #{$cid}"),
+                'company_name' => $company->trade_name ?: ($company->trade_name_en ?: __('performance.fallback.company', ['id' => $cid])),
                 'company_number' => $company->company_number,
-                'active_services' => (int) ($srv->active_services ?? 0),
-                'completed_services' => (int) ($srv->completed_services ?? 0),
-                'overdue_services' => (int) ($srv->overdue_services ?? 0),
-                'on_time_rate' => $onTimeRate,
-                'open_deficiencies' => (int) ($def->open_deficiencies ?? 0),
-                'task_due_in_period' => $taskDueInPeriod,
-                'task_completed_in_period' => (int) ($tsk->task_completed_in_period ?? 0),
-                'task_overdue' => (int) ($tsk->task_overdue ?? 0),
-                'task_completion_rate' => $taskCompletionRate,
+                ...self::metrics($srv, $def, $tsk),
                 'departments_count' => (int) ($departmentsCountMap[$cid] ?? 0),
                 'employees_count' => (int) ($employeesCountMap[$cid] ?? 0),
             ];
@@ -383,30 +314,21 @@ class CompanyDepartmentPerformanceService
 
         [$startDate, $endDate] = self::resolveDateRange($filters);
         $branchId = self::resolveBranchId($filters, $user);
+        $teamIds = self::isSupervisorViewer($user) ? self::supervisorTeamIds($user, $startDate, $endDate) : null;
 
         // 1. Services aggregated by executor department
-        $servicesMap = self::servicesAggregateQuery([$companyId], $branchId, $startDate, $endDate, $user)
-            ->leftJoin('employees as executor_emp', 'service_transactions.executed_by', '=', 'executor_emp.id')
-            ->selectRaw('
-                COALESCE(executor_emp.department_id, 0) as department_id,
-                COUNT(CASE WHEN service_transactions.service_status = "active" AND service_transactions.transaction_date BETWEEN ? AND ? THEN 1 END) as active_services,
-                COUNT(CASE WHEN service_transactions.service_status = "completed" AND service_transactions.completion_date BETWEEN ? AND ? THEN 1 END) as completed_services,
-                COUNT(CASE WHEN service_transactions.service_status = "active" AND service_transactions.due_date BETWEEN ? AND ? AND service_transactions.due_date < ? THEN 1 END) as overdue_services,
-                COUNT(CASE WHEN service_transactions.service_status = "completed" AND service_transactions.completion_date BETWEEN ? AND ? AND service_transactions.due_date IS NOT NULL AND service_transactions.completion_date <= service_transactions.due_date THEN 1 END) as on_time_completed,
-                COUNT(CASE WHEN service_transactions.service_status = "completed" AND service_transactions.completion_date BETWEEN ? AND ? AND service_transactions.due_date IS NOT NULL THEN 1 END) as dated_completed
-            ', [
-                $startDate, $endDate,
-                $startDate, $endDate,
-                $startDate, $endDate, today()->toDateString(),
-                $startDate, $endDate,
-                $startDate, $endDate,
-            ])
-            ->groupBy(DB::raw('COALESCE(executor_emp.department_id, 0)'))
+        $servicesMap = self::selectServiceMetrics(
+            self::servicesAggregateQuery([$companyId], $branchId, $teamIds)
+                ->leftJoin('employees as executor_emp', 'service_transactions.executed_by', '=', 'executor_emp.id')
+                ->selectRaw('COALESCE(executor_emp.department_id, 0) as department_id'),
+            $startDate,
+            $endDate,
+        )->groupBy(DB::raw('COALESCE(executor_emp.department_id, 0)'))
             ->get()
             ->keyBy('department_id');
 
         // 2. Deficiencies aggregated by responsible employee department
-        $deficienciesMap = self::deficienciesAggregateQuery([$companyId], $branchId, $startDate, $endDate, $user)
+        $deficienciesMap = self::deficienciesAggregateQuery([$companyId], $branchId, $startDate, $endDate, $teamIds)
             ->leftJoin('employees as resp_emp', 'unified_deficiency_tasks.responsible_employee_id', '=', 'resp_emp.id')
             ->selectRaw('
                 COALESCE(resp_emp.department_id, 0) as department_id,
@@ -417,20 +339,12 @@ class CompanyDepartmentPerformanceService
             ->keyBy('department_id');
 
         // 3. Tasks aggregated by employee department
-        $tasksMap = self::tasksAggregateQuery([$companyId], $branchId, $startDate, $endDate, $user)
-            ->selectRaw('
-                COALESCE(employees.department_id, 0) as department_id,
-                SUM(CASE WHEN task_assignment_items.status = ? AND task_assignment_items.completed_at BETWEEN ? AND ? THEN 1 ELSE 0 END) as task_completed_in_period,
-                SUM(CASE WHEN task_assignment_items.due_date BETWEEN ? AND ? THEN 1 ELSE 0 END) as task_due_in_period,
-                SUM(CASE WHEN task_assignment_items.due_date BETWEEN ? AND ? AND task_assignment_items.status = ? AND task_assignment_items.completed_at IS NOT NULL AND task_assignment_items.completed_at <= ? THEN 1 ELSE 0 END) as task_due_completed,
-                SUM(CASE WHEN task_assignment_items.status IN (?, ?) AND task_assignment_items.due_date IS NOT NULL AND task_assignment_items.due_date < ? THEN 1 ELSE 0 END) as task_overdue
-            ', [
-                TaskStatus::COMPLETED->value, $startDate, $endDate,
-                $startDate, $endDate,
-                $startDate, $endDate, TaskStatus::COMPLETED->value, $endDate,
-                TaskStatus::PENDING->value, TaskStatus::IN_PROGRESS->value, today()->toDateString(),
-            ])
-            ->groupBy(DB::raw('COALESCE(employees.department_id, 0)'))
+        $tasksMap = self::selectTaskMetrics(
+            self::tasksAggregateQuery([$companyId], $branchId, $teamIds)
+                ->selectRaw('COALESCE(employees.department_id, 0) as department_id'),
+            $startDate,
+            $endDate,
+        )->groupBy(DB::raw('COALESCE(employees.department_id, 0)'))
             ->get()
             ->keyBy('department_id');
 
@@ -439,7 +353,7 @@ class CompanyDepartmentPerformanceService
             ->nonTemporary()
             ->where('company_id', $companyId)
             ->when($branchId !== null, fn (Builder $q) => $q->where('branch_id', $branchId))
-            ->when(self::isSupervisorViewer($user), fn (Builder $q) => $q->whereIn('id', self::supervisorTeamIds($user, $startDate, $endDate)))
+            ->when($teamIds !== null, fn (Builder $q) => $q->whereIn('id', $teamIds))
             ->selectRaw('COALESCE(department_id, 0) as department_id, COUNT(*) as count')
             ->groupBy(DB::raw('COALESCE(department_id, 0)'))
             ->pluck('count', 'department_id');
@@ -458,7 +372,7 @@ class CompanyDepartmentPerformanceService
             ->orderBy('name')
             ->get();
 
-        $isSupervisor = self::isSupervisorViewer($user);
+        $isSupervisor = $teamIds !== null;
         $result = collect();
 
         foreach ($departments as $department) {
@@ -466,14 +380,6 @@ class CompanyDepartmentPerformanceService
             $srv = $servicesMap->get($did);
             $def = $deficienciesMap->get($did);
             $tsk = $tasksMap->get($did);
-
-            $datedCompleted = (int) ($srv->dated_completed ?? 0);
-            $onTimeCompleted = (int) ($srv->on_time_completed ?? 0);
-            $onTimeRate = $datedCompleted > 0 ? round(($onTimeCompleted / $datedCompleted) * 100, 1) : null;
-
-            $taskDueInPeriod = (int) ($tsk->task_due_in_period ?? 0);
-            $taskDueCompleted = (int) ($tsk->task_due_completed ?? 0);
-            $taskCompletionRate = $taskDueInPeriod > 0 ? round(($taskDueCompleted / $taskDueInPeriod) * 100, 1) : null;
 
             $displayName = $department->parent
                 ? "{$department->name} ({$department->parent->name})"
@@ -484,15 +390,7 @@ class CompanyDepartmentPerformanceService
                 'department_name' => $displayName,
                 'is_unassigned' => false,
                 'is_team_scope' => $isSupervisor,
-                'active_services' => (int) ($srv->active_services ?? 0),
-                'completed_services' => (int) ($srv->completed_services ?? 0),
-                'overdue_services' => (int) ($srv->overdue_services ?? 0),
-                'on_time_rate' => $onTimeRate,
-                'open_deficiencies' => (int) ($def->open_deficiencies ?? 0),
-                'task_due_in_period' => $taskDueInPeriod,
-                'task_completed_in_period' => (int) ($tsk->task_completed_in_period ?? 0),
-                'task_overdue' => (int) ($tsk->task_overdue ?? 0),
-                'task_completion_rate' => $taskCompletionRate,
+                ...self::metrics($srv, $def, $tsk),
                 'employees_count' => (int) ($employeesCountMap[$did] ?? 0),
             ]);
         }
@@ -509,33 +407,53 @@ class CompanyDepartmentPerformanceService
             || $unassignedEmpCount > 0;
 
         if ($hasUnassigned) {
-            $datedCompleted = (int) ($unassignedSrv->dated_completed ?? 0);
-            $onTimeCompleted = (int) ($unassignedSrv->on_time_completed ?? 0);
-            $onTimeRate = $datedCompleted > 0 ? round(($onTimeCompleted / $datedCompleted) * 100, 1) : null;
-
-            $taskDueInPeriod = (int) ($unassignedTsk->task_due_in_period ?? 0);
-            $taskDueCompleted = (int) ($unassignedTsk->task_due_completed ?? 0);
-            $taskCompletionRate = $taskDueInPeriod > 0 ? round(($taskDueCompleted / $taskDueInPeriod) * 100, 1) : null;
 
             $result->push((object) [
                 'department_id' => 'unassigned',
                 'department_name' => __('performance.levels.unassigned_or_no_department'),
                 'is_unassigned' => true,
                 'is_team_scope' => false,
-                'active_services' => (int) ($unassignedSrv->active_services ?? 0),
-                'completed_services' => (int) ($unassignedSrv->completed_services ?? 0),
-                'overdue_services' => (int) ($unassignedSrv->overdue_services ?? 0),
-                'on_time_rate' => $onTimeRate,
-                'open_deficiencies' => (int) ($unassignedDef->open_deficiencies ?? 0),
-                'task_due_in_period' => $taskDueInPeriod,
-                'task_completed_in_period' => (int) ($unassignedTsk->task_completed_in_period ?? 0),
-                'task_overdue' => (int) ($unassignedTsk->task_overdue ?? 0),
-                'task_completion_rate' => $taskCompletionRate,
+                ...self::metrics($unassignedSrv, $unassignedDef, $unassignedTsk),
                 'employees_count' => $unassignedEmpCount,
             ]);
         }
 
         return $result;
+    }
+
+    /**
+     * Resolve department leads / supervisors by department IDs.
+     *
+     * @param  array<int|string>  $departmentIds
+     * @return Collection<int|string, object>
+     */
+    public static function getDepartmentLeads(int $companyId, array $departmentIds): Collection
+    {
+        $deptIds = array_values(array_filter($departmentIds, fn ($id) => is_numeric($id)));
+        if (empty($deptIds)) {
+            return collect();
+        }
+
+        $leadKeywords = (array) __('performance.supervisors.lead_keywords');
+        $likeCases = [];
+        $bindings = [];
+        foreach ($leadKeywords as $kw) {
+            $likeCases[] = 'job_titles.name LIKE ?';
+            $bindings[] = '%'.$kw.'%';
+        }
+        $rawOrder = ! empty($likeCases) ? 'CASE WHEN ('.implode(' OR ', $likeCases).') THEN 0 ELSE 1 END' : '1';
+
+        return Employee::query()
+            ->where('employees.company_id', $companyId)
+            ->whereIn('employees.department_id', $deptIds)
+            ->join('job_titles', 'employees.job_title_id', '=', 'job_titles.id')
+            ->join('users', 'employees.user_id', '=', 'users.id')
+            ->orderByRaw($rawOrder, $bindings)
+            ->orderBy('job_titles.sort_order')
+            ->select('employees.department_id', 'users.name as name', 'job_titles.name as title')
+            ->get()
+            ->unique('department_id')
+            ->keyBy('department_id');
     }
 
     /**
@@ -554,6 +472,7 @@ class CompanyDepartmentPerformanceService
 
         [$startDate, $endDate] = self::resolveDateRange($filters);
         $branchId = self::resolveBranchId($filters, $user);
+        $teamIds = self::isSupervisorViewer($user) ? self::supervisorTeamIds($user, $startDate, $endDate) : null;
 
         $query = Employee::query()
             ->nonTemporary()
@@ -570,8 +489,7 @@ class CompanyDepartmentPerformanceService
             $query->where('employees.branch_id', $branchId);
         }
 
-        if (self::isSupervisorViewer($user)) {
-            $teamIds = self::supervisorTeamIds($user, $startDate, $endDate);
+        if ($teamIds !== null) {
             $query->whereIn('employees.id', $teamIds);
         }
 
@@ -591,28 +509,18 @@ class CompanyDepartmentPerformanceService
         $empIds = $employees->pluck('id')->all();
 
         // 1. Services by executed_by
-        $servicesMap = self::servicesAggregateQuery([$companyId], $branchId, $startDate, $endDate, $user)
-            ->whereIn('service_transactions.executed_by', $empIds)
-            ->selectRaw('
-                service_transactions.executed_by as employee_id,
-                COUNT(CASE WHEN service_transactions.service_status = "active" AND service_transactions.transaction_date BETWEEN ? AND ? THEN 1 END) as active_services,
-                COUNT(CASE WHEN service_transactions.service_status = "completed" AND service_transactions.completion_date BETWEEN ? AND ? THEN 1 END) as completed_services,
-                COUNT(CASE WHEN service_transactions.service_status = "active" AND service_transactions.due_date BETWEEN ? AND ? AND service_transactions.due_date < ? THEN 1 END) as overdue_services,
-                COUNT(CASE WHEN service_transactions.service_status = "completed" AND service_transactions.completion_date BETWEEN ? AND ? AND service_transactions.due_date IS NOT NULL AND service_transactions.completion_date <= service_transactions.due_date THEN 1 END) as on_time_completed,
-                COUNT(CASE WHEN service_transactions.service_status = "completed" AND service_transactions.completion_date BETWEEN ? AND ? AND service_transactions.due_date IS NOT NULL THEN 1 END) as dated_completed
-            ', [
-                $startDate, $endDate,
-                $startDate, $endDate,
-                $startDate, $endDate, today()->toDateString(),
-                $startDate, $endDate,
-                $startDate, $endDate,
-            ])
-            ->groupBy('service_transactions.executed_by')
+        $servicesMap = self::selectServiceMetrics(
+            self::servicesAggregateQuery([$companyId], $branchId, $teamIds)
+                ->whereIn('service_transactions.executed_by', $empIds)
+                ->selectRaw('service_transactions.executed_by as employee_id'),
+            $startDate,
+            $endDate,
+        )->groupBy('service_transactions.executed_by')
             ->get()
             ->keyBy('employee_id');
 
         // 2. Deficiencies by responsible_employee_id
-        $deficienciesMap = self::deficienciesAggregateQuery([$companyId], $branchId, $startDate, $endDate, $user)
+        $deficienciesMap = self::deficienciesAggregateQuery([$companyId], $branchId, $startDate, $endDate, $teamIds)
             ->whereIn('unified_deficiency_tasks.responsible_employee_id', $empIds)
             ->selectRaw('
                 unified_deficiency_tasks.responsible_employee_id as employee_id,
@@ -623,21 +531,13 @@ class CompanyDepartmentPerformanceService
             ->keyBy('employee_id');
 
         // 3. Tasks by task_assignments.employee_id
-        $tasksMap = self::tasksAggregateQuery([$companyId], $branchId, $startDate, $endDate, $user)
-            ->whereIn('task_assignments.employee_id', $empIds)
-            ->selectRaw('
-                task_assignments.employee_id,
-                SUM(CASE WHEN task_assignment_items.status = ? AND task_assignment_items.completed_at BETWEEN ? AND ? THEN 1 ELSE 0 END) as task_completed_in_period,
-                SUM(CASE WHEN task_assignment_items.due_date BETWEEN ? AND ? THEN 1 ELSE 0 END) as task_due_in_period,
-                SUM(CASE WHEN task_assignment_items.due_date BETWEEN ? AND ? AND task_assignment_items.status = ? AND task_assignment_items.completed_at IS NOT NULL AND task_assignment_items.completed_at <= ? THEN 1 ELSE 0 END) as task_due_completed,
-                SUM(CASE WHEN task_assignment_items.status IN (?, ?) AND task_assignment_items.due_date IS NOT NULL AND task_assignment_items.due_date < ? THEN 1 ELSE 0 END) as task_overdue
-            ', [
-                TaskStatus::COMPLETED->value, $startDate, $endDate,
-                $startDate, $endDate,
-                $startDate, $endDate, TaskStatus::COMPLETED->value, $endDate,
-                TaskStatus::PENDING->value, TaskStatus::IN_PROGRESS->value, today()->toDateString(),
-            ])
-            ->groupBy('task_assignments.employee_id')
+        $tasksMap = self::selectTaskMetrics(
+            self::tasksAggregateQuery([$companyId], $branchId, $teamIds)
+                ->whereIn('task_assignments.employee_id', $empIds)
+                ->selectRaw('task_assignments.employee_id'),
+            $startDate,
+            $endDate,
+        )->groupBy('task_assignments.employee_id')
             ->get()
             ->keyBy('employee_id');
 
@@ -648,6 +548,7 @@ class CompanyDepartmentPerformanceService
             ->map(fn ($id) => (int) $id)
             ->all();
         $saudiSet = array_flip($saudiIds);
+        $employees->reject(fn (Employee $employee) => isset($saudiSet[$employee->id]))->loadMissing('details');
 
         return $employees->map(function (Employee $employee) use ($servicesMap, $deficienciesMap, $tasksMap, $saudiSet) {
             $eid = $employee->id;
@@ -655,21 +556,14 @@ class CompanyDepartmentPerformanceService
             $def = $deficienciesMap->get($eid);
             $tsk = $tasksMap->get($eid);
 
-            $datedCompleted = (int) ($srv->dated_completed ?? 0);
-            $onTimeCompleted = (int) ($srv->on_time_completed ?? 0);
-            $onTimeRate = $datedCompleted > 0 ? round(($onTimeCompleted / $datedCompleted) * 100, 1) : null;
-
             $isSaudi = isset($saudiSet[$eid]) || $employee->isSaudi();
-            $taskDueInPeriod = (int) ($tsk->task_due_in_period ?? 0);
-            $taskDueCompleted = (int) ($tsk->task_due_completed ?? 0);
-            $taskCompletionRate = $taskDueInPeriod > 0 ? round(($taskDueCompleted / $taskDueInPeriod) * 100, 1) : null;
 
             $performanceUrl = null;
             try {
                 if ($isSaudi) {
-                    $performanceUrl = \App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource::getUrl('performance', ['record' => $employee]);
+                    $performanceUrl = SaudiEmployeeResource::getUrl('performance', ['record' => $employee]);
                 } else {
-                    $performanceUrl = \App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource::getUrl('performance', ['record' => $employee]);
+                    $performanceUrl = ForeignEmployeeResource::getUrl('performance', ['record' => $employee]);
                 }
             } catch (\Throwable $e) {
                 $performanceUrl = null;
@@ -677,21 +571,13 @@ class CompanyDepartmentPerformanceService
 
             return (object) [
                 'employee_id' => $eid,
-                'name' => $employee->user?->name ?? "موظف #{$eid}",
+                'name' => $employee->user?->name ?? __('performance.fallback.employee', ['id' => $eid]),
                 'employee_number' => $employee->employee_number,
                 'job_title' => $employee->jobTitle?->name ?? '—',
                 'branch_name' => $employee->branch?->name ?? '—',
                 'is_saudi' => $isSaudi,
                 'performance_url' => $performanceUrl,
-                'active_services' => (int) ($srv->active_services ?? 0),
-                'completed_services' => (int) ($srv->completed_services ?? 0),
-                'overdue_services' => (int) ($srv->overdue_services ?? 0),
-                'on_time_rate' => $onTimeRate,
-                'open_deficiencies' => (int) ($def->open_deficiencies ?? 0),
-                'task_due_in_period' => $isSaudi ? $taskDueInPeriod : null,
-                'task_completed_in_period' => $isSaudi ? (int) ($tsk->task_completed_in_period ?? 0) : null,
-                'task_overdue' => $isSaudi ? (int) ($tsk->task_overdue ?? 0) : null,
-                'task_completion_rate' => $isSaudi ? $taskCompletionRate : null,
+                ...self::metrics($srv, $def, $tsk, $isSaudi),
             ];
         });
     }
@@ -707,13 +593,12 @@ class CompanyDepartmentPerformanceService
         ?int $employeeId = null
     ): Builder {
         $user = auth()->user();
-        $authorizedCompanyIds = self::getAuthorizedCompanyIds($user);
-
-        $targetCompanyIds = $companyId ? array_intersect([$companyId], $authorizedCompanyIds) : $authorizedCompanyIds;
+        $targetCompanyIds = self::kashfCompanyIds($filters, $companyId, $user);
         [$startDate, $endDate] = self::resolveDateRange($filters);
         $branchId = self::resolveBranchId($filters, $user);
+        $teamIds = self::isSupervisorViewer($user) ? self::supervisorTeamIds($user, $startDate, $endDate) : null;
 
-        $query = self::servicesAggregateQuery($targetCompanyIds, $branchId, $startDate, $endDate, $user)
+        $query = self::servicesAggregateQuery($targetCompanyIds, $branchId, $teamIds)
             ->with(['service', 'executor.user', 'employee.user', 'company']);
 
         if ($employeeId) {
@@ -759,13 +644,12 @@ class CompanyDepartmentPerformanceService
         ?int $employeeId = null
     ): Builder {
         $user = auth()->user();
-        $authorizedCompanyIds = self::getAuthorizedCompanyIds($user);
-
-        $targetCompanyIds = $companyId ? array_intersect([$companyId], $authorizedCompanyIds) : $authorizedCompanyIds;
+        $targetCompanyIds = self::kashfCompanyIds($filters, $companyId, $user);
         [$startDate, $endDate] = self::resolveDateRange($filters);
         $branchId = self::resolveBranchId($filters, $user);
+        $teamIds = self::isSupervisorViewer($user) ? self::supervisorTeamIds($user, $startDate, $endDate) : null;
 
-        $query = self::deficienciesAggregateQuery($targetCompanyIds, $branchId, $startDate, $endDate, $user)
+        $query = self::deficienciesAggregateQuery($targetCompanyIds, $branchId, $startDate, $endDate, $teamIds)
             ->with(['responsibleEmployee.user', 'transaction.service', 'company']);
 
         if ($employeeId) {
@@ -793,13 +677,12 @@ class CompanyDepartmentPerformanceService
         ?int $employeeId = null
     ): Builder {
         $user = auth()->user();
-        $authorizedCompanyIds = self::getAuthorizedCompanyIds($user);
-
-        $targetCompanyIds = $companyId ? array_intersect([$companyId], $authorizedCompanyIds) : $authorizedCompanyIds;
+        $targetCompanyIds = self::kashfCompanyIds($filters, $companyId, $user);
         [$startDate, $endDate] = self::resolveDateRange($filters);
         $branchId = self::resolveBranchId($filters, $user);
+        $teamIds = self::isSupervisorViewer($user) ? self::supervisorTeamIds($user, $startDate, $endDate) : null;
 
-        $query = self::tasksAggregateQuery($targetCompanyIds, $branchId, $startDate, $endDate, $user)
+        $query = self::tasksAggregateQuery($targetCompanyIds, $branchId, $teamIds)
             ->with(['task', 'taskAssignment.employee.user'])
             ->select('task_assignment_items.*');
 
@@ -828,15 +711,25 @@ class CompanyDepartmentPerformanceService
         return $query->orderByDesc('task_assignment_items.id');
     }
 
+    private static function kashfCompanyIds(array $filters, ?int $companyId, ?User $user): array
+    {
+        $ids = self::getAuthorizedCompanyIds($user);
+
+        if (filled($filters['company_id'] ?? null)) {
+            $ids = array_intersect($ids, (array) $filters['company_id']);
+        }
+
+        return $companyId === null ? $ids : array_intersect($ids, [$companyId]);
+    }
+
     /**
      * Base query for services aggregation with filters and scopes applied.
+     * A null team leaves the company and branch scope intact. An empty team matches no records.
      */
     private static function servicesAggregateQuery(
         array $companyIds,
         ?int $branchId,
-        string $startDate,
-        string $endDate,
-        ?User $user
+        ?array $teamIds
     ): Builder {
         $query = ServiceTransaction::query()
             ->whereIn('service_transactions.company_id', $companyIds)
@@ -851,8 +744,7 @@ class CompanyDepartmentPerformanceService
             });
         }
 
-        if (self::isSupervisorViewer($user)) {
-            $teamIds = self::supervisorTeamIds($user, $startDate, $endDate);
+        if ($teamIds !== null) {
             $query->whereIn('service_transactions.executed_by', $teamIds);
         }
 
@@ -867,7 +759,7 @@ class CompanyDepartmentPerformanceService
         ?int $branchId,
         string $startDate,
         string $endDate,
-        ?User $user
+        ?array $teamIds
     ): Builder {
         $query = UnifiedDeficiencyTask::query()
             ->whereIn('unified_deficiency_tasks.company_id', $companyIds)
@@ -888,8 +780,7 @@ class CompanyDepartmentPerformanceService
             });
         }
 
-        if (self::isSupervisorViewer($user)) {
-            $teamIds = self::supervisorTeamIds($user, $startDate, $endDate);
+        if ($teamIds !== null) {
             $query->whereIn('unified_deficiency_tasks.responsible_employee_id', $teamIds);
         }
 
@@ -902,9 +793,7 @@ class CompanyDepartmentPerformanceService
     private static function tasksAggregateQuery(
         array $companyIds,
         ?int $branchId,
-        string $startDate,
-        string $endDate,
-        ?User $user
+        ?array $teamIds
     ): Builder {
         $saudiIds = Employee::query()->saudi()->select('employees.id');
 
@@ -918,12 +807,64 @@ class CompanyDepartmentPerformanceService
             $query->where('employees.branch_id', $branchId);
         }
 
-        if (self::isSupervisorViewer($user)) {
-            $teamIds = self::supervisorTeamIds($user, $startDate, $endDate);
+        if ($teamIds !== null) {
             $query->whereIn('task_assignments.employee_id', $teamIds);
         }
 
         return $query;
     }
-}
 
+    private static function metrics(?object $services, ?object $deficiencies, ?object $tasks, bool $includeTasks = true): array
+    {
+        $tasksDue = (int) ($tasks->task_due_in_period ?? 0);
+
+        return [
+            'active_services' => (int) ($services->active_services ?? 0),
+            'completed_services' => (int) ($services->completed_services ?? 0),
+            'overdue_services' => (int) ($services->overdue_services ?? 0),
+            'on_time_rate' => self::percentage((int) ($services->on_time_completed ?? 0), (int) ($services->dated_completed ?? 0)),
+            'open_deficiencies' => (int) ($deficiencies->open_deficiencies ?? 0),
+            'task_due_in_period' => $includeTasks ? $tasksDue : null,
+            'task_completed_in_period' => $includeTasks ? (int) ($tasks->task_completed_in_period ?? 0) : null,
+            'task_overdue' => $includeTasks ? (int) ($tasks->task_overdue ?? 0) : null,
+            'task_completion_rate' => $includeTasks ? self::percentage((int) ($tasks->task_due_completed ?? 0), $tasksDue) : null,
+        ];
+    }
+
+    private static function percentage(int $numerator, int $denominator): ?float
+    {
+        return $denominator > 0 ? round(($numerator / $denominator) * 100, 1) : null;
+    }
+
+    private static function selectServiceMetrics(Builder $query, string $startDate, string $endDate): Builder
+    {
+        return $query->selectRaw('
+            COUNT(CASE WHEN service_transactions.service_status = "active" AND service_transactions.transaction_date BETWEEN ? AND ? THEN 1 END) as active_services,
+            COUNT(CASE WHEN service_transactions.service_status = "completed" AND service_transactions.completion_date BETWEEN ? AND ? THEN 1 END) as completed_services,
+            COUNT(CASE WHEN service_transactions.service_status = "active" AND service_transactions.due_date BETWEEN ? AND ? AND service_transactions.due_date < ? THEN 1 END) as overdue_services,
+            COUNT(CASE WHEN service_transactions.service_status = "completed" AND service_transactions.completion_date BETWEEN ? AND ? AND service_transactions.due_date IS NOT NULL AND service_transactions.completion_date <= service_transactions.due_date THEN 1 END) as on_time_completed,
+            COUNT(CASE WHEN service_transactions.service_status = "completed" AND service_transactions.completion_date BETWEEN ? AND ? AND service_transactions.due_date IS NOT NULL THEN 1 END) as dated_completed
+        ', [
+            $startDate, $endDate,
+            $startDate, $endDate,
+            $startDate, $endDate, today()->toDateString(),
+            $startDate, $endDate,
+            $startDate, $endDate,
+        ]);
+    }
+
+    private static function selectTaskMetrics(Builder $query, string $startDate, string $endDate): Builder
+    {
+        return $query->selectRaw('
+            SUM(CASE WHEN task_assignment_items.status = ? AND task_assignment_items.completed_at BETWEEN ? AND ? THEN 1 ELSE 0 END) as task_completed_in_period,
+            SUM(CASE WHEN task_assignment_items.due_date BETWEEN ? AND ? THEN 1 ELSE 0 END) as task_due_in_period,
+            SUM(CASE WHEN task_assignment_items.due_date BETWEEN ? AND ? AND task_assignment_items.status = ? AND task_assignment_items.completed_at IS NOT NULL AND task_assignment_items.completed_at <= ? THEN 1 ELSE 0 END) as task_due_completed,
+            SUM(CASE WHEN task_assignment_items.status IN (?, ?) AND task_assignment_items.due_date IS NOT NULL AND task_assignment_items.due_date < ? THEN 1 ELSE 0 END) as task_overdue
+        ', [
+            TaskStatus::COMPLETED->value, $startDate, $endDate,
+            $startDate, $endDate,
+            $startDate, $endDate, TaskStatus::COMPLETED->value, $endDate,
+            TaskStatus::PENDING->value, TaskStatus::IN_PROGRESS->value, today()->toDateString(),
+        ]);
+    }
+}

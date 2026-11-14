@@ -19,11 +19,10 @@ class LeaveSummaryService
      * Build the aggregated summary query where each row is an Employee
      * with metrics computed over the selected year and all-time balances.
      */
-    public static function summaryQuery(array $filters = []): Builder
+    public static function summaryQuery(array $filters = [], bool $includeBalances = true): Builder
     {
         $year = self::resolveYear(array_key_exists('year', $filters) ? $filters['year'] : now()->year);
         $today = now()->toDateString();
-        $annualTypeId = LeaveBalanceService::getDedicatedAnnualLeaveTypeId();
         $days = self::periodDaysSql($year);
 
         // 1. Period aggregation subquery (within selected year)
@@ -34,15 +33,11 @@ class LeaveSummaryService
                 SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as approved_leaves_count,
                 SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as pending_leaves_count,
                 SUM(CASE WHEN status = ? THEN {$days} ELSE 0 END) as total_approved_days,
-                SUM(CASE WHEN status = ? AND leave_type_id = ? THEN {$days} ELSE 0 END) as annual_approved_days_period,
-                SUM(CASE WHEN status = ? AND (leave_type_id != ? OR leave_type_id IS NULL) THEN {$days} ELSE 0 END) as other_approved_days_period,
                 MAX(CASE WHEN status = ? THEN end_date ELSE NULL END) as last_leave_end_date
             ", [
                 LeaveStatus::APPROVED->value,
                 LeaveStatus::PENDING->value,
                 LeaveStatus::APPROVED->value,
-                LeaveStatus::APPROVED->value, $annualTypeId,
-                LeaveStatus::APPROVED->value, $annualTypeId,
                 LeaveStatus::APPROVED->value,
             ])
             ->when($year !== null, fn ($q) => $q->whereDate('start_date', '<=', sprintf('%04d-12-31', $year))
@@ -57,19 +52,24 @@ class LeaveSummaryService
             ->where(fn ($q) => $q->whereNull('actual_return_date')->orWhereDate('actual_return_date', '>', $today))
             ->groupBy('employee_id');
 
-        // 2. All-time historical annual leave usage subquery (for accurate balance)
-        $historicalAnnualAggregate = Leave::query()
-            ->selectRaw('
-                employee_id,
-                SUM(CASE WHEN status = ? AND leave_type_id = ? THEN days ELSE 0 END) as historical_annual_used_days
-            ', [LeaveStatus::APPROVED->value, $annualTypeId])
-            ->groupBy('employee_id');
+        if ($includeBalances) {
+            $annualTypeId = LeaveBalanceService::getDedicatedAnnualLeaveTypeId();
+            $aggregate->selectRaw("
+                SUM(CASE WHEN status = ? AND leave_type_id = ? THEN {$days} ELSE 0 END) as annual_approved_days_period,
+                SUM(CASE WHEN status = ? AND (leave_type_id != ? OR leave_type_id IS NULL) THEN {$days} ELSE 0 END) as other_approved_days_period
+            ", [LeaveStatus::APPROVED->value, $annualTypeId, LeaveStatus::APPROVED->value, $annualTypeId]);
+
+            $historicalAnnualAggregate = Leave::query()
+                ->selectRaw('employee_id,
+                    SUM(CASE WHEN status = ? AND leave_type_id = ? THEN days ELSE 0 END) as historical_annual_used_days',
+                    [LeaveStatus::APPROVED->value, $annualTypeId])
+                ->groupBy('employee_id');
+        }
 
         // 3. Main Employee query
         $query = Employee::query()
             ->leftJoinSub($active, 'alv', fn ($join) => $join->on('alv.employee_id', '=', 'employees.id'))
             ->leftJoinSub($aggregate, 'lv', fn ($join) => $join->on('lv.employee_id', '=', 'employees.id'))
-            ->leftJoinSub($historicalAnnualAggregate, 'hlv', fn ($join) => $join->on('hlv.employee_id', '=', 'employees.id'))
             ->select([
                 'employees.*',
             ])
@@ -78,14 +78,18 @@ class LeaveSummaryService
                 COALESCE(lv.approved_leaves_count, 0) as approved_leaves_count,
                 COALESCE(lv.pending_leaves_count, 0) as pending_leaves_count,
                 COALESCE(lv.total_approved_days, 0) as total_approved_days,
-                COALESCE(lv.annual_approved_days_period, 0) as annual_approved_days_period,
-                COALESCE(lv.other_approved_days_period, 0) as other_approved_days_period,
                 CASE WHEN alv.active_leave_id IS NULL THEN 0 ELSE 1 END as is_on_leave_today,
                 alv.active_leave_id as active_leave_id,
-                lv.last_leave_end_date as last_leave_end_date,
-                COALESCE(hlv.historical_annual_used_days, 0) as historical_annual_used_days
+                lv.last_leave_end_date as last_leave_end_date
             ')
             ->with(['user', 'details', 'branch', 'jobTitle', 'company']);
+
+        if ($includeBalances) {
+            $query->leftJoinSub($historicalAnnualAggregate, 'hlv', fn ($join) => $join->on('hlv.employee_id', '=', 'employees.id'))
+                ->selectRaw('COALESCE(lv.annual_approved_days_period, 0) as annual_approved_days_period,
+                    COALESCE(lv.other_approved_days_period, 0) as other_approved_days_period,
+                    COALESCE(hlv.historical_annual_used_days, 0) as historical_annual_used_days');
+        }
 
         self::applyAccessScope($query);
         self::applyFilters($query, $filters);
@@ -236,6 +240,24 @@ class LeaveSummaryService
             'pending_requests_count' => (int) $rows->sum('pending_leaves_count'),
             'total_approved_days' => (int) $rows->sum('total_approved_days'),
             'total_available_annual_days' => $totalAvailableAnnualDays,
+        ];
+    }
+
+    public static function getOverviewStats(array $filters, ?array $employeeIds = null): array
+    {
+        $totals = self::summaryQuery($filters, includeBalances: false)
+            ->when($employeeIds !== null, fn (Builder $query) => $query->whereIn('employees.id', $employeeIds))
+            ->toBase()
+            ->select([])
+            ->selectRaw('COUNT(alv.active_leave_id) as on_leave_today_count,
+                SUM(lv.pending_leaves_count) as pending_requests_count,
+                SUM(lv.total_approved_days) as total_approved_days')
+            ->first();
+
+        return [
+            'on_leave_today_count' => (int) $totals->on_leave_today_count,
+            'pending_requests_count' => (int) $totals->pending_requests_count,
+            'total_approved_days' => (int) $totals->total_approved_days,
         ];
     }
 

@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Enums\AttendanceStatus;
 use App\Enums\TaskStatus;
 use App\Enums\UserType;
+use App\Filament\Pages\CompanyDepartmentPerformance;
 use App\Models\Company;
 use App\Models\Department;
 use App\Models\Employee;
@@ -12,13 +14,14 @@ use App\Models\SupervisionShift;
 use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\TaskAssignmentItem;
-use App\Models\UnifiedDeficiencyTask;
 use App\Models\User;
+use App\Services\AttendanceSummaryService;
 use App\Services\CompanyDepartmentPerformanceService;
-use Carbon\Carbon;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 class CompanyDepartmentPerformanceServiceTest extends TestCase
@@ -33,7 +36,7 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
         config(['database.connections.sqlite.database' => ':memory:']);
         config(['cache.default' => 'array']);
         config(['queue.default' => 'sync']);
-        \Illuminate\Support\Facades\Notification::fake();
+        Notification::fake();
         DB::purge();
         DB::reconnect('sqlite');
 
@@ -281,6 +284,12 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
         $this->assertEquals(1, $rowB->active_services);
         $this->assertEquals(1, $rowB->overdue_services);
         $this->assertEquals(0, $rowB->completed_services);
+
+        $matching = CompanyDepartmentPerformanceService::getCompaniesSummary(['search' => $companyA->trade_name]);
+
+        $this->assertCount(1, $matching);
+        $this->assertEquals($rowA, $matching->first());
+        $this->assertTrue(CompanyDepartmentPerformanceService::getCompaniesSummary(['search' => 'unmatched company'])->isEmpty());
     }
 
     public function test_departments_summary_isolates_shared_departments_by_company(): void
@@ -603,6 +612,14 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
 
         // Tasks must ONLY count Saudi employee task, ignoring foreign employee task
         $this->assertEquals(1, $deptRow->task_due_in_period);
+
+        $employees = CompanyDepartmentPerformanceService::getEmployeesSummary($company->id, $dept->id);
+        $foreignRow = $employees->firstWhere('employee_id', $foreignEmp->id);
+
+        $this->assertNotNull($foreignRow);
+        $this->assertFalse($foreignRow->is_saudi);
+        $this->assertNull($foreignRow->task_due_in_period);
+        $this->assertNull($foreignRow->task_completion_rate);
     }
 
     public function test_supervisor_shift_scoping_and_team_badge(): void
@@ -661,7 +678,16 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
 
         $this->actingAs($supervisorUser);
 
-        $summary = CompanyDepartmentPerformanceService::getDepartmentsSummary($company->id);
+        DB::enableQueryLog();
+        try {
+            $summary = CompanyDepartmentPerformanceService::getDepartmentsSummary($company->id);
+            $shiftReads = collect(DB::getQueryLog())->filter(fn (array $query) => str_contains($query['query'], 'supervision_shifts'));
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+
+        $this->assertCount(1, $shiftReads);
         $deptRow = $summary->firstWhere('department_id', $dept->id);
 
         $this->assertNotNull($deptRow);
@@ -700,5 +726,65 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
 
         $this->assertEquals(5, $paginator->total());
         $this->assertCount(2, $paginator->items());
+
+        $otherCompany = $this->createCompany('Other Company');
+        ServiceTransaction::create([
+            'transaction_number' => 'SRV-KASHF-OTHER',
+            'transaction_date' => $date,
+            'company_id' => $otherCompany->id,
+            'service_status' => 'active',
+        ]);
+        $filters = ['company_id' => [$company->id]];
+
+        $this->assertSame(5, CompanyDepartmentPerformanceService::getKashfServicesQuery($filters, 'active')->count());
+        $this->assertSame(0, CompanyDepartmentPerformanceService::getKashfServicesQuery($filters, 'active', $otherCompany->id)->count());
+    }
+
+    public function test_workforce_overview_requires_a_summary_permission(): void
+    {
+        $company = $this->createCompany('Restricted Company');
+        $employee = $this->createEmployee($company->id);
+        $this->actingAs($employee->user);
+
+        $page = new CompanyDepartmentPerformance;
+        $this->assertFalse($page->canViewWorkforceOverview());
+
+        $this->expectException(HttpException::class);
+        $page->showWorkforceOverview();
+    }
+
+    public function test_attendance_totals_use_the_selected_month_and_team(): void
+    {
+        Schema::create('attendance', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('employee_id');
+            $table->date('date');
+            $table->string('status');
+            $table->integer('late_hours')->default(0);
+            $table->integer('overtime_hours')->default(0);
+            $table->decimal('total_hours')->default(0);
+        });
+
+        $company = $this->createCompany('Attendance Company');
+        $admin = $this->createEmployee($company->id, null, null, UserType::SUPER_ADMIN->value);
+        $member = $this->createEmployee($company->id, null, null, UserType::SAUDI_EMPLOYEE->value);
+        $other = $this->createEmployee($company->id, null, null, UserType::SAUDI_EMPLOYEE->value);
+        $this->actingAs($admin->user);
+
+        DB::table('attendance')->insert([
+            ['employee_id' => $member->id, 'date' => '2026-11-01', 'status' => AttendanceStatus::PRESENT->value],
+            ['employee_id' => $member->id, 'date' => '2026-11-02', 'status' => AttendanceStatus::LATE->value],
+            ['employee_id' => $member->id, 'date' => '2026-10-31', 'status' => AttendanceStatus::ABSENT->value],
+            ['employee_id' => $other->id, 'date' => '2026-11-01', 'status' => AttendanceStatus::ABSENT->value],
+        ]);
+
+        $filters = ['month' => '2026-11', 'company_id' => [$company->id]];
+        $stats = AttendanceSummaryService::getStats($filters, [$member->id]);
+
+        $this->assertSame(1, $stats['employees_count']);
+        $this->assertSame(1, $stats['present_days']);
+        $this->assertSame(1, $stats['late_days']);
+        $this->assertSame(0, $stats['absent_days']);
+        $this->assertSame(0, AttendanceSummaryService::getStats($filters, [])['recorded_days']);
     }
 }

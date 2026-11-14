@@ -132,6 +132,8 @@ class LeaveSummaryServiceTest extends TestCase
         $filters = ['year' => 2024, 'leave_filter' => 'on_leave'];
         $this->assertSame(1, LeaveSummaryService::summaryQuery($filters)->paginate(10)->total());
         $this->assertSame(1, LeaveSummaryService::getStats($filters)['on_leave_today_count']);
+        $this->assertSame(1, LeaveSummaryService::getOverviewStats($filters, [$user->employee->id])['on_leave_today_count']);
+        $this->assertSame(0, LeaveSummaryService::getOverviewStats($filters, [])['on_leave_today_count']);
         $this->assertNotNull(LeaveSummaryService::getEmployeeLeaveDetails($user->employee->id, 2024)['active_leave']);
         DB::table('leaves')->where('id', $leave->id)->update(['actual_return_date' => '2026-11-10']);
         $this->assertSame(0, LeaveSummaryService::summaryQuery($filters)->count());

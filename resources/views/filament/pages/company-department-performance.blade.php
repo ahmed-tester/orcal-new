@@ -1,689 +1,1140 @@
 <x-filament-panels::page>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
+
         .company-perf-page {
+            --bg: #f3f5fb;
+            --card: #ffffff;
+            --tx: #141a2e;
+            --mu: #6b7490;
+            --bd: #e4e8f3;
+            --a: #5b5bf0;
+            --b: #14b8a6;
+            --c: #f59e0b;
+            --d: #ef4444;
+            --g: #22c55e;
+            --sh: 0 8px 30px rgba(40, 50, 100, 0.08);
+
+            font-family: 'Tajawal', system-ui, -apple-system, sans-serif;
+            color: var(--tx);
             display: flex;
             flex-direction: column;
             gap: 1.25rem;
+            width: 100%;
         }
 
-        /* Top Page Header */
-        .company-perf-page .perf-header-bar {
+        .dark .company-perf-page {
+            --bg: #0d1020;
+            --card: #171b30;
+            --tx: #eef0fa;
+            --mu: #8e96b8;
+            --bd: #262b47;
+            --sh: 0 8px 30px rgba(0, 0, 0, 0.35);
+        }
+
+        .company-perf-page .perf-overview-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .5rem;
+        }
+
+        .company-perf-page .perf-overview-tabs button {
+            padding: .5rem .9rem;
+            border: 1px solid var(--bd);
+            border-radius: .75rem;
+            background: var(--card);
+            color: var(--tx);
+            font-weight: 700;
+        }
+
+        .company-perf-page .perf-overview-tabs button[aria-pressed="true"] {
+            background: var(--a);
+            color: white;
+        }
+
+        .company-perf-page .perf-overview-group {
+            display: grid;
+            gap: .75rem;
+        }
+
+        .company-perf-page .perf-overview-note {
+            color: var(--mu);
+            font-size: .875rem;
+        }
+
+        /* Hero Header */
+        .company-perf-page .perf-hero-header {
+            background: linear-gradient(135deg, #4f46e5, #8b5cf6 60%, #ec4899);
+            color: #ffffff;
+            border-radius: 18px;
+            padding: 1.5rem 1.75rem;
+            box-shadow: 0 10px 32px rgba(91, 91, 240, 0.22);
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 1rem;
-            padding: 1.15rem 1.35rem;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 0.875rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-        }
-        .dark .company-perf-page .perf-header-bar {
-            background: #1e293b;
-            border-color: #334155;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
-        .company-perf-page .perf-header-info {
-            display: flex;
-            align-items: center;
-            gap: 0.875rem;
-        }
-        .company-perf-page .perf-header-icon {
-            width: 46px;
-            height: 46px;
-            border-radius: 0.75rem;
-            background: #eff6ff;
-            color: #2563eb;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            border: 1px solid #bfdbfe;
-            box-shadow: 0 1px 2px rgba(37, 99, 235, 0.1);
-        }
-        .dark .company-perf-page .perf-header-icon {
-            background: rgba(37, 99, 235, 0.15);
-            color: #60a5fa;
-            border-color: rgba(37, 99, 235, 0.35);
-        }
-        .company-perf-page .perf-header-title {
-            font-size: 1.25rem;
-            font-weight: 800;
-            color: #0f172a;
-            line-height: 1.2;
-            margin: 0;
-        }
-        .dark .company-perf-page .perf-header-title {
-            color: #f8fafc;
-        }
-        .company-perf-page .perf-header-sub {
-            font-size: 0.8125rem;
-            color: #64748b;
-            margin-top: 0.2rem;
-            line-height: 1.4;
-        }
-        .dark .company-perf-page .perf-header-sub {
-            color: #94a3b8;
-        }
-        .company-perf-page .perf-header-meta {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-        .company-perf-page .perf-meta-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.375rem;
-            padding: 0.35rem 0.75rem;
-            border-radius: 9999px;
-            background: #f1f5f9;
-            color: #475569;
-            font-size: 0.75rem;
-            font-weight: 700;
-            border: 1px solid #e2e8f0;
-        }
-        .dark .company-perf-page .perf-meta-chip {
-            background: #0f172a;
-            color: #cbd5e1;
-            border-color: #334155;
+            gap: 1.25rem;
+            position: relative;
+            overflow: hidden;
         }
 
-        /* Top KPI Stats Grid */
-        .company-perf-page .perf-stats-grid {
-            display: grid;
-            grid-template-columns: repeat(6, minmax(0, 1fr));
-            gap: 0.875rem;
+        .company-perf-page .perf-hero-header::after {
+            content: '';
+            position: absolute;
+            inset-inline-end: -40px;
+            top: -40px;
+            width: 160px;
+            height: 160px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
         }
-        .company-perf-page .perf-stat-card {
-            background-color: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 0.875rem;
-            padding: 1rem 1.15rem;
-            min-width: 0;
-            min-height: 118px;
+
+        .company-perf-page .perf-hero-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            z-index: 1;
+        }
+
+        .company-perf-page .perf-hero-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(8px);
+            display: grid;
+            place-items: center;
+            font-size: 24px;
+            flex-shrink: 0;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+        }
+
+        .company-perf-page .perf-hero-title {
+            font-size: 1.45rem;
+            font-weight: 800;
+            margin: 0;
+            color: #ffffff;
+            line-height: 1.25;
+        }
+
+        .company-perf-page .perf-hero-sub {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.85);
+            margin: 0.25rem 0 0;
+            line-height: 1.4;
+        }
+
+        .company-perf-page .perf-hero-chips {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            z-index: 1;
+        }
+
+        .company-perf-page .perf-hero-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.4rem 0.85rem;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.16);
+            backdrop-filter: blur(6px);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            color: #ffffff;
+            font-size: 0.775rem;
+            font-weight: 700;
+        }
+
+        /* Top 6 KPI Metric Cards Grid */
+        .company-perf-page .perf-kpi-grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+        }
+
+        @media (min-width: 1280px) {
+            .company-perf-page .perf-kpi-grid {
+                grid-template-columns: repeat(6, 1fr);
+            }
+        }
+
+        /* Base Card Styling (from HTML mockup) */
+        .company-perf-page .card,
+        .company-perf-page .perf-card {
+            background: var(--card);
+            border: 1px solid var(--bd);
+            border-radius: 18px;
+            padding: 14px 16px;
+            box-shadow: var(--sh);
+            opacity: 0;
+            transform: translateY(12px);
+            animation: perfUp 0.4s forwards;
+            animation-delay: calc(var(--i, 0) * 35ms);
+            transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+            position: relative;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            gap: 0.65rem;
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
-            transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease;
-        }
-        .company-perf-page .perf-stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            inset-inline-start: 0;
-            inset-inline-end: 0;
-            height: 3px;
-            background: var(--card-accent, #2563eb);
-        }
-        .company-perf-page .perf-stat-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 18px -4px rgba(0, 0, 0, 0.08), 0 3px 6px -2px rgba(0, 0, 0, 0.03);
-            border-color: #cbd5e1;
-        }
-        .dark .company-perf-page .perf-stat-card {
-            background-color: #1e293b;
-            border-color: #334155;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-        }
-        .dark .company-perf-page .perf-stat-card:hover {
-            border-color: #475569;
-            box-shadow: 0 8px 18px -4px rgba(0, 0, 0, 0.4);
-        }
-        .company-perf-page .perf-stat-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-        }
-        .company-perf-page .perf-stat-title {
-            font-size: 0.8125rem;
-            font-weight: 700;
-            color: #334155;
-            line-height: 1.3;
-        }
-        .dark .company-perf-page .perf-stat-title {
-            color: #e2e8f0;
-        }
-        .company-perf-page .perf-stat-icon-wrapper {
-            width: 36px;
-            height: 36px;
-            border-radius: 0.625rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            transition: transform 0.15s ease;
-        }
-        .company-perf-page .perf-stat-card:hover .perf-stat-icon-wrapper {
-            transform: scale(1.05);
-        }
-        .company-perf-page .perf-stat-value {
-            font-size: 1.75rem;
-            font-weight: 800;
-            line-height: 1.1;
-            font-variant-numeric: tabular-nums;
-            letter-spacing: -0.02em;
-        }
-        .company-perf-page .perf-stat-bottom {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.35rem;
-        }
-        .company-perf-page .perf-stat-hint {
-            font-size: 0.715rem;
-            font-weight: 500;
-            color: #64748b;
-            line-height: 1.3;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .dark .company-perf-page .perf-stat-hint {
-            color: #94a3b8;
-        }
-        .company-perf-page .perf-stat-action-hint {
-            font-size: 0.685rem;
-            font-weight: 700;
-            color: var(--card-accent, #2563eb);
-            display: inline-flex;
-            align-items: center;
-            gap: 0.2rem;
-            flex-shrink: 0;
-            opacity: 0.85;
-            transition: opacity 0.15s;
-        }
-        .company-perf-page .perf-stat-card:hover .perf-stat-action-hint {
-            opacity: 1;
         }
 
-        /* Notice banner */
+        .company-perf-page .card:hover,
+        .company-perf-page .perf-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 36px rgba(40, 50, 100, 0.12);
+        }
+
+        .dark .company-perf-page .card:hover,
+        .dark .company-perf-page .perf-card:hover {
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+            border-color: #3b456d;
+        }
+
+        .company-perf-page .perf-card.is-clickable {
+            cursor: pointer;
+        }
+
+        @keyframes perfUp {
+            to {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .company-perf-page .card,
+            .company-perf-page .perf-card {
+                animation: none !important;
+                transition: none !important;
+            }
+            .company-perf-page .ring {
+                transition: none !important;
+            }
+        }
+
+        .company-perf-page .k {
+            color: var(--mu);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .company-perf-page .v {
+            font-size: 24px;
+            font-weight: 800;
+            margin-top: 4px;
+            color: var(--tx);
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+        }
+
+        .company-perf-page .v u {
+            text-decoration: none;
+            font-size: 11.5px;
+            color: var(--mu);
+            font-weight: 500;
+        }
+
+        .company-perf-page .ic {
+            width: 34px;
+            height: 34px;
+            border-radius: 11px;
+            display: grid;
+            place-items: center;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+
+        .company-perf-page .perf-card-hint {
+            margin-top: 8px;
+            font-size: 11.5px;
+            color: var(--mu);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-top: 1px dashed var(--bd);
+            padding-top: 6px;
+        }
+
+        .company-perf-page .perf-card-hint-arrow {
+            color: var(--a);
+            display: inline-flex;
+            transition: transform 0.2s ease;
+        }
+
+        .company-perf-page .perf-card:hover .perf-card-hint-arrow {
+            transform: translateX(-3px);
+        }
+
+        /* Circular Progress Rings (Pure CSS conic-gradient) */
+        .company-perf-page .ring {
+            --p: 0;
+            width: 68px;
+            height: 68px;
+            border-radius: 50%;
+            background: conic-gradient(var(--col, var(--g)) calc(var(--p) * 1%), var(--bd) 0);
+            display: grid;
+            place-items: center;
+            flex: none;
+            transition: background 0.4s ease;
+        }
+
+        .company-perf-page .ring i {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: var(--card);
+            display: grid;
+            place-items: center;
+            font-style: normal;
+            font-weight: 800;
+            font-size: 13.5px;
+            color: var(--tx);
+        }
+
+        .company-perf-page .ring.s {
+            width: 46px;
+            height: 46px;
+        }
+
+        .company-perf-page .ring.s i {
+            width: 35px;
+            height: 35px;
+            font-size: 11px;
+        }
+
+        .company-perf-page .ring.m {
+            width: 68px;
+            height: 68px;
+        }
+
+        .company-perf-page .ring.m i {
+            width: 52px;
+            height: 52px;
+            font-size: 14px;
+        }
+
+        .company-perf-page .ring.l {
+            width: 96px;
+            height: 96px;
+        }
+
+        .company-perf-page .ring.l i {
+            width: 74px;
+            height: 74px;
+            font-size: 18px;
+        }
+
+        .company-perf-page .ring.dept {
+            width: 58px;
+            height: 58px;
+        }
+
+        .company-perf-page .ring.dept i {
+            width: 44px;
+            height: 44px;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .company-perf-page .ring-null {
+            color: var(--mu);
+            font-size: 12px;
+        }
+
+        .company-perf-page .perf-ring-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            text-align: center;
+        }
+
+        .company-perf-page .perf-ring-item.is-clickable {
+            cursor: pointer;
+            transition: transform 0.18s ease;
+        }
+
+        .company-perf-page .perf-ring-item.is-clickable:hover {
+            transform: scale(1.05);
+        }
+
+        .company-perf-page .perf-ring-label {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--mu);
+        }
+
+        .company-perf-page .perf-ring-sublabel {
+            font-size: 10px;
+            color: var(--mu);
+            direction: ltr;
+            display: inline-block;
+            margin-top: 1px;
+            font-weight: 600;
+        }
+
+        /* Stepper & Breadcrumb Bar */
+        .company-perf-page .perf-stepper-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            padding: 0.85rem 1.25rem;
+            background: var(--card);
+            border: 1px solid var(--bd);
+            border-radius: 14px;
+            box-shadow: var(--sh);
+        }
+
+        .company-perf-page .stepper-trail {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+
+        .company-perf-page .stepper-step {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.85rem;
+            font-weight: 700;
+            padding: 0.35rem 0.75rem;
+            border-radius: 10px;
+            border: 1px solid transparent;
+            text-decoration: none;
+            background: transparent;
+            color: var(--mu);
+        }
+
+        .company-perf-page .stepper-step.active {
+            background: var(--bg);
+            color: var(--tx);
+            border-color: var(--bd);
+        }
+
+        .company-perf-page .stepper-step.link {
+            color: var(--a);
+            cursor: pointer;
+        }
+
+        .company-perf-page .stepper-step.link:hover {
+            background: color-mix(in srgb, var(--a) 10%, transparent);
+            border-color: color-mix(in srgb, var(--a) 30%, transparent);
+        }
+
+        .company-perf-page .stepper-divider {
+            color: var(--mu);
+            font-size: 0.75rem;
+        }
+
         .company-perf-page .perf-notice-banner {
             display: flex;
             align-items: center;
-            gap: 0.625rem;
-            padding: 0.75rem 1rem;
-            font-size: 0.775rem;
-            line-height: 1.4;
-            border-radius: 0.75rem;
+            gap: 0.65rem;
+            padding: 0.75rem 1.15rem;
+            font-size: 0.785rem;
+            line-height: 1.45;
+            border-radius: 12px;
             background: #fffbeb;
             color: #92400e;
             border: 1px solid #fef3c7;
         }
+
         .dark .company-perf-page .perf-notice-banner {
             background: rgba(245, 158, 11, 0.1);
             color: #fcd34d;
             border-color: rgba(245, 158, 11, 0.25);
         }
 
-        /* Stepper / Breadcrumbs Bar */
-        .company-perf-page .breadcrumb-stepper {
+        /* Entity Section & Cards Grid (Companies, Departments, Employees) */
+        .company-perf-page .perf-entity-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 4px;
+        }
+
+        .company-perf-page .perf-section-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 12px;
             flex-wrap: wrap;
-            gap: 0.875rem;
-            padding: 0.875rem 1.15rem;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 0.875rem;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
         }
-        .dark .company-perf-page .breadcrumb-stepper {
-            background: #1e293b;
-            border-color: #334155;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
-        .company-perf-page .stepper-trail {
+
+        .company-perf-page .perf-section-title-wrap {
             display: flex;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 0.5rem;
+            gap: 8px;
         }
-        .company-perf-page .stepper-step {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            font-size: 0.875rem;
-            font-weight: 700;
-            padding: 0.35rem 0.65rem;
-            border-radius: 0.5rem;
-            transition: all 0.15s ease;
-            text-decoration: none;
-            border: 1px solid transparent;
-        }
-        .company-perf-page .stepper-step.active {
-            background: #f1f5f9;
-            color: #0f172a;
-            border-color: #e2e8f0;
-        }
-        .dark .company-perf-page .stepper-step.active {
-            background: #0f172a;
-            color: #f8fafc;
-            border-color: #334155;
-        }
-        .company-perf-page .stepper-step.link {
-            color: #2563eb;
-            cursor: pointer;
-        }
-        .company-perf-page .stepper-step.link:hover {
-            background: #eff6ff;
-            border-color: #bfdbfe;
-        }
-        .dark .company-perf-page .stepper-step.link {
-            color: #60a5fa;
-        }
-        .dark .company-perf-page .stepper-step.link:hover {
-            background: rgba(37, 99, 235, 0.15);
-            border-color: rgba(37, 99, 235, 0.35);
-        }
-        .company-perf-page .stepper-divider {
-            color: #94a3b8;
-            font-size: 0.75rem;
-            display: inline-flex;
-            align-items: center;
-        }
-        .company-perf-page .level-pill-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            padding: 0.25rem 0.65rem;
-            border-radius: 9999px;
-            background: #e0f2fe;
-            color: #0369a1;
-            font-size: 0.725rem;
+
+        .company-perf-page .perf-section-title {
+            font-size: 16px;
             font-weight: 800;
-            border: 1px solid #bae6fd;
-        }
-        .dark .company-perf-page .level-pill-badge {
-            background: rgba(3, 105, 161, 0.2);
-            color: #7dd3fc;
-            border-color: rgba(3, 105, 161, 0.35);
+            margin: 0;
+            color: var(--tx);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        /* Modern Table Container */
-        .company-perf-page .perf-table-wrapper {
-            width: 100%;
-            overflow-x: auto;
-            border-radius: 0.875rem;
-            border: 1px solid #e2e8f0;
-            background-color: #ffffff;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+        .company-perf-page .perf-section-title::before {
+            content: "";
+            width: 4px;
+            height: 18px;
+            border-radius: 4px;
+            background: var(--a);
         }
-        .dark .company-perf-page .perf-table-wrapper {
-            border-color: #334155;
-            background-color: #1e293b;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
-        .company-perf-page .perf-table {
-            width: 100%;
-            text-align: start;
-            border-collapse: separate;
-            border-spacing: 0;
-            font-size: 0.8125rem;
-            min-width: 1100px;
-        }
-        .company-perf-page .perf-table thead tr {
-            background-color: #f8fafc;
-        }
-        .dark .company-perf-page .perf-table thead tr {
-            background-color: #0f172a;
-        }
-        .company-perf-page .perf-table th {
-            padding: 0.85rem 1rem;
+
+        .company-perf-page .perf-count-badge {
+            background: var(--bg);
+            border: 1px solid var(--bd);
+            color: var(--mu);
+            padding: 2px 8px;
+            border-radius: 8px;
+            font-size: 12px;
             font-weight: 700;
-            color: #475569;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.025em;
-            text-align: inherit;
-            white-space: nowrap;
-            border-bottom: 2px solid #e2e8f0;
-        }
-        .dark .company-perf-page .perf-table th {
-            color: #94a3b8;
-            border-bottom-color: #334155;
-        }
-        .company-perf-page .perf-table tbody tr {
-            border-bottom: 1px solid #f1f5f9;
-            transition: background-color 0.12s ease;
-        }
-        .dark .company-perf-page .perf-table tbody tr {
-            border-bottom-color: rgba(51, 65, 85, 0.6);
-        }
-        .company-perf-page .perf-table tbody tr:last-child {
-            border-bottom: none;
-        }
-        .company-perf-page .perf-table tbody tr:hover {
-            background-color: #f8fafc;
-        }
-        .dark .company-perf-page .perf-table tbody tr:hover {
-            background-color: rgba(255, 255, 255, 0.025);
-        }
-        .company-perf-page .perf-table td {
-            padding: 0.85rem 1rem;
-            white-space: nowrap;
-            color: #1e293b;
-            vertical-align: middle;
-        }
-        .dark .company-perf-page .perf-table td {
-            color: #f1f5f9;
         }
 
-        /* Clickable KPI Badges / Pills */
-        .company-perf-page .val-pill {
+        .company-perf-page .perf-back-btn {
+            font-family: inherit;
             display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 10px;
+            background: var(--card);
+            border: 1px solid var(--bd);
+            color: var(--tx);
+            font-size: 12.5px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .company-perf-page .perf-back-btn:hover {
+            background: var(--bg);
+            border-color: var(--a);
+            color: var(--a);
+        }
+
+        .company-perf-page .perf-cards-grid {
+            display: grid;
+            gap: 14px;
+            grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr));
+        }
+
+        /* Entity Card Style (.card.inst from HTML mockup) */
+        .company-perf-page .card.inst {
+            padding: 16px;
+            background: var(--card);
+            border: 1px solid var(--bd);
+            border-radius: 18px;
+            box-shadow: var(--sh);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            gap: 12px;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .company-perf-page .inst-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            min-height: 56px;
+        }
+
+        .company-perf-page .inst-info {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .company-perf-page .inst-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--tx);
+            cursor: pointer;
+            transition: color 0.18s ease;
+            line-height: 1.35;
+            min-height: 2.7em;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .company-perf-page .inst-title:hover {
+            color: var(--a);
+        }
+
+        .company-perf-page .inst-subtitle {
+            font-size: 12px;
+            color: var(--mu);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .company-perf-page .inst-subtitle-dot {
+            font-size: 10px;
+            color: var(--mu);
+        }
+
+        .company-perf-page .inst-badge {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--a);
+            background: color-mix(in srgb, var(--a) 12%, transparent);
+            padding: 3px 8px;
+            border-radius: 8px;
+            border: 1px solid color-mix(in srgb, var(--a) 25%, transparent);
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .company-perf-page .inst-badges-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 3px;
+        }
+
+        .company-perf-page .inst-pill-badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 6px;
+        }
+
+        .company-perf-page .inst-pill-badge.is-team {
+            background: color-mix(in srgb, var(--b) 14%, transparent);
+            color: var(--b);
+            border: 1px solid color-mix(in srgb, var(--b) 30%, transparent);
+        }
+
+        .company-perf-page .inst-pill-badge.is-unassigned {
+            background: color-mix(in srgb, var(--c) 14%, transparent);
+            color: var(--c);
+            border: 1px solid color-mix(in srgb, var(--c) 30%, transparent);
+        }
+
+        .company-perf-page .inst-pill-badge.is-saudi {
+            background: color-mix(in srgb, var(--g) 14%, transparent);
+            color: var(--g);
+            border: 1px solid color-mix(in srgb, var(--g) 30%, transparent);
+        }
+
+        .company-perf-page .inst-pill-badge.is-foreign {
+            background: color-mix(in srgb, var(--mu) 14%, transparent);
+            color: var(--mu);
+            border: 1px solid var(--bd);
+        }
+
+        .company-perf-page .card.inst.is-unassigned {
+            border-color: color-mix(in srgb, var(--c) 40%, var(--bd));
+            background: color-mix(in srgb, var(--c) 3%, var(--card));
+        }
+
+        /* Major Highlight Banner inside Entity Card */
+        .company-perf-page .inst-kpi-banner {
+            background: var(--bg);
+            border: 1px solid var(--bd);
+            border-radius: 12px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-height: 50px;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+
+        .company-perf-page .inst-kpi-banner .v {
+            font-size: 18px;
+            font-weight: 800;
+            margin: 0;
+            color: var(--tx);
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            line-height: 1;
+        }
+
+        .company-perf-page .inst-kpi-banner .v span {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--tx);
+            line-height: 1;
+        }
+
+        .company-perf-page .inst-kpi-banner .v u {
+            font-size: 12px;
+            color: var(--mu);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .company-perf-page .inst-kpi-banner:hover {
+            border-color: var(--a);
+            background: color-mix(in srgb, var(--a) 6%, var(--bg));
+        }
+
+        .company-perf-page .inst-kpi-banner.has-active {
+            border-color: color-mix(in srgb, var(--a) 30%, var(--bd));
+        }
+
+        .company-perf-page .inst-kpi-link {
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--a);
+            white-space: nowrap;
+        }
+
+        /* Mini specs rows (.mini from HTML mockup) */
+        .company-perf-page .mini {
+            display: flex;
+            flex-direction: column;
+            margin: 6px 0;
+            font-size: 12.5px;
+        }
+
+        .company-perf-page .mini span {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-top: 1px dashed var(--bd);
+            color: var(--mu);
+        }
+
+        .company-perf-page .mini span:first-child {
+            border-top: 0;
+        }
+
+        .company-perf-page .mini b {
+            color: var(--tx);
+            font-weight: 700;
+            direction: ltr;
+        }
+
+        .company-perf-page .mini-clickable {
+            cursor: pointer;
+            transition: color 0.15s ease;
+        }
+
+        .company-perf-page .mini-clickable:hover {
+            color: var(--a);
+        }
+
+        .company-perf-page .mini-clickable:hover b {
+            color: var(--a);
+        }
+
+        /* Rings row inside Card */
+        .company-perf-page .rings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding: 8px 0;
+            border-top: 1px solid var(--bd);
+            border-bottom: 1px solid var(--bd);
+            margin: 4px 0;
+        }
+
+        /* Entity Card Footer */
+        .company-perf-page .inst-footer {
+            margin-top: auto;
+            display: flex;
             align-items: center;
             justify-content: center;
-            min-width: 2.25rem;
-            padding: 0.25rem 0.65rem;
-            border-radius: 9999px;
-            font-weight: 700;
-            font-size: 0.8125rem;
-            font-variant-numeric: tabular-nums;
-            cursor: pointer;
-            transition: all 0.15s ease-in-out;
-            text-decoration: none;
-        }
-        .company-perf-page .val-pill:hover {
-            transform: translateY(-1px);
-        }
-        .company-perf-page .val-pill.zero {
-            color: #94a3b8;
-            font-weight: 500;
-            cursor: pointer;
-            background: transparent;
-        }
-        .dark .company-perf-page .val-pill.zero {
-            color: #64748b;
-        }
-        .company-perf-page .val-pill.zero:hover {
-            color: #475569;
-            background: #f1f5f9;
-        }
-        .dark .company-perf-page .val-pill.zero:hover {
-            color: #cbd5e1;
-            background: #334155;
-        }
-
-        .company-perf-page .val-pill.active {
-            color: #1d4ed8;
-            background: #eff6ff;
-            border: 1px solid #bfdbfe;
-        }
-        .dark .company-perf-page .val-pill.active {
-            color: #93c5fd;
-            background: rgba(29, 78, 216, 0.2);
-            border-color: rgba(29, 78, 216, 0.4);
-        }
-        .company-perf-page .val-pill.completed {
-            color: #047857;
-            background: #ecfdf5;
-            border: 1px solid #a7f3d0;
-        }
-        .dark .company-perf-page .val-pill.completed {
-            color: #6ee7b7;
-            background: rgba(4, 120, 87, 0.2);
-            border-color: rgba(4, 120, 87, 0.4);
-        }
-        .company-perf-page .val-pill.overdue {
-            color: #b91c1c;
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-        }
-        .dark .company-perf-page .val-pill.overdue {
-            color: #fca5a5;
-            background: rgba(185, 28, 28, 0.2);
-            border-color: rgba(185, 28, 28, 0.4);
-        }
-        .company-perf-page .val-pill.deficiencies {
-            color: #c2410c;
-            background: #fff7ed;
-            border: 1px solid #fed7aa;
-        }
-        .dark .company-perf-page .val-pill.deficiencies {
-            color: #fdba74;
-            background: rgba(194, 65, 12, 0.2);
-            border-color: rgba(194, 65, 12, 0.4);
-        }
-        .company-perf-page .val-pill.tasks {
-            color: #0e7490;
-            background: #ecfeff;
-            border: 1px solid #a5f3fc;
-        }
-        .dark .company-perf-page .val-pill.tasks {
-            color: #67e8f9;
-            background: rgba(14, 116, 144, 0.2);
-            border-color: rgba(14, 116, 144, 0.4);
-        }
-
-        /* Rate Badges */
-        .company-perf-page .rate-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-            padding: 0.225rem 0.65rem;
-            border-radius: 9999px;
-            font-size: 0.775rem;
+            gap: 6px;
+            padding: 8px;
+            border-radius: 10px;
+            background: color-mix(in srgb, var(--a) 8%, transparent);
+            color: var(--a);
+            font-size: 13px;
             font-weight: 800;
-            font-variant-numeric: tabular-nums;
             cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .company-perf-page .rate-badge:hover {
-            transform: translateY(-1px);
-        }
-        .company-perf-page .rate-badge.high {
-            background: #ecfdf5;
-            color: #047857;
-            border: 1px solid #a7f3d0;
-        }
-        .dark .company-perf-page .rate-badge.high {
-            background: rgba(4, 120, 87, 0.2);
-            color: #34d399;
-            border-color: rgba(4, 120, 87, 0.4);
-        }
-        .company-perf-page .rate-badge.med {
-            background: #fffbeb;
-            color: #b45309;
-            border: 1px solid #fde68a;
-        }
-        .dark .company-perf-page .rate-badge.med {
-            background: rgba(180, 83, 9, 0.2);
-            color: #fbbf24;
-            border-color: rgba(180, 83, 9, 0.4);
-        }
-        .company-perf-page .rate-badge.low {
-            background: #fef2f2;
-            color: #b91c1c;
-            border: 1px solid #fecaca;
-        }
-        .dark .company-perf-page .rate-badge.low {
-            background: rgba(185, 28, 28, 0.2);
-            color: #f87171;
-            border-color: rgba(185, 28, 28, 0.4);
-        }
-
-        /* Unassigned Row Style */
-        .company-perf-page .unassigned-row {
-            background-color: #fffdf5 !important;
-        }
-        .dark .company-perf-page .unassigned-row {
-            background-color: rgba(245, 158, 11, 0.05) !important;
-        }
-
-        /* Empty State */
-        .company-perf-page .perf-empty-state {
-            padding: 3.5rem 1.5rem;
+            transition: all 0.2s ease;
+            text-decoration: none;
             text-align: center;
+        }
+
+        .company-perf-page .inst-footer:hover {
+            background: var(--a);
+            color: #ffffff;
+        }
+
+        .company-perf-page .inst-footer.is-link {
+            background: color-mix(in srgb, var(--b) 8%, transparent);
+            color: var(--b);
+        }
+
+        .company-perf-page .inst-footer.is-link:hover {
+            background: var(--b);
+            color: #ffffff;
+        }
+
+        .company-perf-page .inst-footer.is-disabled {
+            background: var(--bg);
+            color: var(--mu);
+            cursor: default;
+            opacity: 0.6;
+        }
+
+        /* Empty State Card */
+        .company-perf-page .perf-empty-state-card {
+            grid-column: 1 / -1;
+            padding: 3rem 1.5rem;
+            text-align: center;
+            background: var(--card);
+            border: 1px solid var(--bd);
+            border-radius: 18px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 0.75rem;
+            gap: 8px;
         }
+
         .company-perf-page .perf-empty-icon {
-            width: 52px;
-            height: 52px;
-            border-radius: 9999px;
-            background: #f1f5f9;
-            color: #94a3b8;
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: var(--bg);
+            color: var(--mu);
+            display: grid;
+            place-items: center;
+            margin-bottom: 4px;
+        }
+
+        .company-perf-page .perf-empty-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--tx);
+        }
+
+        .company-perf-page .perf-empty-sub {
+            font-size: 13px;
+            color: var(--mu);
+        }
+
+        /* ================================================= */
+        /* Supervisor & Department Performance View (Prototype Replica) */
+        /* ================================================= */
+
+        /* Top Average Banner Card */
+        .company-perf-page .perf-avg-banner {
+            background: var(--card);
+            border: 1px solid var(--bd);
+            border-radius: 18px;
+            padding: 1.25rem 1.75rem;
+            box-shadow: var(--sh);
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            animation: perfUp 0.35s ease;
+        }
+
+        .company-perf-page .perf-avg-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .company-perf-page .perf-avg-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--tx);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .company-perf-page .perf-avg-chevron {
+            background: transparent;
+            border: none;
+            color: var(--mu);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 8px;
+            display: grid;
+            place-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .company-perf-page .perf-avg-chevron:hover {
+            background: var(--bg);
+            color: var(--tx);
+        }
+
+        .company-perf-page .perf-avg-rings {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            padding: 0.5rem 0;
+        }
+
+        /* 4-Columns Department Cards Grid */
+        .company-perf-page .dept-grid-style {
+            display: grid;
+            gap: 16px;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        }
+
+        @media (min-width: 1200px) {
+            .company-perf-page .dept-grid-style {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        /* Department / Supervisor Card */
+        .company-perf-page .dept-card {
+            background: var(--card);
+            border: 1px solid var(--bd);
+            border-radius: 18px;
+            padding: 18px 14px;
+            box-shadow: var(--sh);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            text-align: center;
+            gap: 12px;
+            opacity: 0;
+            transform: translateY(12px);
+            animation: perfUp 0.4s forwards;
+            animation-delay: calc(var(--i, 0) * 35ms);
+            transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+        }
+
+        .company-perf-page .dept-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 32px rgba(40, 50, 100, 0.12);
+        }
+
+        .dark .company-perf-page .dept-card:hover {
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+            border-color: #3b456d;
+        }
+
+        .company-perf-page .dept-card-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .company-perf-page .dept-card-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--tx);
+            cursor: pointer;
+            transition: color 0.18s ease;
+        }
+
+        .company-perf-page .dept-card-title:hover {
+            color: var(--a);
+        }
+
+        .company-perf-page .dept-card-lead {
+            font-size: 13px;
+            color: var(--mu);
+            font-weight: 500;
+        }
+
+        .company-perf-page .dept-lead-role {
+            font-size: 11px;
+            color: var(--mu);
+            opacity: 0.85;
+        }
+
+        .company-perf-page .dept-card-rings {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-around;
+            gap: 6px;
+            margin: 4px 0;
+        }
+
+        .company-perf-page .dept-card-rings .perf-ring-label {
+            font-size: 10.5px;
+            max-width: 72px;
+            line-height: 1.25;
+            color: var(--mu);
+            font-weight: 700;
+        }
+
+        .company-perf-page .dept-card-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+
+        /* Purple Button (supervisor action) */
+        .company-perf-page .btn-action-purple {
+            background: #5c5cfc;
+            color: #ffffff;
+            border: none;
+            border-radius: 10px;
+            padding: 9px 12px;
+            font-family: inherit;
+            font-size: 13.5px;
+            font-weight: 700;
+            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-        .dark .company-perf-page .perf-empty-icon {
-            background: #0f172a;
-            color: #64748b;
+            gap: 6px;
+            width: 100%;
+            transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
         }
 
-        /* Responsive Breakpoints */
-        @media (max-width: 1280px) {
-            .company-perf-page .perf-stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .company-perf-page .btn-action-purple:hover {
+            background: #4848ea;
+            box-shadow: 0 4px 14px rgba(92, 92, 252, 0.35);
+            transform: translateY(-1px);
         }
-        @media (max-width: 768px) {
-            .company-perf-page .perf-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+        /* Teal Button (beneficiary review) */
+        .company-perf-page .btn-action-teal {
+            background: #0bb5a2;
+            color: #ffffff;
+            border: none;
+            border-radius: 10px;
+            padding: 9px 12px;
+            font-family: inherit;
+            font-size: 13.5px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
         }
-        @media (max-width: 480px) {
-            .company-perf-page .perf-stats-grid { grid-template-columns: minmax(0, 1fr); }
+
+        .company-perf-page .btn-action-teal:hover {
+            background: #099b8b;
+            box-shadow: 0 4px 14px rgba(11, 181, 162, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .dark .company-perf-page .btn-action-purple {
+            background: #6366f1;
+        }
+
+        .dark .company-perf-page .btn-action-teal {
+            background: #14b8a6;
+        }
+
+        /* Modal / Kashf Modal Styling */
+        .perf-modal-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--tx);
+        }
+
+        .perf-modal-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 9px;
+            background: color-mix(in srgb, var(--a) 14%, transparent);
+            color: var(--a);
+            display: grid;
+            place-items: center;
+        }
+
+        .perf-tx-code {
+            color: var(--a);
+            font-weight: 700;
+        }
+
+        .perf-table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 14px;
+            border: 1px solid var(--bd);
+            background: var(--card);
+            box-shadow: var(--sh);
+            margin-top: 10px;
+        }
+
+        .perf-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px;
+            white-space: nowrap;
+            text-align: right;
+        }
+
+        .perf-table th {
+            padding: 10px 14px;
+            font-weight: 700;
+            color: var(--mu);
+            background: var(--bg);
+            border-bottom: 1px solid var(--bd);
+        }
+
+        .perf-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--bd);
+            color: var(--tx);
+            vertical-align: middle;
+        }
+
+        .perf-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .perf-table tbody tr:hover {
+            background: color-mix(in srgb, var(--a) 3%, transparent);
         }
     </style>
 
     <div class="company-perf-page">
-        @php
-            $stats = $this->overallStats;
-            $selectedCompany = $this->selectedCompany;
-            $selectedDepartment = $this->selectedDepartment;
-
-            $cards = [
-                [
-                    'title' => __('performance.cards.active_services'),
-                    'value' => number_format($stats->active_services),
-                    'hint' => __('performance.cards.active_services_hint'),
-                    'icon' => 'heroicon-o-play-circle',
-                    'accent' => '#2563eb',
-                    'icon_bg' => '#eff6ff',
-                    'icon_color' => '#1d4ed8',
-                    'dark_icon_bg' => 'rgba(37,99,235,0.2)',
-                    'dark_icon_color' => '#60a5fa',
-                    'action' => "openKashf('services', 'active', " . ($this->selectedCompanyId ?? 'null') . ", " . ($this->selectedDepartmentId !== null ? "'{$this->selectedDepartmentId}'" : 'null') . ")",
-                ],
-                [
-                    'title' => __('performance.cards.completed_services'),
-                    'value' => number_format($stats->completed_services),
-                    'hint' => __('performance.cards.completed_services_hint'),
-                    'icon' => 'heroicon-o-check-circle',
-                    'accent' => '#059669',
-                    'icon_bg' => '#ecfdf5',
-                    'icon_color' => '#047857',
-                    'dark_icon_bg' => 'rgba(5,150,105,0.2)',
-                    'dark_icon_color' => '#34d399',
-                    'action' => "openKashf('services', 'completed', " . ($this->selectedCompanyId ?? 'null') . ", " . ($this->selectedDepartmentId !== null ? "'{$this->selectedDepartmentId}'" : 'null') . ")",
-                ],
-                [
-                    'title' => __('performance.cards.overdue_services'),
-                    'value' => number_format($stats->overdue_services),
-                    'hint' => __('performance.cards.overdue_services_hint'),
-                    'icon' => 'heroicon-o-exclamation-triangle',
-                    'accent' => '#e11d48',
-                    'icon_bg' => '#fff1f2',
-                    'icon_color' => '#be123c',
-                    'dark_icon_bg' => 'rgba(225,29,72,0.2)',
-                    'dark_icon_color' => '#fb7185',
-                    'action' => "openKashf('services', 'overdue', " . ($this->selectedCompanyId ?? 'null') . ", " . ($this->selectedDepartmentId !== null ? "'{$this->selectedDepartmentId}'" : 'null') . ")",
-                ],
-                [
-                    'title' => __('performance.cards.on_time_rate'),
-                    'value' => $stats->on_time_rate !== null ? "{$stats->on_time_rate}%" : __('performance.cards.no_data'),
-                    'hint' => __('performance.cards.on_time_rate_hint'),
-                    'icon' => 'heroicon-o-clock',
-                    'accent' => '#7c3aed',
-                    'icon_bg' => '#f5f3ff',
-                    'icon_color' => '#6d28d9',
-                    'dark_icon_bg' => 'rgba(124,58,237,0.2)',
-                    'dark_icon_color' => '#a78bfa',
-                    'action' => "openKashf('services', 'on_time', " . ($this->selectedCompanyId ?? 'null') . ", " . ($this->selectedDepartmentId !== null ? "'{$this->selectedDepartmentId}'" : 'null') . ")",
-                ],
-                [
-                    'title' => __('performance.cards.open_deficiencies'),
-                    'value' => number_format($stats->open_deficiencies),
-                    'hint' => __('performance.cards.open_deficiencies_hint'),
-                    'icon' => 'heroicon-o-exclamation-circle',
-                    'accent' => '#ea580c',
-                    'icon_bg' => '#fff7ed',
-                    'icon_color' => '#c2410c',
-                    'dark_icon_bg' => 'rgba(234,88,12,0.2)',
-                    'dark_icon_color' => '#fb923c',
-                    'action' => "openKashf('deficiencies', 'all', " . ($this->selectedCompanyId ?? 'null') . ", " . ($this->selectedDepartmentId !== null ? "'{$this->selectedDepartmentId}'" : 'null') . ")",
-                ],
-                [
-                    'title' => __('performance.cards.tasks_completion_rate'),
-                    'value' => $stats->task_completion_rate !== null ? "{$stats->task_completion_rate}%" : __('performance.cards.no_data'),
-                    'hint' => number_format($stats->task_completed_in_period) . ' ' . __('performance.columns.tasks_completed') . ' / ' . number_format($stats->task_due_in_period),
-                    'icon' => 'heroicon-o-clipboard-document-check',
-                    'accent' => '#0891b2',
-                    'icon_bg' => '#ecfeff',
-                    'icon_color' => '#0e7490',
-                    'dark_icon_bg' => 'rgba(8,145,178,0.2)',
-                    'dark_icon_color' => '#38bdf8',
-                    'action' => "openKashf('tasks', 'all', " . ($this->selectedCompanyId ?? 'null') . ", " . ($this->selectedDepartmentId !== null ? "'{$this->selectedDepartmentId}'" : 'null') . ")",
-                ],
-            ];
-        @endphp
-
-        <!-- Top Page Header -->
-        <div class="perf-header-bar">
-            <div class="perf-header-info">
-                <div class="perf-header-icon">
-                    <x-heroicon-o-chart-bar-square style="width: 26px; height: 26px;" />
+        <!-- Top Hero Header Bar (from HTML mockup) -->
+        <div class="perf-hero-header">
+            <div class="perf-hero-info">
+                <div class="perf-hero-icon">
+                    <x-heroicon-o-chart-bar-square style="width: 28px; height: 28px; color: #ffffff;" />
                 </div>
                 <div>
-                    <h1 class="perf-header-title">{{ __('performance.title') }}</h1>
-                    <p class="perf-header-sub">{{ __('performance.subtitle') }}</p>
+                    <h1 class="perf-hero-title">{{ __('performance.title') }}</h1>
+                    <p class="perf-hero-sub">{{ __('performance.subtitle') }}</p>
                 </div>
             </div>
 
-            <div class="perf-header-meta">
-                <div class="perf-meta-chip">
-                    <x-heroicon-m-calendar style="width: 14px; height: 14px; color: #2563eb;" />
+            <div class="perf-hero-chips">
+                <div class="perf-hero-chip">
+                    <x-heroicon-m-calendar style="width: 15px; height: 15px;" />
                     <span><bdi>{{ $this->dateFrom ?? '—' }}</bdi> &larr; <bdi>{{ $this->dateTo ?? '—' }}</bdi></span>
                 </div>
-                <div class="perf-meta-chip">
-                    <x-heroicon-m-building-office-2 style="width: 14px; height: 14px; color: #059669;" />
+                <div class="perf-hero-chip">
+                    <x-heroicon-m-building-office-2 style="width: 15px; height: 15px;" />
                     <span>{{ count($this->companies) }} {{ __('performance.columns.company') }}</span>
                 </div>
             </div>
-        </div>
-
-        <!-- KPI Cards Grid -->
-        <div class="perf-stats-grid">
-            @foreach($cards as $card)
-                <div class="perf-stat-card" style="--card-accent: {{ $card['accent'] }};" wire:click="{{ $card['action'] }}">
-                    <div class="perf-stat-top">
-                        <span class="perf-stat-title">{{ $card['title'] }}</span>
-                        <div class="perf-stat-icon-wrapper" style="background-color: {{ $card['icon_bg'] }}; color: {{ $card['icon_color'] }};">
-                            <x-dynamic-component :component="$card['icon']" style="width: 20px; height: 20px;" />
-                        </div>
-                    </div>
-                    <div>
-                        <div class="perf-stat-value" style="color: {{ $card['accent'] }};">{{ $card['value'] }}</div>
-                    </div>
-                    <div class="perf-stat-bottom">
-                        <span class="perf-stat-hint">{{ $card['hint'] }}</span>
-                        <span class="perf-stat-action-hint">
-                            <span>{{ __('performance.columns.view_statement') }}</span>
-                            <x-heroicon-m-arrow-left style="width: 12px; height: 12px;" />
-                        </span>
-                    </div>
-                </div>
-            @endforeach
         </div>
 
         <!-- Filter Bar -->
@@ -698,654 +1149,30 @@
             :show-dates="true"
             :date-from-label="__('performance.filters.date_from')"
             :date-to-label="__('performance.filters.date_to')"
-            :show-search="true"
+            :show-search="! ($this->showAttendanceAndLeaves && $this->canViewWorkforceOverview)"
             :search-placeholder="__('performance.filters.search')"
             :has-active="$this->hasActiveFilterBar()"
         />
 
-        <!-- Branch Context Notice -->
-        <div class="perf-notice-banner">
-            <x-heroicon-o-information-circle style="width: 18px; height: 18px; flex-shrink: 0;" />
-            <span>{{ __('performance.filters.branch_note') }}</span>
-        </div>
-
-        <!-- Hierarchy Stepper / Breadcrumbs Bar -->
-        <div class="breadcrumb-stepper">
-            <div class="stepper-trail">
-                @if($this->selectedCompanyId === null)
-                    <div class="stepper-step active">
-                        <x-heroicon-m-building-office-2 style="width: 18px; height: 18px; color: #2563eb;" />
-                        <span>{{ __('performance.levels.companies') }}</span>
-                    </div>
-                @elseif($this->selectedDepartmentId === null)
-                    <button class="stepper-step link" wire:click="backToCompanies">
-                        <x-heroicon-m-building-office-2 style="width: 18px; height: 18px;" />
-                        <span>{{ __('performance.levels.companies') }}</span>
-                    </button>
-                    <span class="stepper-divider">
-                        <x-heroicon-m-chevron-left style="width: 16px; height: 16px;" />
-                    </span>
-                    <div class="stepper-step active">
-                        <x-heroicon-m-rectangle-group style="width: 18px; height: 18px; color: #059669;" />
-                        <span>{{ $selectedCompany?->trade_name ?: ($selectedCompany?->trade_name_en ?? '—') }}</span>
-                    </div>
-                @else
-                    <button class="stepper-step link" wire:click="backToCompanies">
-                        <x-heroicon-m-building-office-2 style="width: 18px; height: 18px;" />
-                        <span>{{ __('performance.levels.companies') }}</span>
-                    </button>
-                    <span class="stepper-divider">
-                        <x-heroicon-m-chevron-left style="width: 16px; height: 16px;" />
-                    </span>
-                    <button class="stepper-step link" wire:click="backToDepartments">
-                        <x-heroicon-m-rectangle-group style="width: 18px; height: 18px;" />
-                        <span>{{ $selectedCompany?->trade_name ?: ($selectedCompany?->trade_name_en ?? '—') }}</span>
-                    </button>
-                    <span class="stepper-divider">
-                        <x-heroicon-m-chevron-left style="width: 16px; height: 16px;" />
-                    </span>
-                    <div class="stepper-step active">
-                        <x-heroicon-m-user-group style="width: 18px; height: 18px; color: #7c3aed;" />
-                        <span>
-                            @if($this->selectedDepartmentId === 'unassigned')
-                                {{ __('performance.levels.unassigned_or_no_department') }}
-                            @else
-                                {{ $selectedDepartment?->parent ? "{$selectedDepartment->name} ({$selectedDepartment->parent->name})" : $selectedDepartment?->name }}
-                            @endif
-                        </span>
-                    </div>
-                @endif
-            </div>
-
-            <div style="display: flex; align-items: center; gap: 0.65rem;">
-                @if($this->selectedCompanyId === null)
-                    <span class="level-pill-badge">
-                        <x-heroicon-m-numbered-list style="width: 14px; height: 14px;" />
-                        <span>المستوى 1: المنشآت</span>
-                    </span>
-                @elseif($this->selectedDepartmentId === null)
-                    <span class="level-pill-badge" style="background:#ecfdf5; color:#047857; border-color:#a7f3d0;">
-                        <x-heroicon-m-numbered-list style="width: 14px; height: 14px;" />
-                        <span>المستوى 2: الأقسام</span>
-                    </span>
-                    <x-filament::button color="gray" icon="heroicon-m-arrow-right" size="sm" wire:click="backToCompanies">
-                        {{ __('performance.levels.back_to_companies') }}
-                    </x-filament::button>
-                @else
-                    <span class="level-pill-badge" style="background:#f5f3ff; color:#6d28d9; border-color:#ddd6fe;">
-                        <x-heroicon-m-numbered-list style="width: 14px; height: 14px;" />
-                        <span>المستوى 3: الموظفون</span>
-                    </span>
-                    <x-filament::button color="gray" icon="heroicon-m-arrow-right" size="sm" wire:click="backToDepartments">
-                        {{ __('performance.levels.back_to_departments') }}
-                    </x-filament::button>
-                @endif
-            </div>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- LEVEL 1: Companies Table -->
-        <!-- ========================================== -->
-        @if($this->selectedCompanyId === null)
-            @php
-                $companies = $this->companiesSummary;
-            @endphp
-            <div class="perf-table-wrapper">
-                <table class="perf-table">
-                    <thead>
-                        <tr>
-                            <th>{{ __('performance.columns.company') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.active_services') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.completed_services') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.overdue_services') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.on_time_rate') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.open_deficiencies') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.tasks_due') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.tasks_completed') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.task_completion_rate') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.departments_count') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.employees_count') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.actions') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($companies as $row)
-                            <tr>
-                                <td>
-                                    <div style="display: flex; flex-direction: column; gap: 0.15rem;">
-                                        <a href="javascript:void(0)" wire:click="selectCompany({{ $row->company_id }})" style="font-weight: 700; color: #0f172a; text-decoration: none;" class="hover:text-primary-600 dark:text-gray-100">
-                                            {{ $row->company_name }}
-                                        </a>
-                                        <span style="font-size: 0.725rem; color: #64748b;"><bdi>{{ $row->company_number ?? '—' }}</bdi></span>
-                                    </div>
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill {{ $row->active_services > 0 ? 'active' : 'zero' }}" wire:click="openKashf('services', 'active', {{ $row->company_id }})">
-                                        {{ number_format($row->active_services) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill {{ $row->completed_services > 0 ? 'completed' : 'zero' }}" wire:click="openKashf('services', 'completed', {{ $row->company_id }})">
-                                        {{ number_format($row->completed_services) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill {{ $row->overdue_services > 0 ? 'overdue' : 'zero' }}" wire:click="openKashf('services', 'overdue', {{ $row->company_id }})">
-                                        {{ number_format($row->overdue_services) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    @if($row->on_time_rate !== null)
-                                        @php
-                                            $rateClass = $row->on_time_rate >= 80 ? 'high' : ($row->on_time_rate >= 50 ? 'med' : 'low');
-                                        @endphp
-                                        <span class="rate-badge {{ $rateClass }}" wire:click="openKashf('services', 'on_time', {{ $row->company_id }})">
-                                            {{ $row->on_time_rate }}%
-                                        </span>
-                                    @else
-                                        <span style="color: #94a3b8;">—</span>
-                                    @endif
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill {{ $row->open_deficiencies > 0 ? 'deficiencies' : 'zero' }}" wire:click="openKashf('deficiencies', 'all', {{ $row->company_id }})">
-                                        {{ number_format($row->open_deficiencies) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill zero" wire:click="openKashf('tasks', 'due', {{ $row->company_id }})">
-                                        {{ number_format($row->task_due_in_period) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill {{ $row->task_completed_in_period > 0 ? 'completed' : 'zero' }}" wire:click="openKashf('tasks', 'completed', {{ $row->company_id }})">
-                                        {{ number_format($row->task_completed_in_period) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    @if($row->task_completion_rate !== null)
-                                        @php
-                                            $taskRateClass = $row->task_completion_rate >= 80 ? 'high' : ($row->task_completion_rate >= 50 ? 'med' : 'low');
-                                        @endphp
-                                        <span class="rate-badge {{ $taskRateClass }}" wire:click="openKashf('tasks', 'all', {{ $row->company_id }})">
-                                            {{ $row->task_completion_rate }}%
-                                        </span>
-                                    @else
-                                        <span style="color: #94a3b8;">—</span>
-                                    @endif
-                                </td>
-                                <td style="text-align: center; font-weight: 700; color: #475569;">
-                                    {{ number_format($row->departments_count) }}
-                                </td>
-                                <td style="text-align: center; font-weight: 700; color: #475569;">
-                                    {{ number_format($row->employees_count) }}
-                                </td>
-                                <td style="text-align: center;">
-                                    <x-filament::button size="xs" color="primary" icon="heroicon-m-chevron-left" icon-position="after" wire:click="selectCompany({{ $row->company_id }})">
-                                        {{ __('performance.levels.view_departments') }}
-                                    </x-filament::button>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="12">
-                                    <div class="perf-empty-state">
-                                        <div class="perf-empty-icon">
-                                            <x-heroicon-o-building-office-2 style="width: 28px; height: 28px;" />
-                                        </div>
-                                        <div style="font-weight: 700; font-size: 0.95rem; color: #334155;">{{ __('performance.kashf.empty') }}</div>
-                                        <div style="font-size: 0.775rem; color: #94a3b8;">جرّب تعديل معايير البحث أو اختيار فترة زمنية أخرى.</div>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-
-        <!-- ========================================== -->
-        <!-- LEVEL 2: Departments Table -->
-        <!-- ========================================== -->
-        @elseif($this->selectedDepartmentId === null)
-            @php
-                $departments = $this->departmentsSummary;
-            @endphp
-            <div class="perf-table-wrapper">
-                <table class="perf-table">
-                    <thead>
-                        <tr>
-                            <th>{{ __('performance.columns.department') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.active_services') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.completed_services') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.overdue_services') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.on_time_rate') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.open_deficiencies') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.tasks_due') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.tasks_completed') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.task_completion_rate') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.employees_count') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.actions') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($departments as $row)
-                            <tr class="{{ $row->is_unassigned ? 'unassigned-row' : '' }}">
-                                <td>
-                                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                                        <a href="javascript:void(0)" wire:click="selectDepartment('{{ $row->department_id }}')" style="font-weight: 700; color: #0f172a; text-decoration: none;" class="hover:text-primary-600 dark:text-gray-100">
-                                            {{ $row->department_name }}
-                                        </a>
-                                        @if($row->is_team_scope)
-                                            <x-filament::badge color="info" size="xs">
-                                                {{ __('performance.levels.team_badge') }}
-                                            </x-filament::badge>
-                                        @endif
-                                        @if($row->is_unassigned)
-                                            <x-filament::badge color="warning" size="xs">
-                                                {{ __('performance.levels.unassigned_or_no_department') }}
-                                            </x-filament::badge>
-                                        @endif
-                                    </div>
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill {{ $row->active_services > 0 ? 'active' : 'zero' }}" wire:click="openKashf('services', 'active', {{ $this->selectedCompanyId }}, '{{ $row->department_id }}')">
-                                        {{ number_format($row->active_services) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill {{ $row->completed_services > 0 ? 'completed' : 'zero' }}" wire:click="openKashf('services', 'completed', {{ $this->selectedCompanyId }}, '{{ $row->department_id }}')">
-                                        {{ number_format($row->completed_services) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill {{ $row->overdue_services > 0 ? 'overdue' : 'zero' }}" wire:click="openKashf('services', 'overdue', {{ $this->selectedCompanyId }}, '{{ $row->department_id }}')">
-                                        {{ number_format($row->overdue_services) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    @if($row->on_time_rate !== null)
-                                        @php
-                                            $rateClass = $row->on_time_rate >= 80 ? 'high' : ($row->on_time_rate >= 50 ? 'med' : 'low');
-                                        @endphp
-                                        <span class="rate-badge {{ $rateClass }}" wire:click="openKashf('services', 'on_time', {{ $this->selectedCompanyId }}, '{{ $row->department_id }}')">
-                                            {{ $row->on_time_rate }}%
-                                        </span>
-                                    @else
-                                        <span style="color: #94a3b8;">—</span>
-                                    @endif
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill {{ $row->open_deficiencies > 0 ? 'deficiencies' : 'zero' }}" wire:click="openKashf('deficiencies', 'all', {{ $this->selectedCompanyId }}, '{{ $row->department_id }}')">
-                                        {{ number_format($row->open_deficiencies) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill zero" wire:click="openKashf('tasks', 'due', {{ $this->selectedCompanyId }}, '{{ $row->department_id }}')">
-                                        {{ number_format($row->task_due_in_period) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill {{ $row->task_completed_in_period > 0 ? 'completed' : 'zero' }}" wire:click="openKashf('tasks', 'completed', {{ $this->selectedCompanyId }}, '{{ $row->department_id }}')">
-                                        {{ number_format($row->task_completed_in_period) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    @if($row->task_completion_rate !== null)
-                                        @php
-                                            $taskRateClass = $row->task_completion_rate >= 80 ? 'high' : ($row->task_completion_rate >= 50 ? 'med' : 'low');
-                                        @endphp
-                                        <span class="rate-badge {{ $taskRateClass }}" wire:click="openKashf('tasks', 'all', {{ $this->selectedCompanyId }}, '{{ $row->department_id }}')">
-                                            {{ $row->task_completion_rate }}%
-                                        </span>
-                                    @else
-                                        <span style="color: #94a3b8;">—</span>
-                                    @endif
-                                </td>
-                                <td style="text-align: center; font-weight: 700; color: #475569;">
-                                    {{ number_format($row->employees_count) }}
-                                </td>
-                                <td style="text-align: center;">
-                                    <x-filament::button size="xs" color="primary" icon="heroicon-m-chevron-left" icon-position="after" wire:click="selectDepartment('{{ $row->department_id }}')">
-                                        {{ __('performance.levels.view_employees') }}
-                                    </x-filament::button>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="11">
-                                    <div class="perf-empty-state">
-                                        <div class="perf-empty-icon">
-                                            <x-heroicon-o-rectangle-group style="width: 28px; height: 28px;" />
-                                        </div>
-                                        <div style="font-weight: 700; font-size: 0.95rem; color: #334155;">{{ __('performance.kashf.empty') }}</div>
-                                        <div style="font-size: 0.775rem; color: #94a3b8;">لا توجد أقسام مسجلة تحت هذه المنشأة وفق التصفية الحالية.</div>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-
-        <!-- ========================================== -->
-        <!-- LEVEL 3: Employees Table -->
-        <!-- ========================================== -->
-        @else
-            @php
-                $employees = $this->employeesSummary;
-            @endphp
-            <div class="perf-table-wrapper">
-                <table class="perf-table">
-                    <thead>
-                        <tr>
-                            <th>{{ __('performance.columns.employee') }}</th>
-                            <th>{{ __('performance.columns.job_title') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.nationality') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.active_services') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.completed_services') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.overdue_services') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.on_time_rate') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.open_deficiencies') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.tasks_completed') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.task_completion_rate') }}</th>
-                            <th style="text-align: center;">{{ __('performance.columns.actions') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($employees as $row)
-                            <tr>
-                                <td>
-                                    <div style="display: flex; flex-direction: column; gap: 0.15rem;">
-                                        <strong style="color: #0f172a;" class="dark:text-gray-100">{{ $row->name }}</strong>
-                                        <span style="font-size: 0.725rem; color: #64748b;"><bdi>{{ $row->employee_number ?? '—' }}</bdi></span>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span style="font-size: 0.775rem; color: #475569;" class="dark:text-gray-300">{{ $row->job_title ?: '—' }}</span>
-                                </td>
-                                <td style="text-align: center;">
-                                    @if($row->is_saudi)
-                                        <x-filament::badge color="success" size="xs">
-                                            {{ __('performance.columns.saudi') }}
-                                        </x-filament::badge>
-                                    @else
-                                        <x-filament::badge color="gray" size="xs">
-                                            {{ __('performance.columns.foreign') }}
-                                        </x-filament::badge>
-                                    @endif
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill {{ $row->active_services > 0 ? 'active' : 'zero' }}" wire:click="openKashf('services', 'active', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})">
-                                        {{ number_format($row->active_services) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill {{ $row->completed_services > 0 ? 'completed' : 'zero' }}" wire:click="openKashf('services', 'completed', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})">
-                                        {{ number_format($row->completed_services) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill {{ $row->overdue_services > 0 ? 'overdue' : 'zero' }}" wire:click="openKashf('services', 'overdue', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})">
-                                        {{ number_format($row->overdue_services) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    @if($row->on_time_rate !== null)
-                                        @php
-                                            $rateClass = $row->on_time_rate >= 80 ? 'high' : ($row->on_time_rate >= 50 ? 'med' : 'low');
-                                        @endphp
-                                        <span class="rate-badge {{ $rateClass }}" wire:click="openKashf('services', 'on_time', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})">
-                                            {{ $row->on_time_rate }}%
-                                        </span>
-                                    @else
-                                        <span style="color: #94a3b8;">—</span>
-                                    @endif
-                                </td>
-                                <td style="text-align: center;">
-                                    <span class="val-pill {{ $row->open_deficiencies > 0 ? 'deficiencies' : 'zero' }}" wire:click="openKashf('deficiencies', 'all', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})">
-                                        {{ number_format($row->open_deficiencies) }}
-                                    </span>
-                                </td>
-                                <td style="text-align: center;">
-                                    @if($row->task_completed_in_period !== null)
-                                        <span class="val-pill {{ $row->task_completed_in_period > 0 ? 'completed' : 'zero' }}" wire:click="openKashf('tasks', 'completed', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})">
-                                            {{ number_format($row->task_completed_in_period) }}
-                                        </span>
-                                    @else
-                                        <span style="color: #94a3b8;">—</span>
-                                    @endif
-                                </td>
-                                <td style="text-align: center;">
-                                    @if($row->task_completion_rate !== null)
-                                        @php
-                                            $taskRateClass = $row->task_completion_rate >= 80 ? 'high' : ($row->task_completion_rate >= 50 ? 'med' : 'low');
-                                        @endphp
-                                        <span class="rate-badge {{ $taskRateClass }}" wire:click="openKashf('tasks', 'all', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})">
-                                            {{ $row->task_completion_rate }}%
-                                        </span>
-                                    @else
-                                        <span style="color: #94a3b8;">—</span>
-                                    @endif
-                                </td>
-                                <td style="text-align: center;">
-                                    @if($row->performance_url)
-                                        <x-filament::link :href="$row->performance_url" icon="heroicon-m-arrow-top-right-on-square" target="_blank" size="sm">
-                                            {{ __('performance.columns.view_profile') }}
-                                        </x-filament::link>
-                                    @else
-                                        <span style="color: #94a3b8;">—</span>
-                                    @endif
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="11">
-                                    <div class="perf-empty-state">
-                                        <div class="perf-empty-icon">
-                                            <x-heroicon-o-users style="width: 28px; height: 28px;" />
-                                        </div>
-                                        <div style="font-weight: 700; font-size: 0.95rem; color: #334155;">{{ __('performance.kashf.empty') }}</div>
-                                        <div style="font-size: 0.775rem; color: #94a3b8;">لا يوجد موظفون مسجلون تحت هذا القسم وفق معايير التصفية.</div>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+        @if($this->canViewWorkforceOverview)
+            <nav class="perf-overview-tabs" aria-label="{{ __('performance.overview.navigation') }}">
+                <button type="button" wire:click="showOperationsOverview" aria-pressed="{{ $this->showAttendanceAndLeaves ? 'false' : 'true' }}">
+                    {{ __('performance.overview.operations') }}
+                </button>
+                <button type="button" wire:click="showWorkforceOverview" aria-pressed="{{ $this->showAttendanceAndLeaves ? 'true' : 'false' }}">
+                    {{ __('performance.overview.workforce') }}
+                </button>
+            </nav>
         @endif
 
+        @if($this->showAttendanceAndLeaves && $this->canViewWorkforceOverview)
+            @include('filament.pages.company-department-performance.workforce-overview')
+        @else
+            @include('filament.pages.company-department-performance.operations-overview')
+        @endif
         <!-- ========================================== -->
-        <!-- LEVEL 4: Kashf Slide-over Modal -->
+        <!-- Kashf Modal -->
         <!-- ========================================== -->
-        <x-filament::modal id="performance-kashf-modal" width="6xl" slide-over>
-            <x-slot:heading>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <x-heroicon-o-clipboard-document-list style="width: 22px; height: 22px; color: #2563eb;" />
-                    <span>{{ $this->kashfTitle }}</span>
-                </div>
-            </x-slot:heading>
-
-            @php
-                $records = $this->kashfRecords;
-            @endphp
-
-            @if($records)
-                @if($this->kashfDomain === 'services')
-                    <div class="perf-table-wrapper">
-                        <table class="perf-table">
-                            <thead>
-                                <tr>
-                                    <th>{{ __('performance.kashf.transaction_number') }}</th>
-                                    <th>{{ __('performance.kashf.service') }}</th>
-                                    <th>{{ __('performance.kashf.beneficiary') }}</th>
-                                    <th>{{ __('performance.kashf.executor') }}</th>
-                                    <th>{{ __('performance.kashf.transaction_date') }}</th>
-                                    <th>{{ __('performance.kashf.due_date') }}</th>
-                                    <th>{{ __('performance.kashf.completion_date') }}</th>
-                                    <th style="text-align: center;">{{ __('performance.kashf.status') }}</th>
-                                    <th style="text-align: center;">{{ __('performance.kashf.pending_action') }}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($records as $srv)
-                                    @php
-                                        $pending = \App\Services\ServicePerformanceSummaryService::pendingAction($srv);
-                                    @endphp
-                                    <tr>
-                                        <td>
-                                            <strong style="color: #2563eb; font-size: 0.85rem;"><bdi>{{ $srv->transaction_number }}</bdi></strong>
-                                        </td>
-                                        <td>
-                                            <span style="font-weight: 600;">{{ $srv->display_service_name }}</span>
-                                        </td>
-                                        <td>{{ $srv->display_beneficiary }}</td>
-                                        <td>
-                                            <span style="color: #475569;" class="dark:text-gray-300">{{ $srv->executor?->user?->name ?? '—' }}</span>
-                                        </td>
-                                        <td><bdi>{{ $srv->transaction_date?->format('Y-m-d') ?? '—' }}</bdi></td>
-                                        <td><bdi>{{ $srv->due_date?->format('Y-m-d') ?? '—' }}</bdi></td>
-                                        <td><bdi>{{ $srv->completion_date?->format('Y-m-d') ?? '—' }}</bdi></td>
-                                        <td style="text-align: center;">
-                                            <x-filament::badge :color="\App\Services\ServicePerformanceSummaryService::statusColor($srv->service_status)" size="xs">
-                                                {{ \App\Services\ServicePerformanceSummaryService::statusLabel($srv->service_status) }}
-                                            </x-filament::badge>
-                                        </td>
-                                        <td style="text-align: center;">
-                                            <x-filament::badge :color="$pending['color']" size="xs">
-                                                {{ $pending['label'] }}
-                                            </x-filament::badge>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="9">
-                                            <div class="perf-empty-state">
-                                                <div class="perf-empty-icon">
-                                                    <x-heroicon-o-document-magnifying-glass style="width: 28px; height: 28px;" />
-                                                </div>
-                                                <div style="font-weight: 700; font-size: 0.95rem; color: #334155;">{{ __('performance.kashf.empty') }}</div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-
-                @elseif($this->kashfDomain === 'deficiencies')
-                    <div class="perf-table-wrapper">
-                        <table class="perf-table">
-                            <thead>
-                                <tr>
-                                    <th>{{ __('performance.kashf.transaction_number') }}</th>
-                                    <th>{{ __('performance.kashf.deficiency_type') }}</th>
-                                    <th>{{ __('performance.kashf.responsible') }}</th>
-                                    <th>{{ __('performance.kashf.due_date') }}</th>
-                                    <th style="text-align: center;">{{ __('performance.kashf.status') }}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($records as $def)
-                                    @php
-                                        $tx = \App\Services\ServicePerformanceSummaryService::deficiencyTransaction($def);
-                                    @endphp
-                                    <tr>
-                                        <td>
-                                            <strong style="color: #2563eb; font-size: 0.85rem;"><bdi>{{ $tx?->transaction_number ?? ($def->task_code ?? "#{$def->id}") }}</bdi></strong>
-                                        </td>
-                                        <td>
-                                            <div style="display: flex; flex-direction: column; gap: 0.15rem;">
-                                                <strong style="color: #0f172a;" class="dark:text-gray-100">{{ $def->title }}</strong>
-                                                <span style="font-size: 0.725rem; color: #64748b;">
-                                                    {{ \App\Services\ServicePerformanceSummaryService::deficiencyTypeLabel($def->deficiency_type) }}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td>{{ $def->responsibleEmployee?->user?->name ?? '—' }}</td>
-                                        <td><bdi>{{ $def->due_date?->format('Y-m-d') ?? '—' }}</bdi></td>
-                                        <td style="text-align: center;">
-                                            <x-filament::badge :color="\App\Services\ServicePerformanceSummaryService::deficiencyStatusColor($def->status)" size="xs">
-                                                {{ \App\Services\ServicePerformanceSummaryService::deficiencyStatusLabel($def->status) }}
-                                            </x-filament::badge>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="5">
-                                            <div class="perf-empty-state">
-                                                <div class="perf-empty-icon">
-                                                    <x-heroicon-o-document-magnifying-glass style="width: 28px; height: 28px;" />
-                                                </div>
-                                                <div style="font-weight: 700; font-size: 0.95rem; color: #334155;">{{ __('performance.kashf.empty') }}</div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-
-                @elseif($this->kashfDomain === 'tasks')
-                    <div class="perf-table-wrapper">
-                        <table class="perf-table">
-                            <thead>
-                                <tr>
-                                    <th>{{ __('performance.kashf.task_name') }}</th>
-                                    <th>{{ __('performance.kashf.assignment_number') }}</th>
-                                    <th>{{ __('performance.columns.employee') }}</th>
-                                    <th>{{ __('performance.kashf.due_date') }}</th>
-                                    <th>{{ __('performance.kashf.completion_date') }}</th>
-                                    <th style="text-align: center;">{{ __('performance.kashf.status') }}</th>
-                                    <th style="text-align: center;">{{ __('performance.kashf.weight') }} / {{ __('performance.kashf.score') }}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($records as $item)
-                                    <tr>
-                                        <td><strong>{{ $item->task?->name ?? '—' }}</strong></td>
-                                        <td><bdi>{{ $item->taskAssignment?->transaction_number ?? '—' }}</bdi></td>
-                                        <td>{{ $item->taskAssignment?->employee?->user?->name ?? '—' }}</td>
-                                        <td><bdi>{{ $item->due_date?->format('Y-m-d') ?? '—' }}</bdi></td>
-                                        <td><bdi>{{ $item->completed_at?->format('Y-m-d') ?? '—' }}</bdi></td>
-                                        <td style="text-align: center;">
-                                            <x-filament::badge :color="$item->status?->getColor() ?? 'gray'" size="xs">
-                                                {{ $item->status?->getLabel() ?? '—' }}
-                                            </x-filament::badge>
-                                        </td>
-                                        <td style="text-align: center;">
-                                            <bdi>{{ number_format((float) $item->weight, 1) }}%</bdi> /
-                                            <bdi>{{ number_format((float) $item->score, 1) }}</bdi>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="7">
-                                            <div class="perf-empty-state">
-                                                <div class="perf-empty-icon">
-                                                    <x-heroicon-o-document-magnifying-glass style="width: 28px; height: 28px;" />
-                                                </div>
-                                                <div style="font-weight: 700; font-size: 0.95rem; color: #334155;">{{ __('performance.kashf.empty') }}</div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                @endif
-
-                @if($records->hasPages())
-                    <div style="padding: 1rem 0; border-top: 1px solid #e2e8f0;">
-                        <x-filament::pagination :paginator="$records" />
-                    </div>
-                @endif
-            @endif
-
-            <x-slot:footerActions>
-                <x-filament::button color="gray" wire:click="closeKashf">
-                    {{ __('performance.kashf.close') }}
-                </x-filament::button>
-            </x-slot:footerActions>
-        </x-filament::modal>
+        @include('filament.pages.company-department-performance.statement-modal')
     </div>
 </x-filament-panels::page>

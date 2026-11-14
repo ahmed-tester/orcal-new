@@ -95,19 +95,28 @@ class AttendanceSummaryService
     /**
      * Compute KPI stats over every employee within the current filters.
      */
-    public static function getStats(array $filters = []): array
+    public static function getStats(array $filters = [], ?array $employeeIds = null): array
     {
-        $rows = self::summaryQuery($filters)->get();
+        $totals = self::summaryQuery($filters)
+            ->when($employeeIds !== null, fn (Builder $query) => $query->whereIn('employees.id', $employeeIds))
+            ->toBase()
+            ->select([])
+            ->selectRaw('COUNT(*) as employees_count,
+                SUM(att.recorded_days) as recorded_days, SUM(att.present_days) as present_days,
+                SUM(att.late_days) as late_days, SUM(att.absent_days) as absent_days,
+                SUM(att.leave_days) as leave_days, SUM(att.late_minutes) as late_minutes,
+                SUM(att.total_hours) as total_hours')
+            ->first();
 
         return [
-            'employees_count' => $rows->count(),
-            'recorded_days' => (int) $rows->sum('recorded_days'),
-            'present_days' => (int) $rows->sum('present_days'),
-            'late_days' => (int) $rows->sum('late_days'),
-            'absent_days' => (int) $rows->sum('absent_days'),
-            'leave_days' => (int) $rows->sum('leave_days'),
-            'late_minutes' => (int) round((float) $rows->sum('late_minutes')),
-            'total_hours' => round((float) $rows->sum('total_hours'), 2),
+            'employees_count' => (int) $totals->employees_count,
+            'recorded_days' => (int) $totals->recorded_days,
+            'present_days' => (int) $totals->present_days,
+            'late_days' => (int) $totals->late_days,
+            'absent_days' => (int) $totals->absent_days,
+            'leave_days' => (int) $totals->leave_days,
+            'late_minutes' => (int) round((float) $totals->late_minutes),
+            'total_hours' => round((float) $totals->total_hours, 2),
         ];
     }
 

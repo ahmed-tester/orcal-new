@@ -144,7 +144,7 @@
             @endif
         </div>
 
-        <x-filament::modal id="task-assignment-details" width="5xl" slide-over>
+        <x-filament::modal id="task-assignment-details" width="5xl">
             <x-slot:heading>{{ __('tasks.summary.statement') }}</x-slot:heading>
 
             @if($details)

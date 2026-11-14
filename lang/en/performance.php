@@ -23,6 +23,18 @@ return [
         'no_data' => 'Insufficient Data',
     ],
 
+    'overview' => [
+        'navigation' => 'Performance dashboard sections',
+        'operations' => 'Operations Overview',
+        'workforce' => 'Attendance and Leave',
+        'attendance_month' => 'Attendance Summary for :month',
+        'leaves_year' => 'Leave Summary for :year',
+        'attendance_details' => 'Open Attendance Summary',
+        'leaves_details' => 'Open Leave Summary',
+        'approved_leave_days' => 'Approved Leave Days',
+        'period_note' => 'The report start date sets the attendance month and leave year. Leave status today uses the current date. Text search and department navigation apply to the operations overview.',
+    ],
+
     // Filters & Notes
     'filters' => [
         'title' => 'Filter & Search Performance',
@@ -39,7 +51,7 @@ return [
 
     // Tables & Navigation
     'levels' => [
-        'companies' => 'Companies Table',
+        'companies' => 'Companies',
         'departments' => 'Departments of :company',
         'employees' => 'Employees of :department (:company)',
         'back_to_companies' => 'Back to Companies',
@@ -100,6 +112,7 @@ return [
     ],
 
     'types' => [
+        'due' => 'Due',
         'active' => 'Active',
         'completed' => 'Completed',
         'overdue' => 'Overdue',
@@ -107,5 +120,31 @@ return [
         'all' => 'All',
         'postponed' => 'Postponed',
     ],
-];
 
+    // Empty States
+    'empty' => [
+        'hint' => 'Try adjusting search criteria or selecting another time period.',
+        'no_departments' => 'No departments registered under this company matching current filter.',
+        'no_employees' => 'No employees registered under this department matching current filter.',
+    ],
+
+    // Dynamic Fallbacks
+    'fallback' => [
+        'company' => 'Company #:id',
+        'employee' => 'Employee #:id',
+    ],
+
+    // Supervisors View
+    'supervisors' => [
+        'title' => 'Supervisor & Beneficiary Evaluations',
+        'departments_summary' => 'Summary of Departments Shown',
+        'average_on_time_rate' => 'Average On-Time Completion',
+        'average_task_completion_rate' => 'Average Assignment Completion',
+        'completed_services_share' => 'Share of Completed Services',
+        'completed_services_share_hint' => 'Completed out of active and completed',
+        'enter_department' => 'View Department Employees',
+        'view_details' => 'View Service Records',
+        'department_lead' => 'Department Lead',
+        'lead_keywords' => ['Manager', 'Supervisor', 'Lead', 'Head'],
+    ],
+];

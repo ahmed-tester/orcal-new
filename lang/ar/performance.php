@@ -23,6 +23,18 @@ return [
         'no_data' => 'لا توجد بيانات كافية',
     ],
 
+    'overview' => [
+        'navigation' => 'أقسام لوحة الأداء',
+        'operations' => 'ملخص التشغيل',
+        'workforce' => 'الحضور والإجازات',
+        'attendance_month' => 'ملخص الحضور لشهر :month',
+        'leaves_year' => 'ملخص الإجازات لسنة :year',
+        'attendance_details' => 'فتح ملخص الحضور',
+        'leaves_details' => 'فتح ملخص الإجازات',
+        'approved_leave_days' => 'أيام الإجازات المعتمدة',
+        'period_note' => 'يتحدد شهر الحضور وسنة الإجازات من بداية فترة التقرير. حالة الإجازة اليوم تُحسب بتاريخ اليوم. البحث النصي والتنقل بين الأقسام خاصان بملخص التشغيل.',
+    ],
+
     // Filters & Notes
     'filters' => [
         'title' => 'تصفية وبحث الأداء',
@@ -39,7 +51,7 @@ return [
 
     // Tables & Navigation
     'levels' => [
-        'companies' => 'جدول المنشآت',
+        'companies' => 'المنشآت',
         'departments' => 'أقسام منشأة: :company',
         'employees' => 'موظفو قسم: :department (:company)',
         'back_to_companies' => 'العودة للمنشآت',
@@ -100,6 +112,7 @@ return [
     ],
 
     'types' => [
+        'due' => 'المستحقة',
         'active' => 'الجارية',
         'completed' => 'المكتملة',
         'overdue' => 'المتأخرة',
@@ -107,5 +120,31 @@ return [
         'all' => 'الكل',
         'postponed' => 'المؤجلة',
     ],
-];
 
+    // Empty States
+    'empty' => [
+        'hint' => 'جرّب تعديل معايير البحث أو اختيار فترة زمنية أخرى.',
+        'no_departments' => 'لا توجد أقسام مسجلة تحت هذه المنشأة وفق التصفية الحالية.',
+        'no_employees' => 'لا يوجد موظفون مسجلون تحت هذا القسم وفق معايير التصفية.',
+    ],
+
+    // Dynamic Fallbacks
+    'fallback' => [
+        'company' => 'منشأة #:id',
+        'employee' => 'موظف #:id',
+    ],
+
+    // Supervisors View
+    'supervisors' => [
+        'title' => 'تقييمات المشرف والمستفيدين',
+        'departments_summary' => 'ملخص الأقسام المعروضة',
+        'average_on_time_rate' => 'متوسط الإنجاز في الموعد',
+        'average_task_completion_rate' => 'متوسط إنجاز التكليفات',
+        'completed_services_share' => 'حصة الخدمات المكتملة',
+        'completed_services_share_hint' => 'المكتملة من الجارية والمكتملة',
+        'enter_department' => 'عرض موظفي القسم',
+        'view_details' => 'كشف الخدمات',
+        'department_lead' => 'مسؤول القسم',
+        'lead_keywords' => ['مدير', 'مشرف', 'مسؤول'],
+    ],
+];
