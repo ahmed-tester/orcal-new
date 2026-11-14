@@ -112,6 +112,15 @@ return [
         'sections' => [
             'info' => 'Department Information',
         ],
+        'scope' => [
+            'label' => 'Department Affiliation Scope',
+            'single' => 'Assigned to a specific company 🏢',
+            'shared' => 'Shared between selected companies 🏢🤝🏢',
+            'fawaz_group' => 'Under Fawaz Group Umbrella (Independent General Department) 🌐',
+            'fawaz_group_badge' => 'Fawaz Group',
+            'fawaz_group_notice' => 'Independent General Department Notice',
+            'fawaz_group_info' => 'This department is completely independent under the Fawaz Group umbrella, is not tied to any specific entity, and is accessible across the entire group.',
+        ],
         'fields' => [
             'company' => 'Assigned Company',
             'companies' => 'Shared Companies for this Department',

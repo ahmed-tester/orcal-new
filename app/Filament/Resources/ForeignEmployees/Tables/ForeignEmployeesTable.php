@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ForeignEmployees\Tables;
 
+use App\Filament\Actions\EmployeePerformanceAction;
 use App\Filament\Components\OrgSelect;
 use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Models\Guarantor;
@@ -219,11 +220,7 @@ class ForeignEmployeesTable
                     ->visible(fn ($record) => ForeignEmployeeResource::hasPage('view')
                         && \App\Filament\Resources\ForeignEmployees\Pages\ViewForeignEmployee::canAccess(['record' => $record]))
                     ->url(fn ($record) => ForeignEmployeeResource::getUrl('view', ['record' => $record])),
-                /* Action::make('performance')
-                    ->label(__('tasks.performance.action'))
-                    ->icon('heroicon-o-chart-bar')
-                    ->color('gray')
-                    ->url(fn ($record) => ForeignEmployeeResource::getUrl('performance', ['record' => $record])), */
+                EmployeePerformanceAction::make(ForeignEmployeeResource::class)->color('gray'),
                 Action::make('guarantor_report')
                     ->label(__('guarantors.single'))
                     ->icon('heroicon-o-shield-check')

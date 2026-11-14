@@ -2,12 +2,12 @@
 
 namespace App\Filament\Resources\ForeignEmployees\Pages;
 
+use App\Filament\Actions\EmployeePerformanceAction;
 use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Models\User;
 use App\Services\EmployeeAgeService;
 use App\Services\GuarantorService;
 use App\Services\PhoneService;
-// use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Hash;
@@ -20,11 +20,7 @@ class EditForeignEmployee extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            /* Action::make('performance')
-                ->label(__('tasks.performance.action'))
-                ->icon('heroicon-o-chart-bar')
-                ->color('gray')
-                ->url(fn (): string => ForeignEmployeeResource::getUrl('performance', ['record' => $this->record])), */
+            EmployeePerformanceAction::make(ForeignEmployeeResource::class)->record($this->getRecord())->color('gray'),
 
             DeleteAction::make()->label(__('employees.actions.delete')),
         ];

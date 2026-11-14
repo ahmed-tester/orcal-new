@@ -2,9 +2,9 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Actions\EmployeePerformanceAction;
 use App\Models\Employee;
 use App\Services\EmployeePerformanceAccessService;
-use Filament\Actions\Action;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Schema;
@@ -40,19 +40,8 @@ abstract class ViewEmployeeProfile extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        if (! static::getResource()::hasPage('performance')) {
-            return [];
-        }
-
-        $record = $this->getRecord();
-        $performancePage = static::getResource()::getPages()['performance']->getPage();
-
         return [
-            Action::make('performance')
-                ->label(__('tasks.performance.action'))
-                ->icon('heroicon-o-chart-bar')
-                ->visible(fn () => $performancePage::canAccess(['record' => $record]))
-                ->url(fn () => static::getResource()::getUrl('performance', ['record' => $record])),
+            EmployeePerformanceAction::make(static::getResource())->record($this->getRecord()),
         ];
     }
 }

@@ -2,18 +2,21 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Actions\EmployeePerformanceAction;
 use App\Filament\Pages\MyTasks;
+use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Filament\Resources\SaudiEmployees\Pages\EmployeePerformance;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Filament\Resources\TaskAssignments\Pages\TaskAssignmentsSummary;
 use App\Models\Employee;
 use App\Models\ServiceTransaction;
-use App\Services\ServicePerformanceSummaryService;
 use App\Models\User;
+use App\Services\ServicePerformanceSummaryService;
 use App\Services\TaskAssignmentSummaryService;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Routing\RouteCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
@@ -427,6 +430,8 @@ class TaskAssignmentSummaryServiceTest extends TestCase
 
     public function test_supervisor_can_read_team_profiles_and_only_sees_assignments_inside_the_shift(): void
     {
+        Filament::getPanel('admin')->navigation(false)->databaseNotifications(false);
+
         $supervisor = $this->staff(['view_any_task_assignment', 'view_any_saudi_employee']);
         $supervisor->forceFill(['user_type' => 'supervisor'])->save();
         $member = $this->employee('Shift member', 1, 1);
@@ -462,6 +467,34 @@ class TaskAssignmentSummaryServiceTest extends TestCase
             ->assertDontSee('Same-branch outsider')
             ->call('openDetails', $outsider)
             ->assertNotFound();
+    }
+
+    public function test_employee_performance_actions_hide_in_production_and_when_the_route_is_missing(): void
+    {
+        $this->actingAs($this->superAdmin());
+        $employee = Employee::findOrFail($this->employee('Employee', 1, 1));
+        $action = EmployeePerformanceAction::make(SaudiEmployeeResource::class)->record($employee);
+
+        $this->assertTrue($action->isVisible());
+        $this->assertSame(SaudiEmployeeResource::getUrl('performance', ['record' => $employee]), $action->getUrl());
+
+        $routes = app('router')->getRoutes();
+        $this->app['router']->setRoutes(new RouteCollection);
+
+        try {
+            $this->assertFalse($action->isVisible());
+            $this->assertNull($action->getUrl());
+        } finally {
+            $this->app['router']->setRoutes($routes);
+        }
+
+        $this->app->instance('env', 'production');
+
+        $this->assertFalse(SaudiEmployeeResource::hasPage('performance'));
+        $this->assertFalse(ForeignEmployeeResource::hasPage('performance'));
+        $this->assertFalse($action->isVisible());
+        $this->assertNull($action->getUrl());
+        $this->get('/saudi-employees/'.$employee->getKey().'/performance')->assertNotFound();
     }
 
     public function test_service_cards_filter_deficiencies_by_month_and_use_the_completion_date_for_shift_scope(): void

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\SaudiEmployees\Tables;
 
 use App\Enums\UserType;
+use App\Filament\Actions\EmployeePerformanceAction;
 use App\Filament\Components\OrgSelect;
 use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
@@ -193,14 +194,10 @@ class SaudiEmployeesTable
                         ? ForeignEmployeeResource::getUrl('view', ['record' => $record])
                         : SaudiEmployeeResource::getUrl('view', ['record' => $record])),
 
-                /* Action::make('performance')
-                    ->label(__('tasks.performance.action'))
-                    ->icon('heroicon-o-chart-bar')
-                    ->color('gray')
-                    ->url(fn ($record) => $record->user?->user_type === UserType::FOREIGN_EMPLOYEE
-                        ? ForeignEmployeeResource::getUrl('performance', ['record' => $record])
-                        : SaudiEmployeeResource::getUrl('performance', ['record' => $record])
-                    ), */
+                EmployeePerformanceAction::make(fn ($record) => $record->user?->user_type === UserType::FOREIGN_EMPLOYEE
+                    ? ForeignEmployeeResource::class
+                    : SaudiEmployeeResource::class
+                )->color('gray'),
 
                 Action::make('guarantor_report')
                     ->label(__('guarantors.single'))

@@ -11,8 +11,6 @@ use App\Services\TaskAssignmentSummaryService;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 
-// Temporarily disabled until the employee performance files are deployed together.
-/*
 class EmployeePerformance extends Page
 {
     use HasTaskPerformanceDashboard;
@@ -22,6 +20,8 @@ class EmployeePerformance extends Page
 
     public function mount(int|string $record): void
     {
+        abort_if(app()->isProduction(), 404);
+
         $this->record = $this->resolveRecord($record);
     }
 
@@ -30,7 +30,8 @@ class EmployeePerformance extends Page
         $record = $parameters['record'] ?? null;
         $user = auth()->user();
 
-        return $record instanceof Employee
+        return ! app()->isProduction()
+            && $record instanceof Employee
             && $user !== null
             && ForeignEmployee::query()->whereKey($record->getKey())->exists()
             && EmployeePerformanceAccessService::canViewEmployeeRecord($user, $record)
@@ -46,6 +47,8 @@ class EmployeePerformance extends Page
 
     protected function authorizePerformance(Employee $employee): void
     {
+        abort_if(app()->isProduction(), 404);
+
         $user = auth()->user();
         abort_unless($user !== null, 403);
         abort_unless(ForeignEmployee::query()->whereKey($employee->getKey())->exists(), 404);
@@ -63,4 +66,3 @@ class EmployeePerformance extends Page
         );
     }
 }
-*/

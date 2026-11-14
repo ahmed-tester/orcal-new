@@ -6,7 +6,6 @@ use App\Enums\UserType;
 use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Models\Company;
-use App\Models\Employee;
 use App\Services\CompanyFormService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -100,14 +99,7 @@ class ListSaudiEmployees extends ListRecords
 
     public function getTabs(): array
     {
-        $baseQuery = Employee::query();
-        $user = auth()->user();
-        if ($user && ! $user->isSuperAdmin() && ! $user->hasRole('Super Admin')) {
-            $companyIds = CompanyFormService::getAuthorizedCompanyIds($user);
-            if (! empty($companyIds)) {
-                $baseQuery->whereIn('company_id', $companyIds);
-            }
-        }
+        $baseQuery = SaudiEmployeeResource::getEloquentQuery();
 
         $allCount = (clone $baseQuery)->count();
         $saudiCount = (clone $baseQuery)->whereHas('user', fn ($q) => $q->where('user_type', UserType::SAUDI_EMPLOYEE))->count();
