@@ -109,6 +109,10 @@ class TemporaryEmployeesTable
                     ->badge()
                     ->color('info'),
 
+                TextColumn::make('details.profession')
+                    ->label(__('employees.fields.profession'))
+                    ->placeholder('—'),
+
                 TextColumn::make('basic_salary')
                     ->label(__('employees.fields.basic_salary'))
                     ->money('SAR')

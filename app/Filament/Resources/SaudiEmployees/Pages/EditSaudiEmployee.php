@@ -5,6 +5,7 @@ namespace App\Filament\Resources\SaudiEmployees\Pages;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Models\User;
 use App\Services\EmployeeAgeService;
+use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -44,12 +45,20 @@ class EditSaudiEmployee extends EditRecord
 
         if ($details) {
             $data['national_id'] = $details->national_id;
+            $data['profession'] = $details->profession;
             $data['address'] = $details->address;
             $data['birth_date'] = $details->birth_date?->format('Y-m-d');
             $data['age'] = EmployeeAgeService::calculateAge($details->birth_date);
         }
 
         $data['name_en'] = $employee->metadata['name_en'] ?? null;
+        $capacity = PersonCapacityService::resolveKey($employee, 'employee');
+        $data['person_capacity'] = $capacity;
+        $hasOwner = $user?->owners?->isNotEmpty() ?? false;
+        $data['registration_source'] = ($capacity === 'employee_and_owner' || $hasOwner) ? 'from_owner' : 'manual';
+        if ($hasOwner) {
+            $data['selected_owner_id'] = $user->owners->first()?->id;
+        }
 
         return $data;
     }
@@ -59,16 +68,19 @@ class EditSaudiEmployee extends EditRecord
         $employee = $this->record;
         $userId = $employee->user_id;
 
+        $metadata = $employee->metadata ?? [];
         if (array_key_exists('name_en', $data)) {
-            $metadata = $employee->metadata ?? [];
             if (! empty($data['name_en'])) {
                 $metadata['name_en'] = trim($data['name_en']);
             } else {
                 unset($metadata['name_en']);
             }
-            $data['metadata'] = $metadata;
             unset($data['name_en']);
         }
+
+        $capacity = $data['person_capacity'] ?? $this->form->getRawState()['person_capacity'] ?? null;
+        $data['metadata'] = PersonCapacityService::mergeIntoMetadata($metadata, $capacity, 'employee');
+        unset($data['person_capacity']);
 
         if (! empty($data['user_email'])) {
             $email = trim($data['user_email']);
@@ -119,6 +131,7 @@ class EditSaudiEmployee extends EditRecord
             [
                 'nationality' => 'saudi',
                 'national_id' => $data['national_id'] ?? null,
+                'profession' => $data['profession'] ?? null,
                 'birth_date' => $data['birth_date'] ?? null,
                 'metadata' => ! empty($data['birth_date']) ? ['age' => EmployeeAgeService::calculateAge($data['birth_date'])] : null,
                 'address' => $data['address'] ?? null,

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Owners\Pages;
 
 use App\Filament\Resources\Owners\OwnerResource;
 use App\Services\OwnerFormService;
+use App\Services\PersonCapacityService;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateOwner extends CreateRecord
@@ -12,6 +13,13 @@ class CreateOwner extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        return OwnerFormService::resolveOwnerUserData($data, $this->form->getRawState());
+        $rawState = $this->form->getRawState();
+        $data = OwnerFormService::resolveOwnerUserData($data, $rawState);
+
+        $capacity = $data['person_capacity'] ?? $rawState['person_capacity'] ?? null;
+        $data['metadata'] = PersonCapacityService::mergeIntoMetadata($data['metadata'] ?? [], $capacity, 'owner');
+        unset($data['person_capacity']);
+
+        return $data;
     }
 }

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\CompanyFormService;
 use App\Services\EmployeeAgeService;
 use App\Services\EmployeeServiceDurationService;
+use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
 use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;
@@ -38,16 +39,20 @@ class SaudiEmployeeForm
                             ->default('manual')
                             ->inline()
                             ->live()
+                            ->afterStateUpdated(fn ($state, callable $set) => $set('person_capacity', $state === 'from_owner' ? 'employee_and_owner' : 'employee'))
                             ->columnSpanFull(),
 
                         Select::make('selected_owner_id')
                             ->label(__('employees.fields.selected_owner'))
-                            ->options(fn () => Owner::with('user')->get()->mapWithKeys(function ($owner) {
-                                $name = $owner->user?->name ?? '—';
-                                $nid = $owner->national_id ? " ({$owner->national_id})" : '';
+                            ->options(fn () => Owner::with('user')
+                                ->whereHas('user', fn ($q) => $q->whereDoesntHave('employee'))
+                                ->get()
+                                ->mapWithKeys(function ($owner) {
+                                    $name = $owner->user?->name ?? '—';
+                                    $nid = $owner->national_id ? " ({$owner->national_id})" : '';
 
-                                return [$owner->id => "{$name}{$nid}"];
-                            }))
+                                    return [$owner->id => "{$name}{$nid}"];
+                                }))
                             ->searchable()
                             ->preload()
                             ->live()
@@ -73,6 +78,7 @@ class SaudiEmployeeForm
                                     if ($owner->company_id) {
                                         $set('company_id', $owner->company_id);
                                     }
+                                    $set('person_capacity', 'employee_and_owner');
                                 }
                             })
                             ->columnSpanFull(),
@@ -90,15 +96,7 @@ class SaudiEmployeeForm
                             ->label(__('employees.fields.email'))
                             ->email()
                             ->placeholder('example@orcal.sa')
-                            ->unique(User::class, 'email', ignoreRecord: false, modifyRuleUsing: function ($rule, callable $get, $record) {
-                                $userId = $record?->user_id;
-                                if (! $userId && $get('registration_source') === 'from_owner' && $get('selected_owner_id')) {
-                                    $owner = Owner::find($get('selected_owner_id'));
-                                    $userId = $owner?->user_id;
-                                }
-
-                                return $userId ? $rule->ignore($userId) : $rule;
-                            }),
+                            ->unique(User::class, 'email', ignoreRecord: false, modifyRuleUsing: PersonCapacityService::ignoreLinkedUserRule('employee')),
 
                         TextInput::make('national_id')
                             ->label(__('employees.fields.national_id'))
@@ -106,18 +104,17 @@ class SaudiEmployeeForm
                             ->length(10)
                             ->required(),
 
+                        TextInput::make('profession')
+                            ->label(__('employees.fields.profession'))
+                            ->placeholder(__('employees.placeholders.profession'))
+                            ->maxLength(255),
+
+                        PersonCapacityService::makeFormField('employee'),
+
                         PhoneService::makeFormField('user_phone', __('employees.fields.phone'), required: true)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn ($state, callable $set) => $set('user_phone', PhoneService::normalize($state) ?? $state))
-                            ->unique(User::class, 'phone', ignoreRecord: false, modifyRuleUsing: function ($rule, callable $get, $record) {
-                                $userId = $record?->user_id;
-                                if (! $userId && $get('registration_source') === 'from_owner' && $get('selected_owner_id')) {
-                                    $owner = Owner::find($get('selected_owner_id'));
-                                    $userId = $owner?->user_id;
-                                }
-
-                                return $userId ? $rule->ignore($userId) : $rule;
-                            }),
+                            ->unique(User::class, 'phone', ignoreRecord: false, modifyRuleUsing: PersonCapacityService::ignoreLinkedUserRule('employee')),
 
                         ...EmployeeAgeService::makeFormFields(),
 

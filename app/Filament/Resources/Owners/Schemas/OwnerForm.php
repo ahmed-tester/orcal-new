@@ -7,6 +7,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\CompanyFormService;
 use App\Services\OwnerFormService;
+use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -39,14 +40,13 @@ class OwnerForm
                         TextInput::make('user_email')
                             ->label(__('owners.fields.email'))
                             ->email()
-                            ->nullable()
-                            ->unique(User::class, 'email', ignoreRecord: false, modifyRuleUsing: OwnerFormService::ignoreSelectedEmployeeUserId()),
+                            ->required()
+                            ->unique(User::class, 'email', ignoreRecord: false, modifyRuleUsing: PersonCapacityService::ignoreLinkedUserRule('owner')),
 
-                        PhoneService::makeFormField('user_phone', __('owners.fields.phone'))
-                            ->nullable()
+                        PhoneService::makeFormField('user_phone', __('owners.fields.phone'), required: true)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn ($state, callable $set) => $set('user_phone', PhoneService::normalize($state) ?? $state))
-                            ->unique(User::class, 'phone', ignoreRecord: false, modifyRuleUsing: OwnerFormService::ignoreSelectedEmployeeUserId()),
+                            ->unique(User::class, 'phone', ignoreRecord: false, modifyRuleUsing: PersonCapacityService::ignoreLinkedUserRule('owner')),
 
                         TextInput::make('user_password')
                             ->label(__('owners.fields.password'))
@@ -60,6 +60,8 @@ class OwnerForm
 
                         TextInput::make('national_id')
                             ->label(__('owners.fields.national_id')),
+
+                        PersonCapacityService::makeFormField('owner'),
 
                         TextInput::make('nationality')
                             ->label(__('owners.fields.nationality')),

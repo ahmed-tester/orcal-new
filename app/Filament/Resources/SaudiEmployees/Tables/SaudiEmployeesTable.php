@@ -116,6 +116,10 @@ class SaudiEmployeesTable
                     ->badge()
                     ->color('info'),
 
+                TextColumn::make('details.profession')
+                    ->label(__('employees.fields.profession'))
+                    ->placeholder('—'),
+
                 TextColumn::make('details.guarantor.name')
                     ->label(__('guarantors.single'))
                     ->placeholder('—')
