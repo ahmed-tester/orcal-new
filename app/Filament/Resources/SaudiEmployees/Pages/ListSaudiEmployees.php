@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\SaudiEmployees\Pages;
 
-use App\Enums\UserType;
 use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Models\Company;
@@ -102,8 +101,8 @@ class ListSaudiEmployees extends ListRecords
         $baseQuery = SaudiEmployeeResource::getEloquentQuery();
 
         $allCount = (clone $baseQuery)->count();
-        $saudiCount = (clone $baseQuery)->whereHas('user', fn ($q) => $q->where('user_type', UserType::SAUDI_EMPLOYEE))->count();
-        $foreignCount = (clone $baseQuery)->whereHas('user', fn ($q) => $q->where('user_type', UserType::FOREIGN_EMPLOYEE))->count();
+        $saudiCount = (clone $baseQuery)->saudi()->count();
+        $foreignCount = (clone $baseQuery)->foreign()->count();
 
         return [
             'all' => Tab::make(__('employees.tabs.all'))
@@ -111,12 +110,12 @@ class ListSaudiEmployees extends ListRecords
                 ->badgeColor('gray'),
 
             'saudi' => Tab::make(__('employees.tabs.saudi'))
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereHas('user', fn ($q) => $q->where('user_type', UserType::SAUDI_EMPLOYEE)))
+                ->modifyQueryUsing(fn (Builder $query) => $query->saudi())
                 ->badge($saudiCount)
                 ->badgeColor('success'),
 
             'foreign' => Tab::make(__('employees.tabs.foreign'))
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereHas('user', fn ($q) => $q->where('user_type', UserType::FOREIGN_EMPLOYEE)))
+                ->modifyQueryUsing(fn (Builder $query) => $query->foreign())
                 ->badge($foreignCount)
                 ->badgeColor('info'),
         ];
