@@ -112,6 +112,13 @@ return [
         'sections' => [
             'info' => 'Department Information',
         ],
+        'scope' => [
+            'label' => 'Department Affiliation Scope',
+            'single' => 'Assigned to a specific company 🏢',
+            'shared' => 'Shared between selected companies 🏢🤝🏢',
+            'fawaz_group' => 'Under Fawaz Group Umbrella (All Companies) 🌐',
+            'fawaz_group_info' => 'This department automatically covers all entities under the group, granting full access across all companies.',
+        ],
         'fields' => [
             'company' => 'Assigned Company',
             'companies' => 'Shared Companies for this Department',

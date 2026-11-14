@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Departments\Tables;
 
-use App\Models\Department;
+use App\Services\DepartmentScopeService;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -34,13 +34,7 @@ class DepartmentsTable
                     ->badge()
                     ->color('info'),
 
-                TextColumn::make('companies.trade_name')
-                    ->label(__('organization.departments.fields.companies'))
-                    ->formatStateUsing(fn ($state, Department $record) => $record->is_global ? __('organization.departments.fields.global_badge') : ($record->companies->isNotEmpty() ? $record->companies->pluck('trade_name')->join('، ') : ($record->company?->trade_name ?? '-')))
-                    ->badge(fn (Department $record) => $record->is_global)
-                    ->color(fn (Department $record) => $record->is_global ? 'success' : 'gray')
-                    ->wrap()
-                    ->searchable(),
+                DepartmentScopeService::makeTableColumn(),
 
                 TextColumn::make('status')
                     ->label(__('organization.departments.fields.status'))
@@ -58,11 +52,12 @@ class DepartmentsTable
                     ->options(\App\Enums\GeneralStatus::class),
             ])
             ->recordActions([
-                EditAction::make()->label(__('employees.actions.edit')),
+                ViewAction::make(),
+                EditAction::make(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make()->label(__('employees.actions.delete_selected')),
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
