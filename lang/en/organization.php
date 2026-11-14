@@ -117,6 +117,8 @@ return [
             'single' => 'Assigned to a specific company 🏢',
             'shared' => 'Shared between selected companies 🏢🤝🏢',
             'fawaz_group' => 'Under Fawaz Group Umbrella (All Companies) 🌐',
+            'fawaz_group_notice' => 'Central Department Notice',
+            'fawaz_group_badge' => 'Central Department under Fawaz Group',
             'fawaz_group_info' => 'This department automatically covers all entities under the group, granting full access across all companies.',
         ],
         'fields' => [

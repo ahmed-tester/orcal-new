@@ -74,11 +74,12 @@ class DepartmentScopeService
                 ->dehydrated(true),
 
             Placeholder::make('fawaz_group_info')
-                ->label('')
+                ->label(__('organization.departments.scope.fawaz_group_notice'))
+                ->hiddenLabel()
                 ->content(fn () => new HtmlString('
                     <div class="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 rounded-lg text-emerald-800 dark:text-emerald-200 text-sm flex items-center gap-2">
                         <span class="text-xl">🌐</span>
-                        <span><strong>' . e(__('organization.departments.scope.fawaz_group')) . ':</strong> ' . e(__('organization.departments.scope.fawaz_group_info')) . '</span>
+                        <span><strong>' . e(__('organization.departments.scope.fawaz_group_badge')) . ':</strong> ' . e(__('organization.departments.scope.fawaz_group_info')) . '</span>
                     </div>
                 '))
                 ->visible(fn ($get) => DepartmentScope::isFawazGroup($get('department_scope')))
