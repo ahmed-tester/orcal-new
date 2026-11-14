@@ -52,7 +52,13 @@ class EditSaudiEmployee extends EditRecord
         }
 
         $data['name_en'] = $employee->metadata['name_en'] ?? null;
-        $data['person_capacity'] = PersonCapacityService::resolveKey($employee, 'employee');
+        $capacity = PersonCapacityService::resolveKey($employee, 'employee');
+        $data['person_capacity'] = $capacity;
+        $hasOwner = $user?->owners?->isNotEmpty() ?? false;
+        $data['registration_source'] = ($capacity === 'employee_and_owner' || $hasOwner) ? 'from_owner' : 'manual';
+        if ($hasOwner) {
+            $data['selected_owner_id'] = $user->owners->first()?->id;
+        }
 
         return $data;
     }

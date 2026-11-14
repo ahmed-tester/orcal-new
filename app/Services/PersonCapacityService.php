@@ -2,10 +2,17 @@
 
 namespace App\Services;
 
+use App\Enums\UserType;
+use App\Models\Employee;
+use App\Models\EmployeeDetail;
 use App\Models\Owner;
+use App\Models\User;
+use App\Services\PhoneService;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class PersonCapacityService
 {
@@ -81,7 +88,9 @@ class PersonCapacityService
             ->options(static::getOptions($for))
             ->default($isOwner ? 'owner' : 'employee')
             ->selectablePlaceholder(false)
-            ->native(false);
+            ->native(false)
+            ->disabled()
+            ->dehydrated();
     }
 
     public static function makeTableColumn(string $for = 'employee'): TextColumn
@@ -147,5 +156,196 @@ class PersonCapacityService
                         });
                 });
             });
+    }
+
+    /**
+     * Validation rule modifier to ignore linked user ID for email & phone uniqueness.
+     *
+     * @param string $for 'employee' or 'owner'
+     */
+    public static function ignoreLinkedUserRule(string $for = 'employee'): \Closure
+    {
+        return function ($rule, callable $get, $record) use ($for) {
+            $userId = $record?->user_id;
+
+            if (! $userId) {
+                if ($for === 'employee' && $get('registration_source') === 'from_owner' && $get('selected_owner_id')) {
+                    $userId = Owner::whereKey($get('selected_owner_id'))->value('user_id');
+                } elseif ($for === 'owner' && $get('registration_source') === 'from_saudi_employee' && $get('selected_employee_id')) {
+                    $userId = Employee::whereKey($get('selected_employee_id'))->value('user_id');
+                }
+            }
+
+            return $userId ? $rule->ignore($userId) : $rule;
+        };
+    }
+
+    /**
+     * Symmetrical user provisioning/linking for employee or owner registration.
+     *
+     * @param string $targetType 'employee' or 'owner'
+     * @param array $data
+     * @param array $rawState
+     * @return array
+     */
+    public static function resolveUserForRegistration(string $targetType, array $data, array $rawState = []): array
+    {
+        $registrationSource = $data['registration_source'] ?? $rawState['registration_source'] ?? 'manual';
+
+        if ($targetType === 'owner') {
+            $selectedEmployeeId = $data['selected_employee_id'] ?? $rawState['selected_employee_id'] ?? null;
+
+            if ($registrationSource === 'from_saudi_employee' && ! empty($selectedEmployeeId)) {
+                $employee = Employee::with('user')->findOrFail($selectedEmployeeId);
+
+                if (! $employee->user) {
+                    throw ValidationException::withMessages([
+                        'selected_employee_id' => __('owners.fields.errors.employee_data_unavailable'),
+                    ]);
+                }
+
+                $companyId = $data['company_id'] ?? $employee->company_id;
+                if ($companyId && Owner::where('user_id', $employee->user_id)->where('company_id', $companyId)->exists()) {
+                    throw ValidationException::withMessages([
+                        'selected_employee_id' => __('owners.fields.errors.employee_already_owner'),
+                    ]);
+                }
+
+                $data['user_id'] = $employee->user_id;
+
+                $email = ! empty($data['user_email']) ? trim($data['user_email']) : null;
+                if ($email && User::where('email', $email)->where('id', '!=', $employee->user_id)->exists()) {
+                    throw ValidationException::withMessages([
+                        'user_email' => __('employees.fields.errors.email_exists'),
+                    ]);
+                }
+
+                $userUpdates = array_filter([
+                    'name' => $data['user_name'] ?? null,
+                    'email' => $email,
+                    'phone' => ! empty($data['user_phone']) ? PhoneService::normalize($data['user_phone']) : null,
+                ]);
+
+                if (! empty($data['user_password'])) {
+                    $userUpdates['password'] = Hash::make($data['user_password']);
+                }
+
+                if (! empty($userUpdates)) {
+                    $employee->user->update($userUpdates);
+                }
+
+                return $data;
+            }
+
+            // Manual Owner registration
+            $normalizedPhone = PhoneService::normalize($data['user_phone'] ?? null);
+            $email = ! empty($data['user_email']) ? trim($data['user_email']) : ('owner_' . uniqid() . '@company.com');
+
+            if (User::where('email', $email)->exists()) {
+                throw ValidationException::withMessages([
+                    'user_email' => __('employees.fields.errors.email_exists'),
+                ]);
+            }
+
+            if ($normalizedPhone && User::where('phone', $normalizedPhone)->exists()) {
+                throw ValidationException::withMessages([
+                    'user_phone' => __('validation.unique', ['attribute' => __('owners.fields.phone')]),
+                ]);
+            }
+
+            $user = User::create([
+                'name' => $data['user_name'] ?? 'Owner',
+                'email' => $email,
+                'phone' => $normalizedPhone,
+                'password' => ! empty($data['user_password']) ? Hash::make($data['user_password']) : Hash::make('password'),
+                'user_type' => UserType::OWNER,
+                'status' => 'active',
+            ]);
+
+            $data['user_id'] = $user->id;
+
+            return $data;
+        }
+
+        // Target: employee
+        $selectedOwnerId = $data['selected_owner_id'] ?? $rawState['selected_owner_id'] ?? null;
+
+        if ($registrationSource === 'from_owner' && ! empty($selectedOwnerId)) {
+            $owner = Owner::with('user')->find($selectedOwnerId);
+            if (! $owner || ! $owner->user) {
+                throw ValidationException::withMessages([
+                    'selected_owner_id' => __('employees.fields.errors.owner_data_unavailable'),
+                ]);
+            }
+
+            if (Employee::where('user_id', $owner->user->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'selected_owner_id' => __('employees.fields.errors.owner_already_employee'),
+                ]);
+            }
+
+            $data['user_id'] = $owner->user->id;
+
+            $email = ! empty($data['user_email']) ? trim($data['user_email']) : null;
+            if ($email && User::where('email', $email)->where('id', '!=', $owner->user->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'user_email' => __('employees.fields.errors.email_exists'),
+                ]);
+            }
+
+            $userUpdates = array_filter([
+                'name' => $data['user_name'] ?? null,
+                'email' => $email,
+                'phone' => ! empty($data['user_phone']) ? PhoneService::normalize($data['user_phone']) : null,
+            ]);
+
+            if (! empty($data['user_password'])) {
+                $userUpdates['password'] = Hash::make($data['user_password']);
+            }
+
+            if (! empty($userUpdates)) {
+                $owner->user->update($userUpdates);
+            }
+
+            return $data;
+        }
+
+        // Manual Saudi employee registration
+        $nationalId = $data['national_id'] ?? null;
+        if (! empty($nationalId) && EmployeeDetail::where('national_id', $nationalId)->exists()) {
+            throw ValidationException::withMessages([
+                'national_id' => __('employees.fields.errors.national_id_exists'),
+            ]);
+        }
+
+        $email = ! empty($data['user_email'])
+            ? trim($data['user_email'])
+            : ('saudi_' . ($nationalId ?? uniqid()) . '@orcal.sa');
+
+        if (User::where('email', $email)->exists()) {
+            throw ValidationException::withMessages([
+                'user_email' => __('employees.fields.errors.email_exists'),
+            ]);
+        }
+
+        $normalizedPhone = PhoneService::normalize($data['user_phone'] ?? null);
+        if ($normalizedPhone && User::where('phone', $normalizedPhone)->exists()) {
+            throw ValidationException::withMessages([
+                'user_phone' => __('validation.unique', ['attribute' => __('employees.fields.phone')]),
+            ]);
+        }
+
+        $user = User::create([
+            'name' => $data['user_name'] ?? 'Employee',
+            'email' => $email,
+            'phone' => $normalizedPhone,
+            'password' => ! empty($data['user_password']) ? Hash::make($data['user_password']) : Hash::make('12345678'),
+            'user_type' => UserType::SAUDI_EMPLOYEE,
+            'status' => 'active',
+        ]);
+
+        $data['user_id'] = $user->id;
+
+        return $data;
     }
 }

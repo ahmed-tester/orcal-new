@@ -36,7 +36,6 @@ class OwnerFormService
                 ->live()
                 ->afterStateUpdated(fn ($state, callable $set) => $set('person_capacity', $state === 'from_saudi_employee' ? 'employee_and_owner' : 'owner'))
                 ->dehydrated()
-                ->visible(fn ($livewire) => $livewire instanceof CreateOwner)
                 ->columnSpanFull(),
 
             Select::make('selected_employee_id')
@@ -47,7 +46,7 @@ class OwnerFormService
                 ->preload()
                 ->live()
                 ->dehydrated()
-                ->visible(fn ($get, $livewire) => $livewire instanceof CreateOwner && $get('registration_source') === 'from_saudi_employee')
+                ->visible(fn ($get) => $get('registration_source') === 'from_saudi_employee')
                 ->afterStateUpdated(fn ($state, callable $set) => static::populateFromEmployee($set, $state))
                 ->columnSpanFull(),
         ];
@@ -142,15 +141,7 @@ class OwnerFormService
      */
     public static function ignoreSelectedEmployeeUserId(): \Closure
     {
-        return function ($rule, callable $get, $record) {
-            $userId = $record?->user_id;
-
-            if (! $userId && $get('registration_source') === 'from_saudi_employee' && $get('selected_employee_id')) {
-                $userId = Employee::whereKey($get('selected_employee_id'))->value('user_id');
-            }
-
-            return $userId ? $rule->ignore($userId) : $rule;
-        };
+        return PersonCapacityService::ignoreLinkedUserRule('owner');
     }
 
     /**
@@ -168,12 +159,7 @@ class OwnerFormService
      */
     public static function resolveOwnerUserData(array $data, array $rawState = []): array
     {
-        $registrationSource = $data['registration_source'] ?? $rawState['registration_source'] ?? 'manual';
-        $selectedEmployeeId = $data['selected_employee_id'] ?? $rawState['selected_employee_id'] ?? null;
-
-        return $registrationSource === 'from_saudi_employee' && ! empty($selectedEmployeeId)
-            ? static::handleEmployeeRegistration($data, (int) $selectedEmployeeId)
-            : static::handleManualRegistration($data);
+        return PersonCapacityService::resolveUserForRegistration('owner', $data, $rawState);
     }
 
     protected static function handleEmployeeRegistration(array $data, int $selectedEmployeeId): array

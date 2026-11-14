@@ -45,7 +45,12 @@ class EditOwner extends EditRecord
         }
 
         $data['name_en'] = $owner->name_en;
-        $data['person_capacity'] = PersonCapacityService::resolveKey($owner, 'owner');
+        $capacity = PersonCapacityService::resolveKey($owner, 'owner');
+        $data['person_capacity'] = $capacity;
+        $data['registration_source'] = ($capacity === 'employee_and_owner' || (bool) $user?->employee) ? 'from_saudi_employee' : 'manual';
+        if ($user?->employee) {
+            $data['selected_employee_id'] = $user->employee->id;
+        }
         $data['monthly_deduction_percentage'] = $owner->monthly_deduction_percentage;
         $data['owner_advances'] = $owner->owner_advances;
         $data['debts'] = $owner->debts;

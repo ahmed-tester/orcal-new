@@ -96,15 +96,7 @@ class SaudiEmployeeForm
                             ->label(__('employees.fields.email'))
                             ->email()
                             ->placeholder('example@orcal.sa')
-                            ->unique(User::class, 'email', ignoreRecord: false, modifyRuleUsing: function ($rule, callable $get, $record) {
-                                $userId = $record?->user_id;
-                                if (! $userId && $get('registration_source') === 'from_owner' && $get('selected_owner_id')) {
-                                    $owner = Owner::find($get('selected_owner_id'));
-                                    $userId = $owner?->user_id;
-                                }
-
-                                return $userId ? $rule->ignore($userId) : $rule;
-                            }),
+                            ->unique(User::class, 'email', ignoreRecord: false, modifyRuleUsing: PersonCapacityService::ignoreLinkedUserRule('employee')),
 
                         TextInput::make('national_id')
                             ->label(__('employees.fields.national_id'))
@@ -122,15 +114,7 @@ class SaudiEmployeeForm
                         PhoneService::makeFormField('user_phone', __('employees.fields.phone'), required: true)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn ($state, callable $set) => $set('user_phone', PhoneService::normalize($state) ?? $state))
-                            ->unique(User::class, 'phone', ignoreRecord: false, modifyRuleUsing: function ($rule, callable $get, $record) {
-                                $userId = $record?->user_id;
-                                if (! $userId && $get('registration_source') === 'from_owner' && $get('selected_owner_id')) {
-                                    $owner = Owner::find($get('selected_owner_id'));
-                                    $userId = $owner?->user_id;
-                                }
-
-                                return $userId ? $rule->ignore($userId) : $rule;
-                            }),
+                            ->unique(User::class, 'phone', ignoreRecord: false, modifyRuleUsing: PersonCapacityService::ignoreLinkedUserRule('employee')),
 
                         ...EmployeeAgeService::makeFormFields(),
 

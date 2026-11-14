@@ -41,12 +41,12 @@ class OwnerForm
                             ->label(__('owners.fields.email'))
                             ->email()
                             ->required()
-                            ->unique(User::class, 'email', ignoreRecord: false, modifyRuleUsing: OwnerFormService::ignoreSelectedEmployeeUserId()),
+                            ->unique(User::class, 'email', ignoreRecord: false, modifyRuleUsing: PersonCapacityService::ignoreLinkedUserRule('owner')),
 
                         PhoneService::makeFormField('user_phone', __('owners.fields.phone'), required: true)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn ($state, callable $set) => $set('user_phone', PhoneService::normalize($state) ?? $state))
-                            ->unique(User::class, 'phone', ignoreRecord: false, modifyRuleUsing: OwnerFormService::ignoreSelectedEmployeeUserId()),
+                            ->unique(User::class, 'phone', ignoreRecord: false, modifyRuleUsing: PersonCapacityService::ignoreLinkedUserRule('owner')),
 
                         TextInput::make('user_password')
                             ->label(__('owners.fields.password'))
@@ -60,6 +60,8 @@ class OwnerForm
 
                         TextInput::make('national_id')
                             ->label(__('owners.fields.national_id')),
+
+                        PersonCapacityService::makeFormField('owner'),
 
                         TextInput::make('nationality')
                             ->label(__('owners.fields.nationality')),
@@ -93,8 +95,6 @@ class OwnerForm
                             ->label(__('owners.fields.status'))
                             ->options(__('owners.statuses'))
                             ->default('active'),
-
-                        PersonCapacityService::makeFormField('owner'),
 
                         TextInput::make('address')
                             ->label(__('owners.fields.address')),
