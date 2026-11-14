@@ -2,7 +2,8 @@
 
 namespace App\Models;
 
-
+use App\Enums\GeneralStatus;
+use App\Services\PersonCapacityService;
 use App\Traits\HasHijriDates;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,12 @@ class Owner extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::deleted(function (Owner $owner) {
+            PersonCapacityService::cleanupOrphanedUser($owner->user_id, 'owner', $owner->id);
+        });
+    }
 
     protected $fillable = [
         'user_id',
@@ -39,6 +46,8 @@ class Owner extends Model
         'monthly_deduction_percentage',
         'owner_advances',
         'debts',
+        'other_amount',
+        'basic_salary',
         'other_financials',
     ];
 
@@ -49,7 +58,7 @@ class Owner extends Model
             'employment_date' => 'date',
             'termination_date' => 'date',
             'ownership_percentage' => 'decimal:2',
-            'status' => \App\Enums\GeneralStatus::class,
+            'status' => GeneralStatus::class,
             'metadata' => 'array',
         ];
     }
@@ -149,6 +158,30 @@ class Owner extends Model
         $this->metadata = $meta;
     }
 
+    public function getOtherAmountAttribute(): ?float
+    {
+        $amount = $this->metadata['other_amount'] ?? null;
+
+        return $amount === null ? null : (float) $amount;
+    }
+
+    public function setOtherAmountAttribute(mixed $value): void
+    {
+        $this->setFinancialAmount('other_amount', $value);
+    }
+
+    public function getBasicSalaryAttribute(): ?float
+    {
+        $amount = $this->metadata['basic_salary'] ?? null;
+
+        return $amount === null ? null : (float) $amount;
+    }
+
+    public function setBasicSalaryAttribute(mixed $value): void
+    {
+        $this->setFinancialAmount('basic_salary', $value);
+    }
+
     public function getOtherFinancialsAttribute(): ?string
     {
         return $this->metadata['other_financials'] ?? null;
@@ -163,5 +196,17 @@ class Owner extends Model
             unset($meta['other_financials']);
         }
         $this->metadata = $meta;
+    }
+
+    private function setFinancialAmount(string $key, mixed $value): void
+    {
+        $metadata = $this->metadata ?? [];
+        if ($value === null || $value === '') {
+            unset($metadata[$key]);
+        } else {
+            $metadata[$key] = round((float) $value, 2);
+        }
+
+        $this->metadata = $metadata;
     }
 }

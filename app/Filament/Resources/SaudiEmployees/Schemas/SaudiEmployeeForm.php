@@ -40,6 +40,7 @@ class SaudiEmployeeForm
                             ->inline()
                             ->live()
                             ->afterStateUpdated(fn ($state, callable $set) => $set('person_capacity', $state === 'from_owner' ? 'employee_and_owner' : 'employee'))
+                            ->visible(fn ($record) => $record === null)
                             ->columnSpanFull(),
 
                         Select::make('selected_owner_id')
@@ -56,7 +57,7 @@ class SaudiEmployeeForm
                             ->searchable()
                             ->preload()
                             ->live()
-                            ->visible(fn ($get) => $get('registration_source') === 'from_owner')
+                            ->visible(fn ($record, callable $get) => $record === null && $get('registration_source') === 'from_owner')
                             ->afterStateUpdated(function ($state, $set) {
                                 if (! $state) {
                                     return;

@@ -17,9 +17,9 @@ class CreateOwner extends CreateRecord
         $data = OwnerFormService::resolveOwnerUserData($data, $rawState);
 
         $capacity = $data['person_capacity'] ?? $rawState['person_capacity'] ?? null;
-        $data['metadata'] = PersonCapacityService::mergeIntoMetadata($data['metadata'] ?? [], $capacity, 'owner');
+        $metadata = PersonCapacityService::mergeIntoMetadata($data['metadata'] ?? [], $capacity, 'owner');
         unset($data['person_capacity']);
 
-        return $data;
+        return ['metadata' => $metadata] + $data;
     }
 }

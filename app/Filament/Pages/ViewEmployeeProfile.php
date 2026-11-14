@@ -40,6 +40,10 @@ abstract class ViewEmployeeProfile extends ViewRecord
 
     protected function getHeaderActions(): array
     {
+        if (! static::getResource()::hasPage('performance')) {
+            return [];
+        }
+
         $record = $this->getRecord();
         $performancePage = static::getResource()::getPages()['performance']->getPage();
 

@@ -7,7 +7,7 @@ use App\Models\User;
 use App\Services\EmployeeAgeService;
 use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
-use Filament\Actions\Action;
+// use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Hash;
@@ -20,11 +20,11 @@ class EditSaudiEmployee extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('performance')
+            /* Action::make('performance')
                 ->label(__('tasks.performance.action'))
                 ->icon('heroicon-o-chart-bar')
                 ->color('gray')
-                ->url(fn (): string => SaudiEmployeeResource::getUrl('performance', ['record' => $this->record])),
+                ->url(fn (): string => SaudiEmployeeResource::getUrl('performance', ['record' => $this->record])), */
 
             DeleteAction::make()->label(__('employees.actions.delete')),
         ];
@@ -52,13 +52,7 @@ class EditSaudiEmployee extends EditRecord
         }
 
         $data['name_en'] = $employee->metadata['name_en'] ?? null;
-        $capacity = PersonCapacityService::resolveKey($employee, 'employee');
-        $data['person_capacity'] = $capacity;
-        $hasOwner = $user?->owners?->isNotEmpty() ?? false;
-        $data['registration_source'] = ($capacity === 'employee_and_owner' || $hasOwner) ? 'from_owner' : 'manual';
-        if ($hasOwner) {
-            $data['selected_owner_id'] = $user->owners->first()?->id;
-        }
+        $data['person_capacity'] = PersonCapacityService::resolveKey($employee, 'employee');
 
         return $data;
     }

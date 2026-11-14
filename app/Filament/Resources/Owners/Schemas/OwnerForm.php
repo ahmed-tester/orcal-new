@@ -110,7 +110,7 @@ class OwnerForm
 
                 Section::make(__('owners.sections.financial_info'))
                     ->icon('heroicon-o-banknotes')
-                    ->columns(3)
+                    ->columns(['sm' => 2, 'lg' => 4])
                     ->schema(OwnerFormService::makeFinancialFields()),
             ]);
     }

@@ -127,6 +127,10 @@ class Employee extends Model
                 array_filter($computed, fn ($value) => $value !== null)
             );
         });
+
+        static::deleted(function (Employee $employee) {
+            \App\Services\PersonCapacityService::cleanupOrphanedUser($employee->user_id, 'employee', $employee->id);
+        });
     }
 
     public function scopeSaudi(Builder $query): Builder

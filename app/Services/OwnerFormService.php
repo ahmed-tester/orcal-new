@@ -2,25 +2,22 @@
 
 namespace App\Services;
 
-use App\Enums\UserType;
-use App\Filament\Resources\Owners\Pages\CreateOwner;
 use App\Filament\Resources\Owners\Pages\EditOwner;
 use App\Models\Employee;
 use App\Models\Owner;
 use App\Models\User;
+use Filament\Forms\Components\Component;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 
 class OwnerFormService
 {
     /**
      * Get the registration source fields (Radio + Saudi Employee Select).
      *
-     * @return array<\Filament\Forms\Components\Component>
+     * @return array<Component>
      */
     public static function makeRegistrationFields(): array
     {
@@ -36,6 +33,7 @@ class OwnerFormService
                 ->live()
                 ->afterStateUpdated(fn ($state, callable $set) => $set('person_capacity', $state === 'from_saudi_employee' ? 'employee_and_owner' : 'owner'))
                 ->dehydrated()
+                ->visible(fn ($record) => $record === null)
                 ->columnSpanFull(),
 
             Select::make('selected_employee_id')
@@ -46,16 +44,16 @@ class OwnerFormService
                 ->preload()
                 ->live()
                 ->dehydrated()
-                ->visible(fn ($get) => $get('registration_source') === 'from_saudi_employee')
+                ->visible(fn ($record, callable $get) => $record === null && $get('registration_source') === 'from_saudi_employee')
                 ->afterStateUpdated(fn ($state, callable $set) => static::populateFromEmployee($set, $state))
                 ->columnSpanFull(),
         ];
     }
 
     /**
-     * Get owner financial fields (Monthly deduction, advances, debts, other).
+     * Get owner financial fields.
      *
-     * @return array<\Filament\Forms\Components\Component>
+     * @return array<Component>
      */
     public static function makeFinancialFields(): array
     {
@@ -82,6 +80,10 @@ class OwnerFormService
                 ->minValue(0)
                 ->nullable(),
 
+            static::makeAmountInput('other_amount', 'owners.fields.other_amount'),
+
+            static::makeAmountInput('basic_salary', 'owners.fields.basic_salary'),
+
             Textarea::make('other_financials')
                 ->label(__('owners.fields.other_financials'))
                 ->placeholder(__('owners.fields.other_financials_placeholder'))
@@ -89,6 +91,18 @@ class OwnerFormService
                 ->columnSpanFull()
                 ->nullable(),
         ];
+    }
+
+    public static function makeAmountInput(string $name, string $label): TextInput
+    {
+        return TextInput::make($name)
+            ->label(__($label))
+            ->numeric()
+            ->minValue(0)
+            ->maxValue(999999999999.99)
+            ->step('0.01')
+            ->rule('decimal:0,2')
+            ->suffix(__('owners.fields.currency'));
     }
 
     /**
@@ -109,7 +123,7 @@ class OwnerFormService
             ->with(['user', 'details'])
             ->get()
             ->mapWithKeys(fn ($e) => [
-                $e->id => trim(($e->user?->name ?? '—') . ($e->details?->national_id ? " ({$e->details->national_id})" : '')),
+                $e->id => trim(($e->user?->name ?? '—').($e->details?->national_id ? " ({$e->details->national_id})" : '')),
             ])
             ->toArray();
     }
@@ -160,79 +174,5 @@ class OwnerFormService
     public static function resolveOwnerUserData(array $data, array $rawState = []): array
     {
         return PersonCapacityService::resolveUserForRegistration('owner', $data, $rawState);
-    }
-
-    protected static function handleEmployeeRegistration(array $data, int $selectedEmployeeId): array
-    {
-        $employee = Employee::with('user')->findOrFail($selectedEmployeeId);
-
-        if (! $employee->user) {
-            throw ValidationException::withMessages([
-                'selected_employee_id' => __('owners.fields.errors.employee_data_unavailable'),
-            ]);
-        }
-
-        $companyId = $data['company_id'] ?? $employee->company_id;
-        if ($companyId && Owner::where('user_id', $employee->user_id)->where('company_id', $companyId)->exists()) {
-            throw ValidationException::withMessages([
-                'selected_employee_id' => __('owners.fields.errors.employee_already_owner'),
-            ]);
-        }
-
-        $data['user_id'] = $employee->user_id;
-
-        $email = ! empty($data['user_email']) ? trim($data['user_email']) : null;
-        if ($email && User::where('email', $email)->where('id', '!=', $employee->user_id)->exists()) {
-            throw ValidationException::withMessages([
-                'user_email' => __('employees.fields.errors.email_exists'),
-            ]);
-        }
-
-        $userUpdates = array_filter([
-            'name' => $data['user_name'] ?? null,
-            'email' => $email,
-            'phone' => ! empty($data['user_phone']) ? PhoneService::normalize($data['user_phone']) : null,
-        ]);
-
-        if (! empty($data['user_password'])) {
-            $userUpdates['password'] = Hash::make($data['user_password']);
-        }
-
-        if (! empty($userUpdates)) {
-            $employee->user->update($userUpdates);
-        }
-
-        return $data;
-    }
-
-    protected static function handleManualRegistration(array $data): array
-    {
-        $normalizedPhone = PhoneService::normalize($data['user_phone'] ?? null);
-        $email = ! empty($data['user_email']) ? trim($data['user_email']) : ('owner_' . uniqid() . '@company.com');
-
-        if (User::where('email', $email)->exists()) {
-            throw ValidationException::withMessages([
-                'user_email' => __('employees.fields.errors.email_exists'),
-            ]);
-        }
-
-        if ($normalizedPhone && User::where('phone', $normalizedPhone)->exists()) {
-            throw ValidationException::withMessages([
-                'user_phone' => __('validation.unique', ['attribute' => __('owners.fields.phone')]),
-            ]);
-        }
-
-        $user = User::create([
-            'name' => $data['user_name'] ?? 'Owner',
-            'email' => $email,
-            'phone' => $normalizedPhone,
-            'password' => ! empty($data['user_password']) ? Hash::make($data['user_password']) : Hash::make('password'),
-            'user_type' => UserType::OWNER,
-            'status' => 'active',
-        ]);
-
-        $data['user_id'] = $user->id;
-
-        return $data;
     }
 }

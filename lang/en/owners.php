@@ -31,6 +31,9 @@ return [
         'monthly_deduction_percentage' => 'Monthly Deduction Percentage for Owner',
         'owner_advances' => 'Owner Advances',
         'debts' => 'Debts / Liabilities',
+        'other_amount' => 'Other',
+        'basic_salary' => 'Basic Salary',
+        'currency' => 'SAR',
         'other_financials' => 'Free Notes',
         'other_financials_placeholder' => 'Enter any free notes...',
         'person_capacity' => 'Capacity',
@@ -46,6 +49,15 @@ return [
             'employee_data_unavailable' => 'Selected employee data is unavailable.',
             'employee_already_owner' => 'This employee is already registered as an owner in this company.',
         ],
+    ],
+    'salary_bulk' => [
+        'action' => 'Apply Basic Salary to Owners',
+        'description' => 'Apply the amount to all owners you can edit, then adjust individual salaries before saving. Salaries are saved to the owner profiles.',
+        'amount' => 'Default Salary Amount',
+        'apply' => 'Apply to Owners',
+        'save' => 'Save Salaries',
+        'invalid_amount' => 'Enter an amount from 0 to 999999999999.99 with up to two decimal places.',
+        'saved' => 'Saved basic salaries for :count owners.',
     ],
 
     'statuses' => [

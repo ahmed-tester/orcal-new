@@ -187,20 +187,20 @@ class SaudiEmployeesTable
                     ->label(__('employees.actions.view'))
                     ->icon('heroicon-o-eye')
                     ->visible(fn ($record) => $record->user?->user_type === UserType::FOREIGN_EMPLOYEE
-                        ? \App\Filament\Resources\ForeignEmployees\Pages\ViewForeignEmployee::canAccess(['record' => $record])
-                        : \App\Filament\Resources\SaudiEmployees\Pages\ViewSaudiEmployee::canAccess(['record' => $record]))
+                        ? ForeignEmployeeResource::hasPage('view') && \App\Filament\Resources\ForeignEmployees\Pages\ViewForeignEmployee::canAccess(['record' => $record])
+                        : SaudiEmployeeResource::hasPage('view') && \App\Filament\Resources\SaudiEmployees\Pages\ViewSaudiEmployee::canAccess(['record' => $record]))
                     ->url(fn ($record) => $record->user?->user_type === UserType::FOREIGN_EMPLOYEE
                         ? ForeignEmployeeResource::getUrl('view', ['record' => $record])
                         : SaudiEmployeeResource::getUrl('view', ['record' => $record])),
 
-                Action::make('performance')
+                /* Action::make('performance')
                     ->label(__('tasks.performance.action'))
                     ->icon('heroicon-o-chart-bar')
                     ->color('gray')
                     ->url(fn ($record) => $record->user?->user_type === UserType::FOREIGN_EMPLOYEE
                         ? ForeignEmployeeResource::getUrl('performance', ['record' => $record])
                         : SaudiEmployeeResource::getUrl('performance', ['record' => $record])
-                    ),
+                    ), */
 
                 Action::make('guarantor_report')
                     ->label(__('guarantors.single'))

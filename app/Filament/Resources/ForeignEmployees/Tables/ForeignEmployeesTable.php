@@ -216,13 +216,14 @@ class ForeignEmployeesTable
                 Action::make('viewProfile')
                     ->label(__('employees.actions.view'))
                     ->icon('heroicon-o-eye')
-                    ->visible(fn ($record) => \App\Filament\Resources\ForeignEmployees\Pages\ViewForeignEmployee::canAccess(['record' => $record]))
+                    ->visible(fn ($record) => ForeignEmployeeResource::hasPage('view')
+                        && \App\Filament\Resources\ForeignEmployees\Pages\ViewForeignEmployee::canAccess(['record' => $record]))
                     ->url(fn ($record) => ForeignEmployeeResource::getUrl('view', ['record' => $record])),
-                Action::make('performance')
+                /* Action::make('performance')
                     ->label(__('tasks.performance.action'))
                     ->icon('heroicon-o-chart-bar')
                     ->color('gray')
-                    ->url(fn ($record) => ForeignEmployeeResource::getUrl('performance', ['record' => $record])),
+                    ->url(fn ($record) => ForeignEmployeeResource::getUrl('performance', ['record' => $record])), */
                 Action::make('guarantor_report')
                     ->label(__('guarantors.single'))
                     ->icon('heroicon-o-shield-check')

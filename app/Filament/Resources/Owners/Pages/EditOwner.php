@@ -45,15 +45,12 @@ class EditOwner extends EditRecord
         }
 
         $data['name_en'] = $owner->name_en;
-        $capacity = PersonCapacityService::resolveKey($owner, 'owner');
-        $data['person_capacity'] = $capacity;
-        $data['registration_source'] = ($capacity === 'employee_and_owner' || (bool) $user?->employee) ? 'from_saudi_employee' : 'manual';
-        if ($user?->employee) {
-            $data['selected_employee_id'] = $user->employee->id;
-        }
+        $data['person_capacity'] = PersonCapacityService::resolveKey($owner, 'owner');
         $data['monthly_deduction_percentage'] = $owner->monthly_deduction_percentage;
         $data['owner_advances'] = $owner->owner_advances;
         $data['debts'] = $owner->debts;
+        $data['other_amount'] = $owner->other_amount;
+        $data['basic_salary'] = $owner->basic_salary;
         $data['other_financials'] = $owner->other_financials;
 
         return $data;
@@ -90,10 +87,10 @@ class EditOwner extends EditRecord
         ];
 
         $capacity = $data['person_capacity'] ?? $this->form->getRawState()['person_capacity'] ?? null;
-        $data['metadata'] = PersonCapacityService::mergeIntoMetadata($owner->metadata ?? [], $capacity, 'owner');
+        $metadata = PersonCapacityService::mergeIntoMetadata($owner->metadata ?? [], $capacity, 'owner');
         unset($data['person_capacity']);
 
-        return $data;
+        return ['metadata' => $metadata] + $data;
     }
 
     protected function afterSave(): void

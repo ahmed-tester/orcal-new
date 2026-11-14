@@ -9,6 +9,8 @@ use App\Services\EmployeePerformanceAccessService;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 
+// Temporarily disabled until the employee performance files are deployed together.
+/*
 class EmployeePerformance extends Page
 {
     use HasTaskPerformanceDashboard;
@@ -58,3 +60,4 @@ class EmployeePerformance extends Page
         );
     }
 }
+*/
