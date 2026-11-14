@@ -91,6 +91,22 @@
     <x-heroicon-o-information-circle style="width: 18px; height: 18px; flex-shrink: 0;" />
     <span>{{ __('performance.filters.branch_note') }}</span>
 </div>
+
+@php
+    $scoreScopeLabel = $this->selectedCompanyId === null
+        ? __('performance.score.scope_overall')
+        : ($this->selectedDepartmentId === null
+            ? ($selectedCompany?->trade_name ?: ($selectedCompany?->trade_name_en ?? '—'))
+            : ($this->selectedDepartmentId === 'unassigned'
+                ? __('performance.levels.unassigned_or_no_department')
+                : ($selectedDepartment?->parent ? "{$selectedDepartment->name} ({$selectedDepartment->parent->name})" : $selectedDepartment?->name)));
+@endphp
+<x-performance.score-panel
+    :score="$this->performanceScore"
+    :scope-label="$scoreScopeLabel"
+    :company-id="$this->selectedCompanyId"
+    :department-id="$this->selectedDepartmentId"
+/>
 <div class="perf-kpi-grid">
     @foreach($topCards as $c)
         <x-performance.metric-card

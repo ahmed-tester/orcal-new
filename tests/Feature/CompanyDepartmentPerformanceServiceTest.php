@@ -17,10 +17,12 @@ use App\Models\TaskAssignmentItem;
 use App\Models\User;
 use App\Services\AttendanceSummaryService;
 use App\Services\CompanyDepartmentPerformanceService;
+use Filament\Facades\Filament;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
+use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -544,6 +546,35 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
         // Filter by Branch B
         $statsB = CompanyDepartmentPerformanceService::getOverallStats(['branch_id' => $branchB]);
         $this->assertEquals(1, $statsB->active_services);
+    }
+
+    public function test_page_filters_send_ids_and_clear_a_branch_from_another_company(): void
+    {
+        $companyA = $this->createCompany('Filter Company Alpha');
+        $companyB = $this->createCompany('Filter Company Beta');
+        $branchA = DB::table('branches')->insertGetId(['company_id' => $companyA->id, 'name' => 'Filter Branch Alpha']);
+        $branchB = DB::table('branches')->insertGetId(['company_id' => $companyB->id, 'name' => 'Filter Branch Beta']);
+        $admin = $this->createEmployee($companyA->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($admin->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class);
+
+        $this->assertContains(['id' => $companyA->id, 'label' => $companyA->trade_name], $page->instance()->companyFilterOptions());
+        $this->assertContains(['id' => $branchA, 'label' => 'Filter Branch Alpha'], $page->instance()->branchFilterOptions());
+
+        $page->set('companyId', (string) $companyA->id)
+            ->set('branchId', (string) $branchA)
+            ->assertSet('branchId', (string) $branchA)
+            ->assertSeeHtml('wire:key="company-card-'.$companyA->id.'"')
+            ->assertDontSeeHtml('wire:key="company-card-'.$companyB->id.'"');
+
+        $page->set('companyId', (string) $companyB->id)
+            ->assertSet('branchId', null)
+            ->assertSeeHtml('wire:key="company-card-'.$companyB->id.'"')
+            ->assertDontSeeHtml('wire:key="company-card-'.$companyA->id.'"');
+
+        $this->assertSame([['id' => $branchB, 'label' => 'Filter Branch Beta']], $page->instance()->branchFilterOptions());
     }
 
     public function test_saudi_only_for_tasks_vs_foreign_for_services(): void

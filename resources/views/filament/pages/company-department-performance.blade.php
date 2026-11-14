@@ -450,6 +450,174 @@
             border-color: rgba(245, 158, 11, 0.25);
         }
 
+        /* Performance Score Panel (0-100) */
+        .company-perf-page .perf-score-panel {
+            display: grid;
+            grid-template-columns: minmax(220px, 1fr) 1.6fr;
+            gap: 14px;
+            margin-top: 4px;
+        }
+
+        @media (max-width: 820px) {
+            .company-perf-page .perf-score-panel {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .company-perf-page .perf-score-rules {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: #fff;
+            border: 1px solid var(--bd, #e4e8f3);
+        }
+
+        .dark .company-perf-page .perf-score-rules {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .company-perf-page .perf-score-rules-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .company-perf-page .perf-score-rules-header .ic {
+            width: 32px;
+            height: 32px;
+            border-radius: 9px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: color-mix(in srgb, var(--a) 14%, transparent);
+            color: var(--a);
+        }
+
+        .company-perf-page .perf-score-rules ul {
+            margin: 0;
+            padding: 0 1.1rem 0 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 0.76rem;
+            line-height: 1.55;
+            color: var(--mu, #6b7490);
+        }
+
+        .company-perf-page .perf-score-partial-note {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.72rem;
+            color: var(--mu, #6b7490);
+            border-top: 1px dashed var(--bd, #e4e8f3);
+            padding-top: 10px;
+        }
+
+        .company-perf-page .perf-score-main {
+            display: flex;
+            align-items: stretch;
+            gap: 14px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: #fff;
+            border: 1px solid var(--bd, #e4e8f3);
+        }
+
+        .dark .company-perf-page .perf-score-main {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .company-perf-page .perf-score-ring-side {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            min-width: 150px;
+        }
+
+        .company-perf-page .perf-score-of {
+            font-size: 0.7rem;
+            color: var(--mu, #6b7490);
+        }
+
+        .company-perf-page .perf-score-status {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--col, var(--mu, #6b7490));
+            text-align: center;
+        }
+
+        .company-perf-page .perf-score-deductions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+            justify-content: center;
+        }
+
+        .company-perf-page .perf-score-deductions-title {
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: var(--mu, #6b7490);
+        }
+
+        .company-perf-page .perf-score-deduction {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            width: 100%;
+            padding: 9px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--bd, #e4e8f3);
+            background: transparent;
+            font-size: 0.78rem;
+            text-align: start;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .company-perf-page .perf-score-deduction:hover {
+            background: color-mix(in srgb, var(--a) 8%, transparent);
+            border-color: color-mix(in srgb, var(--a) 30%, transparent);
+        }
+
+        .company-perf-page .perf-score-deduction-name {
+            font-weight: 600;
+        }
+
+        .company-perf-page .perf-score-deduction-math {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--mu, #6b7490);
+        }
+
+        .company-perf-page .perf-score-deduction-points {
+            font-size: 0.82rem;
+        }
+
+        .company-perf-page .perf-score-no-deductions {
+            font-size: 0.76rem;
+            color: var(--mu, #6b7490);
+        }
+
+        .company-perf-page .perf-score-total {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            font-weight: 700;
+            border-top: 1px dashed var(--bd, #e4e8f3);
+            padding-top: 8px;
+        }
+
         /* Entity Section & Cards Grid (Companies, Departments, Employees) */
         .company-perf-page .perf-entity-section {
             display: flex;
@@ -1132,41 +1300,53 @@
                 </div>
                 <div class="perf-hero-chip">
                     <x-heroicon-m-building-office-2 style="width: 15px; height: 15px;" />
-                    <span>{{ count($this->companies) }} {{ __('performance.columns.company') }}</span>
+                    <span>{{ count($this->companyFilterOptions) }} {{ __('performance.columns.company') }}</span>
                 </div>
             </div>
         </div>
 
         <!-- Filter Bar -->
-        <x-filter-bar
-            :title="__('performance.filters.title')"
-            :show-company="true"
-            :companies="$this->companies"
-            :company-label="__('performance.filters.company')"
-            :show-branch="true"
-            :branches="$this->branches"
-            :branch-label="__('performance.filters.branch')"
-            :show-dates="true"
-            :date-from-label="__('performance.filters.date_from')"
-            :date-to-label="__('performance.filters.date_to')"
-            :show-search="! ($this->showAttendanceAndLeaves && $this->canViewWorkforceOverview)"
-            :search-placeholder="__('performance.filters.search')"
-            :has-active="$this->hasActiveFilterBar()"
-        />
+        <div wire:key="performance-filters-{{ implode('-', (array) $this->companyId) }}">
+            <x-filter-bar
+                :title="__('performance.filters.title')"
+                :show-company="true"
+                :companies="$this->companyFilterOptions"
+                :company-label="__('performance.filters.company')"
+                :show-branch="true"
+                :branches="$this->branchFilterOptions"
+                :branch-label="__('performance.filters.branch')"
+                :show-dates="true"
+                :date-from-label="__('performance.filters.date_from')"
+                :date-to-label="__('performance.filters.date_to')"
+                :show-search="$this->activeOverviewTab === 'operations'"
+                :search-placeholder="__('performance.filters.search')"
+                :has-active="$this->hasActiveFilterBar()"
+            />
+        </div>
 
-        @if($this->canViewWorkforceOverview)
-            <nav class="perf-overview-tabs" aria-label="{{ __('performance.overview.navigation') }}">
-                <button type="button" wire:click="showOperationsOverview" aria-pressed="{{ $this->showAttendanceAndLeaves ? 'false' : 'true' }}">
-                    {{ __('performance.overview.operations') }}
-                </button>
-                <button type="button" wire:click="showWorkforceOverview" aria-pressed="{{ $this->showAttendanceAndLeaves ? 'true' : 'false' }}">
+        <nav class="perf-overview-tabs" aria-label="{{ __('performance.overview.navigation') }}">
+            <button type="button" wire:click="showOperationsOverview" aria-pressed="{{ $this->activeOverviewTab === 'operations' ? 'true' : 'false' }}">
+                {{ __('performance.overview.operations') }}
+            </button>
+            @if($this->canViewWorkforceOverview)
+                <button type="button" wire:click="showWorkforceOverview" aria-pressed="{{ $this->activeOverviewTab === 'workforce' ? 'true' : 'false' }}">
                     {{ __('performance.overview.workforce') }}
                 </button>
-            </nav>
-        @endif
+            @endif
+            <button type="button" wire:click="showComplianceOverview" aria-pressed="{{ $this->activeOverviewTab === 'compliance' ? 'true' : 'false' }}">
+                {{ __('performance.overview.compliance') }}
+            </button>
+            <button type="button" wire:click="showViolationsOverview" aria-pressed="{{ $this->activeOverviewTab === 'violations' ? 'true' : 'false' }}">
+                {{ __('performance.overview.violations') }}
+            </button>
+        </nav>
 
-        @if($this->showAttendanceAndLeaves && $this->canViewWorkforceOverview)
+        @if($this->activeOverviewTab === 'workforce' && $this->canViewWorkforceOverview)
             @include('filament.pages.company-department-performance.workforce-overview')
+        @elseif($this->activeOverviewTab === 'compliance')
+            @include('filament.pages.company-department-performance.compliance-overview')
+        @elseif($this->activeOverviewTab === 'violations')
+            @include('filament.pages.company-department-performance.violations-overview')
         @else
             @include('filament.pages.company-department-performance.operations-overview')
         @endif

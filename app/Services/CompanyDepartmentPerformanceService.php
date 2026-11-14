@@ -636,9 +636,12 @@ class CompanyDepartmentPerformanceService
 
     /**
      * Level 4: Kashf Deficiencies Query for Modal with pagination.
+     * The 'score_overdue' type lists the currently overdue open deficiencies
+     * that deduct from the performance score, ignoring the report period.
      */
     public static function getKashfDeficienciesQuery(
         array $filters,
+        string $type = 'all',
         ?int $companyId = null,
         int|string|null $departmentId = null,
         ?int $employeeId = null
@@ -648,9 +651,15 @@ class CompanyDepartmentPerformanceService
         [$startDate, $endDate] = self::resolveDateRange($filters);
         $branchId = self::resolveBranchId($filters, $user);
         $teamIds = self::isSupervisorViewer($user) ? self::supervisorTeamIds($user, $startDate, $endDate) : null;
+        $scoreOverdue = $type === 'score_overdue';
 
-        $query = self::deficienciesAggregateQuery($targetCompanyIds, $branchId, $startDate, $endDate, $teamIds)
+        $query = self::deficienciesAggregateQuery($targetCompanyIds, $branchId, $startDate, $endDate, $teamIds, ! $scoreOverdue)
             ->with(['responsibleEmployee.user', 'transaction.service', 'company']);
+
+        if ($scoreOverdue) {
+            $query->whereNotNull('unified_deficiency_tasks.due_date')
+                ->where('unified_deficiency_tasks.due_date', '<', today()->toDateString());
+        }
 
         if ($employeeId) {
             $query->where('unified_deficiency_tasks.responsible_employee_id', $employeeId);
@@ -699,6 +708,9 @@ class CompanyDepartmentPerformanceService
                 ->whereBetween('task_assignment_items.completed_at', [$startDate, $endDate]),
             'due' => $query->whereBetween('task_assignment_items.due_date', [$startDate, $endDate]),
             'overdue' => $query->whereIn('task_assignment_items.status', [TaskStatus::PENDING->value, TaskStatus::IN_PROGRESS->value])
+                ->whereNotNull('task_assignment_items.due_date')
+                ->where('task_assignment_items.due_date', '<', today()->toDateString()),
+            'score_overdue' => $query->whereIn('task_assignment_items.status', [TaskStatus::PENDING->value, TaskStatus::IN_PROGRESS->value])
                 ->whereNotNull('task_assignment_items.due_date')
                 ->where('task_assignment_items.due_date', '<', today()->toDateString()),
             'postponed' => $query->where('task_assignment_items.status', TaskStatus::POSTPONED->value),
@@ -753,25 +765,31 @@ class CompanyDepartmentPerformanceService
 
     /**
      * Base query for deficiencies aggregation with filters and scopes applied.
+     * $enforcePeriod may be disabled for score statements that list the
+     * currently overdue open deficiencies regardless of the report period.
      */
     private static function deficienciesAggregateQuery(
         array $companyIds,
         ?int $branchId,
         string $startDate,
         string $endDate,
-        ?array $teamIds
+        ?array $teamIds,
+        bool $enforcePeriod = true
     ): Builder {
         $query = UnifiedDeficiencyTask::query()
             ->whereIn('unified_deficiency_tasks.company_id', $companyIds)
             ->where('unified_deficiency_tasks.status', 'open')
-            ->whereBetween('unified_deficiency_tasks.created_at', [
-                Carbon::parse($startDate)->startOfDay(),
-                Carbon::parse($endDate)->endOfDay(),
-            ])
             ->where(function (Builder $morph) {
                 $morph->whereNotNull('unified_deficiency_tasks.service_transaction_id')
                     ->orWhere('unified_deficiency_tasks.taskable_type', ServiceTransaction::class);
             });
+
+        if ($enforcePeriod) {
+            $query->whereBetween('unified_deficiency_tasks.created_at', [
+                Carbon::parse($startDate)->startOfDay(),
+                Carbon::parse($endDate)->endOfDay(),
+            ]);
+        }
 
         if ($branchId !== null) {
             $query->where(function (Builder $b) use ($branchId) {
