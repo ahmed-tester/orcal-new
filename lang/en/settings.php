@@ -173,11 +173,11 @@ return [
                 ],
                 'contracts_offers' => [
                     'title' => 'Contracts, Offers & Services',
-                    'desc' => 'Contracts, contract vouchers, price quotes/offers, and registered services.',
-                    'button' => 'Reset Contracts & Offers',
-                    'modal_heading' => 'Confirm Contracts & Offers Reset',
-                    'modal_desc' => 'Are you sure you want to wipe all contracting records, offers, and services?',
-                    'checkbox' => 'I confirm that all contracts and offers data will be permanently wiped',
+                    'desc' => 'Contracts, offers, services, and their transactions, including service deficiencies, receipts, cash handovers, and disbursements.',
+                    'button' => 'Reset Contracts, Offers & Services',
+                    'modal_heading' => 'Confirm Contracts, Offers & Services Reset',
+                    'modal_desc' => 'This deletes contracts, offers, services, and their transactions, including service deficiencies, audit logs, receipts, cash handovers, disbursements, deposits, and suspense amounts.',
+                    'checkbox' => 'I confirm that contracts, offers, services, and their related records will be permanently deleted',
                 ],
                 'tasks_violations' => [
                     'title' => 'Tasks, Violations & Support',

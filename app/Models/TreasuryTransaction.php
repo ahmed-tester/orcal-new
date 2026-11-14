@@ -3,7 +3,9 @@
 namespace App\Models;
 
 
+use App\Enums\TreasuryTransactionType;
 use App\Traits\HasHijriDates;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -48,7 +50,6 @@ class TreasuryTransaction extends Model
 
     protected static function booted(): void
     {
-        // منع حذف أي حركة من الخزينة نهائياً لحماية الأرصدة التراكمية والتسلسل المالي
         static::deleting(function (TreasuryTransaction $transaction) {
             return false;
         });
@@ -78,26 +79,28 @@ class TreasuryTransaction extends Model
                 );
             }
 
-            // Calculate running balance for the company treasury
-            if (empty($transaction->balance_after) || $transaction->balance_after == 0) {
-                $companyId = $transaction->company_id;
-                $lastTransaction = static::where('company_id', $companyId)
-                    ->orderBy('id', 'desc')
-                    ->first();
+        });
+    }
 
-                $previousBalance = $lastTransaction ? (float) $lastTransaction->balance_after : 0.0;
-                $currentAmount = (float) $transaction->amount;
+    protected function performInsert(Builder $query)
+    {
+        $connection = $this->getConnection();
 
-                $isIncoming = ($transaction->transaction_type instanceof \App\Enums\TreasuryTransactionType)
-                    ? $transaction->transaction_type === \App\Enums\TreasuryTransactionType::INCOMING
-                    : ($transaction->transaction_type === 'incoming');
-
-                if ($isIncoming) {
-                    $transaction->balance_after = $previousBalance + $currentAmount;
-                } else {
-                    $transaction->balance_after = $previousBalance - $currentAmount;
-                }
+        return $connection->transaction(function () use ($connection, $query) {
+            if ($this->company_id) {
+                $connection->table('companies')->where('id', $this->company_id)->lockForUpdate()->first();
             }
+
+            $last = $this->newQuery()->where('company_id', $this->company_id)
+                ->latest('id')
+                ->lockForUpdate()
+                ->first();
+
+            $amount = round((float) $this->amount, 2);
+            $signed = $this->transaction_type === TreasuryTransactionType::INCOMING ? $amount : -$amount;
+            $this->balance_after = round((float) ($last?->balance_after ?? 0) + $signed, 2);
+
+            return parent::performInsert($query);
         });
     }
 

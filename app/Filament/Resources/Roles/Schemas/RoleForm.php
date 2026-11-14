@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Roles\Schemas;
 
+use App\Services\OperationsPermissionService;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
@@ -192,6 +193,7 @@ class RoleForm
                     'update_service_transaction' => __('permissions.update_service_transaction'),
                     'delete_service_transaction' => __('permissions.delete_service_transaction'),
                     'approve_service_transaction' => __('permissions.approve_service_transaction'),
+                    ...OperationsPermissionService::getPermissions(),
 
                     'view_any_service' => __('permissions.view_any_service'),
                     'create_service' => __('permissions.create_service'),

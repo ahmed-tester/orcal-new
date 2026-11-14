@@ -142,6 +142,22 @@ class Employee extends Model
         });
     }
 
+    public function isSaudi(): bool
+    {
+        $userType = $this->user?->user_type;
+        if ($userType === UserType::SAUDI_EMPLOYEE || $userType === UserType::OWNER) {
+            return true;
+        }
+
+        $nationality = $this->details?->nationality;
+        if ($nationality) {
+            return str_contains(mb_strtolower($nationality), 'سعود')
+                || str_contains(strtolower($nationality), 'saudi');
+        }
+
+        return false;
+    }
+
     public function scopeForeign(Builder $query): Builder
     {
         return $query->where(function (Builder $q) {

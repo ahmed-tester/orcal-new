@@ -2,6 +2,8 @@
 
 namespace App\Services\Notifications;
 
+use App\Filament\Resources\TreasuryTransactions\TreasuryTransactionResource;
+use App\Models\CashHandover;
 use App\Models\Company;
 use App\Models\Debt;
 use App\Models\Employee;
@@ -53,6 +55,14 @@ class NotificationDispatcher
 
     public static function actionUrl(Model $record): ?string
     {
+        if ($record instanceof CashHandover) {
+            try {
+                return TreasuryTransactionResource::getUrl('index');
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
         $module = match (true) {
             $record instanceof Employee => in_array('update_foreign_employee', NotificationRecipientService::resolveDefaultUpdatePermissions($record), true)
                 ? 'ForeignEmployees\\ForeignEmployee' : 'SaudiEmployees\\SaudiEmployee',

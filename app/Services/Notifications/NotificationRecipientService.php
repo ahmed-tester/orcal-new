@@ -3,6 +3,7 @@
 namespace App\Services\Notifications;
 
 use App\Enums\UserType;
+use App\Models\CashHandover;
 use App\Models\Company;
 use App\Models\Debt;
 use App\Models\Employee;
@@ -19,6 +20,8 @@ use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Violation;
 use App\Services\CompanyFormService;
+use App\Services\CashHandoverService;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
@@ -90,6 +93,20 @@ class NotificationRecipientService
             return false;
         }
 
+        if ($record instanceof CashHandover) {
+            if (! $record->isSubmitted()) {
+                return false;
+            }
+
+            try {
+                CashHandoverService::authorizeHandover($record, 'confirm_cash_handover', $user);
+
+                return true;
+            } catch (AuthorizationException) {
+                return false;
+            }
+        }
+
         // 1. Super Admin: Global update rights across all companies
         if ($user->isSuperAdmin()) {
             return true;
@@ -137,6 +154,7 @@ class NotificationRecipientService
     public static function resolveDefaultUpdatePermissions(Model $record): array
     {
         return match (true) {
+            $record instanceof CashHandover => ['confirm_cash_handover'],
             $record instanceof ForeignEmployee => ['update_foreign_employee'],
             $record instanceof SaudiEmployee => ['update_saudi_employee'],
             $record instanceof Employee => ($record->user?->user_type === UserType::FOREIGN_EMPLOYEE)

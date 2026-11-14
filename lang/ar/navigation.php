@@ -57,6 +57,7 @@ return [
     'violations' => 'سجل المخالفات',
     'violation_transactions' => 'صندوق تحصيل المخالفات',
     'violation_regulations' => 'لوائح وأنظمة المخالفات',
+    'company_department_performance' => 'أداء المنشآت والأقسام',
     'general_reports' => 'الشاشة المركزية للتقارير',
     'notifications_report' => 'تقرير التنبيهات والوثائق',
     'users' => 'المستخدمون',

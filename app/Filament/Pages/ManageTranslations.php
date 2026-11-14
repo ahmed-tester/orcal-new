@@ -33,11 +33,18 @@ class ManageTranslations extends Page
     public int $currentPage = 1;
 
     /**
-     * Associative array of edited values (keyed by unique item key)
+     * Edited values — only holds the CURRENT PAGE keys to keep POST payload small
      *
      * @var array<string, string>
      */
     public array $editedValues = [];
+
+    /**
+     * Pending (dirty) edits accumulated across page changes, kept in session
+     *
+     * @var array<string, string>
+     */
+    protected array $pendingEdits = [];
 
     public static function getNavigationGroup(): ?string
     {
@@ -56,34 +63,90 @@ class ManageTranslations extends Page
 
     public function mount(): void
     {
-        $this->loadTranslations();
+        $this->pendingEdits = session('translation_pending_edits', []);
+        $this->syncEditedValuesToCurrentPage();
     }
+
+    /**
+     * Flush pending edits from editedValues into pendingEdits,
+     * then repopulate editedValues with only the current page items.
+     */
+    protected function syncEditedValuesToCurrentPage(): void
+    {
+        // Merge any current editedValues into pendingEdits
+        foreach ($this->editedValues as $key => $val) {
+            $this->pendingEdits[$key] = $val;
+        }
+
+        // Build the current page slice
+        $pageItems = $this->getCurrentPageItems();
+
+        // Populate editedValues with only current-page keys
+        $this->editedValues = [];
+        foreach ($pageItems as $item) {
+            $uk = $item['unique_key'];
+            // Use pending edit if exists, otherwise original value
+            $this->editedValues[$uk] = $this->pendingEdits[$uk] ?? $item['value'];
+        }
+
+        // Persist pending edits in session
+        session(['translation_pending_edits' => $this->pendingEdits]);
+    }
+
+    /**
+     * Return the items for the current page (after filtering + pagination).
+     *
+     * @return array<int, array{unique_key: string, source: string, key: string, full_key: string, value: string}>
+     */
+    protected function getCurrentPageItems(): array
+    {
+        $all = $this->getFilteredAllRaw();
+        $total = count($all);
+        $lastPage = max(1, (int) ceil($total / $this->perPage));
+
+        if ($this->currentPage > $lastPage) {
+            $this->currentPage = $lastPage;
+        }
+        if ($this->currentPage < 1) {
+            $this->currentPage = 1;
+        }
+
+        $offset = ($this->currentPage - 1) * $this->perPage;
+
+        return array_slice($all, $offset, $this->perPage);
+    }
+
+    // ── Lifecycle hooks ──────────────────────────────────────────────
 
     public function updatedSearch(): void
     {
         $this->currentPage = 1;
+        $this->syncEditedValuesToCurrentPage();
     }
 
     public function updatedFileFilter(): void
     {
         $this->currentPage = 1;
+        $this->syncEditedValuesToCurrentPage();
     }
 
     public function updatedSelectedLocale(): void
     {
         $this->currentPage = 1;
         $this->fileFilter = 'all';
-        $this->loadTranslations();
+        // Clear pending edits when switching locale
+        $this->pendingEdits = [];
+        session()->forget('translation_pending_edits');
+        $this->syncEditedValuesToCurrentPage();
     }
 
-    protected function loadTranslations(): void
+    public function updatedPerPage(): void
     {
-        $all = $this->getAllTranslations();
-        $this->editedValues = [];
-        foreach ($all as $item) {
-            $this->editedValues[$item['unique_key']] = $item['value'];
-        }
+        $this->currentPage = 1;
+        $this->syncEditedValuesToCurrentPage();
     }
+
+    // ── Data accessors ───────────────────────────────────────────────
 
     /**
      * Get list of unique translation files in current locale
@@ -174,60 +237,32 @@ class ManageTranslations extends Page
         return $result;
     }
 
+    // ── Filtering (raw = no side-effects) ────────────────────────────
+
     /**
-     * Save all edited translations to PHP Files
+     * Get ALL filtered items (before pagination)
      */
-    public function saveAll(): void
+    protected function getFilteredAllRaw(): array
     {
-        $locale = $this->selectedLocale;
         $all = $this->getAllTranslations();
 
-        // Group file updates
-        $filesData = [];
-
-        foreach ($all as $item) {
-            $uniqueKey = $item['unique_key'];
-            $currentValue = $this->editedValues[$uniqueKey] ?? $item['value'];
-            $source = $item['source']; // e.g. admin.php
-            $baseName = pathinfo($source, PATHINFO_FILENAME);
-            $keyWithoutFile = preg_replace('/^' . preg_quote($baseName, '/') . '\./', '', $item['key']);
-
-            if (!isset($filesData[$source])) {
-                $filePath = base_path('lang/' . $locale . '/' . $source);
-                $filesData[$source] = File::exists($filePath) ? (include $filePath) : [];
-                if (!is_array($filesData[$source])) {
-                    $filesData[$source] = [];
-                }
-            }
-
-            data_set($filesData[$source], $keyWithoutFile, $currentValue);
+        if ($this->fileFilter !== 'all') {
+            $all = array_filter($all, fn($item) => $item['source'] === $this->fileFilter);
         }
 
-        // Write back to PHP files
-        foreach ($filesData as $source => $data) {
-            $filePath = base_path('lang/' . $locale . '/' . $source);
-            $content = "<?php\n\nreturn " . $this->varExportPretty($data) . ";\n";
-            File::put($filePath, $content);
+        if (filled($this->search)) {
+            $s = mb_strtolower(trim($this->search));
+            $all = array_filter($all, function ($item) use ($s) {
+                $val = mb_strtolower($this->pendingEdits[$item['unique_key']] ?? $this->editedValues[$item['unique_key']] ?? $item['value']);
+                $key = mb_strtolower($item['key']);
+                return str_contains($val, $s) || str_contains($key, $s) || str_contains(mb_strtolower($item['source']), $s);
+            });
         }
 
-        Notification::make()
-            ->title(__('translations.save_success'))
-            ->success()
-            ->send();
+        return array_values($all);
     }
 
-    /**
-     * Pretty print array as PHP code
-     */
-    protected function varExportPretty(array $expression): string
-    {
-        $export = var_export($expression, true);
-        $export = preg_replace("/^([ ]*)(.*)/m", '$1$1$2', $export);
-        $array = preg_split("/\r\n|\n|\r/", $export);
-        $array = preg_replace(["/\s*array\s\($/", "/\)(,)?$/", "/\s=>\s$/"], [null, ']$1', ' => ['], $array);
-        $export = join(PHP_EOL, array_filter(["["] + $array));
-        return $export;
-    }
+    // ── Computed properties for the view ──────────────────────────────
 
     /**
      * Get statistics for current locale
@@ -260,11 +295,7 @@ class ManageTranslations extends Page
             $all = array_filter($all, function ($item) use ($s) {
                 $val = mb_strtolower($this->editedValues[$item['unique_key']] ?? $item['value']);
                 $key = mb_strtolower($item['key']);
-                $screens = mb_strtolower(implode(' ', $item['screens']));
-                return str_contains($val, $s)
-                    || str_contains($key, $s)
-                    || str_contains(mb_strtolower($item['source']), $s)
-                    || str_contains($screens, $s);
+                return str_contains($val, $s) || str_contains($key, $s) || str_contains(mb_strtolower($item['source']), $s);
             });
         }
 
@@ -276,21 +307,7 @@ class ManageTranslations extends Page
      */
     public function getFilteredTranslationsProperty()
     {
-        $all = $this->getFilteredAll();
-        $total = count($all);
-        $lastPage = max(1, (int) ceil($total / $this->perPage));
-
-        // Clamp current page
-        if ($this->currentPage > $lastPage) {
-            $this->currentPage = $lastPage;
-        }
-        if ($this->currentPage < 1) {
-            $this->currentPage = 1;
-        }
-
-        $offset = ($this->currentPage - 1) * $this->perPage;
-
-        return array_slice($all, $offset, $this->perPage);
+        return $this->getCurrentPageItems();
     }
 
     /**
@@ -298,7 +315,7 @@ class ManageTranslations extends Page
      */
     public function getPaginationDataProperty(): array
     {
-        $all = $this->getFilteredAll();
+        $all = $this->getFilteredAllRaw();
         $total = count($all);
         $lastPage = max(1, (int) ceil($total / $this->perPage));
         $page = min($this->currentPage, $lastPage);
@@ -315,24 +332,138 @@ class ManageTranslations extends Page
         ];
     }
 
+    // ── Pagination actions ───────────────────────────────────────────
+
     public function goToPage(int $page): void
     {
         $this->currentPage = $page;
+        $this->syncEditedValuesToCurrentPage();
     }
 
     public function previousPage(): void
     {
         $this->currentPage = max(1, $this->currentPage - 1);
+        $this->syncEditedValuesToCurrentPage();
     }
 
     public function nextPage(): void
     {
         $data = $this->paginationData;
         $this->currentPage = min($data['lastPage'], $this->currentPage + 1);
+        $this->syncEditedValuesToCurrentPage();
     }
 
-    public function updatedPerPage(): void
+    // ── Save ─────────────────────────────────────────────────────────
+
+    /**
+     * Save all edited translations to PHP Files
+     */
+    public function saveAll(): void
     {
-        $this->currentPage = 1;
+        try {
+            // Flush current page edits into pendingEdits
+            foreach ($this->editedValues as $key => $val) {
+                $this->pendingEdits[$key] = $val;
+            }
+
+            $locale = $this->selectedLocale;
+            $all = $this->getAllTranslations();
+
+            // Identify which keys were actually changed
+            $changedItems = [];
+            $modifiedFiles = [];
+            foreach ($all as $item) {
+                $uk = $item['unique_key'];
+                if (isset($this->pendingEdits[$uk]) && (string) $this->pendingEdits[$uk] !== (string) $item['value']) {
+                    $changedItems[$uk] = (string) $this->pendingEdits[$uk];
+                    $modifiedFiles[$item['source']] = true;
+                }
+            }
+
+            if (empty($changedItems)) {
+                Notification::make()
+                    ->title(__('translations.no_changes_to_save'))
+                    ->info()
+                    ->send();
+                return;
+            }
+
+            // Group file updates only for modified files
+            $filesData = [];
+
+            foreach ($all as $item) {
+                $source = $item['source'];
+                if (!isset($modifiedFiles[$source])) {
+                    continue;
+                }
+
+                $uniqueKey = $item['unique_key'];
+                $currentValue = $changedItems[$uniqueKey] ?? $item['value'];
+                $baseName = pathinfo($source, PATHINFO_FILENAME);
+                $keyWithoutFile = preg_replace('/^' . preg_quote($baseName, '/') . '\./', '', $item['key']);
+
+                if (!isset($filesData[$source])) {
+                    $filePath = base_path('lang/' . $locale . '/' . $source);
+                    $filesData[$source] = File::exists($filePath) ? (include $filePath) : [];
+                    if (!is_array($filesData[$source])) {
+                        $filesData[$source] = [];
+                    }
+                }
+
+                data_set($filesData[$source], $keyWithoutFile, $currentValue);
+            }
+
+            // Write back to PHP files
+            $failedFiles = [];
+            foreach ($filesData as $source => $data) {
+                $filePath = base_path('lang/' . $locale . '/' . $source);
+                $content = "<?php\n\nreturn " . $this->varExportPretty($data) . ";\n";
+                try {
+                    File::put($filePath, $content);
+                } catch (\Throwable $writeErr) {
+                    $failedFiles[] = $source;
+                }
+            }
+
+            if (count($failedFiles) > 0) {
+                Notification::make()
+                    ->title(__('translations.save_permission_error'))
+                    ->body(__('translations.save_permission_error_body', ['files' => implode(', ', $failedFiles)]))
+                    ->danger()
+                    ->persistent()
+                    ->send();
+                return;
+            }
+
+            // Clear pending edits after successful save
+            $this->pendingEdits = [];
+            session()->forget('translation_pending_edits');
+            $this->syncEditedValuesToCurrentPage();
+
+            Notification::make()
+                ->title(__('translations.save_success'))
+                ->success()
+                ->send();
+        } catch (\Throwable $e) {
+            Notification::make()
+                ->title(__('translations.save_error'))
+                ->body($e->getMessage())
+                ->danger()
+                ->persistent()
+                ->send();
+        }
+    }
+
+    /**
+     * Pretty print array as PHP code
+     */
+    protected function varExportPretty(array $expression): string
+    {
+        $export = var_export($expression, true);
+        $export = preg_replace("/^([ ]*)(.*)/m", '$1$1$2', $export);
+        $array = preg_split("/\r\n|\n|\r/", $export);
+        $array = preg_replace(["/\s*array\s\($/", "/\)(,)?$/", "/\s=>\s$/"], [null, ']$1', ' => ['], $array);
+        $export = join(PHP_EOL, array_filter(["["] + $array));
+        return $export;
     }
 }
