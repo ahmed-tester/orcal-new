@@ -133,6 +133,7 @@ class NotificationsRefactorTest extends TestCase
 
         $data = json_decode(DB::table('notifications')->sole()->data, true);
         $this->assertSame('filament', $data['format']);
+        $this->assertSame('persistent', $data['duration']);
         $this->assertSame('Test title', $data['title']);
         $this->assertSame(Debt::class, $data['record_type']);
         $this->assertSame(1, DB::table('notifications')->count());

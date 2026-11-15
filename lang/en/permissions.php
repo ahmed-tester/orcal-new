@@ -292,6 +292,8 @@ return [
     'reports_and_tools_group' => 'Reports & System Tools',
     'view_general_reports' => 'View Central Reports Dashboard',
     'view_notifications_report' => 'View Notifications & Documents Report',
+    'view_any_performance_escalation' => 'View Performance Escalations',
+    'resolve_performance_escalation' => 'Manage Performance Escalations Decisions',
     'manage_translations' => 'Access Manage Translations',
     'manage_smart_import' => 'Access Smart AI File Import',
     'view_loan_fund_policy' => 'View & Manage Salifni Fund Policy',

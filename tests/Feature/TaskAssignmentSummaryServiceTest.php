@@ -7,7 +7,9 @@ use App\Filament\Pages\MyTasks;
 use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Filament\Resources\SaudiEmployees\Pages\EmployeePerformance;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
+use App\Filament\Resources\ServiceTransactions\ServiceTransactionResource;
 use App\Filament\Resources\TaskAssignments\Pages\TaskAssignmentsSummary;
+use App\Filament\Resources\TaskAssignments\TaskAssignmentResource;
 use App\Models\Employee;
 use App\Models\ServiceTransaction;
 use App\Models\User;
@@ -397,14 +399,28 @@ class TaskAssignmentSummaryServiceTest extends TestCase
         $this->item($this->assignment($employee), $task, [
             'status' => 'completed', 'due_date' => '2026-11-10', 'completed_at' => '2026-11-09', 'weight' => 1, 'score' => 1,
         ]);
+        $this->item($this->assignment($employee), $this->task('My pending task'), [
+            'status' => 'pending', 'due_date' => '2026-11-10',
+        ]);
         $this->item($this->assignment($other), $this->task('Not mine'), [
             'status' => 'pending', 'due_date' => '2026-11-10',
         ]);
 
         Livewire::actingAs($employeeUser)->test(MyTasks::class)
             ->assertOk()
+            ->assertSeeHtml('class="tp-task-grid tp-task-counts"')
+            ->assertSeeHtml('class="tp-task-grid tp-task-rates"')
             ->assertSee('My task')
+            ->assertSee('My pending task')
             ->assertDontSee('Not mine')
+            ->call('filterCard', 'completed')
+            ->assertSet('cardFilter', 'completed')
+            ->assertSeeHtml('aria-pressed="true"')
+            ->assertSee('My task')
+            ->assertDontSee('My pending task')
+            ->call('filterCard', 'completed')
+            ->assertSet('cardFilter', null)
+            ->assertSee('My pending task')
             ->set('month', '2026-10')
             ->assertSet('month', '2026-10')
             ->assertDontSee('My task');
@@ -426,6 +442,32 @@ class TaskAssignmentSummaryServiceTest extends TestCase
         } catch (ModelNotFoundException) {
             $this->addToAssertionCount(1);
         }
+    }
+
+    public function test_performance_links_use_the_record_numbers_and_respect_edit_permissions(): void
+    {
+        $viewer = $this->staff(['view_any_service_transaction']);
+        $employeeId = $viewer->employee->id;
+        $assignmentId = $this->assignment($employeeId);
+        $assignmentNumber = DB::table('task_assignments')->where('id', $assignmentId)->value('transaction_number');
+        $this->item($assignmentId, $this->task('Linked task'), ['due_date' => '2026-11-10']);
+        $serviceNumber = 'SVC-LINK';
+        $serviceId = $this->service($employeeId, $this->employee('Beneficiary', 1, 1), $serviceNumber, '2026-11-08', '2026-11-08');
+
+        $assignmentLabel = __('tasks.performance.open_assignment').' '.$assignmentNumber;
+        $serviceLabel = __('tasks.performance.services.open_service').' '.$serviceNumber;
+        $assignmentUrl = TaskAssignmentResource::getUrl('edit', ['record' => $assignmentId]);
+        $serviceUrl = ServiceTransactionResource::getUrl('edit', ['record' => $serviceId]);
+
+        Livewire::actingAs($viewer)->test(MyTasks::class)
+            ->assertSeeHtml('<bdi>'.$assignmentNumber.'</bdi>')
+            ->assertSeeHtml('<bdi>'.$serviceNumber.'</bdi>')
+            ->assertDontSeeHtml('href="'.$assignmentUrl.'"')
+            ->assertDontSeeHtml('href="'.$serviceUrl.'"');
+
+        Livewire::actingAs($this->superAdmin())->test(EmployeePerformance::class, ['record' => $employeeId])
+            ->assertSeeHtml('href="'.$assignmentUrl.'" aria-label="'.$assignmentLabel.'"')
+            ->assertSeeHtml('href="'.$serviceUrl.'" aria-label="'.$serviceLabel.'"');
     }
 
     public function test_supervisor_can_read_team_profiles_and_only_sees_assignments_inside_the_shift(): void

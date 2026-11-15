@@ -9,6 +9,7 @@ use App\Models\Debt;
 use App\Models\Employee;
 use App\Models\Invoice;
 use App\Models\Leave;
+use App\Models\PerformanceEscalation;
 use App\Models\ServiceTransaction;
 use App\Models\Task;
 use App\Models\TaskAssignment;
@@ -20,14 +21,24 @@ use Illuminate\Support\Facades\Notification;
 
 class NotificationDispatcher
 {
-    public static function send(Model $record, BaseSystemNotification $notification, array $excludeUserIds = []): int
-    {
+    public static function send(
+        Model $record,
+        BaseSystemNotification $notification,
+        array $excludeUserIds = [],
+        bool $synchronous = false,
+    ): int {
         $recipients = NotificationRecipientService::getQualifiedRecipients($record, excludeUserIds: $excludeUserIds);
         $notification->recordType = $record::class;
         $notification->recordId = $record->getKey();
         $notification->actionUrl ??= static::actionUrl($record);
 
-        if ($recipients->isNotEmpty()) {
+        if ($recipients->isEmpty()) {
+            return 0;
+        }
+
+        if ($synchronous) {
+            Notification::sendNow($recipients, $notification);
+        } else {
             Notification::send($recipients, $notification);
         }
 
@@ -43,6 +54,7 @@ class NotificationDispatcher
         string $icon = 'heroicon-o-bell',
         string $color = 'primary',
         array $excludeUserIds = [],
+        bool $synchronous = false,
     ): int {
         return static::send($record, new BaseSystemNotification(
             eventKey: $eventKey,
@@ -50,7 +62,7 @@ class NotificationDispatcher
             customMessage: __($bodyKey, $parameters),
             icon: $icon,
             color: $color,
-        ), $excludeUserIds);
+        ), $excludeUserIds, $synchronous);
     }
 
     public static function actionUrl(Model $record): ?string
@@ -75,6 +87,7 @@ class NotificationDispatcher
             $record instanceof Invoice => 'Invoices\\Invoice',
             $record instanceof Ticket => 'Tickets\\Ticket',
             $record instanceof ServiceTransaction => 'ServiceTransactions\\ServiceTransaction',
+            $record instanceof PerformanceEscalation => 'PerformanceEscalations\\PerformanceEscalation',
             default => null,
         };
 
@@ -85,7 +98,9 @@ class NotificationDispatcher
         $resource = 'App\\Filament\\Resources\\'.$module.'Resource';
 
         try {
-            return $resource::getUrl($record instanceof Ticket ? 'view' : 'edit', ['record' => $record]);
+            $page = ($record instanceof Ticket || $record instanceof PerformanceEscalation) ? 'view' : 'edit';
+
+            return $resource::getUrl($page, ['record' => $record]);
         } catch (\Throwable) {
             return null;
         }

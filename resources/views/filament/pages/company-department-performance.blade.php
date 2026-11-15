@@ -34,27 +34,53 @@
 
         .company-perf-page .perf-overview-tabs {
             display: flex;
-            flex-wrap: wrap;
-            gap: .5rem;
+            align-self: stretch;
+            min-width: 0;
+            overflow-x: auto;
+            gap: 6px;
+            padding: 5px;
+            background: var(--card);
+            border: 1px solid var(--bd);
+            border-radius: 14px;
+            box-shadow: var(--sh);
         }
 
         .company-perf-page .perf-overview-tabs button {
-            padding: .5rem .9rem;
-            border: 1px solid var(--bd);
-            border-radius: .75rem;
-            background: var(--card);
-            color: var(--tx);
+            flex: 1 0 auto;
+            min-height: 2.5rem;
+            padding: .45rem .75rem;
+            border-radius: 10px;
+            color: var(--mu);
+            font-size: .875rem;
             font-weight: 700;
+            text-align: center;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        @media (min-width: 1200px) {
+            .company-perf-page .perf-overview-tabs button {
+                flex: 1 1 0;
+                min-width: 0;
+                white-space: normal;
+            }
         }
 
         .company-perf-page .perf-overview-tabs button[aria-pressed="true"] {
-            background: var(--a);
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
             color: white;
+        }
+
+        .company-perf-page .perf-overview-tabs button:focus-visible,
+        .company-perf-page .perf-workforce-grid .perf-card:focus-visible {
+            outline: 2px solid var(--a);
+            outline-offset: -2px;
         }
 
         .company-perf-page .perf-overview-group {
             display: grid;
             gap: .75rem;
+            min-width: 0;
         }
 
         .company-perf-page .perf-overview-note {
@@ -62,105 +88,151 @@
             font-size: .875rem;
         }
 
-        /* Hero Header */
-        .company-perf-page .perf-hero-header {
-            background: linear-gradient(135deg, #4f46e5, #8b5cf6 60%, #ec4899);
-            color: #ffffff;
-            border-radius: 18px;
-            padding: 1.5rem 1.75rem;
-            box-shadow: 0 10px 32px rgba(91, 91, 240, 0.22);
+        .company-perf-page .perf-header-context {
             display: flex;
             align-items: center;
             justify-content: space-between;
             flex-wrap: wrap;
-            gap: 1.25rem;
-            position: relative;
-            overflow: hidden;
+            gap: .5rem 1rem;
         }
 
-        .company-perf-page .perf-hero-header::after {
-            content: '';
-            position: absolute;
-            inset-inline-end: -40px;
-            top: -40px;
-            width: 160px;
-            height: 160px;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
-            border-radius: 50%;
-            pointer-events: none;
-        }
-
-        .company-perf-page .perf-hero-info {
+        .company-perf-page .perf-context-list {
             display: flex;
             align-items: center;
-            gap: 1rem;
-            z-index: 1;
-        }
-
-        .company-perf-page .perf-hero-icon {
-            width: 52px;
-            height: 52px;
-            border-radius: 14px;
-            background: rgba(255, 255, 255, 0.18);
-            backdrop-filter: blur(8px);
-            display: grid;
-            place-items: center;
-            font-size: 24px;
-            flex-shrink: 0;
-            border: 1px solid rgba(255, 255, 255, 0.25);
-        }
-
-        .company-perf-page .perf-hero-title {
-            font-size: 1.45rem;
-            font-weight: 800;
-            margin: 0;
-            color: #ffffff;
-            line-height: 1.25;
-        }
-
-        .company-perf-page .perf-hero-sub {
-            font-size: 0.85rem;
-            color: rgba(255, 255, 255, 0.85);
-            margin: 0.25rem 0 0;
-            line-height: 1.4;
-        }
-
-        .company-perf-page .perf-hero-chips {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
+            gap: .5rem;
             flex-wrap: wrap;
-            z-index: 1;
         }
 
-        .company-perf-page .perf-hero-chip {
+        .company-perf-page .perf-context-chip {
             display: inline-flex;
             align-items: center;
-            gap: 0.4rem;
-            padding: 0.4rem 0.85rem;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.16);
-            backdrop-filter: blur(6px);
-            border: 1px solid rgba(255, 255, 255, 0.22);
-            color: #ffffff;
-            font-size: 0.775rem;
+            gap: .4rem;
+            padding: .25rem .6rem;
+            border-radius: 10px;
+            background: var(--card);
+            border: 1px solid var(--bd);
+            color: var(--mu);
+            font-size: .775rem;
             font-weight: 700;
         }
 
-        /* Top 6 KPI Metric Cards Grid */
+        .company-perf-page .perf-filters {
+            container: performance-filters / inline-size;
+        }
+
+        .company-perf-page .perf-filters .fb-grid {
+            --filter-gap: 0.85rem;
+            --filter-width: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--filter-gap);
+        }
+
+        .company-perf-page .perf-filters .fb-grid > .fb-col {
+            flex: 1 1 var(--filter-width);
+        }
+
+        .company-perf-page .perf-filters .fb-grid > .fb-search-wrap {
+            flex: 0 0 100%;
+        }
+
+        @container performance-filters (min-width: 28rem) {
+            .company-perf-page .perf-filters .fb-grid {
+                --filter-width: calc((100% - var(--filter-gap)) / 2);
+            }
+        }
+
+        @container performance-filters (min-width: 52rem) {
+            .company-perf-page .perf-filters .fb-grid {
+                --filter-width: calc((100% - 3 * var(--filter-gap)) / 4);
+            }
+        }
+
         .company-perf-page .perf-kpi-grid {
             display: grid;
             gap: 12px;
-            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(min(170px, 100%), 1fr));
         }
 
         @media (min-width: 1280px) {
             .company-perf-page .perf-kpi-grid {
-                grid-template-columns: repeat(6, 1fr);
+                grid-template-columns: repeat(6, minmax(0, 1fr));
             }
         }
 
-        /* Base Card Styling (from HTML mockup) */
+        .company-perf-page .perf-operations-kpi-grid,
+        .company-perf-page .perf-kpi-grid.perf-operations-kpi-grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: 1fr;
+        }
+
+        @media (min-width: 640px) {
+            .company-perf-page .perf-operations-kpi-grid,
+            .company-perf-page .perf-kpi-grid.perf-operations-kpi-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .company-perf-page .perf-operations-kpi-grid,
+            .company-perf-page .perf-kpi-grid.perf-operations-kpi-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+
+        .company-perf-page .perf-workforce-grid {
+            grid-template-columns: repeat(auto-fill, minmax(min(145px, 100%), 1fr));
+        }
+
+        .company-perf-page .perf-financial-grid,
+        .company-perf-page .perf-workforce-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .company-perf-page .perf-financial-grid .perf-card,
+        .company-perf-page .perf-workforce-grid .perf-card {
+            flex: 1 1 11rem;
+            min-inline-size: min(100%, 11rem);
+            display: flex;
+            flex-direction: column;
+            padding: 14px;
+        }
+
+        .company-perf-page .perf-financial-grid .perf-card-hint,
+        .company-perf-page .perf-workforce-grid .perf-card-hint {
+            flex: 1;
+        }
+
+        .company-perf-page .perf-financial-grid .perf-card[aria-expanded="true"],
+        .company-perf-page .perf-financial-grid .perf-card:focus-visible,
+        .company-perf-page .perf-workforce-grid .perf-card[aria-expanded="true"],
+        .company-perf-page .perf-workforce-grid .perf-card:focus-visible {
+            outline: 2px solid var(--a);
+            outline-offset: -2px;
+        }
+
+        .company-perf-page .perf-financial-preview {
+            margin-block-start: 12px;
+            padding: 14px;
+            border: 1px solid var(--bd);
+            border-radius: 16px;
+            background: var(--card);
+        }
+
+        .company-perf-page .perf-financial-preview-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .company-perf-page .perf-financial-preview-header h3 {
+            font-weight: 700;
+        }
         .company-perf-page .card,
         .company-perf-page .perf-card {
             background: var(--card);
@@ -207,6 +279,8 @@
             .company-perf-page .perf-card {
                 animation: none !important;
                 transition: none !important;
+                opacity: 1;
+                transform: none;
             }
             .company-perf-page .ring {
                 transition: none !important;
@@ -1072,6 +1146,82 @@
             }
         }
 
+        /* Department display mode buttons */
+        .company-perf-page .perf-rank-modes {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 5px;
+            background: var(--card);
+            border: 1px solid var(--bd);
+            border-radius: 12px;
+            box-shadow: var(--sh);
+        }
+
+        .company-perf-page .perf-rank-modes-title {
+            padding-inline: 8px;
+            color: var(--mu);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .company-perf-page .perf-rank-mode {
+            font-family: inherit;
+            padding: .35rem .85rem;
+            border-radius: 9px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--mu);
+            font-size: 12.5px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .company-perf-page .perf-rank-mode:hover {
+            background: var(--bg);
+            color: var(--tx);
+        }
+
+        .company-perf-page .perf-rank-mode.is-active {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border-color: transparent;
+            color: #ffffff;
+        }
+
+        .company-perf-page .perf-rank-mode:focus-visible {
+            outline: 2px solid var(--a);
+            outline-offset: -2px;
+        }
+
+        .company-perf-page .dept-score-pill {
+            display: inline-flex;
+            align-items: center;
+            align-self: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            border: 1px solid color-mix(in srgb, var(--col, var(--a)) 35%, transparent);
+            background: color-mix(in srgb, var(--col, var(--a)) 12%, transparent);
+            color: var(--col, var(--a));
+            font-size: 11.5px;
+            font-weight: 700;
+        }
+
+        .company-perf-page .dept-score-pill b {
+            font-size: 14px;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .company-perf-page .dept-score-pill u {
+            text-decoration: none;
+            font-size: 10.5px;
+            font-weight: 600;
+            opacity: 0.85;
+        }
+
         /* Department / Supervisor Card */
         .company-perf-page .dept-card {
             background: var(--card);
@@ -1238,6 +1388,18 @@
             font-weight: 700;
         }
 
+        .perf-violations-payment {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: var(--card);
+            border: 1px solid var(--bd);
+            border-radius: 0.75rem;
+        }
+
         .perf-table-wrapper {
             width: 100%;
             overflow-x: auto;
@@ -1278,27 +1440,138 @@
         .perf-table tbody tr:hover {
             background: color-mix(in srgb, var(--a) 3%, transparent);
         }
+
+        .company-perf-page .perf-compliance-table {
+            table-layout: fixed;
+        }
+
+        .company-perf-page .perf-compliance-table thead th:first-child {
+            width: 28%;
+        }
+
+        .company-perf-page .perf-compliance-table th {
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
+
+        .company-perf-page .perf-compliance-table th:not(:first-child),
+        .company-perf-page .perf-compliance-table td {
+            text-align: center;
+        }
+
+        .company-perf-page .perf-compliance-table th,
+        .company-perf-page .perf-compliance-table td {
+            padding: .625rem .875rem;
+        }
+
+        .company-perf-page .perf-compliance-table-scroll:focus-visible {
+            outline: 2px solid var(--a);
+            outline-offset: 2px;
+        }
+
+        .company-perf-page .perf-status-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .3rem;
+            box-sizing: border-box;
+            min-inline-size: 4.5rem;
+            min-block-size: 2rem;
+            padding: .25rem .625rem;
+            border-radius: 999px;
+            border: 1px solid color-mix(in srgb, var(--pill, var(--mu)) 35%, transparent);
+            background: color-mix(in srgb, var(--pill, var(--mu)) 12%, transparent);
+            color: var(--pill, var(--mu));
+            font-family: inherit;
+            font-size: 12.5px;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.4;
+        }
+
+        .company-perf-page .perf-status-pill .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+            flex: none;
+        }
+
+        .company-perf-page button.perf-status-pill {
+            cursor: pointer;
+        }
+
+        .company-perf-page button.perf-status-pill:hover {
+            border-color: var(--pill);
+            background: color-mix(in srgb, var(--pill) 18%, transparent);
+        }
+
+        .company-perf-page .perf-status-pill:focus-visible {
+            outline: 2px solid var(--a);
+            outline-offset: 1px;
+        }
+
+        .company-perf-page .perf-status-chevron {
+            inline-size: .75rem;
+            block-size: .75rem;
+            flex: none;
+        }
+
+        .company-perf-page .perf-status-chevron:dir(ltr) {
+            transform: scaleX(-1);
+        }
+
+        .company-perf-page .perf-status-pill.is-zero {
+            border-color: var(--bd);
+            background: var(--bg);
+        }
+
+        .company-perf-page .perf-row-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .company-perf-page .perf-row-label svg {
+            color: var(--a);
+            flex: none;
+        }
+
+        @media (max-width: 640px) {
+            .company-perf-page .perf-compliance-table {
+                min-width: 32rem;
+                border-collapse: separate;
+                border-spacing: 0;
+            }
+
+            .company-perf-page .perf-compliance-table thead th:first-child {
+                width: 9rem;
+            }
+
+            .company-perf-page .perf-compliance-table th,
+            .company-perf-page .perf-compliance-table td {
+                padding: .625rem .5rem;
+            }
+
+            .company-perf-page .perf-compliance-table th:first-child {
+                position: sticky;
+                inset-inline-start: 0;
+                z-index: 1;
+                text-align: start;
+                border-inline-end: 1px solid var(--bd);
+            }
+        }
     </style>
 
     <div class="company-perf-page">
-        <!-- Top Hero Header Bar (from HTML mockup) -->
-        <div class="perf-hero-header">
-            <div class="perf-hero-info">
-                <div class="perf-hero-icon">
-                    <x-heroicon-o-chart-bar-square style="width: 28px; height: 28px; color: #ffffff;" />
-                </div>
-                <div>
-                    <h1 class="perf-hero-title">{{ __('performance.title') }}</h1>
-                    <p class="perf-hero-sub">{{ __('performance.subtitle') }}</p>
-                </div>
-            </div>
-
-            <div class="perf-hero-chips">
-                <div class="perf-hero-chip">
+        <div class="perf-header-context">
+            <p class="perf-overview-note">{{ __('performance.subtitle') }}</p>
+            <div class="perf-context-list">
+                <div class="perf-context-chip">
                     <x-heroicon-m-calendar style="width: 15px; height: 15px;" />
                     <span><bdi>{{ $this->dateFrom ?? '—' }}</bdi> &larr; <bdi>{{ $this->dateTo ?? '—' }}</bdi></span>
                 </div>
-                <div class="perf-hero-chip">
+                <div class="perf-context-chip">
                     <x-heroicon-m-building-office-2 style="width: 15px; height: 15px;" />
                     <span>{{ count($this->companyFilterOptions) }} {{ __('performance.columns.company') }}</span>
                 </div>
@@ -1306,7 +1579,7 @@
         </div>
 
         <!-- Filter Bar -->
-        <div wire:key="performance-filters-{{ implode('-', (array) $this->companyId) }}">
+        <div class="perf-filters" wire:key="performance-filters-{{ implode('-', (array) $this->companyId) }}">
             <x-filter-bar
                 :title="__('performance.filters.title')"
                 :show-company="true"
@@ -1333,20 +1606,31 @@
                     {{ __('performance.overview.workforce') }}
                 </button>
             @endif
-            <button type="button" wire:click="showComplianceOverview" aria-pressed="{{ $this->activeOverviewTab === 'compliance' ? 'true' : 'false' }}">
-                {{ __('performance.overview.compliance') }}
-            </button>
-            <button type="button" wire:click="showViolationsOverview" aria-pressed="{{ $this->activeOverviewTab === 'violations' ? 'true' : 'false' }}">
-                {{ __('performance.overview.violations') }}
-            </button>
+            @if($this->canViewComplianceOverview)
+                <button type="button" wire:click="showComplianceOverview" aria-pressed="{{ $this->activeOverviewTab === 'compliance' ? 'true' : 'false' }}">
+                    {{ __('performance.overview.compliance') }}
+                </button>
+            @endif
+            @if($this->canViewViolationsOverview)
+                <button type="button" wire:click="showViolationsOverview" aria-pressed="{{ $this->activeOverviewTab === 'violations' ? 'true' : 'false' }}">
+                    {{ __('performance.overview.violations') }}
+                </button>
+            @endif
+            @if($this->canViewFinancialOverview)
+                <button type="button" wire:click="showFinancialOverview" aria-pressed="{{ $this->activeOverviewTab === 'financial' ? 'true' : 'false' }}">
+                    {{ __('performance.overview.financial') }}
+                </button>
+            @endif
         </nav>
 
         @if($this->activeOverviewTab === 'workforce' && $this->canViewWorkforceOverview)
             @include('filament.pages.company-department-performance.workforce-overview')
-        @elseif($this->activeOverviewTab === 'compliance')
+        @elseif($this->activeOverviewTab === 'compliance' && $this->canViewComplianceOverview)
             @include('filament.pages.company-department-performance.compliance-overview')
-        @elseif($this->activeOverviewTab === 'violations')
+        @elseif($this->activeOverviewTab === 'violations' && $this->canViewViolationsOverview)
             @include('filament.pages.company-department-performance.violations-overview')
+        @elseif($this->activeOverviewTab === 'financial' && $this->canViewFinancialOverview)
+            @include('filament.pages.company-department-performance.financial-overview')
         @else
             @include('filament.pages.company-department-performance.operations-overview')
         @endif

@@ -14,15 +14,19 @@ use App\Models\SupervisionShift;
 use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\TaskAssignmentItem;
+use App\Models\UnifiedDeficiencyTask;
 use App\Models\User;
 use App\Services\AttendanceSummaryService;
 use App\Services\CompanyDepartmentPerformanceService;
+use App\Services\PerformanceScoreService;
+use Carbon\Carbon;
 use Filament\Facades\Filament;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Permission;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -87,6 +91,7 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
             $table->id();
             $table->foreignId('company_id')->nullable();
             $table->string('name');
+            $table->integer('sort_order')->default(0);
             $table->timestamps();
         });
 
@@ -223,6 +228,46 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
             'employee_number' => "EMP-{$this->seq}",
             'employment_type' => 'full_time',
             'hire_date' => '2026-01-01',
+        ]);
+    }
+
+    private function createOverdueTask(Employee $employee, int $companyId, string $dueDate, TaskStatus $status = TaskStatus::PENDING): TaskAssignmentItem
+    {
+        $this->seq++;
+        $task = Task::create(['name' => "Score Task {$this->seq}"]);
+        $assignment = TaskAssignment::create([
+            'company_id' => $companyId,
+            'employee_id' => $employee->id,
+            'assignment_date' => now()->toDateString(),
+            'transaction_number' => 'TSK-SCORE-'.(++$this->seq),
+        ]);
+
+        return TaskAssignmentItem::create([
+            'task_assignment_id' => $assignment->id,
+            'task_id' => $task->id,
+            'due_date' => $dueDate,
+            'status' => $status->value,
+        ]);
+    }
+
+    private function createOverdueDeficiency(int $companyId, ?Employee $responsible, string $dueDate): UnifiedDeficiencyTask
+    {
+        $this->seq++;
+        $transaction = ServiceTransaction::create([
+            'transaction_number' => 'SRV-SCORE-'.(++$this->seq),
+            'transaction_date' => now()->toDateString(),
+            'company_id' => $companyId,
+        ]);
+
+        return UnifiedDeficiencyTask::create([
+            'company_id' => $companyId,
+            'service_transaction_id' => $transaction->id,
+            'task_code' => 'DEF-SCORE-'.(++$this->seq),
+            'deficiency_type' => 'missing_document',
+            'title' => "Score Deficiency {$this->seq}",
+            'responsible_employee_id' => $responsible?->id,
+            'status' => 'open',
+            'due_date' => $dueDate,
         ]);
     }
 
@@ -577,6 +622,77 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
         $this->assertSame([['id' => $branchB, 'label' => 'Filter Branch Beta']], $page->instance()->branchFilterOptions());
     }
 
+    public function test_violations_tab_renders_and_opens_the_payments_statement(): void
+    {
+        (require database_path('migrations/2026_10_01_100000_create_violations_tables.php'))->up();
+
+        $company = $this->createCompany('Violations Company');
+        $viewer = $this->createEmployee($company->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(CompanyDepartmentPerformance::class)
+            ->set('companyId', [(string) $company->id])
+            ->call('showViolationsOverview')
+            ->assertSet('activeOverviewTab', 'violations')
+            ->assertSee(__('performance.violations.authorities_title'))
+            ->assertDontSeeHtml('id="perf-vehicles-heading"')
+            ->assertSee('companyId%5B0%5D='.$company->id)
+            ->assertSeeHtml('wire:click="openKashf(&#039;violations&#039;, &#039;payments&#039;)"')
+            ->call('openKashf', 'violations', 'payments')
+            ->assertDispatched('open-modal', id: 'performance-kashf-modal')
+            ->assertSee(__('performance.kashf.violations_title', ['type' => __('performance.violations.total_paid')]));
+    }
+
+    public function test_compliance_tab_opens_employee_and_company_statements(): void
+    {
+        Schema::table('companies', function (Blueprint $table) {
+            $table->date('municipality_license_expiry')->nullable();
+            $table->date('civil_defense_license_expiry')->nullable();
+            $table->date('commercial_registration_expiry')->nullable();
+        });
+
+        $company = $this->createCompany('Licensed Company');
+        DB::table('companies')->where('id', $company->id)->update([
+            'municipality_license_expiry' => today()->addDays(60)->toDateString(),
+        ]);
+        $viewer = $this->createEmployee($company->id, null, null, UserType::SUPER_ADMIN->value);
+        $employee = $this->createEmployee($company->id, name: 'Employee With Expired Document');
+        DB::table('employee_details')->insert(['employee_id' => $employee->id, 'iqama_expiry' => today()->subDay()->toDateString()]);
+        $this->actingAs($viewer->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->set('companyId', (string) $company->id)
+            ->call('showComplianceOverview')
+            ->assertSee(__('performance.compliance.subscriptions_unavailable'))
+            ->assertSeeHtml('wire:click="selectCompliancePreview(&#039;iqama&#039;, &#039;iqama_expired&#039;)"')
+            ->assertSeeHtml('wire:click="openKashf(\'compliance\', \'iqama_expired\')"')
+            ->assertSeeHtml('wire:click="openKashf(\'compliance\', \'municipality_valid\')"')
+            ->assertDontSeeHtml('wire:click="openKashf(\'compliance\', \'municipality_expired\')"')
+            ->call('selectCompliancePreview', 'iqama', 'iqama_expired')
+            ->assertSet('compliancePreviewTypes.iqama', 'iqama_expired')
+            ->call('openKashf', 'compliance', 'iqama_expired')
+            ->assertDispatched('open-modal', id: 'performance-kashf-modal');
+
+        $employeeRecords = $page->instance()->kashfRecords()->getCollection();
+        $this->assertInstanceOf(Employee::class, $employeeRecords->sole());
+        $this->assertSame($employee->id, $employeeRecords->sole()->id);
+
+        $page->call('openKashf', 'compliance', 'municipality_valid')
+            ->assertSee(__('performance.kashf.compliance_title', [
+                'type' => __('performance.compliance.license_status', [
+                    'license' => __('performance.compliance.municipality'),
+                    'status' => __('performance.compliance.valid'),
+                ]),
+            ]))
+            ->assertSeeHtml('<span style="color: #059669;">');
+
+        $companyRecords = $page->instance()->kashfRecords()->getCollection();
+        $this->assertInstanceOf(Company::class, $companyRecords->sole());
+        $this->assertSame($company->id, $companyRecords->sole()->id);
+    }
+
     public function test_saudi_only_for_tasks_vs_foreign_for_services(): void
     {
         $company = $this->createCompany('Nationality Company');
@@ -784,7 +900,101 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
         $page->showWorkforceOverview();
     }
 
-    public function test_attendance_totals_use_the_selected_month_and_team(): void
+    public function test_attendance_statements_require_attendance_permission(): void
+    {
+        $company = $this->createCompany('Leave Only Company');
+        $viewer = $this->createEmployee($company->id)->user;
+        $viewer->givePermissionTo(Permission::create(['name' => 'view_any_leave']));
+        $this->actingAs($viewer);
+
+        $page = new CompanyDepartmentPerformance;
+        $this->assertTrue($page->canViewWorkforceOverview());
+        $this->expectException(HttpException::class);
+        try {
+            $page->openKashf('attendance', 'present_days');
+        } catch (HttpException $exception) {
+            $this->assertSame(403, $exception->getStatusCode());
+
+            throw $exception;
+        }
+    }
+
+    public function test_leave_statements_require_leave_permission(): void
+    {
+        $company = $this->createCompany('Attendance Only Company');
+        $viewer = $this->createEmployee($company->id)->user;
+        $viewer->givePermissionTo(Permission::create(['name' => 'view_any_attendance']));
+        $this->actingAs($viewer);
+
+        $page = new CompanyDepartmentPerformance;
+        $this->assertTrue($page->canViewWorkforceOverview());
+        $this->expectException(HttpException::class);
+        $page->openKashf('leaves', 'on_leave_today_count');
+    }
+
+    public function test_leave_cards_and_statements_match_the_year_today_and_supervisor_scope(): void
+    {
+        (require database_path('migrations/2026_09_19_130000_create_attendance_and_leaves_tables.php'))->up();
+        $this->travelTo(Carbon::parse('2026-11-10 12:00:00'));
+
+        $company = $this->createCompany('Leave Company');
+        $branch = DB::table('branches')->insertGetId(['company_id' => $company->id, 'name' => 'Leave Branch']);
+        $supervisor = $this->createEmployee($company->id, null, null, UserType::SUPERVISOR->value);
+        $member = $this->createEmployee($company->id, branchId: $branch, name: 'Scoped Leave Employee');
+        $outsider = $this->createEmployee($company->id, branchId: $branch);
+        SupervisionShift::create([
+            'company_id' => $company->id,
+            'supervisor_id' => $supervisor->id,
+            'assigned_employees' => [$member->id],
+            'start_date' => '2025-01-01',
+            'end_date' => '2026-11-30',
+            'status' => 'active',
+        ]);
+        $type = DB::table('leave_types')->insertGetId(['name' => 'Test Leave', 'company_id' => $company->id]);
+
+        foreach ([
+            [$member->id, '2025-12-30', '2026-01-05', 'approved', 7],
+            [$member->id, '2025-11-01', '2025-11-01', 'pending', 1],
+            [$member->id, '2025-11-03', '2025-11-03', 'pending', 1],
+            [$member->id, '2026-11-08', '2026-11-12', 'approved', 5],
+            [$outsider->id, '2025-12-29', '2026-01-04', 'approved', 7],
+        ] as [$employee, $start, $end, $status, $days]) {
+            DB::table('leaves')->insert([
+                'employee_id' => $employee,
+                'leave_type_id' => $type,
+                'start_date' => $start,
+                'end_date' => $end,
+                'status' => $status,
+                'days' => $days,
+            ]);
+        }
+
+        $supervisor->user->givePermissionTo(Permission::create(['name' => 'view_any_leave']));
+        $this->actingAs($supervisor->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->set('dateFrom', '2025-11-01')
+            ->set('dateTo', '2025-11-30')
+            ->set('companyId', (string) $company->id)
+            ->set('branchId', (string) $branch)
+            ->call('showWorkforceOverview')
+            ->assertSeeHtml('wire:click="openKashf(&#039;leaves&#039;, &#039;on_leave_today_count&#039;)"');
+
+        $stats = $page->instance()->workforceOverview()['leaves'];
+        foreach (['on_leave_today_count' => 'is_on_leave_today', 'pending_requests_count' => 'pending_leaves_count', 'total_approved_days' => 'total_approved_days'] as $metric => $column) {
+            $page->call('openKashf', 'leaves', $metric)
+                ->assertDispatched('open-modal', id: 'performance-kashf-modal')
+                ->assertSee($member->name);
+            $records = $page->instance()->kashfRecords();
+            $this->assertSame([$member->id], $records->pluck('id')->all());
+            $this->assertEquals($stats[$metric], $records->sum($column));
+        }
+
+        $this->assertSame(['on_leave_today_count' => 1, 'pending_requests_count' => 2, 'total_approved_days' => 2], $stats);
+    }
+
+    public function test_attendance_totals_and_statements_use_the_selected_month_branch_and_team(): void
     {
         Schema::create('attendance', function (Blueprint $table) {
             $table->id();
@@ -797,25 +1007,377 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
         });
 
         $company = $this->createCompany('Attendance Company');
-        $admin = $this->createEmployee($company->id, null, null, UserType::SUPER_ADMIN->value);
-        $member = $this->createEmployee($company->id, null, null, UserType::SAUDI_EMPLOYEE->value);
-        $other = $this->createEmployee($company->id, null, null, UserType::SAUDI_EMPLOYEE->value);
-        $this->actingAs($admin->user);
+        $otherCompany = $this->createCompany('Other Attendance Company');
+        $branch = DB::table('branches')->insertGetId(['company_id' => $company->id, 'name' => 'Attendance Branch']);
+        $otherBranch = DB::table('branches')->insertGetId(['company_id' => $company->id, 'name' => 'Other Attendance Branch']);
+        $supervisor = $this->createEmployee($company->id, null, null, UserType::SUPERVISOR->value);
+        $member = $this->createEmployee($company->id, null, $branch);
+        $noRecords = $this->createEmployee($company->id, null, $branch);
+        $outsideTeam = $this->createEmployee($company->id, null, $branch);
+        $outsideBranch = $this->createEmployee($company->id, null, $otherBranch);
+        $outsideCompany = $this->createEmployee($otherCompany->id);
+        SupervisionShift::create([
+            'company_id' => $company->id,
+            'supervisor_id' => $supervisor->id,
+            'assigned_employees' => [$member->id, $noRecords->id, $outsideBranch->id],
+            'start_date' => '2026-11-01',
+            'end_date' => '2026-11-30',
+            'status' => 'active',
+        ]);
+        $supervisor->user->givePermissionTo(Permission::create(['name' => 'view_any_attendance']));
+        $this->actingAs($supervisor->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
 
         DB::table('attendance')->insert([
             ['employee_id' => $member->id, 'date' => '2026-11-01', 'status' => AttendanceStatus::PRESENT->value],
             ['employee_id' => $member->id, 'date' => '2026-11-02', 'status' => AttendanceStatus::LATE->value],
+            ['employee_id' => $member->id, 'date' => '2026-11-03', 'status' => AttendanceStatus::PRESENT->value],
+            ['employee_id' => $member->id, 'date' => '2026-11-04', 'status' => AttendanceStatus::ABSENT->value],
             ['employee_id' => $member->id, 'date' => '2026-10-31', 'status' => AttendanceStatus::ABSENT->value],
-            ['employee_id' => $other->id, 'date' => '2026-11-01', 'status' => AttendanceStatus::ABSENT->value],
+            ['employee_id' => $outsideTeam->id, 'date' => '2026-11-01', 'status' => AttendanceStatus::ABSENT->value],
+            ['employee_id' => $outsideBranch->id, 'date' => '2026-11-01', 'status' => AttendanceStatus::ABSENT->value],
+            ['employee_id' => $outsideCompany->id, 'date' => '2026-11-01', 'status' => AttendanceStatus::ABSENT->value],
         ]);
 
-        $filters = ['month' => '2026-11', 'company_id' => [$company->id]];
-        $stats = AttendanceSummaryService::getStats($filters, [$member->id]);
-
-        $this->assertSame(1, $stats['employees_count']);
-        $this->assertSame(1, $stats['present_days']);
-        $this->assertSame(1, $stats['late_days']);
-        $this->assertSame(0, $stats['absent_days']);
+        $filters = ['month' => '2026-11', 'company_id' => [$company->id], 'branch_id' => $branch];
         $this->assertSame(0, AttendanceSummaryService::getStats($filters, [])['recorded_days']);
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->set('dateFrom', '2026-11-10')
+            ->set('dateTo', '2026-11-30')
+            ->set('companyId', (string) $company->id)
+            ->set('branchId', (string) $branch)
+            ->call('showWorkforceOverview')
+            ->assertSeeHtml('wire:click="selectWorkforcePreview(&#039;attendance&#039;, &#039;present_days&#039;)"');
+
+        $overview = $page->instance()->workforceOverview();
+        $this->assertNull($overview['attendance_url']);
+        $this->assertSame(2, $overview['attendance']['employees_count']);
+
+        foreach (['present_days' => 2, 'late_days' => 1, 'absent_days' => 1] as $type => $count) {
+            $page->call('openKashf', 'attendance', $type)
+                ->assertDispatched('open-modal', id: 'performance-kashf-modal')
+                ->assertSee(__('performance.kashf.attendance_title', ['type' => __('performance.overview.'.$type), 'month' => '2026-11']))
+                ->assertSee($member->name);
+
+            $records = $page->instance()->kashfRecords();
+            $this->assertSame([$member->id], $records->pluck('id')->all());
+            $this->assertSame($count, $overview['attendance'][$type]);
+            $this->assertEquals($count, $records->sum($type));
+        }
+    }
+
+    public function test_workforce_preview_selection_and_records(): void
+    {
+        Schema::create('attendance', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('employee_id');
+            $table->date('date');
+            $table->string('status');
+            $table->integer('late_hours')->default(0);
+            $table->integer('overtime_hours')->default(0);
+            $table->decimal('total_hours')->default(0);
+        });
+
+        $company = $this->createCompany('Workforce Preview Company');
+        $branch = DB::table('branches')->insertGetId(['company_id' => $company->id, 'name' => 'Main Branch']);
+        $supervisor = $this->createEmployee($company->id, null, $branch, UserType::SUPERVISOR->value);
+        $member = $this->createEmployee($company->id, null, $branch);
+
+        SupervisionShift::create([
+            'company_id' => $company->id,
+            'supervisor_id' => $supervisor->id,
+            'assigned_employees' => [$member->id],
+            'start_date' => '2026-11-01',
+            'end_date' => '2026-11-30',
+            'status' => 'active',
+        ]);
+
+        $supervisor->user->givePermissionTo(Permission::findOrCreate('view_any_attendance'));
+        $this->actingAs($supervisor->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        DB::table('attendance')->insert([
+            ['employee_id' => $member->id, 'date' => '2026-11-01', 'status' => AttendanceStatus::PRESENT->value],
+            ['employee_id' => $member->id, 'date' => '2026-11-02', 'status' => AttendanceStatus::LATE->value],
+        ]);
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->set('dateFrom', '2026-11-01')
+            ->set('dateTo', '2026-11-30')
+            ->set('companyId', (string) $company->id)
+            ->call('showWorkforceOverview');
+
+        $cardGroups = $page->instance()->workforceCardGroups();
+        $this->assertArrayHasKey('attendance', $cardGroups);
+        $this->assertSame(1, $cardGroups['attendance']['present_days']);
+        $this->assertSame(1, $cardGroups['attendance']['late_days']);
+
+        $previews = $page->instance()->workforcePreviews();
+        $this->assertSame('present_days', $previews['attendance']['type']);
+        $this->assertCount(1, $previews['attendance']['records']);
+
+        $page->call('selectWorkforcePreview', 'attendance', 'late_days');
+        $this->assertSame(['attendance' => 'late_days'], $page->get('workforcePreviewTypes'));
+
+        $updatedPreviews = $page->instance()->workforcePreviews();
+        $this->assertSame('late_days', $updatedPreviews['attendance']['type']);
+        $this->assertCount(1, $updatedPreviews['attendance']['records']);
+
+        $page->call('selectWorkforcePreview', 'attendance', 'invalid_type')
+            ->assertStatus(404);
+    }
+
+    public function test_department_cards_show_scores_rank_them_and_tie_on_the_worst_score(): void
+    {
+        $company = $this->createCompany('Ranked Company');
+        $viewer = $this->createEmployee($company->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $best = $this->createDepartment('Zeta Department', $company->id);
+        $empty = $this->createDepartment('Empty Department', $company->id);
+        $mid = $this->createDepartment('Mid Department', $company->id);
+        $worst = $this->createDepartment('Worst Department', $company->id);
+
+        $bestEmployee = $this->createEmployee($company->id, $best->id);
+        $midEmployee = $this->createEmployee($company->id, $mid->id);
+        $worstEmployee = $this->createEmployee($company->id, $worst->id);
+        $this->createEmployee($company->id, null);
+
+        $overdue = now()->copy()->subDay()->toDateString();
+        $this->createOverdueDeficiency($company->id, $bestEmployee, $overdue);
+        $this->createOverdueTask($midEmployee, $company->id, $overdue);
+        $this->createOverdueDeficiency($company->id, $midEmployee, $overdue);
+        $this->createOverdueTask($worstEmployee, $company->id, $overdue);
+        $this->createOverdueDeficiency($company->id, $worstEmployee, $overdue);
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->call('selectCompany', $company->id)
+            ->assertSet('departmentRankMode', 'all')
+            ->assertSeeHtml('wire:click="selectDepartmentRankMode(&#039;best_first&#039;)"');
+
+        $summary = $page->instance()->departmentsSummary();
+        $scoreOf = fn (int $departmentId) => $summary->first(fn (object $row) => $row->department_id === $departmentId);
+
+        $this->assertSame(98, $scoreOf($best->id)->score->score);
+        $this->assertSame(94, $scoreOf($mid->id)->score->score);
+        $this->assertSame(94, $scoreOf($worst->id)->score->score);
+        $this->assertTrue($scoreOf($best->id)->is_rankable);
+        $this->assertNull($scoreOf($empty->id)->score);
+        $this->assertFalse($scoreOf($empty->id)->is_rankable);
+        $this->assertFalse($summary->firstWhere('department_id', 'unassigned')->is_rankable);
+
+        foreach ([$best, $mid, $worst] as $department) {
+            $this->assertSame(
+                PerformanceScoreService::getScore([], $company->id, $department->id)->score,
+                $scoreOf($department->id)->score->score,
+            );
+        }
+
+        $this->assertSame(
+            [$empty->id, $mid->id, $worst->id, $best->id, 'unassigned'],
+            $page->instance()->displayedDepartments()->pluck('department_id')->all(),
+        );
+
+        $page->call('selectDepartmentRankMode', 'best_first')
+            ->assertSet('departmentRankMode', 'best_first');
+
+        $this->assertSame(
+            [$best->id, $mid->id, $worst->id, $empty->id, 'unassigned'],
+            $page->instance()->displayedDepartments()->pluck('department_id')->all(),
+        );
+
+        $page->call('selectDepartmentRankMode', 'worst')
+            ->assertSet('departmentRankMode', 'worst')
+            ->assertSeeHtml('dept-score-pill');
+
+        $this->assertSame(
+            [$mid->id, $worst->id],
+            $page->instance()->displayedDepartments()->pluck('department_id')->all(),
+        );
+
+        $page->call('selectDepartmentRankMode', 'all');
+        $this->assertCount(5, $page->instance()->displayedDepartments());
+
+        $page->call('selectDepartmentRankMode', 'invalid_mode')
+            ->assertStatus(404);
+    }
+
+    public function test_department_card_is_rankable_from_overdue_items_without_visible_employees(): void
+    {
+        $company = $this->createCompany('Overdue Only Company');
+        $viewer = $this->createEmployee($company->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+
+        $department = $this->createDepartment('Temporary Department', $company->id);
+        $temporary = $this->createEmployee($company->id, $department->id);
+        $temporary->update(['employment_type' => 'temporary']);
+        $this->createOverdueTask($temporary, $company->id, now()->copy()->subDay()->toDateString());
+
+        $row = CompanyDepartmentPerformanceService::getDepartmentsSummary($company->id)
+            ->first(fn (object $item) => $item->department_id === $department->id);
+
+        $this->assertSame(0, $row->employees_count);
+        $this->assertTrue($row->is_rankable);
+        $this->assertSame(96, $row->score->score);
+    }
+
+    public function test_worst_mode_reports_when_no_department_is_rankable(): void
+    {
+        $company = $this->createCompany('Unranked Company');
+        $viewer = $this->createEmployee($company->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $this->createDepartment('Idle Department', $company->id);
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->call('selectCompany', $company->id)
+            ->call('selectDepartmentRankMode', 'worst')
+            ->assertSet('departmentRankMode', 'worst')
+            ->assertSee(__('performance.department_ranking.no_rankable'));
+
+        $this->assertTrue($page->instance()->displayedDepartments()->isEmpty());
+    }
+
+    public function test_department_ranking_respects_the_branch_scope(): void
+    {
+        $company = $this->createCompany('Branch Ranking Company');
+        $viewer = $this->createEmployee($company->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $branchA = DB::table('branches')->insertGetId(['company_id' => $company->id, 'name' => 'Ranking Branch A']);
+        $branchB = DB::table('branches')->insertGetId(['company_id' => $company->id, 'name' => 'Ranking Branch B']);
+        $departmentA = $this->createDepartment('Ranking Alpha', $company->id);
+        $departmentB = $this->createDepartment('Ranking Beta', $company->id);
+
+        $overdue = now()->copy()->subDay()->toDateString();
+        $this->createOverdueTask($this->createEmployee($company->id, $departmentA->id, $branchA), $company->id, $overdue);
+        $this->createOverdueTask($this->createEmployee($company->id, $departmentB->id, $branchB), $company->id, $overdue);
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->call('selectCompany', $company->id)
+            ->set('branchId', (string) $branchA)
+            ->call('selectDepartmentRankMode', 'worst');
+
+        $this->assertSame(
+            [$departmentA->id],
+            $page->instance()->displayedDepartments()->pluck('department_id')->all(),
+        );
+    }
+
+    public function test_department_ranking_only_includes_companies_in_the_active_filter(): void
+    {
+        $included = $this->createCompany('Included Ranking Company');
+        $excluded = $this->createCompany('Excluded Ranking Company');
+        $viewer = $this->createEmployee($included->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $includedDepartment = $this->createDepartment('Included Ranking Department', $included->id);
+        $excludedDepartment = $this->createDepartment('Excluded Ranking Department', $excluded->id);
+        $this->createEmployee($included->id, $includedDepartment->id);
+        $this->createEmployee($excluded->id, $excludedDepartment->id);
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->set('companyId', (string) $included->id)
+            ->call('selectCompany', $excluded->id)
+            ->call('selectDepartmentRankMode', 'worst')
+            ->assertDontSee($excludedDepartment->name);
+
+        $this->assertFalse($page->instance()->performanceScore()->available);
+        $this->assertTrue($page->instance()->displayedDepartments()->isEmpty());
+
+        $page->call('selectCompany', $included->id)
+            ->call('selectDepartmentRankMode', 'worst')
+            ->assertSee($includedDepartment->name);
+
+        $this->assertTrue($page->instance()->performanceScore()->available);
+        $this->assertSame([$includedDepartment->id], $page->instance()->displayedDepartments()->pluck('department_id')->all());
+    }
+
+    public function test_department_ranking_respects_the_supervisor_team_scope(): void
+    {
+        $company = $this->createCompany('Ranking Supervision Company');
+
+        $supervisorUser = User::create([
+            'name' => 'Ranking Supervisor',
+            'email' => 'ranking-sup@test.local',
+            'password' => bcrypt('password'),
+            'user_type' => UserType::SUPERVISOR->value,
+        ]);
+        $supervisor = Employee::create([
+            'user_id' => $supervisorUser->id,
+            'company_id' => $company->id,
+            'employee_number' => 'SUP-RANK',
+            'employment_type' => 'full_time',
+            'hire_date' => '2026-01-01',
+        ]);
+
+        $teamDepartment = $this->createDepartment('Ranking Team', $company->id);
+        $outsideDepartment = $this->createDepartment('Ranking Outside', $company->id);
+        $member = $this->createEmployee($company->id, $teamDepartment->id, null, UserType::SAUDI_EMPLOYEE->value, 'Ranking Member');
+        $outsider = $this->createEmployee($company->id, $outsideDepartment->id, null, UserType::SAUDI_EMPLOYEE->value, 'Ranking Outsider');
+
+        SupervisionShift::create([
+            'company_id' => $company->id,
+            'supervisor_id' => $supervisor->id,
+            'assigned_employees' => [$member->id],
+            'start_date' => '2025-01-01',
+            'end_date' => '2026-12-31',
+            'status' => 'active',
+        ]);
+
+        $overdue = now()->copy()->subDay()->toDateString();
+        $this->createOverdueTask($member, $company->id, $overdue);
+        $this->createOverdueTask($outsider, $company->id, $overdue);
+
+        $this->actingAs($supervisorUser);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->call('selectCompany', $company->id)
+            ->call('selectDepartmentRankMode', 'worst');
+
+        $displayed = $page->instance()->displayedDepartments();
+        $this->assertSame([$teamDepartment->id], $displayed->pluck('department_id')->all());
+        $this->assertTrue($displayed->first()->is_team_scope);
+    }
+
+    public function test_department_ranking_follows_search_and_resets_when_switching_company(): void
+    {
+        $companyA = $this->createCompany('Ranking Search Alpha');
+        $companyB = $this->createCompany('Ranking Search Beta');
+        $viewer = $this->createEmployee($companyA->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $alpha = $this->createDepartment('Alpha Ranking', $companyA->id);
+        $beta = $this->createDepartment('Beta Ranking', $companyA->id);
+        $gamma = $this->createDepartment('Gamma Ranking', $companyB->id);
+        $overdue = now()->copy()->subDay()->toDateString();
+
+        $this->createOverdueTask($this->createEmployee($companyA->id, $alpha->id), $companyA->id, $overdue);
+        $this->createOverdueTask($this->createEmployee($companyA->id, $beta->id), $companyA->id, $overdue);
+        $this->createOverdueTask($this->createEmployee($companyB->id, $gamma->id), $companyB->id, $overdue);
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->call('selectCompany', $companyA->id)
+            ->call('selectDepartmentRankMode', 'best_first')
+            ->set('search', 'Alpha')
+            ->assertSet('departmentRankMode', 'best_first');
+
+        $this->assertSame([$alpha->id, 'unassigned'], $page->instance()->displayedDepartments()->pluck('department_id')->all());
+
+        $page->call('selectCompany', $companyB->id)
+            ->assertSet('departmentRankMode', 'all')
+            ->set('search', '');
+        $this->assertSame([$gamma->id], $page->instance()->displayedDepartments()->pluck('department_id')->all());
+
+        $page->call('selectDepartmentRankMode', 'worst')
+            ->call('backToCompanies')
+            ->assertSet('departmentRankMode', 'all');
     }
 }

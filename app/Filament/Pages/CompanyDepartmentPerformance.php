@@ -6,6 +6,9 @@ use App\Filament\Resources\Attendance\AttendanceResource;
 use App\Filament\Resources\Attendance\Pages\AttendanceSummary;
 use App\Filament\Resources\Leaves\LeaveResource;
 use App\Filament\Resources\Leaves\Pages\LeavesSummary;
+use App\Filament\Resources\TreasuryTransactions\TreasuryTransactionResource;
+use App\Filament\Resources\Violations\Pages\ViolationsSummary;
+use App\Filament\Resources\Violations\ViolationResource;
 use App\Filament\Traits\HasFilterBarState;
 use App\Models\Branch;
 use App\Models\Company;
@@ -15,6 +18,7 @@ use App\Models\TaskAssignment;
 use App\Services\AttendanceSummaryService;
 use App\Services\CompanyCompliancePerformanceService;
 use App\Services\CompanyDepartmentPerformanceService;
+use App\Services\CompanyFinancialPerformanceService;
 use App\Services\CompanyViolationsPerformanceService;
 use App\Services\EmployeePerformanceAccessService;
 use App\Services\LeaveSummaryService;
@@ -22,6 +26,7 @@ use App\Services\PerformanceScoreService;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
@@ -37,6 +42,21 @@ class CompanyDepartmentPerformance extends Page
 
     protected static ?int $navigationSort = 2;
 
+    private const ATTENDANCE_STATEMENT_TYPES = ['present_days', 'late_days', 'absent_days'];
+
+    /** Department card display modes inside an open company. */
+    public const DEPARTMENT_RANK_MODE_ALL = 'all';
+
+    public const DEPARTMENT_RANK_MODE_BEST_FIRST = 'best_first';
+
+    public const DEPARTMENT_RANK_MODE_WORST = 'worst';
+
+    public const DEPARTMENT_RANK_MODES = [
+        self::DEPARTMENT_RANK_MODE_ALL,
+        self::DEPARTMENT_RANK_MODE_BEST_FIRST,
+        self::DEPARTMENT_RANK_MODE_WORST,
+    ];
+
     #[Locked]
     public bool $showAttendanceAndLeaves = false;
 
@@ -44,7 +64,19 @@ class CompanyDepartmentPerformance extends Page
     public string $activeOverviewTab = 'operations';
 
     #[Locked]
+    public array $financialPreviewTypes = [];
+
+    #[Locked]
+    public array $workforcePreviewTypes = [];
+
+    #[Locked]
+    public array $compliancePreviewTypes = [];
+
+    #[Locked]
     public ?int $selectedCompanyId = null;
+
+    #[Locked]
+    public string $departmentRankMode = self::DEPARTMENT_RANK_MODE_ALL;
 
     #[Locked]
     public mixed $selectedDepartmentId = null;
@@ -123,8 +155,16 @@ class CompanyDepartmentPerformance extends Page
         $this->resetPage('kashfPage');
         $this->selectedDepartmentId = null;
 
+        if (CompanyDepartmentPerformanceService::resolveBranchId($this->filters()) !== null) {
+            unset($this->financialPreviewTypes['treasury']);
+        }
+
         if (! empty($this->companyId) && $this->selectedCompanyId && ! in_array($this->selectedCompanyId, (array) $this->companyId)) {
             $this->selectedCompanyId = null;
+        }
+
+        if ($this->selectedCompanyId === null) {
+            $this->departmentRankMode = self::DEPARTMENT_RANK_MODE_ALL;
         }
 
         $this->showKashfModal = false;
@@ -148,18 +188,32 @@ class CompanyDepartmentPerformance extends Page
 
         $this->activeOverviewTab = 'workforce';
         $this->showAttendanceAndLeaves = true;
+        $this->closeKashf();
     }
 
     public function showComplianceOverview(): void
     {
+        abort_unless($this->canViewComplianceOverview, 403);
+
         $this->activeOverviewTab = 'compliance';
         $this->showAttendanceAndLeaves = false;
     }
 
     public function showViolationsOverview(): void
     {
+        abort_unless($this->canViewViolationsOverview, 403);
+
         $this->activeOverviewTab = 'violations';
         $this->showAttendanceAndLeaves = false;
+    }
+
+    public function showFinancialOverview(): void
+    {
+        abort_unless($this->canViewFinancialOverview, 403);
+
+        $this->activeOverviewTab = 'financial';
+        $this->showAttendanceAndLeaves = false;
+        $this->closeKashf();
     }
 
     #[Computed]
@@ -169,9 +223,164 @@ class CompanyDepartmentPerformance extends Page
     }
 
     #[Computed]
+    public function canViewViolationsOverview(): bool
+    {
+        return ViolationsSummary::canAccess();
+    }
+
+    #[Computed]
+    public function canViewComplianceOverview(): bool
+    {
+        return CompanyCompliancePerformanceService::canView();
+    }
+
+    #[Computed]
+    public function canViewFinancialOverview(): bool
+    {
+        return CompanyFinancialPerformanceService::canView();
+    }
+
+    #[Computed]
+    public function financialOverview(): array
+    {
+        abort_unless($this->canViewFinancialOverview, 403);
+
+        return CompanyFinancialPerformanceService::overview($this->filters(), $this->authorizedCompanyIds);
+    }
+
+    #[Computed]
+    public function financialCardGroups(): array
+    {
+        $overview = $this->financialOverview;
+        $groups = $overview['groups'];
+        $treasury = $overview['treasury'];
+
+        if ($treasury !== null && ! $treasury['branch_restricted']) {
+            $groups = ['treasury' => [
+                'current_balance' => $treasury['current_balance'],
+                'incoming' => $treasury['total_incoming'],
+                'outgoing' => $treasury['total_outgoing'],
+                'net_flow' => $treasury['net_flow'],
+            ]] + $groups;
+        }
+
+        return $groups;
+    }
+
+    public function selectFinancialPreview(string $group, string $type): void
+    {
+        abort_unless($this->activeOverviewTab === 'financial', 404);
+        CompanyFinancialPerformanceService::authorizeStatement($type, $this->filters());
+        abort_unless(isset($this->financialCardGroups[$group][$type]), 404);
+
+        $this->financialPreviewTypes[$group] = $type;
+    }
+
+    #[Computed]
+    public function financialPreviews(): array
+    {
+        if ($this->activeOverviewTab !== 'financial') {
+            return [];
+        }
+
+        $filters = $this->filters();
+        $companyIds = $this->authorizedCompanyIds;
+        $previews = [];
+        foreach ($this->financialCardGroups as $group => $cards) {
+            $type = $this->financialPreviewTypes[$group]
+                ?? array_key_first(array_filter($cards))
+                ?? array_key_first($cards);
+            $previews[$group] = [
+                'type' => $type,
+                'records' => CompanyFinancialPerformanceService::preview($type, $filters, $companyIds),
+            ];
+        }
+
+        return $previews;
+    }
+
+    #[Computed]
+    public function treasurySummaryUrl(): ?string
+    {
+        if (! CompanyFinancialPerformanceService::canViewTreasury()
+            || CompanyDepartmentPerformanceService::resolveBranchId($this->filters()) !== null) {
+            return null;
+        }
+
+        return TreasuryTransactionResource::getUrl('index', parameters: array_filter([
+            'companyId' => $this->companyId,
+            'dateFrom' => $this->dateFrom,
+            'dateTo' => $this->dateTo,
+        ], filled(...)));
+    }
+
+    #[Computed]
     public function complianceOverview(): array
     {
+        abort_unless($this->canViewComplianceOverview, 403);
+
         return CompanyCompliancePerformanceService::getStats($this->filters());
+    }
+
+    #[Computed]
+    public function complianceCardGroups(): array
+    {
+        $overview = $this->complianceOverview;
+        $groups = [];
+
+        if ($overview['iqama'] !== null) {
+            $groups['iqama'] = [
+                'iqama_expired' => $overview['iqama']['expired'],
+                'iqama_within_3m' => $overview['iqama']['within_3m'],
+                'iqama_within_6m' => $overview['iqama']['within_6m'],
+                'iqama_within_9m' => $overview['iqama']['within_9m'],
+                'iqama_valid_over_9m' => $overview['iqama']['valid_over_9m'],
+            ];
+        }
+
+        if ($overview['work_permits'] !== null) {
+            $groups['work_documents'] = [
+                'work_permit_expired' => $overview['work_permits']['expired'],
+                'work_permit_expiring_soon' => $overview['work_permits']['expiring_soon'],
+                'work_permit_valid' => $overview['work_permits']['valid'],
+                'insurance_expired' => $overview['insurance']['expired'],
+                'insurance_expiring_soon' => $overview['insurance']['expiring_soon'],
+                'insurance_valid' => $overview['insurance']['valid'],
+            ];
+        }
+
+        return $groups;
+    }
+
+    public function selectCompliancePreview(string $group, string $type): void
+    {
+        abort_unless($this->activeOverviewTab === 'compliance', 404);
+        CompanyCompliancePerformanceService::authorizeStatement($type);
+        abort_unless(isset($this->complianceCardGroups[$group][$type]), 404);
+
+        $this->compliancePreviewTypes[$group] = $type;
+    }
+
+    #[Computed]
+    public function compliancePreviews(): array
+    {
+        if ($this->activeOverviewTab !== 'compliance') {
+            return [];
+        }
+
+        $filters = $this->filters();
+        $previews = [];
+        foreach ($this->complianceCardGroups as $group => $cards) {
+            $type = $this->compliancePreviewTypes[$group]
+                ?? array_key_first(array_filter($cards))
+                ?? array_key_first($cards);
+            $previews[$group] = [
+                'type' => $type,
+                'records' => CompanyCompliancePerformanceService::getKashfQuery($filters, $type)->limit(5)->get(),
+            ];
+        }
+
+        return $previews;
     }
 
     #[Computed]
@@ -181,13 +390,114 @@ class CompanyDepartmentPerformance extends Page
     }
 
     #[Computed]
+    public function violationsRegisterUrl(): string
+    {
+        return ViolationResource::getUrl(parameters: [
+            'companyId' => $this->companyId,
+            'dateFrom' => $this->dateFrom,
+            'dateTo' => $this->dateTo,
+        ]);
+    }
+
+    #[Computed]
     public function workforceOverview(): array
     {
         abort_unless($this->showAttendanceAndLeaves && $this->canViewWorkforceOverview, 403);
 
+        [$filters, $employeeIds, $month, $year] = $this->workforceScope();
+        $branchId = $filters['branch_id'];
+        $linkFilters = ['companyId' => $filters['company_id'], 'branchId' => $branchId === null ? [] : [$branchId]];
+        $canViewAttendance = AttendanceSummary::canAccess();
+        $canViewLeaves = LeavesSummary::canAccess();
+
+        return [
+            'month' => $month,
+            'year' => $year,
+            'attendance' => $canViewAttendance ? AttendanceSummaryService::getStats($filters + ['month' => $month], $employeeIds) : null,
+            'leaves' => $canViewLeaves ? LeaveSummaryService::getOverviewStats($filters + ['year' => $year], $employeeIds) : null,
+            'attendance_url' => $canViewAttendance && $employeeIds === null ? AttendanceResource::getUrl(parameters: $linkFilters + ['month' => $month]) : null,
+            'leaves_url' => $canViewLeaves && $employeeIds === null ? LeaveResource::getUrl(parameters: $linkFilters + ['year' => $year]) : null,
+        ];
+    }
+
+    #[Computed]
+    public function workforceCardGroups(): array
+    {
+        $overview = $this->workforceOverview;
+        $groups = [];
+
+        if ($overview['attendance'] !== null) {
+            $groups['attendance'] = [
+                'present_days' => $overview['attendance']['present_days'],
+                'late_days' => $overview['attendance']['late_days'],
+                'absent_days' => $overview['attendance']['absent_days'],
+            ];
+        }
+
+        if ($overview['leaves'] !== null) {
+            $groups['leaves'] = [
+                'on_leave_today_count' => $overview['leaves']['on_leave_today_count'],
+                'pending_requests_count' => $overview['leaves']['pending_requests_count'],
+                'total_approved_days' => $overview['leaves']['total_approved_days'],
+            ];
+        }
+
+        return $groups;
+    }
+
+    public function selectWorkforcePreview(string $group, string $type): void
+    {
+        abort_unless($this->activeOverviewTab === 'workforce', 404);
+        abort_unless(isset($this->workforceCardGroups[$group][$type]), 404);
+
+        if ($group === 'attendance') {
+            $this->authorizeAttendanceStatement($type);
+        } elseif ($group === 'leaves') {
+            abort_unless(LeavesSummary::canAccess(), 403);
+        }
+
+        $this->workforcePreviewTypes[$group] = $type;
+    }
+
+    #[Computed]
+    public function workforcePreviews(): array
+    {
+        if ($this->activeOverviewTab !== 'workforce') {
+            return [];
+        }
+
+        $previews = [];
+
+        foreach ($this->workforceCardGroups as $group => $cards) {
+            $type = $this->workforcePreviewTypes[$group]
+                ?? array_key_first(array_filter($cards))
+                ?? array_key_first($cards);
+
+            $previews[$group] = [
+                'type' => $type,
+                'records' => $this->workforcePreviewRecords($group, $type),
+            ];
+        }
+
+        return $previews;
+    }
+
+    private function workforcePreviewRecords(string $group, string $type): Collection
+    {
+        if ($group === 'attendance') {
+            return $this->attendanceStatementQuery($type)->limit(5)->get();
+        }
+
+        if ($group === 'leaves') {
+            return $this->leaveStatementQuery($type)->limit(5)->get();
+        }
+
+        return collect();
+    }
+
+    private function workforceScope(): array
+    {
         [$start, $end] = CompanyDepartmentPerformanceService::resolveDateRange($this->filters());
-        $month = substr($start, 0, 7);
-        $year = (int) substr($start, 0, 4);
         $companyIds = $this->authorizedCompanyIds;
 
         if (filled($this->companyId)) {
@@ -198,18 +508,12 @@ class CompanyDepartmentPerformance extends Page
         $isSupervisor = CompanyDepartmentPerformanceService::isSupervisorViewer($user);
         $employeeIds = $isSupervisor ? CompanyDepartmentPerformanceService::supervisorTeamIds($user, $start, $end) : null;
         $branchId = CompanyDepartmentPerformanceService::resolveBranchId($this->filters(), $user);
-        $filters = ['company_id' => $companyIds ?: [0], 'branch_id' => $branchId];
-        $linkFilters = ['companyId' => $filters['company_id'], 'branchId' => $branchId === null ? [] : [$branchId]];
-        $canViewAttendance = AttendanceSummary::canAccess();
-        $canViewLeaves = LeavesSummary::canAccess();
 
         return [
-            'month' => $month,
-            'year' => $year,
-            'attendance' => $canViewAttendance ? AttendanceSummaryService::getStats($filters + ['month' => $month], $employeeIds) : null,
-            'leaves' => $canViewLeaves ? LeaveSummaryService::getOverviewStats($filters + ['year' => $year], $employeeIds) : null,
-            'attendance_url' => $canViewAttendance && ! $isSupervisor ? AttendanceResource::getUrl(parameters: $linkFilters + ['month' => $month]) : null,
-            'leaves_url' => $canViewLeaves && ! $isSupervisor ? LeaveResource::getUrl(parameters: $linkFilters + ['year' => $year]) : null,
+            ['company_id' => $companyIds ?: [0], 'branch_id' => $branchId],
+            $employeeIds,
+            substr($start, 0, 7),
+            (int) substr($start, 0, 4),
         ];
     }
 
@@ -320,6 +624,68 @@ class CompanyDepartmentPerformance extends Page
         return CompanyDepartmentPerformanceService::getDepartmentsSummary($this->selectedCompanyId, $this->filters());
     }
 
+    /**
+     * Department cards after applying the selected display mode.
+     *
+     * - all: keeps the service order.
+     * - best_first: sorts rankable departments by score descending (ties keep
+     *   the service order) and puts non-rankable cards last.
+     * - worst: keeps every rankable department tied on the lowest score.
+     */
+    #[Computed]
+    public function displayedDepartments(): Collection
+    {
+        $departments = $this->departmentsSummary;
+
+        return match ($this->departmentRankMode) {
+            self::DEPARTMENT_RANK_MODE_BEST_FIRST => $this->bestFirstDepartments($departments),
+            self::DEPARTMENT_RANK_MODE_WORST => $this->worstDepartments($departments),
+            default => $departments,
+        };
+    }
+
+    public function selectDepartmentRankMode(string $mode): void
+    {
+        abort_unless(in_array($mode, self::DEPARTMENT_RANK_MODES, true), 404);
+
+        $this->departmentRankMode = $mode;
+    }
+
+    private function rankableDepartments(Collection $departments): Collection
+    {
+        return $departments->filter(
+            fn (object $row) => ($row->is_rankable ?? false) && $row->score !== null
+        );
+    }
+
+    private function bestFirstDepartments(Collection $departments): Collection
+    {
+        $rankable = $this->rankableDepartments($departments);
+        $others = $departments->reject(
+            fn (object $row) => ($row->is_rankable ?? false) && $row->score !== null
+        );
+
+        return $rankable
+            ->sortByDesc(fn (object $row) => $row->score->score)
+            ->concat($others)
+            ->values();
+    }
+
+    private function worstDepartments(Collection $departments): Collection
+    {
+        $rankable = $this->rankableDepartments($departments);
+
+        if ($rankable->isEmpty()) {
+            return collect();
+        }
+
+        $lowestScore = $rankable->min(fn (object $row) => $row->score->score);
+
+        return $rankable
+            ->filter(fn (object $row) => $row->score->score === $lowestScore)
+            ->values();
+    }
+
     #[Computed]
     public function employeesSummary(): Collection
     {
@@ -345,8 +711,27 @@ class CompanyDepartmentPerformance extends Page
             'tasks' => $this->kashfType === 'score_overdue'
                 ? __('performance.kashf.score_tasks_title')
                 : __('performance.kashf.tasks_title', ['type' => __('performance.types.'.$this->kashfType)]),
-            'compliance' => __('performance.kashf.compliance_title', ['type' => __('performance.compliance.'.$this->kashfType) ?: $this->kashfType]),
-            'violations' => __('performance.kashf.violations_title', ['type' => __('performance.violations.'.$this->kashfType) ?: $this->kashfType]),
+            'compliance' => __('performance.kashf.compliance_title', ['type' => CompanyCompliancePerformanceService::statementTitle($this->kashfType)]),
+            'violations' => __('performance.kashf.violations_title', [
+                'type' => __('performance.violations.'.match ($this->kashfType) {
+                    'all' => 'total_violations',
+                    'payments' => 'total_paid',
+                    'unpaid' => 'total_remaining',
+                    default => $this->kashfType,
+                }),
+            ]),
+            'attendance' => __('performance.kashf.attendance_title', [
+                'type' => __('performance.overview.'.$this->kashfType),
+                'month' => substr(CompanyDepartmentPerformanceService::resolveDateRange($this->filters())[0], 0, 7),
+            ]),
+            'leaves' => __('performance.kashf.leaves_title', ['type' => __('performance.overview.'.$this->kashfType)]),
+            'financial' => match ($this->kashfType) {
+                'current_balance' => __('performance.financial.kashf_current_balance'),
+                'incoming' => __('performance.financial.kashf_incoming'),
+                'outgoing' => __('performance.financial.kashf_outgoing'),
+                'net_flow' => __('performance.financial.kashf_net_flow'),
+                default => __('performance.financial.metrics.'.$this->kashfType),
+            },
             default => __('performance.kashf.title'),
         };
     }
@@ -391,14 +776,63 @@ class CompanyDepartmentPerformance extends Page
                 $this->kashfType,
                 $this->kashfCompanyId
             )->paginate(15, ['*'], 'kashfPage'),
+            'attendance' => $this->attendanceStatement(),
+            'leaves' => $this->leaveStatement(),
+            'financial' => $this->financialStatement(),
             default => null,
         };
+    }
+
+    private function financialStatement(): LengthAwarePaginator
+    {
+        return CompanyFinancialPerformanceService::statement(
+            $this->kashfType,
+            $this->filters(),
+            $this->authorizedCompanyIds
+        );
+    }
+
+    private function attendanceStatementQuery(string $type): Builder
+    {
+        $this->authorizeAttendanceStatement($type);
+        [$filters, $employeeIds, $month] = $this->workforceScope();
+        $column = 'att.'.$type;
+
+        return AttendanceSummaryService::summaryQuery($filters + ['month' => $month], $employeeIds)
+            ->where($column, '>', 0)
+            ->orderByDesc($column)
+            ->orderBy('employees.id');
+    }
+
+    private function leaveStatementQuery(string $type): Builder
+    {
+        abort_unless(LeavesSummary::canAccess(), 403);
+        [$filters, $employeeIds, , $year] = $this->workforceScope();
+
+        return LeaveSummaryService::getOverviewStatementQuery($filters + ['year' => $year], $type, $employeeIds);
+    }
+
+    private function attendanceStatement(): LengthAwarePaginator
+    {
+        return $this->attendanceStatementQuery($this->kashfType)->paginate(15, ['*'], 'kashfPage');
+    }
+
+    private function leaveStatement(): LengthAwarePaginator
+    {
+        return $this->leaveStatementQuery($this->kashfType)->paginate(15, ['*'], 'kashfPage');
+    }
+
+    private function authorizeAttendanceStatement(string $type): void
+    {
+        abort_unless(AttendanceSummary::canAccess(), 403);
+        abort_unless(in_array($type, self::ATTENDANCE_STATEMENT_TYPES, true), 404);
     }
 
     public function selectCompany(int $companyId): void
     {
         $this->selectedCompanyId = $companyId;
         $this->selectedDepartmentId = null;
+        $this->departmentRankMode = self::DEPARTMENT_RANK_MODE_ALL;
         $this->resetPage();
     }
 
@@ -412,6 +846,7 @@ class CompanyDepartmentPerformance extends Page
     {
         $this->selectedCompanyId = null;
         $this->selectedDepartmentId = null;
+        $this->departmentRankMode = self::DEPARTMENT_RANK_MODE_ALL;
         $this->resetPage();
     }
 
@@ -428,6 +863,26 @@ class CompanyDepartmentPerformance extends Page
         mixed $departmentId = null,
         ?int $employeeId = null
     ): void {
+        if ($domain === 'compliance') {
+            CompanyCompliancePerformanceService::authorizeStatement($type);
+        }
+
+        if ($domain === 'violations') {
+            abort_unless($this->canViewViolationsOverview, 403);
+        }
+
+        if ($domain === 'attendance') {
+            $this->authorizeAttendanceStatement($type);
+        }
+
+        if ($domain === 'leaves') {
+            abort_unless(LeavesSummary::canAccess(), 403);
+        }
+
+        if ($domain === 'financial') {
+            CompanyFinancialPerformanceService::authorizeStatement($type, $this->filters());
+        }
+
         $this->kashfDomain = $domain;
         $this->kashfType = $type;
         $this->kashfCompanyId = $companyId;

@@ -15,6 +15,12 @@ use Illuminate\Validation\ValidationException;
 
 class LeaveSummaryService
 {
+    private const OVERVIEW_COLUMNS = [
+        'on_leave_today_count' => 'alv.active_leave_id',
+        'pending_requests_count' => 'lv.pending_leaves_count',
+        'total_approved_days' => 'lv.total_approved_days',
+    ];
+
     /**
      * Build the aggregated summary query where each row is an Employee
      * with metrics computed over the selected year and all-time balances.
@@ -245,8 +251,7 @@ class LeaveSummaryService
 
     public static function getOverviewStats(array $filters, ?array $employeeIds = null): array
     {
-        $totals = self::summaryQuery($filters, includeBalances: false)
-            ->when($employeeIds !== null, fn (Builder $query) => $query->whereIn('employees.id', $employeeIds))
+        $totals = self::overviewQuery($filters, $employeeIds)
             ->toBase()
             ->select([])
             ->selectRaw('COUNT(alv.active_leave_id) as on_leave_today_count,
@@ -259,6 +264,26 @@ class LeaveSummaryService
             'pending_requests_count' => (int) $totals->pending_requests_count,
             'total_approved_days' => (int) $totals->total_approved_days,
         ];
+    }
+
+    public static function getOverviewStatementQuery(array $filters, string $type, ?array $employeeIds = null): Builder
+    {
+        $column = self::OVERVIEW_COLUMNS[$type] ?? null;
+        abort_if($column === null, 404);
+
+        $query = self::overviewQuery($filters, $employeeIds);
+
+        if ($type === 'on_leave_today_count') {
+            return $query->whereNotNull($column)->orderBy('employees.id');
+        }
+
+        return $query->where($column, '>', 0)->orderByDesc($column)->orderBy('employees.id');
+    }
+
+    private static function overviewQuery(array $filters, ?array $employeeIds): Builder
+    {
+        return self::summaryQuery($filters, includeBalances: false)
+            ->when($employeeIds !== null, fn (Builder $query) => $query->whereIn('employees.id', $employeeIds));
     }
 
     /**

@@ -286,9 +286,22 @@ class RolesAndPermissionsSeeder extends Seeder
             }
         }
 
+        // Performance escalation permissions are granted to Super Admin only;
+        // other roles receive them manually from the roles screen.
+        $performanceEscalationPermissions = [
+            'view_any_performance_escalation',
+            'resolve_performance_escalation',
+        ];
+
+        foreach ($performanceEscalationPermissions as $permissionName) {
+            Permission::firstOrCreate(
+                ['name' => $permissionName, 'guard_name' => 'web']
+            );
+        }
+
         // 1. Super Admin & General Manager Roles
         $superAdminRole = Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'web']);
-        $superAdminRole->syncPermissions($allPermissionNames);
+        $superAdminRole->syncPermissions(array_merge($allPermissionNames, $performanceEscalationPermissions));
 
         $generalManagerRole = Role::firstOrCreate(['name' => 'مدير عام', 'guard_name' => 'web']);
         $generalManagerRole->syncPermissions($allPermissionNames);

@@ -107,7 +107,7 @@
     :company-id="$this->selectedCompanyId"
     :department-id="$this->selectedDepartmentId"
 />
-<div class="perf-kpi-grid">
+<div class="perf-kpi-grid perf-operations-kpi-grid">
     @foreach($topCards as $c)
         <x-performance.metric-card
             :title="$c['title']"

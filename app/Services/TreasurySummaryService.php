@@ -25,6 +25,8 @@ class TreasurySummaryService
 
         if (! empty($companyIds)) {
             $query->whereIn('company_id', $companyIds);
+        } else {
+            $query->whereRaw('1 = 0');
         }
 
         return $query;
@@ -122,13 +124,7 @@ class TreasurySummaryService
      */
     public static function transactionsQuery(array $filters = []): Builder
     {
-        $query = TreasuryTransaction::query()
-            ->with(['company', 'paymentCollectionItem', 'executor.user']);
-
-        self::applyAccessScope($query);
-        self::applyFilters($query, $filters);
-
-        return $query;
+        return self::periodQuery($filters)->with(['company', 'paymentCollectionItem', 'executor.user']);
     }
 
     /**
@@ -136,10 +132,24 @@ class TreasurySummaryService
      */
     public static function getStats(array $filters = []): array
     {
-        $query = TreasuryTransaction::query();
-        self::applyAccessScope($query);
-        self::applyFilters($query, $filters);
+        return [
+            'current_balance' => self::calculateCurrentBalance($filters['company_id'] ?? null),
+            ...self::movementTotals(self::periodQuery($filters)),
+        ];
+    }
 
+    private static function periodQuery(array $filters, ?array $companyIds = null): Builder
+    {
+        $query = TreasuryTransaction::query();
+
+        return self::applyFilters(
+            $companyIds === null ? self::applyAccessScope($query) : $query->whereIn('company_id', $companyIds),
+            $filters,
+        );
+    }
+
+    private static function movementTotals(Builder $query): array
+    {
         $aggregates = $query->selectRaw("
             COUNT(*) as total_count,
             COALESCE(SUM(CASE WHEN transaction_type = 'incoming' THEN amount ELSE 0 END), 0) as total_incoming,
@@ -153,11 +163,7 @@ class TreasurySummaryService
         $totalCount = (int) ($aggregates->total_count ?? 0);
         $beneficiariesCount = (int) ($aggregates->beneficiaries_count ?? 0);
 
-        // Calculate real-time current balance
-        $currentBalance = self::calculateCurrentBalance($filters['company_id'] ?? null);
-
         return [
-            'current_balance' => round($currentBalance, 2),
             'total_incoming' => round($totalIncoming, 2),
             'total_outgoing' => round($totalOutgoing, 2),
             'net_flow' => round($netFlow, 2),
@@ -171,40 +177,117 @@ class TreasurySummaryService
      */
     public static function calculateCurrentBalance(int|array|null $specificCompanyId = null): float
     {
+        $user = auth()->user();
+        $isSuperAdmin = $user?->isSuperAdmin() ?? false;
+        $authorizedIds = $user ? CompanyFormService::getAuthorizedCompanyIds($user) : [];
+
+        if (! $isSuperAdmin && empty($authorizedIds)) {
+            return 0.0;
+        }
+
         $targetCompanyIds = collect();
 
         if (! empty($specificCompanyId)) {
             $ids = is_array($specificCompanyId) ? array_filter(array_map('intval', $specificCompanyId)) : [(int) $specificCompanyId];
             if (! empty($ids)) {
                 $targetCompanyIds = collect($ids);
+                if (! $isSuperAdmin) {
+                    $targetCompanyIds = $targetCompanyIds->intersect($authorizedIds)->values();
+                }
             }
         }
 
-        if ($targetCompanyIds->isEmpty()) {
-            $user = auth()->user();
-            $authorizedIds = CompanyFormService::getAuthorizedCompanyIds($user);
-
-            $companyQuery = Company::query();
-            if (! empty($authorizedIds)) {
-                $companyQuery->whereIn('id', $authorizedIds);
-            }
-
-            $targetCompanyIds = $companyQuery->pluck('id');
-        }
-
-        $total = 0.0;
-        if ($targetCompanyIds->isNotEmpty()) {
-            $latestIds = TreasuryTransaction::whereIn('company_id', $targetCompanyIds)
-                ->selectRaw('MAX(id) as id')
-                ->groupBy('company_id')
-                ->pluck('id');
-
-            if ($latestIds->isNotEmpty()) {
-                $total = (float) TreasuryTransaction::whereIn('id', $latestIds)->sum('balance_after');
+        if ($targetCompanyIds->isEmpty() && empty($specificCompanyId)) {
+            if ($isSuperAdmin) {
+                $targetCompanyIds = Company::query()->pluck('id');
+            } else {
+                $targetCompanyIds = collect($authorizedIds);
             }
         }
 
-        return $total;
+        return round((float) self::latestTransactionsQuery($targetCompanyIds)->sum('balance_after'), 2);
+    }
+
+    /**
+     * Query of the latest transaction record per company.
+     *
+     * @param  array<int>|Collection<int, int>  $companyIds
+     */
+    private static function latestTransactionsQuery(array|Collection $companyIds): Builder
+    {
+        $ids = collect($companyIds)->filter()->values();
+
+        if ($ids->isEmpty()) {
+            return TreasuryTransaction::query()->whereRaw('1 = 0');
+        }
+
+        $latestSubQuery = TreasuryTransaction::query()
+            ->selectRaw('MAX(id)')
+            ->whereIn('company_id', $ids)
+            ->groupBy('company_id');
+
+        return TreasuryTransaction::query()
+            ->whereIn('id', $latestSubQuery);
+    }
+
+    /**
+     * Compute the Treasury metrics for the Performance Dashboard.
+     *
+     * @param  array<string, mixed>  $filters
+     * @param  array<int>  $authorizedCompanyIds
+     * @return array<string, mixed>
+     */
+    public static function getPerformanceStats(array $filters, array $authorizedCompanyIds): array
+    {
+        $user = auth()->user();
+        $branchRestricted = CompanyDepartmentPerformanceService::resolveBranchId($filters, $user) !== null;
+        $companyIds = self::performanceCompanyIds($filters, $authorizedCompanyIds);
+
+        return [
+            'branch_restricted' => $branchRestricted,
+            'current_balance' => round((float) self::latestTransactionsQuery($companyIds)->sum('balance_after'), 2),
+            ...self::movementTotals(self::periodQuery(self::performancePeriod($filters), $companyIds)),
+        ];
+    }
+
+    public static function getPerformanceKashfQuery(array $filters, string $type, array $authorizedCompanyIds): Builder
+    {
+        $companyIds = self::performanceCompanyIds($filters, $authorizedCompanyIds);
+        if ($type === 'current_balance') {
+            return self::latestTransactionsQuery($companyIds)->with(['company', 'executor.user'])->orderBy('company_id');
+        }
+
+        $query = self::periodQuery(self::performancePeriod($filters), $companyIds)->with('company');
+
+        match ($type) {
+            'incoming' => $query->where('transaction_type', TreasuryTransactionType::INCOMING),
+            'outgoing' => $query->where('transaction_type', TreasuryTransactionType::OUTGOING),
+            'net_flow', 'all' => $query,
+            default => $query->whereRaw('1 = 0'),
+        };
+
+        return $query->orderByDesc('transaction_date')->orderByDesc('id');
+    }
+
+    private static function performanceCompanyIds(array $filters, array $authorizedCompanyIds): array
+    {
+        $user = auth()->user();
+        if (! $user?->can('viewAny', TreasuryTransaction::class)
+            || CompanyDepartmentPerformanceService::resolveBranchId($filters, $user) !== null) {
+            return [];
+        }
+
+        $permitted = $user->isSuperAdmin()
+            ? $authorizedCompanyIds
+            : array_intersect($authorizedCompanyIds, CompanyDepartmentPerformanceService::getAuthorizedCompanyIds($user));
+        $selected = FilterBarService::values($filters['company_id'] ?? null);
+
+        return array_values($selected === [] ? $permitted : array_intersect($permitted, $selected));
+    }
+
+    private static function performancePeriod(array $filters): array
+    {
+        return array_intersect_key($filters, array_flip(['date_from', 'date_to']));
     }
 
     /**

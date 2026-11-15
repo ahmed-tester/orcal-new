@@ -34,6 +34,9 @@ class PerformanceScoreService
 
     public const OVERDUE_DEFICIENCY_WEIGHT = 2;
 
+    /** Version of the calculation rules, stored on every escalation open snapshot. */
+    public const RULES_VERSION = 'operational-v1';
+
     /**
      * Score for the requested scope: the whole authorized report scope, one
      * company, or one department within a company.
@@ -51,6 +54,7 @@ class PerformanceScoreService
                 'score' => null,
                 'total_deduction' => 0,
                 'is_partial' => true,
+                'rules_version' => self::RULES_VERSION,
                 'deductions' => collect(),
             ];
         }
@@ -69,6 +73,7 @@ class PerformanceScoreService
                 'score' => null,
                 'total_deduction' => 0,
                 'is_partial' => true,
+                'rules_version' => self::RULES_VERSION,
                 'deductions' => collect(),
             ];
         }
@@ -87,6 +92,14 @@ class PerformanceScoreService
         $taskCount = self::scopeCount($taskRows, $companyId, $departmentId);
         $deficiencyCount = self::scopeCount($deficiencyRows, $companyId, $departmentId);
 
+        return self::scoreFromCounts($taskCount, $deficiencyCount);
+    }
+
+    /**
+     * Build the score object from the aggregated overdue counts.
+     */
+    public static function scoreFromCounts(int $taskCount, int $deficiencyCount): object
+    {
         $deductions = collect([
             (object) [
                 'key' => 'overdue_tasks',
@@ -109,6 +122,7 @@ class PerformanceScoreService
             'score' => max(0, self::FULL_SCORE - $totalDeduction),
             'total_deduction' => $totalDeduction,
             'is_partial' => true,
+            'rules_version' => self::RULES_VERSION,
             'deductions' => $deductions,
         ];
     }

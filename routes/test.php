@@ -4,6 +4,12 @@
 // Routes used only for automated browser testing, seeding, and local development.
 // Registered with the "web" middleware group via bootstrap/app.php.
 
+use App\Filament\Pages\CompanyDepartmentPerformance;
+use App\Filament\Resources\PerformanceEscalations\PerformanceEscalationResource;
+use Database\Seeders\PerformanceDashboardDemoSeeder;
+use Database\Seeders\PerformanceEscalationDemoSeeder;
+use Filament\Facades\Filament;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // Operations Demo Seeder Route (for automated browser testing & manual UAT)
@@ -86,6 +92,39 @@ $seedOperationsDemoHandler = function () {
 
 Route::get('/system/seed-operations-demo', $seedOperationsDemoHandler)->name('system.seed-operations-demo');
 Route::get('/seed-operations-demo', $seedOperationsDemoHandler)->name('seed-operations-demo');
+
+Route::match(['get', 'post'], '/system/seed-performance-demo', function (Request $request) {
+    abort_unless(PerformanceDashboardDemoSeeder::isAvailable(), 404);
+
+    if (! $request->user()) {
+        return redirect()->guest(Filament::getPanel('admin')->getLoginUrl());
+    }
+
+    abort_unless($request->user()->isSuperAdmin(), 403);
+
+    return view('system.seed-performance-demo', [
+        'companies' => $request->isMethod('post') ? app(PerformanceDashboardDemoSeeder::class)->run() : [],
+        'dashboardUrl' => CompanyDepartmentPerformance::getUrl(panel: 'admin'),
+    ]);
+})->name('system.seed-performance-demo');
+
+Route::match(['get', 'post'], '/system/seed-performance-escalation-demo', function (Request $request) {
+    abort_unless(PerformanceEscalationDemoSeeder::isAvailable(), 404);
+
+    if (! $request->user()) {
+        return redirect()->guest(Filament::getPanel('admin')->getLoginUrl());
+    }
+
+    abort_unless($request->user()->isSuperAdmin(), 403);
+
+    return view('system.seed-performance-demo', [
+        'companies' => $request->isMethod('post') ? app(PerformanceEscalationDemoSeeder::class)->run() : [],
+        'dashboardUrl' => CompanyDepartmentPerformance::getUrl(panel: 'admin'),
+        'escalationsUrl' => PerformanceEscalationResource::getUrl(panel: 'admin'),
+        'translation' => 'performance.escalation_demo',
+        'submitRoute' => 'system.seed-performance-escalation-demo',
+    ]);
+})->name('system.seed-performance-escalation-demo');
 
 // Operations Workflow Permissions & Roles Sync Routes
 Route::get('/system/sync-operations-permissions', function () {

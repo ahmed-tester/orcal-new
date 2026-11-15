@@ -120,7 +120,7 @@ class ViolationSummaryService
             ->groupBy('company_id');
     }
 
-    private static function filtered(array $filters): Builder
+    public static function filtered(array $filters): Builder
     {
         $query = FilterBarService::applyFilters(self::violations(), $filters, [
             'company' => true,
@@ -162,4 +162,3 @@ class ViolationSummaryService
         return $query;
     }
 }
-

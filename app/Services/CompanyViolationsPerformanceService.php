@@ -4,23 +4,22 @@ namespace App\Services;
 
 use App\Enums\ViolationPaymentStatus;
 use App\Enums\ViolationStage;
-use App\Models\Company;
 use App\Models\Violation;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 class CompanyViolationsPerformanceService
 {
     /**
-     * Compute violations metrics, Efaa issuing authorities breakdown,
-     * and vehicle authorizations status.
+     * Compute the dashboard metrics from the violations register.
      *
      * @param  array<string, mixed>  $filters
      * @return array<string, mixed>
      */
     public static function getStats(array $filters): array
     {
+        Gate::authorize('viewAny', Violation::class);
+
         $user = auth()->user();
         $authorizedCompanyIds = CompanyDepartmentPerformanceService::getAuthorizedCompanyIds($user);
 
@@ -36,11 +35,7 @@ class CompanyViolationsPerformanceService
             return self::emptyStats();
         }
 
-        [$startDate, $endDate] = CompanyDepartmentPerformanceService::resolveDateRange($filters);
-
-        // 1. Violations aggregation by stage and payment status
-        $baseQuery = Violation::query()
-            ->whereIn('company_id', $scopedCompanyIds);
+        $baseQuery = self::dashboardQuery($filters);
 
         $totals = (clone $baseQuery)
             ->selectRaw('
@@ -54,9 +49,8 @@ class CompanyViolationsPerformanceService
                 COALESCE(SUM(CASE WHEN stage IN (?, ?) THEN violation_amount ELSE 0 END), 0) as execution_amount,
                 SUM(CASE WHEN stage IN (?, ?) THEN 1 ELSE 0 END) as grace_count,
                 COALESCE(SUM(CASE WHEN stage IN (?, ?) THEN violation_amount ELSE 0 END), 0) as grace_amount,
-                SUM(CASE WHEN payment_status = ? THEN 1 ELSE 0 END) as paid_count,
-                SUM(CASE WHEN payment_status = ? THEN 1 ELSE 0 END) as partial_count,
-                SUM(CASE WHEN payment_status = ? THEN 1 ELSE 0 END) as pending_count
+                SUM(CASE WHEN payment_status = ? THEN 1 ELSE 0 END) as fully_paid_count,
+                SUM(CASE WHEN paid_amount <> 0 THEN 1 ELSE 0 END) as payment_count
             ', [
                 ViolationStage::OBJECTION->value,
                 ViolationStage::OBJECTION->value,
@@ -65,12 +59,9 @@ class CompanyViolationsPerformanceService
                 ViolationStage::GRACE->value, ViolationStage::CORRECTION->value,
                 ViolationStage::GRACE->value, ViolationStage::CORRECTION->value,
                 ViolationPaymentStatus::PAID->value,
-                ViolationPaymentStatus::PARTIAL->value,
-                ViolationPaymentStatus::PENDING->value,
             ])
             ->first();
 
-        // 2. Efaa & Issuing Authorities Breakdown
         $authorities = (clone $baseQuery)
             ->selectRaw('
                 issuing_authority,
@@ -79,42 +70,10 @@ class CompanyViolationsPerformanceService
                 COALESCE(SUM(paid_amount), 0) as paid_amount,
                 COALESCE(SUM(remaining_amount), 0) as remaining_amount
             ')
-            ->whereNotNull('issuing_authority')
             ->groupBy('issuing_authority')
             ->orderByDesc('count')
-            ->limit(10)
+            ->orderBy('issuing_authority')
             ->get();
-
-        // 3. Vehicles & transport violations (from companies metadata)
-        $companies = Company::query()
-            ->whereIn('id', $scopedCompanyIds)
-            ->get();
-
-        $vehicleStats = [
-            'total_vehicles' => 0,
-            'authorized_vehicles' => 0,
-            'unauthorized_vehicles' => 0,
-            'traffic_violations_count' => 0,
-            'transport_violations_count' => 0,
-            'has_registered_vehicles' => false,
-        ];
-
-        foreach ($companies as $comp) {
-            $metaVehicles = is_array($comp->metadata['vehicles'] ?? null) ? $comp->metadata['vehicles'] : [];
-            if (! empty($metaVehicles)) {
-                $vehicleStats['has_registered_vehicles'] = true;
-                foreach ($metaVehicles as $v) {
-                    $vehicleStats['total_vehicles']++;
-                    if (! empty($v['is_authorized'])) {
-                        $vehicleStats['authorized_vehicles']++;
-                    } else {
-                        $vehicleStats['unauthorized_vehicles']++;
-                    }
-                    $vehicleStats['traffic_violations_count'] += (int) ($v['traffic_violations'] ?? 0);
-                    $vehicleStats['transport_violations_count'] += (int) ($v['transport_violations'] ?? 0);
-                }
-            }
-        }
 
         return [
             'has_data' => true,
@@ -123,6 +82,8 @@ class CompanyViolationsPerformanceService
                 'amount' => (float) ($totals->total_amount ?? 0),
                 'paid' => (float) ($totals->total_paid ?? 0),
                 'remaining' => (float) ($totals->total_remaining ?? 0),
+                'fully_paid_count' => (int) ($totals->fully_paid_count ?? 0),
+                'payment_count' => (int) ($totals->payment_count ?? 0),
             ],
             'stages' => [
                 'objection' => [
@@ -137,13 +98,8 @@ class CompanyViolationsPerformanceService
                     'count' => (int) ($totals->grace_count ?? 0),
                     'amount' => (float) ($totals->grace_amount ?? 0),
                 ],
-                'paid' => [
-                    'count' => (int) ($totals->paid_count ?? 0),
-                    'amount' => (float) ($totals->total_paid ?? 0),
-                ],
             ],
             'authorities' => $authorities,
-            'vehicles' => $vehicleStats,
         ];
     }
 
@@ -157,28 +113,31 @@ class CompanyViolationsPerformanceService
         string $type = 'all',
         ?int $companyId = null
     ): Builder {
-        $user = auth()->user();
-        $authorizedCompanyIds = CompanyDepartmentPerformanceService::getAuthorizedCompanyIds($user);
+        Gate::authorize('viewAny', Violation::class);
 
-        $targetCompanyIds = $companyId !== null
-            ? array_values(array_intersect($authorizedCompanyIds, [$companyId]))
-            : (filled($filters['company_id'] ?? null)
-                ? array_values(array_intersect($authorizedCompanyIds, (array) $filters['company_id']))
-                : $authorizedCompanyIds);
-
-        $query = Violation::query()
+        $query = self::dashboardQuery($filters)
             ->with(['company', 'category', 'type'])
-            ->whereIn('company_id', $targetCompanyIds ?: [0])
-            ->orderByDesc('violation_date');
+            ->when($companyId !== null, fn (Builder $query) => $query->where('company_id', $companyId))
+            ->orderByDesc('violation_date')
+            ->orderByDesc('id');
 
         return match ($type) {
             'objection' => $query->where('stage', ViolationStage::OBJECTION->value),
             'execution' => $query->whereIn('stage', [ViolationStage::ADMIN_EXECUTION->value, ViolationStage::LEGAL->value]),
             'grace' => $query->whereIn('stage', [ViolationStage::GRACE->value, ViolationStage::CORRECTION->value]),
             'paid' => $query->where('payment_status', ViolationPaymentStatus::PAID->value),
-            'unpaid' => $query->where('remaining_amount', '>', 0),
-            default => $query,
+            'payments' => $query->where('paid_amount', '<>', 0),
+            'unpaid' => $query->where('remaining_amount', '<>', 0),
+            'all' => $query,
+            default => $query->whereRaw('1 = 0'),
         };
+    }
+
+    private static function dashboardQuery(array $filters): Builder
+    {
+        return ViolationSummaryService::filtered(array_intersect_key($filters, array_flip([
+            'company_id', 'date_from', 'date_to',
+        ])));
     }
 
     /**
@@ -188,22 +147,13 @@ class CompanyViolationsPerformanceService
     {
         return [
             'has_data' => false,
-            'totals' => ['count' => 0, 'amount' => 0, 'paid' => 0, 'remaining' => 0],
+            'totals' => ['count' => 0, 'amount' => 0, 'paid' => 0, 'remaining' => 0, 'fully_paid_count' => 0, 'payment_count' => 0],
             'stages' => [
                 'objection' => ['count' => 0, 'amount' => 0],
                 'execution' => ['count' => 0, 'amount' => 0],
                 'grace' => ['count' => 0, 'amount' => 0],
-                'paid' => ['count' => 0, 'amount' => 0],
             ],
             'authorities' => collect(),
-            'vehicles' => [
-                'total_vehicles' => 0,
-                'authorized_vehicles' => 0,
-                'unauthorized_vehicles' => 0,
-                'traffic_violations_count' => 0,
-                'transport_violations_count' => 0,
-                'has_registered_vehicles' => false,
-            ],
         ];
     }
 }

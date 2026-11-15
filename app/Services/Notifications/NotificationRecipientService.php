@@ -12,6 +12,7 @@ use App\Models\Installment;
 use App\Models\InstallmentPayment;
 use App\Models\Invoice;
 use App\Models\Leave;
+use App\Models\PerformanceEscalation;
 use App\Models\SaudiEmployee;
 use App\Models\ServiceTransaction;
 use App\Models\Task;
@@ -19,8 +20,9 @@ use App\Models\TaskAssignment;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Violation;
-use App\Services\CompanyFormService;
 use App\Services\CashHandoverService;
+use App\Services\CompanyFormService;
+use App\Services\PerformanceEscalationService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -107,6 +109,10 @@ class NotificationRecipientService
             }
         }
 
+        if ($record instanceof PerformanceEscalation) {
+            return static::isEligibleForPerformanceEscalation($user, $record, $companyId);
+        }
+
         // 1. Super Admin: Global update rights across all companies
         if ($user->isSuperAdmin()) {
             return true;
@@ -171,8 +177,40 @@ class NotificationRecipientService
             $record instanceof Invoice => ['update_invoice'],
             $record instanceof Ticket => ['update_ticket'],
             $record instanceof ServiceTransaction => ['update_service_transaction'],
+            $record instanceof PerformanceEscalation => ['view_any_performance_escalation'],
             default => [],
         };
+    }
+
+    /**
+     * Escalation alerts go to super admins, owners of the case company, and
+     * other qualified users holding the escalation view permission.
+     */
+    private static function isEligibleForPerformanceEscalation(
+        User $user,
+        PerformanceEscalation $record,
+        ?int $companyId
+    ): bool {
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        $companyId ??= (int) $record->company_id;
+
+        if ($user->isOwner()) {
+            return in_array($companyId, array_map('intval', $user->getOwnedCompanyIds()), true);
+        }
+
+        if (! $user->checkPermissionTo('view_any_performance_escalation')
+            || ! PerformanceEscalationService::canViewEscalations($user)) {
+            return false;
+        }
+
+        return in_array(
+            $companyId,
+            array_map('intval', CompanyFormService::getAuthorizedCompanyIds($user)),
+            true,
+        );
     }
 
     /**

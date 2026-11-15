@@ -131,14 +131,24 @@ class FinancialReceipt extends Model
         return $this->hasMany(CashHandoverItem::class);
     }
 
+    public function reservedHandoverItems(): HasMany
+    {
+        return $this->handoverItems()
+            ->whereHas('handover', fn (Builder $query) => $query->where('status', FinancialHandoverStatus::SUBMITTED->value));
+    }
+
+    public function confirmedHandoverItems(): HasMany
+    {
+        return $this->handoverItems()
+            ->whereHas('handover', fn (Builder $query) => $query->confirmed());
+    }
+
     /**
      * Amount already reserved by a handover request that is still waiting.
      */
     public function reservedAmount(): float
     {
-        return (float) $this->handoverItems()
-            ->whereHas('handover', fn (Builder $query) => $query->where('status', FinancialHandoverStatus::SUBMITTED->value))
-            ->sum('requested_amount');
+        return (float) $this->reservedHandoverItems()->sum('requested_amount');
     }
 
     /**
@@ -150,9 +160,7 @@ class FinancialReceipt extends Model
             return (float) $this->amount;
         }
 
-        return (float) $this->handoverItems()
-            ->whereHas('handover', fn (Builder $query) => $query->where('status', FinancialHandoverStatus::CONFIRMED->value))
-            ->sum('confirmed_amount');
+        return (float) $this->confirmedHandoverItems()->sum('confirmed_amount');
     }
 
     public function availableForHandover(): float

@@ -361,6 +361,8 @@ class RoleForm
                 'permissions' => [
                     'view_general_reports' => __('permissions.view_general_reports'),
                     'view_notifications_report' => __('permissions.view_notifications_report'),
+                    'view_any_performance_escalation' => __('permissions.view_any_performance_escalation'),
+                    'resolve_performance_escalation' => __('permissions.resolve_performance_escalation'),
                 ],
             ],
 

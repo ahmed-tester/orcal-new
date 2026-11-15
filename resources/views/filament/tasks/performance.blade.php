@@ -13,7 +13,6 @@
         .dark .task-performance-page .tp-name { color:#f8fafc; }
         .task-performance-page .tp-meta { display:flex; flex-wrap:wrap; gap:0.35rem 1.1rem; margin-top:0.35rem; font-size:0.8rem; color:#64748b; }
         .dark .task-performance-page .tp-meta { color:#94a3b8; }
-        .task-performance-page .tp-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.8rem; }
         .task-performance-page .tp-service-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:0.8rem; }
         .task-performance-page .tp-card { border:1px solid #e2e8f0; border-radius:0.85rem; padding:0.9rem; background:#fff; display:flex; flex-direction:column; gap:0.55rem; min-height:108px; text-align:start; }
         .dark .task-performance-page .tp-card { background:#1e293b; border-color:#334155; }
@@ -25,16 +24,49 @@
         .task-performance-page .tp-card-value { font-size:1.5rem; font-weight:800; color:#0f172a; font-variant-numeric:tabular-nums; }
         .dark .task-performance-page .tp-card-value { color:#f8fafc; }
         .task-performance-page .tp-card-hint { font-size:0.68rem; color:#94a3b8; }
+        .task-performance-page .tp-task-metrics { container:task-metrics / inline-size; display:grid; gap:0.65rem; width:100%; }
+        .task-performance-page .tp-task-grid { display:grid; grid-template-columns:minmax(0, 1fr); gap:0.65rem; }
+        .task-performance-page .tp-task-grid .tp-card { display:grid; gap:0.35rem; min-width:0; min-height:0; padding:0.75rem 0.85rem; }
+        .task-performance-page .tp-task-grid .tp-card-title { grid-area:title; color:#334155; line-height:1.4; }
+        .task-performance-page .tp-task-grid .tp-card-value { grid-area:value; color:var(--tp-metric-accent); line-height:1.15; }
+        .task-performance-page .tp-task-grid .tp-card-hint { grid-area:hint; color:#475569; font-size:0.75rem; line-height:1.5; }
+        .task-performance-page .tp-task-icon { width:1rem; height:1rem; flex:none; color:var(--tp-metric-accent); }
+        .task-performance-page .tp-task-counts .tp-card {
+            grid-template-areas:'title filter' 'value value' 'hint hint'; grid-template-columns:minmax(0, 1fr) auto;
+            grid-template-rows:auto auto 1fr; align-content:start;
+        }
+        .task-performance-page .tp-task-counts .tp-card:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }
+        .task-performance-page .tp-task-filter-icon { grid-area:filter; width:0.9rem; height:0.9rem; margin-top:0.1rem; color:#475569; }
+        .task-performance-page .tp-task-counts .tp-card.is-active { border-color:#2563eb; background:#eff6ff; }
+        .task-performance-page .tp-task-rates .tp-card {
+            grid-template-areas:'title value' 'hint hint'; grid-template-columns:minmax(0, 1fr) auto; align-items:center;
+        }
+        .dark .task-performance-page .tp-task-grid .tp-card-title,
+        .dark .task-performance-page .tp-task-grid .tp-card-hint,
+        .dark .task-performance-page .tp-task-filter-icon { color:#cbd5e1; }
+        .dark .task-performance-page .tp-task-grid .tp-card-value,
+        .dark .task-performance-page .tp-task-icon { color:color-mix(in srgb, var(--tp-metric-accent), white 55%); }
+        .dark .task-performance-page .tp-task-counts .tp-card.is-active { border-color:#60a5fa; background:#172554; }
+        @container task-metrics (min-width:19rem) {
+            .task-performance-page .tp-task-counts { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+        }
+        @container task-metrics (min-width:42rem) {
+            .task-performance-page .tp-task-rates { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+            .task-performance-page .tp-task-rates .tp-card { grid-template-areas:'title' 'value' 'hint'; grid-template-columns:minmax(0, 1fr); grid-template-rows:auto auto 1fr; }
+        }
+        @container task-metrics (min-width:56rem) {
+            .task-performance-page .tp-task-counts { grid-template-columns:repeat(4, minmax(0, 1fr)); }
+        }
         .task-performance-page .tp-section { display:flex; flex-direction:column; gap:0.8rem; padding-top:0.5rem; border-top:1px solid #e2e8f0; }
         .dark .task-performance-page .tp-section { border-top-color:#334155; }
         .task-performance-page .tp-section-title { font-size:1rem; font-weight:800; color:#0f172a; }
         .dark .task-performance-page .tp-section-title { color:#f8fafc; }
         .task-performance-page .tp-section-subtitle { font-size:0.78rem; color:#64748b; margin-top:0.2rem; }
         .dark .task-performance-page .tp-section-subtitle { color:#94a3b8; }
-        .task-performance-page .tp-table-container { width:100%; overflow-x:auto; border:1px solid #e2e8f0; border-radius:0.75rem; background:#fff; }
+        .task-performance-page .tp-table-container { width:100%; min-width:0; overflow-x:auto; border:1px solid #e2e8f0; border-radius:0.75rem; background:#fff; }
         .dark .task-performance-page .tp-table-container { border-color:#334155; background:#1e293b; }
-        .task-performance-page .tp-table { width:100%; border-collapse:collapse; font-size:0.8125rem; min-width:1050px; }
-        .task-performance-page .tp-service-table { min-width:1180px; }
+        .task-performance-page .tp-table { width:100%; border-collapse:collapse; font-size:0.8125rem; min-width:960px; }
+        .task-performance-page .tp-service-table { min-width:1080px; }
         .task-performance-page .tp-deficiency-table { min-width:980px; }
         .task-performance-page .tp-table thead tr { background:#f8fafc; border-bottom:2px solid #e2e8f0; }
         .dark .task-performance-page .tp-table thead tr { background:#0f172a; border-color:#334155; }
@@ -46,6 +78,20 @@
         .dark .task-performance-page .tp-table tbody tr:hover { background:rgba(255,255,255,0.03); }
         .task-performance-page .tp-table td { padding:0.65rem 0.75rem; vertical-align:top; color:#0f172a; }
         .dark .task-performance-page .tp-table td { color:#f1f5f9; }
+        .task-performance-page .tp-table td.tp-record-cell { padding-block:0.25rem; vertical-align:middle; white-space:nowrap; }
+        .task-performance-page .tp-record-link {
+            display:inline-flex; align-items:center; gap:0.38rem; min-height:2rem; padding-inline:0.5rem;
+            border-radius:0.4rem; background:#eff6ff; color:#1d4ed8; font-weight:700; white-space:nowrap;
+        }
+        .task-performance-page .tp-record-link svg { width:0.9rem; height:0.9rem; flex:none; }
+        .task-performance-page .tp-record-link:hover { background:#dbeafe; }
+        .task-performance-page .tp-record-link:hover bdi { text-decoration:underline; text-underline-offset:0.18em; }
+        .task-performance-page .tp-record-link:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
+        .dark .task-performance-page .tp-record-link { background:#172554; color:#bfdbfe; }
+        .dark .task-performance-page .tp-record-link:hover { background:#1e3a8a; }
+        @media (pointer:coarse), (max-width:640px) {
+            .task-performance-page .tp-record-link { min-height:2.75rem; }
+        }
         .task-performance-page .tp-linked-list { display:flex; flex-direction:column; gap:0.25rem; font-size:0.75rem; }
         .task-performance-page .tp-muted { color:#94a3b8; }
     </style>
@@ -99,34 +145,51 @@
 
             @if($data['task_visible'])
                 <div class="tp-section">
-                    <div>
-                        <div class="tp-section-title">{{ __('tasks.performance.task_section_title') }}</div>
-                    </div>
+                    <h2 class="tp-section-title">{{ __('tasks.performance.task_section_title') }}</h2>
 
-                    <div class="tp-grid">
+                    <div class="tp-task-metrics">
                         @php
-                            $cards = [
+                            $countCards = [
                                 ['key' => 'completed', 'title' => __('tasks.performance.completed_in_period'), 'value' => (int) $data['employee']->completed_in_period, 'hint' => __('tasks.performance.completed_in_period_hint'), 'icon' => 'heroicon-o-check-circle', 'color' => '#059669'],
                                 ['key' => 'due', 'title' => __('tasks.performance.due_in_period'), 'value' => (int) $data['employee']->due_in_period, 'hint' => __('tasks.performance.due_in_period_hint'), 'icon' => 'heroicon-o-calendar-days', 'color' => '#1d4ed8'],
                                 ['key' => 'overdue', 'title' => __('tasks.performance.overdue_now'), 'value' => (int) $data['employee']->overdue_count, 'hint' => __('tasks.performance.overdue_now_hint'), 'icon' => 'heroicon-o-exclamation-triangle', 'color' => '#b91c1c'],
                                 ['key' => 'postponed', 'title' => __('tasks.performance.postponed'), 'value' => (int) $data['employee']->postponed_count, 'hint' => __('tasks.performance.postponed_hint'), 'icon' => 'heroicon-o-pause-circle', 'color' => '#b45309'],
-                                ['key' => null, 'title' => __('tasks.performance.weighted_score'), 'value' => number_format($data['weighted_percentage'], 2).'%', 'hint' => __('tasks.performance.weighted_score_hint'), 'icon' => 'heroicon-o-scale', 'color' => '#7e22ce'],
-                                ['key' => null, 'title' => __('tasks.performance.completion_rate'), 'value' => $data['completion_rate'] === null ? '—' : number_format($data['completion_rate'], 2).'%', 'hint' => $data['completion_rate'] === null ? __('tasks.performance.no_data') : __('tasks.performance.completion_rate_hint'), 'icon' => 'heroicon-o-chart-pie', 'color' => '#0369a1'],
-                                ['key' => null, 'title' => __('tasks.performance.on_time_rate'), 'value' => $data['on_time_rate'] === null ? '—' : number_format($data['on_time_rate'], 2).'%', 'hint' => $data['on_time_rate'] === null ? __('tasks.performance.no_data') : __('tasks.performance.on_time_rate_hint'), 'icon' => 'heroicon-o-clock', 'color' => '#0f766e'],
+                            ];
+                            $rateCards = [
+                                ['title' => __('tasks.performance.weighted_score'), 'value' => number_format($data['weighted_percentage'], 2).'%', 'hint' => __('tasks.performance.weighted_score_hint'), 'icon' => 'heroicon-o-scale', 'color' => '#7e22ce'],
+                                ['title' => __('tasks.performance.completion_rate'), 'value' => $data['completion_rate'] === null ? '—' : number_format($data['completion_rate'], 2).'%', 'hint' => $data['completion_rate'] === null ? __('tasks.performance.no_data') : __('tasks.performance.completion_rate_hint'), 'icon' => 'heroicon-o-chart-pie', 'color' => '#0369a1'],
+                                ['title' => __('tasks.performance.on_time_rate'), 'value' => $data['on_time_rate'] === null ? '—' : number_format($data['on_time_rate'], 2).'%', 'hint' => $data['on_time_rate'] === null ? __('tasks.performance.no_data') : __('tasks.performance.on_time_rate_hint'), 'icon' => 'heroicon-o-clock', 'color' => '#0f766e'],
                             ];
                         @endphp
 
-                        @foreach($cards as $card)
-                            <div
-                                class="tp-card {{ $card['key'] ? 'is-clickable' : '' }} {{ $card['key'] && $this->cardFilter === $card['key'] ? 'is-active' : '' }}"
-                                @if($card['key']) wire:click="filterCard('{{ $card['key'] }}')" @endif
-                            >
-                                <div class="tp-card-title">
-                                    <x-dynamic-component :component="$card['icon']" style="width:16px;height:16px;color:{{ $card['color'] }};" />
-                                    <span>{{ $card['title'] }}</span>
-                                </div>
-                                <div class="tp-card-value" style="color: {{ $card['color'] }};">{{ $card['value'] }}</div>
-                                <div class="tp-card-hint">{{ $card['hint'] }}</div>
+                        @foreach(['tp-task-counts' => $countCards, 'tp-task-rates' => $rateCards] as $group => $cards)
+                            <div class="tp-task-grid {{ $group }}">
+                                @foreach($cards as $card)
+                                    @php
+                                        $filter = $card['key'] ?? null;
+                                        $active = $filter !== null && $this->cardFilter === $filter;
+                                        $tag = $filter === null ? 'div' : 'button';
+                                    @endphp
+                                    <{{ $tag }}
+                                        @class(['tp-card', 'is-clickable' => $filter !== null, 'is-active' => $active])
+                                        style="--tp-metric-accent: {{ $card['color'] }}"
+                                        @if($filter !== null)
+                                            type="button"
+                                            wire:click="filterCard('{{ $filter }}')"
+                                            aria-pressed="{{ $active ? 'true' : 'false' }}"
+                                        @endif
+                                    >
+                                        <span class="tp-card-title">
+                                            <x-dynamic-component :component="$card['icon']" class="tp-task-icon" aria-hidden="true" />
+                                            <span>{{ $card['title'] }}</span>
+                                        </span>
+                                        @if($filter !== null)
+                                            <x-heroicon-m-funnel class="tp-task-filter-icon" aria-hidden="true" />
+                                        @endif
+                                        <bdi class="tp-card-value">{{ $card['value'] }}</bdi>
+                                        <span class="tp-card-hint">{{ $card['hint'] }}</span>
+                                    </{{ $tag }}>
+                                @endforeach
                             </div>
                         @endforeach
                     </div>
@@ -152,7 +215,7 @@
                         <table class="tp-table">
                             <thead>
                                 <tr>
-                                    @foreach(['task', 'assignment', 'assignment_date', 'status', 'due_date', 'completed_at', 'weight', 'score', 'score_percentage', 'overall_percentage', 'action'] as $column)
+                                    @foreach(['task', 'assignment', 'assignment_date', 'status', 'due_date', 'completed_at', 'weight', 'score', 'score_percentage', 'overall_percentage'] as $column)
                                         <th scope="col">{{ __('tasks.performance.columns.'.$column) }}</th>
                                     @endforeach
                                 </tr>
@@ -161,7 +224,17 @@
                                 @forelse($this->performanceItems as $item)
                                     <tr wire:key="task-item-{{ $item->id }}">
                                         <td>{{ $item->task?->name ?? '—' }}</td>
-                                        <td><bdi>{{ $item->taskAssignment?->transaction_number ?? '—' }}</bdi></td>
+                                        <td class="tp-record-cell">
+                                            @php $assignmentNumber = $item->taskAssignment?->transaction_number ?? '—'; @endphp
+                                            @if($url = $this->assignmentUrl($item))
+                                                <a class="tp-record-link" href="{{ $url }}" aria-label="{{ __('tasks.performance.open_assignment') }} {{ $assignmentNumber }}">
+                                                    <bdi>{{ $assignmentNumber }}</bdi>
+                                                    <x-heroicon-m-arrow-top-right-on-square aria-hidden="true" />
+                                                </a>
+                                            @else
+                                                <bdi>{{ $assignmentNumber }}</bdi>
+                                            @endif
+                                        </td>
                                         <td><bdi>{{ $item->taskAssignment?->assignment_date?->format('Y-m-d') ?? '—' }}</bdi></td>
                                         <td>
                                             <x-filament::badge :color="$item->status?->getColor() ?? 'gray'">
@@ -174,18 +247,9 @@
                                         <td><bdi>{{ number_format((float) $item->score, 2) }}</bdi></td>
                                         <td><bdi>{{ number_format((float) $item->score_percentage, 2) }}%</bdi></td>
                                         <td><bdi>{{ number_format((float) $item->taskAssignment?->overall_percentage, 2) }}%</bdi></td>
-                                        <td>
-                                            @if($url = $this->assignmentUrl($item))
-                                                <x-filament::link :href="$url" icon="heroicon-m-arrow-top-right-on-square">
-                                                    {{ __('tasks.performance.open_assignment') }}
-                                                </x-filament::link>
-                                            @else
-                                                —
-                                            @endif
-                                        </td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="11">{{ __('tasks.performance.empty') }}</td></tr>
+                                    <tr><td colspan="10">{{ __('tasks.performance.empty') }}</td></tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -251,7 +315,7 @@
                             <table class="tp-table tp-service-table">
                                 <thead>
                                     <tr>
-                                        @foreach(['transaction_number', 'service', 'service_status', 'transaction_date', 'due_date', 'completion_date', 'linked_deficiencies', 'pending_action', 'action'] as $column)
+                                        @foreach(['transaction_number', 'service', 'service_status', 'transaction_date', 'due_date', 'completion_date', 'linked_deficiencies', 'pending_action'] as $column)
                                             <th scope="col">{{ __('tasks.performance.services.columns.'.$column) }}</th>
                                         @endforeach
                                     </tr>
@@ -263,7 +327,16 @@
                                             $pending = \App\Services\ServicePerformanceSummaryService::pendingAction($transaction);
                                         @endphp
                                         <tr wire:key="service-transaction-{{ $transaction->id }}">
-                                            <td><bdi>{{ $transaction->transaction_number }}</bdi></td>
+                                            <td class="tp-record-cell">
+                                                @if(\App\Filament\Resources\ServiceTransactions\ServiceTransactionResource::canEdit($transaction))
+                                                    <a class="tp-record-link" href="{{ \App\Filament\Resources\ServiceTransactions\ServiceTransactionResource::getUrl('edit', ['record' => $transaction]) }}" aria-label="{{ __('tasks.performance.services.open_service') }} {{ $transaction->transaction_number }}">
+                                                        <bdi>{{ $transaction->transaction_number }}</bdi>
+                                                        <x-heroicon-m-arrow-top-right-on-square aria-hidden="true" />
+                                                    </a>
+                                                @else
+                                                    <bdi>{{ $transaction->transaction_number }}</bdi>
+                                                @endif
+                                            </td>
                                             <td>{{ $transaction->display_service_name }}</td>
                                             <td>
                                                 <x-filament::badge :color="\App\Services\ServicePerformanceSummaryService::statusColor($transaction->service_status)">
@@ -292,18 +365,9 @@
                                             <td>
                                                 <x-filament::badge :color="$pending['color']">{{ $pending['label'] }}</x-filament::badge>
                                             </td>
-                                            <td>
-                                                @if(\App\Filament\Resources\ServiceTransactions\ServiceTransactionResource::canEdit($transaction))
-                                                    <x-filament::link :href="\App\Filament\Resources\ServiceTransactions\ServiceTransactionResource::getUrl('edit', ['record' => $transaction])" icon="heroicon-m-arrow-top-right-on-square">
-                                                        {{ __('tasks.performance.services.open_service') }}
-                                                    </x-filament::link>
-                                                @else
-                                                    —
-                                                @endif
-                                            </td>
                                         </tr>
                                     @empty
-                                        <tr><td colspan="9">{{ __('tasks.performance.services.empty') }}</td></tr>
+                                        <tr><td colspan="8">{{ __('tasks.performance.services.empty') }}</td></tr>
                                     @endforelse
                                 </tbody>
                             </table>

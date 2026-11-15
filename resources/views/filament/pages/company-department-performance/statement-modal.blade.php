@@ -175,72 +175,19 @@
                     </tbody>
                 </table>
             </div>
+        @elseif($this->kashfDomain === 'attendance' || $this->kashfDomain === 'leaves')
+            @include('filament.pages.company-department-performance.workforce-records', [
+                'group' => $this->kashfDomain,
+                'type' => $this->kashfType,
+                'records' => $records,
+                'preview' => false,
+            ])
+
         @elseif($this->kashfDomain === 'compliance')
-            <div class="perf-table-wrapper">
-                <table class="perf-table">
-                    <thead>
-                        <tr>
-                            <th>{{ __('performance.kashf.employee_name') }}</th>
-                            <th>{{ __('performance.kashf.company') }}</th>
-                            <th>{{ __('performance.kashf.iqama_number') }}</th>
-                            <th>{{ __('performance.kashf.expiry_date') }}</th>
-                            <th>{{ __('performance.kashf.days_remaining') }}</th>
-                            <th style="text-align: center;">{{ __('performance.kashf.status') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($records as $emp)
-                            @php
-                                $expiryDate = match($this->kashfType) {
-                                    'work_permit_expired' => $emp->details?->work_permit_expiry,
-                                    'insurance_expired' => $emp->details?->insurance_expiry,
-                                    default => $emp->details?->iqama_expiry,
-                                };
-                                $diff = $expiryDate ? (int) now()->startOfDay()->diffInDays($expiryDate, false) : null;
-                            @endphp
-                            <tr>
-                                <td><strong>{{ $emp->user?->name ?? '—' }}</strong></td>
-                                <td>{{ $emp->company?->trade_name ?? '—' }}</td>
-                                <td><bdi>{{ $emp->details?->iqama_number ?? '—' }}</bdi></td>
-                                <td><bdi>{{ $expiryDate?->format('Y-m-d') ?? '—' }}</bdi></td>
-                                <td>
-                                    @if($diff !== null)
-                                        @if($diff < 0)
-                                            <span style="color: #e11d48; font-weight: 700;">منتهية منذ {{ abs($diff) }} يوم</span>
-                                        @elseif($diff === 0)
-                                            <span style="color: #ea580c; font-weight: 700;">تنتهي اليوم</span>
-                                        @else
-                                            <span style="color: #059669; font-weight: 600;">متبقي {{ $diff }} يوم</span>
-                                        @endif
-                                    @else
-                                        —
-                                    @endif
-                                </td>
-                                <td style="text-align: center;">
-                                    @if($diff !== null && $diff < 0)
-                                        <x-filament::badge color="danger" size="xs">{{ __('performance.compliance.expired') }}</x-filament::badge>
-                                    @elseif($diff !== null && $diff <= 90)
-                                        <x-filament::badge color="warning" size="xs">{{ __('performance.compliance.expiring_soon') }}</x-filament::badge>
-                                    @else
-                                        <x-filament::badge color="success" size="xs">{{ __('performance.compliance.valid') }}</x-filament::badge>
-                                    @endif
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6">
-                                    <div class="perf-empty-state-card" style="padding: 2.5rem 1rem;">
-                                        <div class="perf-empty-icon">
-                                            <x-heroicon-o-document-magnifying-glass style="width: 28px; height: 28px;" />
-                                        </div>
-                                        <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+            @include('filament.pages.company-department-performance.compliance-records', [
+                'type' => $this->kashfType,
+                'records' => $records,
+            ])
 
         @elseif($this->kashfDomain === 'violations')
             <div class="perf-table-wrapper">
@@ -292,6 +239,9 @@
                     </tbody>
                 </table>
             </div>
+
+        @elseif($this->kashfDomain === 'financial')
+            @include('filament.pages.company-department-performance.financial-records', ['type' => $this->kashfType])
         @endif
 
         @if($records->hasPages())

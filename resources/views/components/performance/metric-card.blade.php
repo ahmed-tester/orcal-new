@@ -9,15 +9,19 @@
     'isHero' => false,
     'index' => 0,
     'rate' => null,
+    'stacked' => false,
+    'expanded' => null,
 ])
 
 <div
     class="perf-card {{ $isHero ? 'hero' : '' }} {{ $action ? 'is-clickable' : '' }}"
     style="--i: {{ $index }}; --c1: {{ $accent }};"
     @if($action) wire:click="{{ $action }}" role="button" tabindex="0" @endif
+    @if($action && $stacked) wire:keydown.enter.prevent="{{ $action }}" wire:keydown.space.prevent="{{ $action }}" @endif
+    @if($expanded !== null) aria-expanded="{{ $expanded ? 'true' : 'false' }}" @endif
 >
     <div class="perf-card-header" style="display: flex; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="display: flex; gap: 8px; {{ $stacked ? 'flex-direction: column; align-items: flex-start;' : 'align-items: center;' }}">
             @if($icon)
                 <div class="ic" style="background: color-mix(in srgb, {{ $accent }} 16%, transparent); color: {{ $accent }}; margin-bottom: 0;">
                     <x-dynamic-component :component="$icon" style="width: 18px; height: 18px;" />

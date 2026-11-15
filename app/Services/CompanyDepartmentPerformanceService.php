@@ -46,10 +46,6 @@ class CompanyDepartmentPerformanceService
             return Company::query()->pluck('id')->map(fn ($id) => (int) $id)->all();
         }
 
-        if ($user->isOwner()) {
-            return $user->ownedCompanies()->pluck('companies.id')->map(fn ($id) => (int) $id)->all();
-        }
-
         return array_map('intval', CompanyFormService::getAuthorizedCompanyIds($user));
     }
 
@@ -306,9 +302,8 @@ class CompanyDepartmentPerformanceService
     public static function getDepartmentsSummary(int $companyId, array $filters = []): Collection
     {
         $user = auth()->user();
-        $authorizedCompanyIds = self::getAuthorizedCompanyIds($user);
 
-        if (! in_array($companyId, $authorizedCompanyIds, true)) {
+        if (self::scopedCompanyIds($filters, $companyId, $user) === []) {
             return collect();
         }
 
@@ -358,6 +353,9 @@ class CompanyDepartmentPerformanceService
             ->groupBy(DB::raw('COALESCE(department_id, 0)'))
             ->pluck('count', 'department_id');
 
+        // 5. Overdue open counters feeding the operational score, grouped by department
+        [$overdueTaskCounts, $overdueDeficiencyCounts] = self::overdueScoreCounts($companyId, $branchId, $teamIds);
+
         // Fetch registered departments
         $departments = Department::query()
             ->where(function (Builder $q) use ($companyId) {
@@ -380,6 +378,10 @@ class CompanyDepartmentPerformanceService
             $srv = $servicesMap->get($did);
             $def = $deficienciesMap->get($did);
             $tsk = $tasksMap->get($did);
+            $employeesCount = (int) ($employeesCountMap[$did] ?? 0);
+            $overdueTasks = (int) ($overdueTaskCounts[(int) $did] ?? 0);
+            $overdueDeficiencies = (int) ($overdueDeficiencyCounts[(int) $did] ?? 0);
+            $isRankable = $employeesCount > 0 || $overdueTasks > 0 || $overdueDeficiencies > 0;
 
             $displayName = $department->parent
                 ? "{$department->name} ({$department->parent->name})"
@@ -390,8 +392,10 @@ class CompanyDepartmentPerformanceService
                 'department_name' => $displayName,
                 'is_unassigned' => false,
                 'is_team_scope' => $isSupervisor,
+                'is_rankable' => $isRankable,
+                'score' => $isRankable ? PerformanceScoreService::scoreFromCounts($overdueTasks, $overdueDeficiencies) : null,
                 ...self::metrics($srv, $def, $tsk),
-                'employees_count' => (int) ($employeesCountMap[$did] ?? 0),
+                'employees_count' => $employeesCount,
             ]);
         }
 
@@ -413,6 +417,8 @@ class CompanyDepartmentPerformanceService
                 'department_name' => __('performance.levels.unassigned_or_no_department'),
                 'is_unassigned' => true,
                 'is_team_scope' => false,
+                'is_rankable' => false,
+                'score' => null,
                 ...self::metrics($unassignedSrv, $unassignedDef, $unassignedTsk),
                 'employees_count' => $unassignedEmpCount,
             ]);
@@ -593,7 +599,7 @@ class CompanyDepartmentPerformanceService
         ?int $employeeId = null
     ): Builder {
         $user = auth()->user();
-        $targetCompanyIds = self::kashfCompanyIds($filters, $companyId, $user);
+        $targetCompanyIds = self::scopedCompanyIds($filters, $companyId, $user);
         [$startDate, $endDate] = self::resolveDateRange($filters);
         $branchId = self::resolveBranchId($filters, $user);
         $teamIds = self::isSupervisorViewer($user) ? self::supervisorTeamIds($user, $startDate, $endDate) : null;
@@ -647,7 +653,7 @@ class CompanyDepartmentPerformanceService
         ?int $employeeId = null
     ): Builder {
         $user = auth()->user();
-        $targetCompanyIds = self::kashfCompanyIds($filters, $companyId, $user);
+        $targetCompanyIds = self::scopedCompanyIds($filters, $companyId, $user);
         [$startDate, $endDate] = self::resolveDateRange($filters);
         $branchId = self::resolveBranchId($filters, $user);
         $teamIds = self::isSupervisorViewer($user) ? self::supervisorTeamIds($user, $startDate, $endDate) : null;
@@ -686,7 +692,7 @@ class CompanyDepartmentPerformanceService
         ?int $employeeId = null
     ): Builder {
         $user = auth()->user();
-        $targetCompanyIds = self::kashfCompanyIds($filters, $companyId, $user);
+        $targetCompanyIds = self::scopedCompanyIds($filters, $companyId, $user);
         [$startDate, $endDate] = self::resolveDateRange($filters);
         $branchId = self::resolveBranchId($filters, $user);
         $teamIds = self::isSupervisorViewer($user) ? self::supervisorTeamIds($user, $startDate, $endDate) : null;
@@ -723,7 +729,7 @@ class CompanyDepartmentPerformanceService
         return $query->orderByDesc('task_assignment_items.id');
     }
 
-    private static function kashfCompanyIds(array $filters, ?int $companyId, ?User $user): array
+    private static function scopedCompanyIds(array $filters, ?int $companyId, ?User $user): array
     {
         $ids = self::getAuthorizedCompanyIds($user);
 
@@ -830,6 +836,30 @@ class CompanyDepartmentPerformanceService
         }
 
         return $query;
+    }
+
+    /**
+     * Overdue open counters feeding the operational score for one company
+     * scope, keyed by the department bucket used in the summary rows.
+     *
+     * @return array{0: array<int, int>, 1: array<int, int>}
+     */
+    private static function overdueScoreCounts(int $companyId, ?int $branchId, ?array $teamIds): array
+    {
+        $toDepartmentMap = static function (Collection $rows): array {
+            $map = [];
+
+            foreach ($rows as $row) {
+                $map[(int) $row->department_id] = (int) $row->count;
+            }
+
+            return $map;
+        };
+
+        return [
+            $toDepartmentMap(PerformanceScoreService::overdueTasksByScope([$companyId], $branchId, $teamIds)),
+            $toDepartmentMap(PerformanceScoreService::overdueDeficienciesByScope([$companyId], $branchId, $teamIds)),
+        ];
     }
 
     private static function metrics(?object $services, ?object $deficiencies, ?object $tasks, bool $includeTasks = true): array

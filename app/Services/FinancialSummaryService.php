@@ -21,6 +21,16 @@ class FinancialSummaryService
 {
     public const SOURCE_TYPE = 'service_transaction';
 
+    public const OPEN_APPROVED_CLAIM_STATUSES = [
+        FinancialDisbursementStatus::APPROVED,
+        FinancialDisbursementStatus::PARTIALLY_REIMBURSED,
+    ];
+
+    public const APPROVED_CLAIM_STATUSES = [
+        ...self::OPEN_APPROVED_CLAIM_STATUSES,
+        FinancialDisbursementStatus::FULLY_REIMBURSED,
+    ];
+
     /**
      * @return array<string, float|int|bool|null>
      */
@@ -72,19 +82,12 @@ class FinancialSummaryService
 
         $personalSettled = (float) $disbursements
             ->filter(fn (FinancialDisbursement $disbursement) => $disbursement->disbursement_type === FinancialDisbursementType::EMPLOYEE_PERSONAL)
-            ->filter(fn (FinancialDisbursement $disbursement) => in_array($disbursement->status, [
-                FinancialDisbursementStatus::APPROVED,
-                FinancialDisbursementStatus::PARTIALLY_REIMBURSED,
-                FinancialDisbursementStatus::FULLY_REIMBURSED,
-            ], true))
+            ->filter(fn (FinancialDisbursement $disbursement) => in_array($disbursement->status, self::APPROVED_CLAIM_STATUSES, true))
             ->sum(fn (FinancialDisbursement $disbursement) => (float) $disbursement->amount);
 
         $employeeDue = (float) $disbursements
             ->filter(fn (FinancialDisbursement $disbursement) => $disbursement->disbursement_type === FinancialDisbursementType::EMPLOYEE_PERSONAL)
-            ->filter(fn (FinancialDisbursement $disbursement) => in_array($disbursement->status, [
-                FinancialDisbursementStatus::APPROVED,
-                FinancialDisbursementStatus::PARTIALLY_REIMBURSED,
-            ], true))
+            ->filter(fn (FinancialDisbursement $disbursement) => in_array($disbursement->status, self::OPEN_APPROVED_CLAIM_STATUSES, true))
             ->sum(fn (FinancialDisbursement $disbursement) => $disbursement->remainingDue());
 
         $awaitingApproval = (float) $disbursements

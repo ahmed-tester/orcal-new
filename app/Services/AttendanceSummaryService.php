@@ -41,7 +41,7 @@ class AttendanceSummaryService
      * Build the aggregated summary query where each row is an Employee
      * with metrics computed over the selected month/period.
      */
-    public static function summaryQuery(array $filters = []): Builder
+    public static function summaryQuery(array $filters = [], ?array $employeeIds = null): Builder
     {
         [$startDate, $endDate] = self::resolveDateRange($filters);
 
@@ -89,7 +89,7 @@ class AttendanceSummaryService
         self::applyAccessScope($query);
         self::applyFilters($query, $filters);
 
-        return $query;
+        return $query->when($employeeIds !== null, fn (Builder $query) => $query->whereIn('employees.id', $employeeIds));
     }
 
     /**
@@ -97,8 +97,7 @@ class AttendanceSummaryService
      */
     public static function getStats(array $filters = [], ?array $employeeIds = null): array
     {
-        $totals = self::summaryQuery($filters)
-            ->when($employeeIds !== null, fn (Builder $query) => $query->whereIn('employees.id', $employeeIds))
+        $totals = self::summaryQuery($filters, $employeeIds)
             ->toBase()
             ->select([])
             ->selectRaw('COUNT(*) as employees_count,

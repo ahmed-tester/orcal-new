@@ -234,6 +234,8 @@ return [
     'reports_and_tools_group' => 'التقارير وأدوات النظام',
     'view_general_reports' => 'استعراض الشاشة المركزية للتقارير',
     'view_notifications_report' => 'استعراض تقرير التنبيهات والوثائق',
+    'view_any_performance_escalation' => 'استعراض تصعيدات الأداء',
+    'resolve_performance_escalation' => 'إدارة قرارات تصعيدات الأداء',
     'manage_translations' => 'الوصول لإدارة الترجمات',
     'manage_smart_import' => 'الوصول للاستيراد الذكي (AI)',
     'view_loan_fund_policy' => 'استعراض وتعديل لائحة صندوق سلفني',

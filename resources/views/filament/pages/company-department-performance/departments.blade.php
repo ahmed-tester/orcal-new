@@ -1,5 +1,5 @@
 @php
-    $departments = $this->departmentsSummary;
+    $departments = $this->displayedDepartments;
     $selectedCompany = $this->selectedCompany;
     $companyName = $selectedCompany?->trade_name ?: ($selectedCompany?->trade_name_en ?? '—');
 
@@ -66,6 +66,22 @@
         </div>
     @endif
 
+    <!-- Display mode: all / best first / worst department -->
+    <div class="perf-rank-modes" role="group" aria-label="{{ __('performance.department_ranking.label') }}">
+        <span class="perf-rank-modes-title">{{ __('performance.department_ranking.label') }}</span>
+        @foreach(['all', 'best_first', 'worst'] as $rankMode)
+            @php $rankAction = "selectDepartmentRankMode('{$rankMode}')"; @endphp
+            <button
+                type="button"
+                class="perf-rank-mode {{ $this->departmentRankMode === $rankMode ? 'is-active' : '' }}"
+                wire:click="{{ $rankAction }}"
+                aria-pressed="{{ $this->departmentRankMode === $rankMode ? 'true' : 'false' }}"
+            >
+                {{ __('performance.department_ranking.'.$rankMode) }}
+            </button>
+        @endforeach
+    </div>
+
     <!-- Department cards -->
     <div class="perf-cards-grid dept-grid-style">
         @forelse($departments as $row)
@@ -114,6 +130,20 @@
                         </div>
                     @endif
                 </div>
+
+                @if($row->is_rankable && $row->score)
+                    @php
+                        $departmentScore = (int) $row->score->score;
+                        $departmentScoreColor = $departmentScore >= 80
+                            ? '#22c55e'
+                            : ($departmentScore >= \App\Services\PerformanceScoreService::REVIEW_THRESHOLD ? '#f59e0b' : '#ef4444');
+                    @endphp
+                    <div class="dept-score-pill" style="--col: {{ $departmentScoreColor }};" title="{{ __('performance.score.partial_badge') }}">
+                        <span>{{ __('performance.department_ranking.score') }}</span>
+                        <b>{{ $departmentScore }}</b>
+                        <u>{{ __('performance.score.of_100') }}</u>
+                    </div>
+                @endif
 
                 <!-- Department metrics -->
                 <div class="dept-card-rings">
@@ -182,8 +212,13 @@
                 <div class="perf-empty-icon">
                     <x-heroicon-o-rectangle-group style="width: 32px; height: 32px;" />
                 </div>
-                <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
-                <div class="perf-empty-sub">{{ __('performance.empty.no_departments') }}</div>
+                @if($this->departmentRankMode === 'worst')
+                    <div class="perf-empty-title">{{ __('performance.department_ranking.worst_empty_title') }}</div>
+                    <div class="perf-empty-sub">{{ __('performance.department_ranking.no_rankable') }}</div>
+                @else
+                    <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
+                    <div class="perf-empty-sub">{{ __('performance.empty.no_departments') }}</div>
+                @endif
             </div>
         @endforelse
     </div>
