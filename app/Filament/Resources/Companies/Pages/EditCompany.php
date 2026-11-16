@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Companies\Pages;
 
 use App\Filament\Resources\Companies\CompanyResource;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Collection;
@@ -16,6 +17,12 @@ class EditCompany extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('print')
+                ->label(__('organization.companies.actions.print'))
+                ->icon('heroicon-o-printer')
+                ->color('gray')
+                ->url(fn () => route('companies.print', $this->record))
+                ->openUrlInNewTab(),
             DeleteAction::make(),
         ];
     }

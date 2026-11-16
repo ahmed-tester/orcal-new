@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Companies\Tables;
 
 use App\Services\PhoneService;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -96,6 +97,13 @@ class CompaniesTable
                     ->options(\App\Enums\GeneralStatus::class),
             ])
             ->recordActions([
+                Action::make('print')
+                    ->label(__('organization.companies.actions.print'))
+                    ->tooltip(__('organization.companies.actions.print_tooltip'))
+                    ->icon('heroicon-o-printer')
+                    ->color('gray')
+                    ->url(fn ($record) => route('companies.print', $record))
+                    ->openUrlInNewTab(),
                 EditAction::make()->label(__('employees.actions.edit')),
             ])
             ->toolbarActions([

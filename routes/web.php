@@ -73,6 +73,11 @@ Route::middleware('auth')->group(function () {
     // Asset Fund Statement PDF
     Route::get('/asset-fund-statement/pdf', [\App\Http\Controllers\AssetFundStatementController::class, 'pdf'])->name('asset-fund.statement.pdf');
 
+    // Companies Print & PDF Routes
+    Route::get('/companies/statement/print', [\App\Http\Controllers\CompanyPrintController::class, 'statement'])->name('companies.statement.print');
+    Route::get('/exports/companies-statement', [\App\Http\Controllers\CompanyPrintController::class, 'statement'])->name('exports.companies-statement');
+    Route::get('/companies/{company}/print', [\App\Http\Controllers\CompanyPrintController::class, 'print'])->name('companies.print');
+    Route::get('/companies/{company}/pdf', [\App\Http\Controllers\CompanyPrintController::class, 'pdf'])->name('companies.pdf');
 });
 
 // ─── ZKTeco Biometric ADMS / Push Protocol Routes ───────────────────────────
