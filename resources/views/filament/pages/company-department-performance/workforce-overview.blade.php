@@ -21,6 +21,7 @@
         @include('filament.pages.company-department-performance.workforce-metric-grid', [
             'group' => 'attendance',
             'cards' => $this->workforceCardGroups['attendance'],
+            'rateTotal' => $overview['attendance']['recorded_days'],
             'labels' => [
                 'present_days' => 'performance.overview.present_days',
                 'late_days' => 'performance.overview.late_days',

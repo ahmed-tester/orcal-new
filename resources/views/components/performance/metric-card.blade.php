@@ -9,6 +9,8 @@
     'isHero' => false,
     'index' => 0,
     'rate' => null,
+    'rateLabel' => null,
+    'ratePrecision' => 0,
     'stacked' => false,
     'expanded' => null,
 ])
@@ -17,7 +19,7 @@
     class="perf-card {{ $isHero ? 'hero' : '' }} {{ $action ? 'is-clickable' : '' }}"
     style="--i: {{ $index }}; --c1: {{ $accent }};"
     @if($action) wire:click="{{ $action }}" role="button" tabindex="0" @endif
-    @if($action && $stacked) wire:keydown.enter.prevent="{{ $action }}" wire:keydown.space.prevent="{{ $action }}" @endif
+    @if($action && ($stacked || $rateLabel !== null)) wire:keydown.enter.prevent="{{ $action }}" wire:keydown.space.prevent="{{ $action }}" @endif
     @if($expanded !== null) aria-expanded="{{ $expanded ? 'true' : 'false' }}" @endif
 >
     <div class="perf-card-header" style="display: flex; align-items: center; justify-content: space-between;">
@@ -31,16 +33,21 @@
         </div>
     </div>
 
-    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px;">
+    <div @class(['perf-metric-value-row', 'perf-metric-with-rate' => $rateLabel !== null]) style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px;">
         <div class="v" style="margin-top: 0;">
             <span>{{ $value }}</span>
             @if($unit)
                 <u>{{ $unit }}</u>
             @endif
         </div>
-        @if($rate !== null)
+        @if($rateLabel !== null)
+            <div class="perf-metric-rate">
+                <x-performance.rate-ring :rate="$rate" :label="$rateLabel" :precision="$ratePrecision" :color="$rate === null ? null : $accent" :sublabel="$rate === null ? __('performance.cards.no_data') : null" />
+            </div>
+        @elseif($rate !== null)
             <x-performance.rate-ring :rate="$rate" size="s" />
         @endif
+        {{ $slot }}
     </div>
 
     @if($hint)

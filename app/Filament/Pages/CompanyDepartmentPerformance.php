@@ -6,6 +6,7 @@ use App\Filament\Resources\Attendance\AttendanceResource;
 use App\Filament\Resources\Attendance\Pages\AttendanceSummary;
 use App\Filament\Resources\Leaves\LeaveResource;
 use App\Filament\Resources\Leaves\Pages\LeavesSummary;
+use App\Filament\Resources\Tickets\TicketResource;
 use App\Filament\Resources\TreasuryTransactions\TreasuryTransactionResource;
 use App\Filament\Resources\Violations\Pages\ViolationsSummary;
 use App\Filament\Resources\Violations\ViolationResource;
@@ -19,6 +20,7 @@ use App\Services\AttendanceSummaryService;
 use App\Services\CompanyCompliancePerformanceService;
 use App\Services\CompanyDepartmentPerformanceService;
 use App\Services\CompanyFinancialPerformanceService;
+use App\Services\CompanyTicketsPerformanceService;
 use App\Services\CompanyViolationsPerformanceService;
 use App\Services\EmployeePerformanceAccessService;
 use App\Services\LeaveSummaryService;
@@ -42,6 +44,8 @@ class CompanyDepartmentPerformance extends Page
 
     protected static ?int $navigationSort = 2;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     private const ATTENDANCE_STATEMENT_TYPES = ['present_days', 'late_days', 'absent_days'];
 
     /** Department card display modes inside an open company. */
@@ -55,6 +59,18 @@ class CompanyDepartmentPerformance extends Page
         self::DEPARTMENT_RANK_MODE_ALL,
         self::DEPARTMENT_RANK_MODE_BEST_FIRST,
         self::DEPARTMENT_RANK_MODE_WORST,
+    ];
+
+    public const EMPLOYEE_RANK_MODE_ALL = 'all';
+
+    public const EMPLOYEE_RANK_MODE_BEST_FIRST = 'best_first';
+
+    public const EMPLOYEE_RANK_MODE_WORST = 'worst';
+
+    public const EMPLOYEE_RANK_MODES = [
+        self::EMPLOYEE_RANK_MODE_ALL,
+        self::EMPLOYEE_RANK_MODE_BEST_FIRST,
+        self::EMPLOYEE_RANK_MODE_WORST,
     ];
 
     #[Locked]
@@ -77,6 +93,9 @@ class CompanyDepartmentPerformance extends Page
 
     #[Locked]
     public string $departmentRankMode = self::DEPARTMENT_RANK_MODE_ALL;
+
+    #[Locked]
+    public string $employeeRankMode = self::EMPLOYEE_RANK_MODE_ALL;
 
     #[Locked]
     public mixed $selectedDepartmentId = null;
@@ -128,22 +147,7 @@ class CompanyDepartmentPerformance extends Page
 
     public static function canAccess(array $parameters = []): bool
     {
-        $user = auth()->user();
-
-        if (! $user) {
-            return false;
-        }
-
-        if ($user->isSuperAdmin() || $user->isOwner()) {
-            return true;
-        }
-
-        if (EmployeePerformanceAccessService::isSupervisor($user)) {
-            return true;
-        }
-
-        return Gate::allows('viewAny', ServiceTransaction::class)
-            || Gate::allows('viewAny', TaskAssignment::class);
+        return false;
     }
 
     public function handleFilterBarUpdate(): void
@@ -165,6 +169,11 @@ class CompanyDepartmentPerformance extends Page
 
         if ($this->selectedCompanyId === null) {
             $this->departmentRankMode = self::DEPARTMENT_RANK_MODE_ALL;
+            $this->employeeRankMode = self::EMPLOYEE_RANK_MODE_ALL;
+        }
+
+        if ($this->selectedDepartmentId === null) {
+            $this->employeeRankMode = self::EMPLOYEE_RANK_MODE_ALL;
         }
 
         $this->showKashfModal = false;
@@ -216,6 +225,15 @@ class CompanyDepartmentPerformance extends Page
         $this->closeKashf();
     }
 
+    public function showTicketsOverview(): void
+    {
+        abort_unless($this->canViewTicketsOverview, 403);
+
+        $this->activeOverviewTab = 'tickets';
+        $this->showAttendanceAndLeaves = false;
+        $this->closeKashf();
+    }
+
     #[Computed]
     public function canViewWorkforceOverview(): bool
     {
@@ -238,6 +256,12 @@ class CompanyDepartmentPerformance extends Page
     public function canViewFinancialOverview(): bool
     {
         return CompanyFinancialPerformanceService::canView();
+    }
+
+    #[Computed]
+    public function canViewTicketsOverview(): bool
+    {
+        return CompanyTicketsPerformanceService::canView();
     }
 
     #[Computed]
@@ -397,6 +421,24 @@ class CompanyDepartmentPerformance extends Page
             'dateFrom' => $this->dateFrom,
             'dateTo' => $this->dateTo,
         ]);
+    }
+
+    #[Computed]
+    public function ticketsOverview(): array
+    {
+        abort_unless($this->canViewTicketsOverview, 403);
+
+        return CompanyTicketsPerformanceService::getStats($this->filters());
+    }
+
+    #[Computed]
+    public function ticketsRegisterUrl(): ?string
+    {
+        if (! TicketResource::canViewAny()) {
+            return null;
+        }
+
+        return TicketResource::getUrl('index');
     }
 
     #[Computed]
@@ -686,6 +728,61 @@ class CompanyDepartmentPerformance extends Page
             ->values();
     }
 
+    /**
+     * Top 5 eligible departments for the sprint track inside the selected company.
+     *
+     * Rankable departments with available score, excluding 'unassigned', sorted
+     * descending by score (ties preserve original order), max 5 rows.
+     */
+    #[Computed]
+    public function topRankedDepartments(): Collection
+    {
+        $departments = $this->departmentsSummary;
+
+        if ($departments->isEmpty()) {
+            return collect();
+        }
+
+        $rankable = $departments->filter(
+            fn (object $row) => ($row->is_rankable ?? false)
+                && $row->score !== null
+                && ($row->score->available ?? false)
+                && $row->score->score !== null
+                && $row->department_id !== 'unassigned'
+        );
+
+        if ($rankable->isEmpty()) {
+            return collect();
+        }
+
+        $sorted = $rankable->sortByDesc(fn (object $row) => $row->score->score)->values();
+
+        $highestScore = $sorted->first()->score->score;
+        $sharedLeaderCount = $sorted->filter(fn (object $row) => $row->score->score === $highestScore)->count();
+        $isSharedLead = $sharedLeaderCount > 1;
+
+        $top5 = $sorted->take(5)->values();
+
+        return $top5->map(function (object $dept, int $index) use ($top5, $isSharedLead) {
+            $score = (int) $dept->score->score;
+            $prevScore = $index > 0 ? (int) $top5[$index - 1]->score->score : null;
+            $pointsBehind = $prevScore !== null ? $prevScore - $score : 0;
+            $isTiedWithPrev = $index > 0 && $pointsBehind === 0;
+
+            return (object) [
+                'department_id' => $dept->department_id,
+                'department_name' => $dept->department_name,
+                'score' => $score,
+                'rank' => $index + 1,
+                'is_first' => $index === 0,
+                'is_shared_lead' => $index === 0 && $isSharedLead,
+                'is_tied_with_prev' => $isTiedWithPrev,
+                'points_behind' => $pointsBehind,
+                'raw' => $dept,
+            ];
+        });
+    }
+
     #[Computed]
     public function employeesSummary(): Collection
     {
@@ -698,6 +795,118 @@ class CompanyDepartmentPerformance extends Page
             $this->selectedDepartmentId,
             $this->filters()
         );
+    }
+
+    #[Computed]
+    public function displayedEmployees(): Collection
+    {
+        $employees = $this->employeesSummary;
+
+        return match ($this->employeeRankMode) {
+            self::EMPLOYEE_RANK_MODE_BEST_FIRST => $this->bestFirstEmployees($employees),
+            self::EMPLOYEE_RANK_MODE_WORST => $this->worstEmployees($employees),
+            default => $employees,
+        };
+    }
+
+    public function selectEmployeeRankMode(string $mode): void
+    {
+        abort_unless(in_array($mode, self::EMPLOYEE_RANK_MODES, true), 404);
+
+        $this->employeeRankMode = $mode;
+    }
+
+    private function rankableEmployees(Collection $employees): Collection
+    {
+        return $employees->filter(
+            fn (object $row) => ($row->is_rankable ?? false)
+                && $row->score !== null
+                && ($row->score->available ?? false)
+                && $row->score->score !== null
+        );
+    }
+
+    private function bestFirstEmployees(Collection $employees): Collection
+    {
+        $rankable = $this->rankableEmployees($employees);
+        $others = $employees->reject(
+            fn (object $row) => ($row->is_rankable ?? false)
+                && $row->score !== null
+                && ($row->score->available ?? false)
+                && $row->score->score !== null
+        );
+
+        return $rankable
+            ->sortByDesc(fn (object $row) => $row->score->score)
+            ->concat($others)
+            ->values();
+    }
+
+    private function worstEmployees(Collection $employees): Collection
+    {
+        $rankable = $this->rankableEmployees($employees);
+
+        if ($rankable->isEmpty()) {
+            return collect();
+        }
+
+        $lowestScore = $rankable->min(fn (object $row) => $row->score->score);
+
+        return $rankable
+            ->filter(fn (object $row) => $row->score->score === $lowestScore)
+            ->values();
+    }
+
+    /**
+     * Top 5 eligible employees for the sprint track inside the selected department.
+     */
+    #[Computed]
+    public function topRankedEmployees(): Collection
+    {
+        $employees = $this->employeesSummary;
+
+        if ($employees->isEmpty()) {
+            return collect();
+        }
+
+        $rankable = $employees->filter(
+            fn (object $row) => ($row->is_rankable ?? false)
+                && $row->score !== null
+                && ($row->score->available ?? false)
+                && $row->score->score !== null
+        );
+
+        if ($rankable->isEmpty()) {
+            return collect();
+        }
+
+        $sorted = $rankable->sortByDesc(fn (object $row) => $row->score->score)->values();
+
+        $highestScore = $sorted->first()->score->score;
+        $sharedLeaderCount = $sorted->filter(fn (object $row) => $row->score->score === $highestScore)->count();
+        $isSharedLead = $sharedLeaderCount > 1;
+
+        $top5 = $sorted->take(5)->values();
+
+        return $top5->map(function (object $emp, int $index) use ($top5, $isSharedLead) {
+            $score = (int) $emp->score->score;
+            $prevScore = $index > 0 ? (int) $top5[$index - 1]->score->score : null;
+            $pointsBehind = $prevScore !== null ? $prevScore - $score : 0;
+            $isTiedWithPrev = $index > 0 && $pointsBehind === 0;
+
+            return (object) [
+                'employee_id' => $emp->employee_id,
+                'employee_name' => $emp->name,
+                'score' => $score,
+                'rank' => $index + 1,
+                'is_first' => $index === 0,
+                'is_shared_lead' => $index === 0 && $isSharedLead,
+                'is_tied_with_prev' => $isTiedWithPrev,
+                'points_behind' => $pointsBehind,
+                'performance_url' => $emp->performance_url ?? null,
+                'raw' => $emp,
+            ];
+        });
     }
 
     #[Computed]
@@ -732,6 +941,9 @@ class CompanyDepartmentPerformance extends Page
                 'net_flow' => __('performance.financial.kashf_net_flow'),
                 default => __('performance.financial.metrics.'.$this->kashfType),
             },
+            'tickets' => __('performance.kashf.tickets_title', [
+                'type' => __('performance.tickets.'.($this->kashfType === 'all' ? 'total' : $this->kashfType)),
+            ]),
             default => __('performance.kashf.title'),
         };
     }
@@ -779,6 +991,10 @@ class CompanyDepartmentPerformance extends Page
             'attendance' => $this->attendanceStatement(),
             'leaves' => $this->leaveStatement(),
             'financial' => $this->financialStatement(),
+            'tickets' => CompanyTicketsPerformanceService::getKashfQuery(
+                $this->filters(),
+                $this->kashfType
+            )->paginate(15, ['*'], 'kashfPage'),
             default => null,
         };
     }
@@ -833,12 +1049,14 @@ class CompanyDepartmentPerformance extends Page
         $this->selectedCompanyId = $companyId;
         $this->selectedDepartmentId = null;
         $this->departmentRankMode = self::DEPARTMENT_RANK_MODE_ALL;
+        $this->employeeRankMode = self::EMPLOYEE_RANK_MODE_ALL;
         $this->resetPage();
     }
 
     public function selectDepartment(mixed $departmentId): void
     {
         $this->selectedDepartmentId = $departmentId;
+        $this->employeeRankMode = self::EMPLOYEE_RANK_MODE_ALL;
         $this->resetPage();
     }
 
@@ -847,12 +1065,14 @@ class CompanyDepartmentPerformance extends Page
         $this->selectedCompanyId = null;
         $this->selectedDepartmentId = null;
         $this->departmentRankMode = self::DEPARTMENT_RANK_MODE_ALL;
+        $this->employeeRankMode = self::EMPLOYEE_RANK_MODE_ALL;
         $this->resetPage();
     }
 
     public function backToDepartments(): void
     {
         $this->selectedDepartmentId = null;
+        $this->employeeRankMode = self::EMPLOYEE_RANK_MODE_ALL;
         $this->resetPage();
     }
 
@@ -881,6 +1101,10 @@ class CompanyDepartmentPerformance extends Page
 
         if ($domain === 'financial') {
             CompanyFinancialPerformanceService::authorizeStatement($type, $this->filters());
+        }
+
+        if ($domain === 'tickets') {
+            abort_unless($this->canViewTicketsOverview, 403);
         }
 
         $this->kashfDomain = $domain;

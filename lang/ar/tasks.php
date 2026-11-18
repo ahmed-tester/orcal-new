@@ -135,6 +135,7 @@ return [
         'actions' => [
             'print_all' => 'طباعة وحفظ الكشف 🖨️',
             'print_shift' => 'طباعة التكليف 🖨️',
+            'view_evaluation' => 'عرض التقييم',
             'export_pdf' => 'حفظ بصيغة PDF 📥',
             'close' => 'إغلاق ✖',
             'print' => 'طباعة الكشف',

@@ -38,9 +38,25 @@
         .task-performance-page .tp-task-counts .tp-card:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }
         .task-performance-page .tp-task-filter-icon { grid-area:filter; width:0.9rem; height:0.9rem; margin-top:0.1rem; color:#475569; }
         .task-performance-page .tp-task-counts .tp-card.is-active { border-color:#2563eb; background:#eff6ff; }
-        .task-performance-page .tp-task-rates .tp-card {
-            grid-template-areas:'title value' 'hint hint'; grid-template-columns:minmax(0, 1fr) auto; align-items:center;
+        .task-performance-page .tp-task-rates { --bd:#e2e8f0; --tp-ring-center:#fff; }
+        .dark .task-performance-page .tp-task-rates { --bd:#475569; --tp-ring-center:#1e293b; }
+        .tp-task-rates .perf-ring-item {
+            display:grid; grid-template-areas:'ring label' 'ring hint'; grid-template-columns:auto minmax(0, 1fr);
+            align-content:center; align-items:center; gap:0.25rem 0.85rem;
         }
+        .tp-task-rates .ring {
+            grid-area:ring; display:grid; place-items:center; width:4.5rem; aspect-ratio:1; border-radius:50%; direction:ltr;
+            background:conic-gradient(var(--col) calc(var(--p) * 1%), var(--bd) 0);
+        }
+        .tp-task-rates .ring i {
+            display:grid; place-items:center; width:3.55rem; aspect-ratio:1; border-radius:50%; background:var(--tp-ring-center);
+            color:#0f172a; font-size:0.8rem; font-weight:800; font-style:normal; font-variant-numeric:tabular-nums;
+        }
+        .tp-task-rates .perf-ring-label { grid-area:label; color:#334155; font-size:0.8rem; font-weight:700; align-self:end; }
+        .tp-task-rates .perf-ring-sublabel { grid-area:hint; color:#475569; font-size:0.75rem; align-self:start; }
+        .dark .tp-task-rates .ring i { color:#f8fafc; }
+        .dark .tp-task-rates .perf-ring-label,
+        .dark .tp-task-rates .perf-ring-sublabel { color:#cbd5e1; }
         .dark .task-performance-page .tp-task-grid .tp-card-title,
         .dark .task-performance-page .tp-task-grid .tp-card-hint,
         .dark .task-performance-page .tp-task-filter-icon { color:#cbd5e1; }
@@ -52,7 +68,7 @@
         }
         @container task-metrics (min-width:42rem) {
             .task-performance-page .tp-task-rates { grid-template-columns:repeat(3, minmax(0, 1fr)); }
-            .task-performance-page .tp-task-rates .tp-card { grid-template-areas:'title' 'value' 'hint'; grid-template-columns:minmax(0, 1fr); grid-template-rows:auto auto 1fr; }
+            .tp-task-rates .perf-ring-item { grid-template-areas:'ring' 'label' 'hint'; grid-template-columns:minmax(0, 1fr); justify-items:center; align-content:start; gap:0.4rem; text-align:center; }
         }
         @container task-metrics (min-width:56rem) {
             .task-performance-page .tp-task-counts { grid-template-columns:repeat(4, minmax(0, 1fr)); }
@@ -156,42 +172,46 @@
                                 ['key' => 'postponed', 'title' => __('tasks.performance.postponed'), 'value' => (int) $data['employee']->postponed_count, 'hint' => __('tasks.performance.postponed_hint'), 'icon' => 'heroicon-o-pause-circle', 'color' => '#b45309'],
                             ];
                             $rateCards = [
-                                ['title' => __('tasks.performance.weighted_score'), 'value' => number_format($data['weighted_percentage'], 2).'%', 'hint' => __('tasks.performance.weighted_score_hint'), 'icon' => 'heroicon-o-scale', 'color' => '#7e22ce'],
-                                ['title' => __('tasks.performance.completion_rate'), 'value' => $data['completion_rate'] === null ? '—' : number_format($data['completion_rate'], 2).'%', 'hint' => $data['completion_rate'] === null ? __('tasks.performance.no_data') : __('tasks.performance.completion_rate_hint'), 'icon' => 'heroicon-o-chart-pie', 'color' => '#0369a1'],
-                                ['title' => __('tasks.performance.on_time_rate'), 'value' => $data['on_time_rate'] === null ? '—' : number_format($data['on_time_rate'], 2).'%', 'hint' => $data['on_time_rate'] === null ? __('tasks.performance.no_data') : __('tasks.performance.on_time_rate_hint'), 'icon' => 'heroicon-o-clock', 'color' => '#0f766e'],
+                                ['title' => 'weighted_score', 'rate' => $data['weighted_percentage'], 'color' => '#7e22ce'],
+                                ['title' => 'completion_rate', 'rate' => $data['completion_rate'], 'color' => '#3762eb'],
+                                ['title' => 'on_time_rate', 'rate' => $data['on_time_rate'], 'color' => '#16a34a'],
                             ];
                         @endphp
 
-                        @foreach(['tp-task-counts' => $countCards, 'tp-task-rates' => $rateCards] as $group => $cards)
-                            <div class="tp-task-grid {{ $group }}">
-                                @foreach($cards as $card)
-                                    @php
-                                        $filter = $card['key'] ?? null;
-                                        $active = $filter !== null && $this->cardFilter === $filter;
-                                        $tag = $filter === null ? 'div' : 'button';
-                                    @endphp
-                                    <{{ $tag }}
-                                        @class(['tp-card', 'is-clickable' => $filter !== null, 'is-active' => $active])
-                                        style="--tp-metric-accent: {{ $card['color'] }}"
-                                        @if($filter !== null)
-                                            type="button"
-                                            wire:click="filterCard('{{ $filter }}')"
-                                            aria-pressed="{{ $active ? 'true' : 'false' }}"
-                                        @endif
-                                    >
-                                        <span class="tp-card-title">
-                                            <x-dynamic-component :component="$card['icon']" class="tp-task-icon" aria-hidden="true" />
-                                            <span>{{ $card['title'] }}</span>
-                                        </span>
-                                        @if($filter !== null)
-                                            <x-heroicon-m-funnel class="tp-task-filter-icon" aria-hidden="true" />
-                                        @endif
-                                        <bdi class="tp-card-value">{{ $card['value'] }}</bdi>
-                                        <span class="tp-card-hint">{{ $card['hint'] }}</span>
-                                    </{{ $tag }}>
-                                @endforeach
-                            </div>
-                        @endforeach
+                        <div class="tp-task-grid tp-task-counts">
+                            @foreach($countCards as $card)
+                                <button
+                                    type="button"
+                                    @class(['tp-card', 'is-clickable', 'is-active' => $this->cardFilter === $card['key']])
+                                    style="--tp-metric-accent: {{ $card['color'] }}"
+                                    wire:click="filterCard('{{ $card['key'] }}')"
+                                    aria-pressed="{{ $this->cardFilter === $card['key'] ? 'true' : 'false' }}"
+                                >
+                                    <span class="tp-card-title">
+                                        <x-dynamic-component :component="$card['icon']" class="tp-task-icon" aria-hidden="true" />
+                                        <span>{{ $card['title'] }}</span>
+                                    </span>
+                                    <x-heroicon-m-funnel class="tp-task-filter-icon" aria-hidden="true" />
+                                    <bdi class="tp-card-value">{{ $card['value'] }}</bdi>
+                                    <span class="tp-card-hint">{{ $card['hint'] }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+
+                        <div class="tp-task-grid tp-task-rates">
+                            @foreach($rateCards as $card)
+                                <div class="tp-card">
+                                    <x-performance.rate-ring
+                                        :rate="$card['rate']"
+                                        :label="__('tasks.performance.'.$card['title'])"
+                                        :sublabel="__('tasks.performance.'.($card['rate'] === null ? 'no_data' : $card['title'].'_hint'))"
+                                        :color="$card['rate'] === null ? null : $card['color']"
+                                        :precision="2"
+                                        :fixed-precision="true"
+                                    />
+                                </div>
+                            @endforeach
+                        </div>
                     </div>
 
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem; flex-wrap:wrap;">

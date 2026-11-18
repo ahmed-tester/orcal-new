@@ -1,22 +1,44 @@
 @php
+    $allDepartments = $this->departmentsSummary;
     $departments = $this->displayedDepartments;
+    $topRanked = $this->topRankedDepartments;
+    $companyScore = $this->performanceScore;
     $selectedCompany = $this->selectedCompany;
     $companyName = $selectedCompany?->trade_name ?: ($selectedCompany?->trade_name_en ?? '—');
 
-    $validOnTime = $departments->whereNotNull('on_time_rate');
+    $validOnTime = $allDepartments->whereNotNull('on_time_rate');
     $avgOnTime = $validOnTime->isNotEmpty() ? round($validOnTime->avg('on_time_rate')) : null;
 
-    $validTasks = $departments->whereNotNull('task_completion_rate');
+    $validTasks = $allDepartments->whereNotNull('task_completion_rate');
     $avgTasks = $validTasks->isNotEmpty() ? round($validTasks->avg('task_completion_rate')) : null;
 
-    $totalCompleted = $departments->sum('completed_services');
-    $totalActive = $departments->sum('active_services');
+    $totalCompleted = $allDepartments->sum('completed_services');
+    $totalActive = $allDepartments->sum('active_services');
     $totalActiveOrCompleted = $totalActive + $totalCompleted;
     $completedServicesShare = $totalActiveOrCompleted > 0 ? round(($totalCompleted / $totalActiveOrCompleted) * 100) : null;
 
     // Resolve Department Supervisor/Lead names
     $deptIds = $departments->pluck('department_id')->all();
     $leadsMap = \App\Services\CompanyDepartmentPerformanceService::getDepartmentLeads((int) $this->selectedCompanyId, $deptIds);
+
+    // Score calculations for the Company Hero Card
+    $available = $companyScore !== null && $companyScore->available;
+    $scoreValue = $available ? (int) $companyScore->score : null;
+    $needsReview = $scoreValue !== null && $scoreValue < \App\Services\PerformanceScoreService::REVIEW_THRESHOLD;
+    $scoreColor = $scoreValue !== null
+        ? ($scoreValue >= 80 ? '#22c55e' : ($scoreValue >= \App\Services\PerformanceScoreService::REVIEW_THRESHOLD ? '#f59e0b' : '#ef4444'))
+        : '#ffffff66';
+    $cid = (int) $this->selectedCompanyId;
+
+    $statementActions = [
+        'overdue_tasks' => "openKashf('tasks', 'score_overdue', {$cid}, null)",
+        'overdue_deficiencies' => "openKashf('deficiencies', 'score_overdue', {$cid}, null)",
+    ];
+
+    $deductionLabels = [
+        'overdue_tasks' => __('performance.score.deduct_overdue_tasks'),
+        'overdue_deficiencies' => __('performance.score.deduct_overdue_deficiencies'),
+    ];
 @endphp
 
 <div class="perf-entity-section">
@@ -33,35 +55,179 @@
         </button>
     </div>
 
-    <!-- Summary for the departments shown -->
-    @if(count($departments) > 0)
-        <div class="perf-avg-banner">
-            <div class="perf-avg-header">
-                <span class="perf-avg-title">
-                    <span>{{ __('performance.supervisors.departments_summary') }}</span>
-                </span>
-                <button type="button" class="perf-avg-chevron" wire:click="backToCompanies" title="{{ __('performance.levels.back_to_companies') }}">
-                    <x-heroicon-m-chevron-left style="width: 20px; height: 20px;" />
-                </button>
+    <!-- Company Score & Operations Hero Card -->
+    <div class="perf-company-hero-card">
+        <div class="perf-hero-top">
+            <div class="perf-hero-identity">
+                <div class="perf-hero-badge-wrap">
+                    <span class="perf-hero-pill">{{ __('performance.hero.company_score_title') }}</span>
+                    <x-filament::badge color="warning" size="xs">{{ __('performance.score.partial_badge') }}</x-filament::badge>
+                </div>
+                <h3 class="perf-hero-company-name">{{ $companyName }}</h3>
+                <p class="perf-hero-subtitle">{{ __('performance.hero.company_score_subtitle') }}</p>
+            </div>
+            <button type="button" class="perf-hero-back-link" wire:click="backToCompanies" title="{{ __('performance.levels.back_to_companies') }}">
+                <x-heroicon-m-arrow-right style="width: 16px; height: 16px;" />
+                <span>{{ __('performance.levels.back_to_companies') }}</span>
+            </button>
+        </div>
+
+        <div class="perf-hero-body">
+            <!-- Score Ring Side -->
+            <div class="perf-hero-score-side">
+                <x-performance.rate-ring
+                    :rate="$scoreValue"
+                    :label="__('performance.score.title')"
+                    :sublabel="$companyName"
+                    :color="$scoreColor"
+                    size="l"
+                    :show-percent="false"
+                    no-data-text="—"
+                />
+                <span class="perf-hero-score-of">{{ __('performance.score.of_100') }}</span>
+                @if($available)
+                    <span @class(['perf-hero-score-status', 'review' => $needsReview, 'good' => $scoreValue >= 80, 'caution' => ! $needsReview && $scoreValue < 80])>
+                        {{ $needsReview ? __('performance.score.review_status') : __('performance.score.current_status') }}
+                    </span>
+                @else
+                    <span class="perf-hero-score-status">{{ __('performance.score.unavailable') }}</span>
+                @endif
             </div>
 
-            <div class="perf-avg-rings">
+            <!-- Deductions Side -->
+            <div class="perf-hero-deductions">
+                <div class="perf-hero-deductions-title">{{ __('performance.score.deductions') }}</div>
+                @if($available && isset($companyScore->deductions))
+                    <div class="perf-hero-deductions-list">
+                        @foreach($companyScore->deductions as $d)
+                            <button
+                                type="button"
+                                class="perf-hero-deduction {{ $d->points > 0 ? 'active' : '' }}"
+                                wire:click="{{ $statementActions[$d->key] ?? '' }}"
+                                title="{{ __('performance.columns.view_statement') }}"
+                            >
+                                <span class="perf-hero-deduction-name">{{ $deductionLabels[$d->key] ?? $d->key }}</span>
+                                <span class="perf-hero-deduction-math">
+                                    <bdi>{{ number_format($d->count) }}</bdi> × {{ $d->weight }}
+                                    <strong @class(['perf-hero-deduction-points', 'active' => $d->points > 0])>
+                                        −{{ number_format($d->points) }}
+                                    </strong>
+                                </span>
+                            </button>
+                        @endforeach
+                    </div>
+                    @if($companyScore->deductions->every(fn ($d) => $d->points === 0))
+                        <div class="perf-hero-no-deductions">{{ __('performance.score.no_deductions') }}</div>
+                    @endif
+                    <div class="perf-hero-total-deduction">
+                        <span>{{ __('performance.score.total_deduction') }}</span>
+                        <strong @class(['perf-hero-deduction-points', 'active' => $companyScore->total_deduction > 0])>
+                            −{{ number_format($companyScore->total_deduction) }}
+                        </strong>
+                    </div>
+                @endif
+                <div class="perf-hero-note">
+                    <x-heroicon-o-information-circle style="width: 14px; height: 14px; flex-shrink: 0;" />
+                    <span>{{ __('performance.score.partial_note') }}</span>
+                </div>
+                <details class="perf-hero-score-rules">
+                    <summary>{{ __('performance.hero.score_rules_toggle') }}</summary>
+                    <ul>
+                        <li>{{ __('performance.score.rules_start') }}</li>
+                        <li>{{ __('performance.score.rules_task') }}</li>
+                        <li>{{ __('performance.score.rules_deficiency') }}</li>
+                        <li>{{ __('performance.score.rules_timing') }}</li>
+                        <li>{{ __('performance.score.rules_recovery') }}</li>
+                    </ul>
+                </details>
+            </div>
+        </div>
+
+        <!-- Metrics Summary Section inside Hero Card -->
+        <div class="perf-hero-metrics-section">
+            <div class="perf-hero-metrics-title">{{ __('performance.hero.departments_metrics_title') }}</div>
+            <div class="perf-hero-rings">
                 <x-performance.rate-ring
                     :rate="$avgOnTime"
                     :label="__('performance.supervisors.average_on_time_rate')"
-                    size="l"
+                    size="m"
                 />
                 <x-performance.rate-ring
                     :rate="$avgTasks"
                     :label="__('performance.supervisors.average_task_completion_rate')"
-                    size="l"
+                    size="m"
                 />
                 <x-performance.rate-ring
                     :rate="$completedServicesShare"
                     :label="__('performance.supervisors.completed_services_share')"
                     :sublabel="__('performance.supervisors.completed_services_share_hint')"
-                    size="l"
+                    size="m"
                 />
+            </div>
+        </div>
+    </div>
+
+    <!-- Company Departments Leadership Sprint Track -->
+    @if($topRanked->isNotEmpty())
+        <div class="perf-sprint-card" aria-label="{{ __('performance.sprint.title') }}">
+            <div class="perf-sprint-header">
+                <div class="perf-sprint-title-wrap">
+                    <span class="perf-sprint-icon">🏁</span>
+                    <div>
+                        <h3 class="perf-sprint-title">{{ __('performance.sprint.title') }}</h3>
+                        <p class="perf-sprint-subtitle">{{ __('performance.sprint.subtitle') }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="perf-sprint-lanes">
+                @foreach($topRanked as $ranked)
+                    @php
+                        $scoreVal = $ranked->score;
+                        $trackClass = $scoreVal >= 90 ? 'is-excellent' : ($scoreVal >= 65 ? 'is-good' : 'is-review');
+                    @endphp
+                    <button
+                        type="button"
+                        class="perf-sprint-row {{ $trackClass }}"
+                        wire:click="selectDepartment('{{ $ranked->department_id }}')"
+                        aria-label="{{ $ranked->department_name }} — {{ __('performance.sprint.score_of_100', ['score' => $scoreVal]) }}"
+                        title="{{ __('performance.sprint.view_department') }}"
+                    >
+                        <div class="perf-sprint-rank-badge">
+                            @if($ranked->is_first)
+                                <span class="perf-sprint-crown">👑</span>
+                            @else
+                                <span class="perf-sprint-rank-num">#{{ $ranked->rank }}</span>
+                            @endif
+                        </div>
+
+                        <div class="perf-sprint-dept-info">
+                            <span class="perf-sprint-dept-name">{{ $ranked->department_name }}</span>
+                            <span class="perf-sprint-tag">
+                                @if($ranked->is_first)
+                                    <span class="perf-sprint-leader-label">
+                                        {{ $ranked->is_shared_lead ? __('performance.sprint.shared_lead') : __('performance.sprint.leader') }}
+                                    </span>
+                                @elseif($ranked->is_tied_with_prev)
+                                    <span class="perf-sprint-diff-label is-tied">{{ __('performance.sprint.tied_score') }}</span>
+                                @else
+                                    <span class="perf-sprint-diff-label">
+                                        {{ $ranked->points_behind === 1 ? __('performance.sprint.points_behind_single') : __('performance.sprint.points_behind', ['points' => $ranked->points_behind]) }}
+                                    </span>
+                                @endif
+                            </span>
+                        </div>
+
+                        <div class="perf-sprint-track-bar">
+                            <div class="perf-sprint-track-fill" style="width: {{ $scoreVal }}%;"></div>
+                        </div>
+
+                        <div class="perf-sprint-score-badge">
+                            <strong>{{ $scoreVal }}</strong>
+                            <small>/ 100</small>
+                        </div>
+                    </button>
+                @endforeach
             </div>
         </div>
     @endif
@@ -108,117 +274,86 @@
                     >
                         {{ $row->department_name }}
                     </div>
-                    <div class="dept-card-lead">
-                        <span>{{ $leadName }}</span>
-                        @if($leadTitle)
-                            <span class="dept-lead-role">({{ $leadTitle }})</span>
-                        @endif
-                    </div>
 
-                    @if($row->is_team_scope || $row->is_unassigned)
-                        <div class="inst-badges-row" style="justify-content: center; margin-top: 2px;">
-                            @if($row->is_team_scope)
-                                <span class="inst-pill-badge is-team">
-                                    {{ __('performance.levels.team_badge') }}
-                                </span>
-                            @endif
-                            @if($row->is_unassigned)
-                                <span class="inst-pill-badge is-unassigned">
-                                    {{ __('performance.levels.unassigned_or_no_department') }}
-                                </span>
+                    @if(! $row->is_unassigned)
+                        <div class="dept-card-lead" title="{{ __('performance.supervisors.department_lead') }}">
+                            <x-heroicon-m-user-circle style="width: 14px; height: 14px; color: var(--mu);" />
+                            <span>{{ $leadName }}</span>
+                            @if($leadTitle)
+                                <small class="lead-title-badge">({{ $leadTitle }})</small>
                             @endif
                         </div>
                     @endif
                 </div>
 
-                @if($row->is_rankable && $row->score)
-                    @php
-                        $departmentScore = (int) $row->score->score;
-                        $departmentScoreColor = $departmentScore >= 80
-                            ? '#22c55e'
-                            : ($departmentScore >= \App\Services\PerformanceScoreService::REVIEW_THRESHOLD ? '#f59e0b' : '#ef4444');
-                    @endphp
-                    <div class="dept-score-pill" style="--col: {{ $departmentScoreColor }};" title="{{ __('performance.score.partial_badge') }}">
-                        <span>{{ __('performance.department_ranking.score') }}</span>
-                        <b>{{ $departmentScore }}</b>
-                        <u>{{ __('performance.score.of_100') }}</u>
+                <!-- 3 Performance Rate Rings -->
+                <x-performance.operational-rates
+                    :on-time="$row->on_time_rate"
+                    :task-completion="$row->task_completion_rate"
+                />
+                <div class="perf-department-service-share">
+                    <div>
+                        <span>{{ __('performance.supervisors.completed_services_share') }}</span>
+                        <small>{{ __('performance.supervisors.completed_services_share_hint') }}</small>
                     </div>
-                @endif
-
-                <!-- Department metrics -->
-                <div class="dept-card-rings">
-                    <x-performance.rate-ring
-                        :rate="$row->on_time_rate"
-                        :label="__('performance.cards.on_time_rate')"
-                        size="dept"
-                        :action="'openKashf(\'services\', \'on_time\', ' . $this->selectedCompanyId . ', \'' . $row->department_id . '\')'"
-                    />
-                    <x-performance.rate-ring
-                        :rate="$row->task_completion_rate"
-                        :label="__('performance.cards.tasks_completion_rate')"
-                        size="dept"
-                        :action="'openKashf(\'tasks\', \'all\', ' . $this->selectedCompanyId . ', \'' . $row->department_id . '\')'"
-                    />
-                    <x-performance.rate-ring
-                        :rate="$departmentCompletedShare"
-                        :label="__('performance.supervisors.completed_services_share')"
-                        :sublabel="__('performance.supervisors.completed_services_share_hint')"
-                        size="dept"
-                        :action="'openKashf(\'services\', \'completed\', ' . $this->selectedCompanyId . ', \'' . $row->department_id . '\')'"
-                    />
+                    <strong>{{ $departmentCompletedShare === null ? __('performance.cards.no_data') : "{$departmentCompletedShare}%" }}</strong>
                 </div>
 
-                <!-- Mini Details Summary -->
-                <div class="mini" style="margin: 2px 0 6px;">
-                    <span>
-                        {{ __('performance.columns.employees_count') }}
-                        <b class="n">{{ number_format($row->employees_count) }}</b>
-                    </span>
-                    <span>
-                        {{ __('performance.columns.active_services') }}
-                        <b class="n">{{ number_format($row->active_services) }}</b>
-                    </span>
-                    <span
-                        class="mini-clickable"
-                        wire:click="openKashf('deficiencies', 'all', {{ $this->selectedCompanyId }}, '{{ $row->department_id }}')"
-                        role="button"
-                    >
-                        {{ __('performance.columns.open_deficiencies') }}
-                        <b style="color: {{ $row->open_deficiencies > 0 ? '#ea580c' : 'inherit' }}">{{ number_format($row->open_deficiencies) }}</b>
-                    </span>
+                <!-- Department Partial Performance Score & Rank Badge -->
+                <div class="dept-card-score-row">
+                    @if($row->score !== null && $row->score->available)
+                        @php
+                            $deptScoreVal = (int) $row->score->score;
+                            $deptNeedsReview = $deptScoreVal < \App\Services\PerformanceScoreService::REVIEW_THRESHOLD;
+                            $deptScoreCol = $deptScoreVal >= 80 ? '#22c55e' : ($deptNeedsReview ? '#ef4444' : '#f59e0b');
+                        @endphp
+                        <div class="dept-card-score-badge {{ $deptNeedsReview ? 'needs-review' : '' }}">
+                            <span class="dept-card-score-label">{{ __('performance.department_ranking.score') }}:</span>
+                            <strong class="dept-card-score-val" style="color: {{ $deptScoreCol }};">
+                                {{ $deptScoreVal }} / 100
+                            </strong>
+                            @if($deptNeedsReview)
+                                <span class="dept-card-score-warn" title="{{ __('performance.score.review_status') }}">⚠️</span>
+                            @endif
+                        </div>
+                    @else
+                        <span class="dept-card-score-empty">{{ __('performance.cards.no_data') }}</span>
+                    @endif
                 </div>
 
-                <!-- Department actions -->
+                <!-- Card Actions -->
                 <div class="dept-card-actions">
                     <button
                         type="button"
-                        class="btn-action-purple"
+                        class="dept-btn primary"
                         wire:click="selectDepartment('{{ $row->department_id }}')"
                     >
+                        <x-heroicon-o-user-group aria-hidden="true" />
                         <span>{{ __('performance.supervisors.enter_department') }}</span>
                     </button>
 
                     <button
                         type="button"
-                        class="btn-action-teal"
-                        wire:click="openKashf('services', 'all', {{ $this->selectedCompanyId }}, '{{ $row->department_id }}')"
+                        class="dept-btn secondary"
+                        wire:click="openKashf('services', 'all', {{ (int) $this->selectedCompanyId }}, '{{ $row->department_id }}')"
                     >
+                        <x-heroicon-o-document-text aria-hidden="true" />
                         <span>{{ __('performance.supervisors.view_details') }}</span>
                     </button>
                 </div>
             </div>
         @empty
-            <div class="perf-empty-state-card">
-                <div class="perf-empty-icon">
-                    <x-heroicon-o-rectangle-group style="width: 32px; height: 32px;" />
+            <div class="card is-empty-state">
+                <div class="empty-state-wrap">
+                    @if($this->departmentRankMode === 'worst')
+                        <x-heroicon-o-check-circle style="width: 32px; height: 32px; color: var(--g, #059669); margin-bottom: 0.5rem;" />
+                        <strong>{{ __('performance.department_ranking.worst_empty_title') }}</strong>
+                        <p>{{ __('performance.department_ranking.no_rankable') }}</p>
+                    @else
+                        <x-heroicon-o-information-circle style="width: 32px; height: 32px; color: var(--mu, #6b7490); margin-bottom: 0.5rem;" />
+                        <strong>{{ __('performance.cards.no_data') }}</strong>
+                    @endif
                 </div>
-                @if($this->departmentRankMode === 'worst')
-                    <div class="perf-empty-title">{{ __('performance.department_ranking.worst_empty_title') }}</div>
-                    <div class="perf-empty-sub">{{ __('performance.department_ranking.no_rankable') }}</div>
-                @else
-                    <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
-                    <div class="perf-empty-sub">{{ __('performance.empty.no_departments') }}</div>
-                @endif
             </div>
         @endforelse
     </div>

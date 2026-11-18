@@ -575,6 +575,23 @@ class CompanyDepartmentPerformanceService
                 $performanceUrl = null;
             }
 
+            $metrics = self::metrics($srv, $def, $tsk, $isSaudi);
+            $hasActivity = ($metrics['active_services'] > 0)
+                || ($metrics['completed_services'] > 0)
+                || ($metrics['overdue_services'] > 0)
+                || ($metrics['open_deficiencies'] > 0)
+                || (($metrics['task_due_in_period'] ?? 0) > 0)
+                || ($metrics['on_time_rate'] !== null)
+                || ($metrics['task_completion_rate'] !== null);
+
+            $scoreObj = PerformanceScoreService::employeeOperationalScore(
+                $metrics['on_time_rate'],
+                $metrics['task_completion_rate'],
+                $metrics['overdue_services'],
+                $metrics['open_deficiencies'],
+                $hasActivity
+            );
+
             return (object) [
                 'employee_id' => $eid,
                 'name' => $employee->user?->name ?? __('performance.fallback.employee', ['id' => $eid]),
@@ -583,7 +600,9 @@ class CompanyDepartmentPerformanceService
                 'branch_name' => $employee->branch?->name ?? '—',
                 'is_saudi' => $isSaudi,
                 'performance_url' => $performanceUrl,
-                ...self::metrics($srv, $def, $tsk, $isSaudi),
+                'is_rankable' => $scoreObj->is_rankable,
+                'score' => $scoreObj,
+                ...$metrics,
             ];
         });
     }

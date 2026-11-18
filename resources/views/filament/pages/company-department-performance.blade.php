@@ -434,6 +434,12 @@
             transform: scale(1.05);
         }
 
+        .company-perf-page .perf-ring-item.is-clickable:focus-visible {
+            outline: 2px solid var(--a);
+            outline-offset: 2px;
+            border-radius: 8px;
+        }
+
         .company-perf-page .perf-ring-label {
             font-size: 11.5px;
             font-weight: 700;
@@ -986,15 +992,56 @@
             color: var(--a);
         }
 
-        /* Rings row inside Card */
-        .company-perf-page .rings-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-around;
+        .company-perf-page .perf-operational-rates {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            align-items: start;
+            gap: 0.75rem;
+        }
+
+        .company-perf-page .perf-operational-rates:not(.perf-operations-rate-card) {
             padding: 8px 0;
-            border-top: 1px solid var(--bd);
-            border-bottom: 1px solid var(--bd);
-            margin: 4px 0;
+            border-block: 1px solid var(--bd);
+            margin-block: 4px;
+        }
+
+        .company-perf-page .perf-operational-rates .ring.m,
+        .company-perf-page .perf-metric-rate .ring.m {
+            inline-size: min(76px, 100%);
+            block-size: auto;
+            aspect-ratio: 1;
+        }
+
+        .company-perf-page .perf-operational-rates .ring.m i,
+        .company-perf-page .perf-metric-rate .ring.m i {
+            inline-size: 76%;
+            block-size: 76%;
+        }
+
+        .company-perf-page .perf-operational-rates .perf-ring-label,
+        .company-perf-page .perf-operational-rates .perf-ring-sublabel,
+        .company-perf-page .perf-metric-rate .perf-ring-label,
+        .company-perf-page .perf-metric-rate .perf-ring-sublabel {
+            overflow-wrap: anywhere;
+            direction: inherit;
+        }
+
+        .company-perf-page .perf-metric-with-rate {
+            flex-wrap: wrap;
+        }
+
+        .company-perf-page .perf-metric-rate {
+            max-inline-size: min(100%, 8rem);
+        }
+
+        .company-perf-page .perf-operations-rate-card {
+            align-content: center;
+        }
+
+        @media (min-width: 640px) {
+            .company-perf-page .perf-operations-rate-card {
+                grid-column: span 2;
+            }
         }
 
         /* Entity Card Footer */
@@ -1090,6 +1137,489 @@
             flex-direction: column;
             gap: 1.25rem;
             animation: perfUp 0.35s ease;
+        }
+
+        .company-perf-page .perf-company-hero-card {
+            --hero-panel: #ffffff;
+            --hero-hover: #e2e8f0;
+            --hero-border: #cbd5e1;
+            --hero-muted: #475569;
+            --hero-positive: #166534;
+            --hero-caution: #854d0e;
+            --hero-danger: #9f2936;
+            --hero-danger-bg: #fff1f2;
+            --hero-danger-border: #e9b8bd;
+            background: #f1f5f9;
+            border: 1px solid var(--hero-border);
+            border-radius: 18px;
+            padding: 1.5rem 1.75rem;
+            color: #182c43;
+            box-shadow: 0 8px 22px -14px rgba(15, 23, 42, 0.25);
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            animation: perfUp 0.35s ease;
+        }
+
+        .dark .company-perf-page .perf-company-hero-card {
+            --hero-panel: #253347;
+            --hero-hover: #33445a;
+            --hero-border: #45566d;
+            --hero-muted: #cbd5e1;
+            --hero-positive: #86d5a5;
+            --hero-caution: #f2cb83;
+            --hero-danger: #f6a7b0;
+            --hero-danger-bg: #432d39;
+            --hero-danger-border: #825460;
+            background: #192536;
+            color: #e9f0f8;
+            box-shadow: 0 8px 22px -14px rgba(0, 0, 0, 0.55);
+        }
+
+        .company-perf-page .perf-hero-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            border-bottom: 1px solid var(--hero-border);
+            padding-bottom: 0.85rem;
+        }
+
+        .company-perf-page .perf-hero-identity {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .company-perf-page .perf-hero-badge-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .company-perf-page .perf-hero-pill {
+            font-size: 0.725rem;
+            font-weight: 700;
+            color: var(--hero-muted);
+            letter-spacing: 0.02em;
+        }
+
+        .company-perf-page .perf-hero-company-name {
+            font-size: 1.35rem;
+            font-weight: 800;
+            margin: 0;
+            line-height: 1.25;
+        }
+
+        .company-perf-page .perf-hero-subtitle {
+            font-size: 0.785rem;
+            color: var(--hero-muted);
+            margin: 0;
+        }
+
+        .company-perf-page .perf-hero-back-link {
+            all: unset;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 999px;
+            background: var(--hero-panel);
+            border: 1px solid var(--hero-border);
+            color: inherit;
+            font-size: 0.75rem;
+            font-weight: 600;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .company-perf-page .perf-hero-back-link:hover {
+            background: var(--hero-hover);
+        }
+
+        .company-perf-page .perf-hero-body {
+            display: grid;
+            grid-template-columns: minmax(180px, 220px) 1fr;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            .company-perf-page .perf-hero-body {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .company-perf-page .perf-hero-score-side {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            background: var(--hero-panel);
+            border: 1px solid var(--hero-border);
+            border-radius: 14px;
+            padding: 1rem;
+        }
+
+        .company-perf-page .perf-hero-score-of {
+            font-size: 0.7rem;
+            color: var(--hero-muted);
+        }
+
+        .company-perf-page .perf-hero-score-status {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--hero-muted);
+            text-align: center;
+        }
+
+        .company-perf-page .perf-hero-score-status.review {
+            background: var(--hero-danger-bg);
+            color: var(--hero-danger);
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+            border: 1px solid var(--hero-danger-border);
+        }
+
+        .company-perf-page .perf-hero-score-status.good {
+            color: var(--hero-positive);
+        }
+
+        .company-perf-page .perf-hero-score-status.caution {
+            color: var(--hero-caution);
+        }
+
+        .company-perf-page .perf-hero-deductions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .company-perf-page .perf-hero-deductions-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .company-perf-page .perf-hero-deductions-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.5rem;
+        }
+
+        .company-perf-page .perf-hero-deduction {
+            all: unset;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 10px;
+            background: var(--hero-panel);
+            border: 1px solid var(--hero-border);
+            font-size: 0.75rem;
+            color: inherit;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .company-perf-page .perf-hero-deduction:hover {
+            background: var(--hero-hover);
+        }
+
+        .company-perf-page .perf-hero-deduction.active {
+            border-color: var(--hero-danger-border);
+            background: var(--hero-danger-bg);
+        }
+
+        .company-perf-page .perf-hero-deduction-math {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-weight: 700;
+        }
+
+        .company-perf-page .perf-hero-deduction-points {
+            color: var(--hero-positive);
+            font-size: 0.825rem;
+        }
+
+        .company-perf-page .perf-hero-deduction-points.active {
+            color: var(--hero-danger);
+        }
+
+        .company-perf-page .perf-hero-total-deduction {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.785rem;
+            padding: 0.35rem 0.5rem;
+            border-top: 1px dashed var(--hero-border);
+        }
+
+        .company-perf-page .perf-hero-no-deductions {
+            font-size: 0.75rem;
+            color: var(--hero-positive);
+            font-weight: 600;
+        }
+
+        .company-perf-page .perf-hero-note {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.7rem;
+            color: var(--hero-muted);
+        }
+
+        .company-perf-page .perf-hero-score-rules {
+            font-size: 0.8rem;
+        }
+
+        .company-perf-page .perf-hero-score-rules summary {
+            width: fit-content;
+            padding-block: 0.45rem;
+            cursor: pointer;
+            font-weight: 700;
+            text-decoration: underline;
+            text-underline-offset: 0.2em;
+        }
+
+        .company-perf-page .perf-hero-score-rules summary:focus-visible,
+        .company-perf-page .perf-hero-back-link:focus-visible,
+        .company-perf-page .perf-hero-deduction:focus-visible {
+            outline: 2px solid currentColor;
+            outline-offset: 2px;
+        }
+
+        .company-perf-page .perf-hero-score-rules ul {
+            padding-inline-start: 1.25rem;
+            list-style: disc;
+            line-height: 1.6;
+        }
+
+        .company-perf-page .perf-hero-metrics-section {
+            border-top: 1px solid var(--hero-border);
+            padding-top: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+        }
+
+        .company-perf-page .perf-hero-metrics-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .company-perf-page .perf-hero-rings {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 1.25rem;
+            background: var(--hero-panel);
+            border: 1px solid var(--hero-border);
+            border-radius: 14px;
+            padding: 0.85rem 1rem;
+        }
+
+        .company-perf-page .perf-company-hero-card .perf-ring-label,
+        .company-perf-page .perf-company-hero-card .perf-ring-sublabel {
+            color: var(--hero-muted);
+        }
+
+        /* Sprint Track (Company Departments Leadership) */
+        .company-perf-page .perf-sprint-card {
+            background: var(--card);
+            border: 1px solid var(--bd);
+            border-radius: 18px;
+            padding: 1.25rem 1.5rem;
+            box-shadow: var(--sh);
+            margin-top: 0.5rem;
+            animation: perfUp 0.35s ease;
+        }
+
+        .company-perf-page .perf-sprint-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.85rem;
+            border-bottom: 1px solid var(--bd);
+            padding-bottom: 0.65rem;
+        }
+
+        .company-perf-page .perf-sprint-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+        }
+
+        .company-perf-page .perf-sprint-icon {
+            font-size: 1.35rem;
+            line-height: 1;
+        }
+
+        .company-perf-page .perf-sprint-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: var(--tx);
+            margin: 0;
+        }
+
+        .company-perf-page .perf-sprint-subtitle {
+            font-size: 0.725rem;
+            color: var(--mu);
+            margin: 0;
+        }
+
+        .company-perf-page .perf-sprint-lanes {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .company-perf-page .perf-sprint-row {
+            all: unset;
+            cursor: pointer;
+            box-sizing: border-box;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 12px;
+            background: var(--bg);
+            border: 1px solid var(--bd);
+            transition: background 0.18s, transform 0.15s, border-color 0.15s;
+        }
+
+        .company-perf-page .perf-sprint-row:hover {
+            background: color-mix(in srgb, var(--a, #4f46e5) 8%, var(--bg));
+            border-color: color-mix(in srgb, var(--a, #4f46e5) 30%, var(--bd));
+            transform: translateX(-2px);
+        }
+
+        .company-perf-page .perf-sprint-row:focus-visible {
+            outline: 2px solid var(--a, #4f46e5);
+            outline-offset: 2px;
+        }
+
+        .company-perf-page .perf-sprint-rank-badge {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            font-weight: 800;
+            font-size: 0.85rem;
+            background: var(--card);
+            border: 1px solid var(--bd);
+            flex-shrink: 0;
+        }
+
+        .company-perf-page .perf-sprint-crown {
+            font-size: 1.1rem;
+            line-height: 1;
+        }
+
+        .company-perf-page .perf-sprint-rank-num {
+            color: var(--mu);
+            font-size: 0.785rem;
+            font-weight: 800;
+        }
+
+        .company-perf-page .perf-sprint-dept-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            width: 150px;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 640px) {
+            .company-perf-page .perf-sprint-dept-info {
+                width: 100px;
+            }
+        }
+
+        .company-perf-page .perf-sprint-dept-name {
+            font-weight: 700;
+            font-size: 0.825rem;
+            color: var(--tx);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .company-perf-page .perf-sprint-tag {
+            font-size: 0.685rem;
+            line-height: 1.2;
+        }
+
+        .company-perf-page .perf-sprint-leader-label {
+            color: #d97706;
+            font-weight: 700;
+        }
+
+        .company-perf-page .perf-sprint-diff-label {
+            color: var(--mu);
+            font-weight: 600;
+        }
+
+        .company-perf-page .perf-sprint-diff-label.is-tied {
+            color: #059669;
+        }
+
+        .company-perf-page .perf-sprint-track-bar {
+            flex: 1;
+            height: 22px;
+            border-radius: 999px;
+            background: var(--card);
+            border: 1px solid var(--bd);
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06);
+        }
+
+        .company-perf-page .perf-sprint-track-fill {
+            height: 100%;
+            border-radius: 999px;
+            transition: width 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+            min-width: 6px;
+        }
+
+        .company-perf-page .perf-sprint-row.is-excellent .perf-sprint-track-fill {
+            background: linear-gradient(90deg, #10b981, #059669);
+        }
+
+        .company-perf-page .perf-sprint-row.is-good .perf-sprint-track-fill {
+            background: linear-gradient(90deg, #f59e0b, #d97706);
+        }
+
+        .company-perf-page .perf-sprint-row.is-review .perf-sprint-track-fill {
+            background: linear-gradient(90deg, #ef4444, #dc2626);
+        }
+
+        .company-perf-page .perf-sprint-score-badge {
+            width: 55px;
+            text-align: end;
+            font-weight: 800;
+            font-size: 0.9rem;
+            color: var(--tx);
+            flex-shrink: 0;
+            direction: ltr;
+        }
+
+        .company-perf-page .perf-sprint-score-badge small {
+            font-size: 0.675rem;
+            color: var(--mu);
+            font-weight: 500;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .company-perf-page .perf-sprint-track-fill {
+                transition: none !important;
+            }
         }
 
         .company-perf-page .perf-avg-header {
@@ -1222,6 +1752,52 @@
             opacity: 0.85;
         }
 
+        .company-perf-page .dept-card-score-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 0;
+        }
+
+        .company-perf-page .dept-card-score-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            background: color-mix(in srgb, var(--tx) 4%, transparent);
+            border: 1px solid var(--bd);
+            border-radius: 999px;
+            font-size: 11.5px;
+            font-weight: 700;
+        }
+
+        .company-perf-page .dept-card-score-badge.needs-review {
+            border-color: color-mix(in srgb, #ef4444 35%, transparent);
+            background: color-mix(in srgb, #ef4444 8%, transparent);
+        }
+
+        .company-perf-page .dept-card-score-label {
+            color: var(--mu);
+            font-weight: 600;
+            font-size: 11px;
+        }
+
+        .company-perf-page .dept-card-score-val {
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .company-perf-page .dept-card-score-warn {
+            font-size: 11px;
+            line-height: 1;
+        }
+
+        .company-perf-page .dept-card-score-empty {
+            color: var(--mu);
+            font-size: 11.5px;
+            font-weight: 500;
+        }
+
         /* Department / Supervisor Card */
         .company-perf-page .dept-card {
             background: var(--card);
@@ -1282,20 +1858,23 @@
             opacity: 0.85;
         }
 
-        .company-perf-page .dept-card-rings {
+        .company-perf-page .perf-department-service-share {
             display: flex;
-            align-items: flex-start;
-            justify-content: space-around;
-            gap: 6px;
-            margin: 4px 0;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px 8px;
+            font-size: 0.75rem;
+            color: var(--mu);
         }
 
-        .company-perf-page .dept-card-rings .perf-ring-label {
-            font-size: 10.5px;
-            max-width: 72px;
-            line-height: 1.25;
-            color: var(--mu);
-            font-weight: 700;
+        .company-perf-page .perf-department-service-share small {
+            display: block;
+            font-size: 0.65rem;
+        }
+
+        .company-perf-page .perf-department-service-share strong {
+            color: var(--tx);
         }
 
         .company-perf-page .dept-card-actions {
@@ -1305,62 +1884,73 @@
             width: 100%;
         }
 
-        /* Purple Button (supervisor action) */
-        .company-perf-page .btn-action-purple {
-            background: #5c5cfc;
-            color: #ffffff;
-            border: none;
+        .company-perf-page .dept-btn {
+            border: 1px solid transparent;
             border-radius: 10px;
-            padding: 9px 12px;
-            font-family: inherit;
+            min-height: 44px;
+            padding: 8px 12px;
             font-size: 13.5px;
             font-weight: 700;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
+            gap: 8px;
             width: 100%;
-            transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
+            transition: background 0.18s ease, border-color 0.18s ease;
         }
 
-        .company-perf-page .btn-action-purple:hover {
-            background: #4848ea;
-            box-shadow: 0 4px 14px rgba(92, 92, 252, 0.35);
-            transform: translateY(-1px);
+        .company-perf-page .dept-btn svg {
+            width: 1.1rem;
+            height: 1.1rem;
+            flex-shrink: 0;
         }
 
-        /* Teal Button (beneficiary review) */
-        .company-perf-page .btn-action-teal {
-            background: #0bb5a2;
+        .company-perf-page .dept-btn.primary {
+            background: #284763;
             color: #ffffff;
-            border: none;
-            border-radius: 10px;
-            padding: 9px 12px;
-            font-family: inherit;
-            font-size: 13.5px;
-            font-weight: 700;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            width: 100%;
-            transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
         }
 
-        .company-perf-page .btn-action-teal:hover {
-            background: #099b8b;
-            box-shadow: 0 4px 14px rgba(11, 181, 162, 0.35);
-            transform: translateY(-1px);
+        .company-perf-page .dept-btn.primary:hover {
+            background: #1d364e;
         }
 
-        .dark .company-perf-page .btn-action-purple {
-            background: #6366f1;
+        .company-perf-page .dept-btn.secondary {
+            background: #f7fafc;
+            border-color: #7c8fa3;
+            color: #263c53;
         }
 
-        .dark .company-perf-page .btn-action-teal {
-            background: #14b8a6;
+        .company-perf-page .dept-btn.secondary:hover {
+            background: #e8eff6;
+            border-color: #50708e;
+        }
+
+        .company-perf-page .dept-btn:focus-visible {
+            outline: 2px solid #3b6a98;
+            outline-offset: 2px;
+        }
+
+        .dark .company-perf-page .dept-btn.primary {
+            background: #335472;
+        }
+
+        .dark .company-perf-page .dept-btn.primary:hover {
+            background: #416688;
+        }
+
+        .dark .company-perf-page .dept-btn.secondary {
+            background: #253347;
+            border-color: #8498ae;
+            color: #e9f0f8;
+        }
+
+        .dark .company-perf-page .dept-btn.secondary:hover {
+            background: #33445a;
+        }
+
+        .dark .company-perf-page .dept-btn:focus-visible {
+            outline-color: #90b8df;
         }
 
         /* Modal / Kashf Modal Styling */
@@ -1388,16 +1978,82 @@
             font-weight: 700;
         }
 
-        .perf-violations-payment {
-            display: flex;
-            align-items: center;
+        .company-perf-page .perf-violations-overview {
+            container: performance-violations / inline-size;
+        }
+
+        .company-perf-page .perf-violation-status-grid,
+        .company-perf-page .perf-violation-totals-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 12px;
+        }
+
+        .company-perf-page .perf-violations-overview .perf-card {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows: auto minmax(0, 1fr) auto;
+            min-inline-size: 0;
+        }
+
+        .company-perf-page .perf-violation-totals-grid .perf-metric-value-row {
             flex-wrap: wrap;
+        }
+
+        .company-perf-page .perf-violation-total-amount {
+            display: grid;
+            gap: 0.25rem;
+        }
+
+        .company-perf-page .perf-violation-total-amount span {
+            font-size: 0.75rem;
+            color: var(--mu);
+        }
+
+        .company-perf-page .perf-violation-total-amount bdi {
+            font-weight: 700;
+            color: var(--tx);
+        }
+
+        .company-perf-page .perf-violation-status-grid .perf-card-header,
+        .company-perf-page .perf-violation-totals-grid .perf-card-header {
+            min-block-size: 2.75rem;
+        }
+
+        @container performance-violations (min-width: 22rem) {
+            .company-perf-page .perf-violation-status-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @container performance-violations (min-width: 36rem) {
+            .company-perf-page .perf-violation-totals-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @container performance-violations (min-width: 49rem) {
+            .company-perf-page .perf-violation-status-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+
+        .company-perf-page .perf-tickets-grid {
+            display: grid;
             gap: 1rem;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            background: var(--card);
-            border: 1px solid var(--bd);
-            border-radius: 0.75rem;
+            grid-template-columns: 1fr;
+        }
+
+        @media (min-width: 640px) {
+            .company-perf-page .perf-tickets-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .company-perf-page .perf-tickets-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
         }
 
         .perf-table-wrapper {
@@ -1621,6 +2277,11 @@
                     {{ __('performance.overview.financial') }}
                 </button>
             @endif
+            @if($this->canViewTicketsOverview)
+                <button type="button" wire:click="showTicketsOverview" aria-pressed="{{ $this->activeOverviewTab === 'tickets' ? 'true' : 'false' }}">
+                    {{ __('performance.overview.tickets') }}
+                </button>
+            @endif
         </nav>
 
         @if($this->activeOverviewTab === 'workforce' && $this->canViewWorkforceOverview)
@@ -1631,6 +2292,8 @@
             @include('filament.pages.company-department-performance.violations-overview')
         @elseif($this->activeOverviewTab === 'financial' && $this->canViewFinancialOverview)
             @include('filament.pages.company-department-performance.financial-overview')
+        @elseif($this->activeOverviewTab === 'tickets' && $this->canViewTicketsOverview)
+            @include('filament.pages.company-department-performance.tickets-overview')
         @else
             @include('filament.pages.company-department-performance.operations-overview')
         @endif

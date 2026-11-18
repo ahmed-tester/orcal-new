@@ -16,6 +16,7 @@
         @include('filament.pages.company-department-performance.compliance-metric-grid', [
             'group' => 'iqama',
             'cards' => $this->complianceCardGroups['iqama'],
+            'rateTotals' => ['iqama' => $comp['iqama']['total_tracked']],
             'hints' => [
                 'iqama_expired' => 'performance.compliance.metric_hints.iqama_expired',
                 'iqama_within_3m' => 'performance.compliance.metric_hints.iqama_within_3m',
@@ -55,6 +56,10 @@
         @include('filament.pages.company-department-performance.compliance-metric-grid', [
             'group' => 'work_documents',
             'cards' => $this->complianceCardGroups['work_documents'],
+            'rateTotals' => [
+                'work_permit' => array_sum($comp['work_permits']),
+                'insurance' => array_sum($comp['insurance']),
+            ],
             'hints' => [
                 'work_permit_expired' => 'performance.compliance.metric_hints.work_permit_expired',
                 'work_permit_expiring_soon' => 'performance.compliance.metric_hints.work_permit_expiring_soon',

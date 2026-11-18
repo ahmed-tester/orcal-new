@@ -1,6 +1,29 @@
 @php
     ['type' => $selectedType, 'records' => $records] = $this->financialPreviews[$group];
     $title = __($labels[$selectedType] ?? 'performance.financial.metrics.'.$selectedType);
+    $rates = \App\Services\CompanyFinancialPerformanceService::indicatorRates($group, $cards);
+    $rateLabel = match ($group) {
+        'treasury' => 'treasury_share',
+        'receipts_and_custody' => 'receipts_share',
+        'settlements' => 'fees_share',
+        'payroll' => 'payroll_share',
+        'collection' => 'collection_share',
+        'debts' => 'debt_share',
+        default => null,
+    };
+    $rateAccents = [
+        'receipt_cash' => '#059669',
+        'receipt_non_cash' => '#0284c7',
+        'fee_direct' => '#0284c7',
+        'fee_personal' => '#7c3aed',
+        'payroll_paid' => '#059669',
+        'payroll_remaining' => '#b45309',
+        'collection_paid' => '#059669',
+        'collection_remaining' => '#b45309',
+        'debt_paid' => '#059669',
+        'debt_remaining' => '#b45309',
+        'debt_overdue' => '#e11d48',
+    ];
 @endphp
 
 <div class="perf-financial-grid">
@@ -9,9 +32,12 @@
             :title="__($labels[$type] ?? 'performance.financial.metrics.'.$type)"
             :value="number_format($amount, 2)"
             :unit="__('performance.financial.currency')"
+            :rate="$rates[$type] ?? null"
+            :rate-label="array_key_exists($type, $rates) ? __('performance.financial.'.$rateLabel) : null"
+            :rate-precision="1"
             :hint="__($hints[$type] ?? 'performance.financial.metric_hints.'.$type)"
             :icon="$icons[$type] ?? 'heroicon-o-banknotes'"
-            :accent="$accents[$type] ?? '#4f46e5'"
+            :accent="$accents[$type] ?? $rateAccents[$type] ?? '#4f46e5'"
             :action="'selectFinancialPreview(\''.$group.'\', \''.$type.'\')'"
             :expanded="$selectedType === $type"
             stacked

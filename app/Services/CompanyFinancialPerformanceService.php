@@ -104,6 +104,28 @@ class CompanyFinancialPerformanceService
         return ['treasury' => $treasury, 'groups' => $groups];
     }
 
+    /**
+     * @param  array<string, float>  $amounts
+     * @return array<string, float|null>
+     */
+    public static function indicatorRates(string $group, array $amounts): array
+    {
+        [$metrics, $total] = match ($group) {
+            'treasury' => [['incoming', 'outgoing'], ($amounts['incoming'] ?? 0) + ($amounts['outgoing'] ?? 0)],
+            'receipts_and_custody' => [['receipt_cash', 'receipt_non_cash'], ($amounts['receipt_cash'] ?? 0) + ($amounts['receipt_non_cash'] ?? 0)],
+            'settlements' => [['fee_direct', 'fee_personal'], ($amounts['fee_direct'] ?? 0) + ($amounts['fee_personal'] ?? 0)],
+            'payroll' => [['payroll_paid', 'payroll_remaining'], $amounts['payroll_net'] ?? 0],
+            'collection' => [['collection_paid', 'collection_remaining'], $amounts['collection_net'] ?? 0],
+            'debts' => [['debt_paid', 'debt_remaining', 'debt_overdue'], $amounts['debt_total'] ?? 0],
+            default => [[], 0],
+        };
+
+        return array_map(
+            fn (float $amount): ?float => $total > 0 && $amount >= 0 && $amount <= $total ? $amount * 100 / $total : null,
+            array_intersect_key($amounts, array_flip($metrics)),
+        );
+    }
+
     public static function statement(string $type, array $filters, array $authorizedCompanies): LengthAwarePaginator
     {
         return self::statementQuery($type, $filters, $authorizedCompanies)->paginate(15, ['*'], 'kashfPage');

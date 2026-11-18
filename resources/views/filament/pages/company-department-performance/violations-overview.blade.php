@@ -1,11 +1,14 @@
 @php
     $vio = $this->violationsOverview;
     $totals = $vio['totals'];
-    $paidRate = $totals['count'] > 0 ? $totals['fully_paid_count'] * 100 / $totals['count'] : null;
+    $violationShare = fn (int $count) => $totals['count'] > 0 ? $count * 100 / $totals['count'] : null;
+    $amountShare = fn (float $amount) => $totals['amount'] > 0 && $amount >= 0 && $amount <= $totals['amount']
+        ? $amount * 100 / $totals['amount']
+        : null;
     $currency = __('performance.violations.currency');
 @endphp
 
-<section class="perf-overview-group" aria-labelledby="perf-vio-heading">
+<section class="perf-overview-group perf-violations-overview" aria-labelledby="perf-vio-heading">
     <div class="perf-section-header">
         <h2 class="perf-section-title" id="perf-vio-heading">{{ __('performance.violations.summary_title') }}</h2>
         <x-filament::button tag="a" :href="$this->violationsRegisterUrl" color="gray" size="sm">
@@ -14,17 +17,12 @@
     </div>
     <p class="perf-overview-note">{{ __('performance.violations.scope_note') }}</p>
 
-    <div class="perf-kpi-grid">
-        <x-performance.metric-card
-            :title="__('performance.violations.total_violations')"
-            :value="number_format($totals['count'])"
-            :hint="number_format($totals['amount'], 2) . ' ' . $currency"
-            accent="#5b5bf0"
-            action="openKashf('violations', 'all')"
-        />
+    <div class="perf-violation-status-grid">
         <x-performance.metric-card
             :title="__('performance.violations.objection')"
             :value="number_format($vio['stages']['objection']['count'])"
+            :rate="$violationShare($vio['stages']['objection']['count'])"
+            :rate-label="__('performance.violations.registered_share')"
             :hint="number_format($vio['stages']['objection']['amount'], 2) . ' ' . $currency"
             accent="#ea580c"
             action="openKashf('violations', 'objection')"
@@ -32,6 +30,8 @@
         <x-performance.metric-card
             :title="__('performance.violations.execution')"
             :value="number_format($vio['stages']['execution']['count'])"
+            :rate="$violationShare($vio['stages']['execution']['count'])"
+            :rate-label="__('performance.violations.registered_share')"
             :hint="number_format($vio['stages']['execution']['amount'], 2) . ' ' . $currency"
             accent="#e11d48"
             action="openKashf('violations', 'execution')"
@@ -39,14 +39,42 @@
         <x-performance.metric-card
             :title="__('performance.violations.grace')"
             :value="number_format($vio['stages']['grace']['count'])"
+            :rate="$violationShare($vio['stages']['grace']['count'])"
+            :rate-label="__('performance.violations.registered_share')"
             :hint="number_format($vio['stages']['grace']['amount'], 2) . ' ' . $currency"
             accent="#0284c7"
             action="openKashf('violations', 'grace')"
         />
         <x-performance.metric-card
+            :title="__('performance.violations.paid')"
+            :value="number_format($totals['fully_paid_count'])"
+            :rate="$violationShare($totals['fully_paid_count'])"
+            :rate-label="__('performance.violations.registered_share')"
+            :hint="__('performance.columns.view_statement')"
+            accent="#059669"
+            action="openKashf('violations', 'paid')"
+        />
+    </div>
+
+    <div class="perf-violation-totals-grid">
+        <x-performance.metric-card
+            :title="__('performance.violations.total_violations')"
+            :value="number_format($totals['count'])"
+            :hint="__('performance.columns.view_statement')"
+            accent="#5b5bf0"
+            action="openKashf('violations', 'all')"
+        >
+            <div class="perf-violation-total-amount">
+                <span>{{ __('performance.violations.total_amount') }}</span>
+                <bdi>{{ number_format($totals['amount'], 2) }} {{ $currency }}</bdi>
+            </div>
+        </x-performance.metric-card>
+        <x-performance.metric-card
             :title="__('performance.violations.total_paid')"
             :value="number_format($totals['paid'], 2)"
             :unit="$currency"
+            :rate="$amountShare($totals['paid'])"
+            :rate-label="__('performance.violations.amount_share')"
             :hint="__('performance.violations.payment_count', ['count' => number_format($totals['payment_count'])])"
             accent="#059669"
             action="openKashf('violations', 'payments')"
@@ -55,6 +83,9 @@
             :title="__('performance.violations.total_remaining')"
             :value="number_format($totals['remaining'], 2)"
             :unit="$currency"
+            :rate="$amountShare($totals['remaining'])"
+            :rate-label="__('performance.violations.amount_share')"
+            :hint="__('performance.columns.view_statement')"
             accent="#e11d48"
             action="openKashf('violations', 'unpaid')"
         />
@@ -62,12 +93,6 @@
 </section>
 
 <section class="perf-overview-group" aria-labelledby="perf-authorities-heading" style="margin-top: 1.5rem;">
-    <div class="perf-violations-payment">
-        <x-performance.rate-ring :rate="$paidRate" :label="__('performance.violations.paid_rate')" :color="$paidRate === null ? null : '#059669'" />
-        <x-filament::button color="gray" size="sm" wire:click="openKashf('violations', 'paid')">
-            {{ __('performance.violations.paid') }} ({{ number_format($totals['fully_paid_count']) }})
-        </x-filament::button>
-    </div>
     <div class="perf-section-header">
         <h2 class="perf-section-title" id="perf-authorities-heading">{{ __('performance.violations.authorities_title') }}</h2>
     </div>

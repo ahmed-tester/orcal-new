@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\CompanyDepartmentPerformance;
+use App\Filament\Pages\SupervisorPerformance;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\User;
@@ -12,7 +13,9 @@ use App\Services\CompanyDepartmentPerformanceService;
 use App\Services\CompanyFinancialPerformanceService;
 use App\Services\CompanyViolationsPerformanceService;
 use App\Services\LeaveSummaryService;
+use App\Services\SupervisorPerformanceService;
 use Database\Seeders\PerformanceDashboardDemoSeeder;
+use Database\Seeders\SupervisorPerformanceDemoSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -85,6 +88,16 @@ class PerformanceDashboardDemoSeederTest extends TestCase
             ->call('showWorkforceOverview')->assertSet('activeOverviewTab', 'workforce')
             ->call('showComplianceOverview')->assertSet('activeOverviewTab', 'compliance')
             ->call('showViolationsOverview')->assertSet('activeOverviewTab', 'violations')
+            ->assertSee(__('performance.violations.registered_share'))
+            ->assertSee(__('performance.violations.paid'))
+            ->assertSeeHtmlInOrder([
+                '<div class="perf-violation-status-grid">',
+                'wire:click="openKashf(&#039;violations&#039;, &#039;paid&#039;)"',
+                '<div class="perf-violation-totals-grid">',
+                '<div class="perf-violation-total-amount">',
+                e(__('performance.violations.amount_share')),
+                'wire:click="openKashf(&#039;violations&#039;, &#039;unpaid&#039;)"',
+            ])
             ->call('showFinancialOverview')->assertSet('activeOverviewTab', 'financial')
             ->assertSeeHtml('id="financial-preview-receipt_cash"')
             ->call('openKashf', 'financial', 'receipt_cash')->assertSet('showKashfModal', true);
@@ -96,18 +109,86 @@ class PerformanceDashboardDemoSeederTest extends TestCase
 
     public function test_route_requires_an_admin_in_a_demo_environment(): void
     {
-        $url = route('system.seed-performance-demo');
-        $this->get($url)->assertRedirect(Filament::getPanel('admin')->getLoginUrl());
+        $urls = [route('system.seed-performance-demo'), route('system.seed-supervisor-performance-demo')];
+
+        foreach ($urls as $url) {
+            $this->get($url)->assertRedirect(Filament::getPanel('admin')->getLoginUrl());
+            $this->post($url)->assertRedirect(Filament::getPanel('admin')->getLoginUrl());
+        }
 
         $this->actingAs(User::factory()->create(['user_type' => 'saudi_employee']));
-        $this->get($url)->assertForbidden();
-        $this->post($url)->assertForbidden();
+
+        foreach ($urls as $url) {
+            $this->get($url)->assertForbidden();
+            $this->post($url)->assertForbidden();
+        }
 
         $this->actingAs(User::factory()->create(['user_type' => 'super_admin']));
         $this->withoutMiddleware(ValidateCsrfToken::class);
         $this->app->instance('env', 'production');
-        $this->get($url)->assertNotFound();
-        $this->post($url)->assertNotFound();
+
+        foreach ($urls as $url) {
+            $this->get($url)->assertNotFound();
+            $this->post($url)->assertNotFound();
+        }
+
         $this->assertDatabaseCount('companies', 0);
+    }
+
+    public function test_supervisor_demo_completes_current_and_closed_periods_and_can_be_repeated(): void
+    {
+        $this->travelTo(now()->setDate(2026, 11, 16)->setTime(12, 0));
+        $this->actingAs(User::factory()->create(['user_type' => 'super_admin', 'status' => 'active']));
+        $url = route('system.seed-supervisor-performance-demo');
+        $this->post($url)->assertRedirect($url)->assertSessionHasErrors();
+        $this->get($url)->assertOk()->assertSee(__('supervisor_performance.demo.no_demo_period'));
+        $this->seed(PerformanceDashboardDemoSeeder::class);
+
+        $company = Company::query()->where('company_number', 'PERF-DEMO-A')->firstOrFail();
+        $supervisor = DB::table('supervision_shifts')->where('company_id', $company->id)->value('supervisor_id');
+        $shiftCount = DB::table('supervision_shifts')->count();
+        $assignmentCount = DB::table('task_assignments')->count();
+        $itemCount = DB::table('task_assignment_items')->count();
+        $this->get($url)->assertOk()->assertSee(__('supervisor_performance.demo.run'));
+        $this->assertDatabaseMissing('task_assignments', ['employee_id' => $supervisor]);
+
+        $reportUrl = SupervisorPerformance::getUrl([
+            'companyId' => $company->id, 'supervisorId' => $supervisor, 'month' => '2026-10',
+        ], panel: 'admin');
+        $currentReportUrl = SupervisorPerformance::getUrl([
+            'companyId' => $company->id, 'supervisorId' => $supervisor, 'month' => '2026-11',
+        ], panel: 'admin');
+        $this->post($url)->assertOk()->assertSee($reportUrl)->assertSee($currentReportUrl);
+        $this->artisan('db:seed', ['--class' => SupervisorPerformanceDemoSeeder::class])->assertSuccessful();
+
+        $this->assertDatabaseCount('companies', 2);
+        $this->assertDatabaseCount('supervision_shifts', $shiftCount);
+        $this->assertDatabaseCount('task_assignments', $assignmentCount + 4);
+        $this->assertDatabaseCount('task_assignment_items', $itemCount + 16);
+        $this->assertDatabaseHas('employee_details', ['employee_id' => $supervisor, 'nationality' => 'saudi']);
+        $this->assertDatabaseHas('task_assignments', [
+            'employee_id' => $supervisor,
+            'transaction_number' => 'PERF-DEMO-A-202610-SUP-PERSONAL',
+        ]);
+
+        $report = SupervisorPerformanceService::report([
+            'company_id' => $company->id, 'supervisor_id' => $supervisor, 'month' => '2026-10',
+        ], true);
+        $this->assertCount(4, $report['employee']['items']);
+        $this->assertEqualsWithDelta(75.0, $report['evaluation']['personal'], 0.01);
+        $this->assertEqualsWithDelta(54.17, $report['evaluation']['total'], 0.01);
+        $this->get($reportUrl)->assertOk()->assertSee('54.17 / 100');
+        $this->get($currentReportUrl)->assertOk()
+            ->assertSee(__('supervisor_performance.evaluation.current_title', ['date' => '2026-11-16']))
+            ->assertSee('62.50 / 100');
+
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+        Livewire::test(SupervisorPerformance::class)
+            ->set('supervisorId', $supervisor)
+            ->assertSee(__('supervisor_performance.evaluation.reasons.select_company'))
+            ->set('companyId', $company->id)
+            ->assertSee('62.50 / 100')
+            ->set('month', '2026-10')
+            ->assertSee('54.17 / 100');
     }
 }

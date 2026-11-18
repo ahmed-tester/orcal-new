@@ -45,6 +45,7 @@ return [
         'compliance' => 'الاشتراكات والتراخيص والإقامات',
         'violations' => 'المخالفات',
         'financial' => 'المالية والخزنة',
+        'tickets' => 'التذاكر والدعم',
         'attendance_month' => 'ملخص الحضور لشهر :month',
         'leaves_year' => 'ملخص الإجازات لسنة :year',
         'attendance_details' => 'فتح ملخص الحضور',
@@ -121,6 +122,13 @@ return [
         'score_tasks_title' => 'كشف المهام المتأخرة (مقياس الأداء)',
         'compliance_title' => 'كشف الوثائق الوظيفية والإقامات (:type)',
         'violations_title' => 'كشف المخالفات والنظام (:type)',
+        'tickets_title' => 'كشف التذاكر والدعم (:type)',
+        'ticket_number' => 'رقم التذكرة',
+        'ticket_subject' => 'الموضوع',
+        'ticket_category' => 'التصنيف',
+        'ticket_priority' => 'الأولوية',
+        'ticket_assignee' => 'المكلّف بالمعالجة',
+        'ticket_created_at' => 'تاريخ الإنشاء',
         'transaction_number' => 'رقم المعاملة',
         'service' => 'الخدمة',
         'beneficiary' => 'المستفيد',
@@ -186,6 +194,7 @@ return [
 
     // Compliance & Subscriptions
     'compliance' => [
+        'recorded_documents_share' => 'من الوثائق المسجلة من نفس النوع',
         'preview_title' => 'نبذة عن :metric',
         'preview_count' => 'عدد السجلات المعروضة :count',
         'full_statement' => 'عرض الكشف الكامل',
@@ -242,6 +251,8 @@ return [
 
     // Violations
     'violations' => [
+        'registered_share' => 'من المخالفات المسجلة',
+        'amount_share' => 'من إجمالي مبالغ المخالفات',
         'summary_title' => 'ملخص المخالفات والمراحل النظامية',
         'total_violations' => 'إجمالي المخالفات المسجلة',
         'total_amount' => 'إجمالي مبالغ المخالفات',
@@ -260,6 +271,30 @@ return [
         'currency' => 'ر.س',
         'authority_name' => 'الجهة المصدرة',
         'authority_count' => 'عدد المخالفات',
+    ],
+
+    'tickets' => [
+        'registered_share' => 'من إجمالي التذاكر',
+        'summary_title' => 'ملخص التذاكر والدعم الفني',
+        'total' => 'إجمالي التذاكر المسجلة',
+        'open' => 'تذاكر مفتوحة',
+        'in_progress' => 'قيد المعالجة',
+        'waiting_user_reply' => 'بانتظار رد المستخدم',
+        'resolved_closed' => 'محلولة ومغلقة',
+        'urgent_high' => 'أولوية عاجلة وعالية',
+        'categories_title' => 'توزيع التذاكر حسب التصنيف',
+        'category_name' => 'التصنيف',
+        'total_count' => 'الإجمالي',
+        'active_count' => 'النشطة',
+        'unknown_category' => 'تصنيف غير محدد',
+        'open_register' => 'فتح سجل التذاكر',
+        'scope_note' => 'تطبق الفترة على تاريخ إنشاء التذكرة. تُعرض التذاكر على مستوى المنشأة.',
+    ],
+
+    'tickets_demo' => [
+        'title' => 'تجهيز بيانات التذاكر التجريبية',
+        'run' => 'تجهيز 12 تذكرة تجريبية',
+        'ready' => 'تم تجهيز التذاكر التجريبية بنجاح. اختر منشأة لفتح لوحة الأداء:',
     ],
 
     // Empty States
@@ -300,8 +335,24 @@ return [
         'no_rankable' => 'لا يوجد قسم فعلي بموظفين ظاهرين أو بنود متأخرة في النطاق الحالي لعرض الأقسام الأقل درجة.',
     ],
 
+    'employee_ranking' => [
+        'label' => 'ترتيب الموظفين',
+        'all' => 'الكل',
+        'best_first' => 'الأفضل أولًا',
+        'worst' => 'الأقل أداءً',
+        'score' => 'درجة الأداء',
+        'worst_empty_title' => 'لا يوجد موظفون مؤهلون للترتيب',
+        'no_rankable' => 'لا يوجد موظف بنشاط تشغيلي أو مؤشرات أداء في النطاق الحالي لعرض الموظفين الأقل أداءً.',
+    ],
+
     // Financial & Treasury
     'financial' => [
+        'debt_share' => 'من إجمالي مبالغ الديون',
+        'treasury_share' => 'من مجموع الوارد والصادر',
+        'receipts_share' => 'من إجمالي القبض المؤكد',
+        'fees_share' => 'من مبالغ سداد الرسوم المعروضة',
+        'payroll_share' => 'من صافي الرواتب المستحق',
+        'collection_share' => 'من صافي التحصيل المستحق',
         'preview_title' => 'نبذة عن :metric',
         'preview_count' => 'عدد السجلات المعروضة :count',
         'full_statement' => 'عرض الكشف الكامل',
@@ -411,6 +462,7 @@ return [
 
     // Workforce (Attendance & Leaves)
     'workforce' => [
+        'recorded_days_share' => 'من الأيام المسجلة',
         'attendance_title' => 'ملخص الحضور والانصراف',
         'leaves_title' => 'ملخص الإجازات',
         'open_attendance' => 'فتح سجل الحضور',
@@ -438,5 +490,33 @@ return [
             'pending_requests_count' => 'طلبات إجازة تنتظر الاعتماد والموافقة من الإدارة.',
             'total_approved_days' => 'مجموع أيام الإجازات المعتمدة للموظفين خلال السنة.',
         ],
+    ],
+
+    // Company Departments Leadership (Sprint Track)
+    'sprint' => [
+        'title' => 'صدارة أقسام المنشأة',
+        'subtitle' => 'أول 5 أقسام مؤهلة تنافسيًا وفق درجة الأداء التشغيلية',
+        'leader' => 'المتصدر 👑',
+        'shared_lead' => 'صدارة مشتركة 👑',
+        'points_behind' => 'فارق :points نقطة عن المركز السابق',
+        'points_behind_single' => 'فارق نقطة واحدة عن المركز السابق',
+        'tied_score' => 'متساويان في الدرجة',
+        'view_department' => 'عرض تفاصيل القسم',
+        'score_of_100' => ':score من 100',
+        'rank_position' => 'المركز :rank',
+    ],
+
+    // Department Employees Leadership (Sprint Track)
+    'employee_sprint' => [
+        'title' => 'صدارة موظفي القسم',
+        'subtitle' => 'أول 5 موظفين مؤهلين تنافسيًا وفق درجة الأداء التشغيلية الشاملة',
+    ],
+
+    // Operations Hero Card
+    'hero' => [
+        'company_score_title' => 'درجة الأداء التشغيلية الجزئية للمنشأة',
+        'company_score_subtitle' => 'تقيس المهام والنواقص المفتوحة المتأخرة في نطاق المنشأة الحالي',
+        'score_rules_toggle' => 'كيف تُحسب الدرجة؟',
+        'departments_metrics_title' => 'مؤشرات الأقسام المطابقة للفلاتر',
     ],
 ];

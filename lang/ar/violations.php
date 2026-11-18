@@ -162,6 +162,7 @@ return [
         'suspended' => 'واجبة السداد / مرحلة الإيقاف',
     ],
     'payment_statuses' => [
+        'unpaid' => 'غير مدفوعة',
         'pending' => 'نشطة بانتظار السداد',
         'partial' => 'نشطة تم السداد الجزئي',
         'paid' => 'مغلقة تم السداد كامل',
@@ -258,5 +259,8 @@ return [
         'suspended_body' => 'المخالفة :number للمؤسسة :company أصبحت واجبة السداد',
         'stage_expiring_title' => 'تنبيه: قرب انتهاء المرحلة',
         'stage_expiring_body' => 'المخالفة :number — :stage تنتهي خلال :days أيام',
+    ],
+    'import' => [
+        'unauthorized_company' => 'لا تملك صلاحية إضافة مخالفات للمؤسسة المختارة.',
     ],
 ];

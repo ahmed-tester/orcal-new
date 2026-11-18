@@ -5,9 +5,11 @@
 // Registered with the "web" middleware group via bootstrap/app.php.
 
 use App\Filament\Pages\CompanyDepartmentPerformance;
+use App\Filament\Pages\SupervisorPerformance;
 use App\Filament\Resources\PerformanceEscalations\PerformanceEscalationResource;
 use Database\Seeders\PerformanceDashboardDemoSeeder;
 use Database\Seeders\PerformanceEscalationDemoSeeder;
+use Database\Seeders\SupervisorPerformanceDemoSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -108,6 +110,37 @@ Route::match(['get', 'post'], '/system/seed-performance-demo', function (Request
     ]);
 })->name('system.seed-performance-demo');
 
+Route::match(['get', 'post'], '/system/seed-supervisor-performance-demo', function (Request $request) {
+    abort_unless(PerformanceDashboardDemoSeeder::isAvailable(), 404);
+
+    if (! $request->user()) {
+        return redirect()->guest(Filament::getPanel('admin')->getLoginUrl());
+    }
+
+    abort_unless($request->user()->isSuperAdmin(), 403);
+
+    try {
+        $results = $request->isMethod('post') ? app(SupervisorPerformanceDemoSeeder::class)->run() : [];
+    } catch (DomainException $exception) {
+        return redirect()->route('system.seed-supervisor-performance-demo')->withErrors($exception->getMessage());
+    }
+
+    return view('system.seed-performance-demo', [
+        'companies' => array_map(fn (array $result) => [
+            'label' => __('supervisor_performance.demo.result', $result),
+            'url' => SupervisorPerformance::getUrl([
+                'companyId' => $result['companyId'],
+                'supervisorId' => $result['supervisorId'],
+                'month' => $result['month'],
+            ], panel: 'admin'),
+        ], $results),
+        'dashboardUrl' => SupervisorPerformance::getUrl(panel: 'admin'),
+        'dashboardLabel' => __('supervisor_performance.navigation'),
+        'translation' => 'supervisor_performance.demo',
+        'submitRoute' => 'system.seed-supervisor-performance-demo',
+    ]);
+})->name('system.seed-supervisor-performance-demo');
+
 Route::match(['get', 'post'], '/system/seed-performance-escalation-demo', function (Request $request) {
     abort_unless(PerformanceEscalationDemoSeeder::isAvailable(), 404);
 
@@ -125,6 +158,21 @@ Route::match(['get', 'post'], '/system/seed-performance-escalation-demo', functi
         'submitRoute' => 'system.seed-performance-escalation-demo',
     ]);
 })->name('system.seed-performance-escalation-demo');
+
+Route::match(['get', 'post'], '/system/seed-tickets-demo', function (Request $request) {
+    if (! $request->user()) {
+        return redirect()->guest(Filament::getPanel('admin')->getLoginUrl());
+    }
+
+    abort_unless($request->user()->isSuperAdmin(), 403);
+
+    return view('system.seed-performance-demo', [
+        'companies' => $request->isMethod('post') ? app(\Database\Seeders\TicketsDemoSeeder::class)->run() : [],
+        'dashboardUrl' => CompanyDepartmentPerformance::getUrl(panel: 'admin'),
+        'translation' => 'performance.tickets_demo',
+        'submitRoute' => 'system.seed-tickets-demo',
+    ]);
+})->name('system.seed-tickets-demo');
 
 // Operations Workflow Permissions & Roles Sync Routes
 Route::get('/system/sync-operations-permissions', function () {

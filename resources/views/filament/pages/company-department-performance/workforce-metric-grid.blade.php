@@ -9,6 +9,8 @@
             :title="__($labels[$type] ?? 'performance.overview.'.$type)"
             :value="number_format($count)"
             :unit="$units[$type] ?? null"
+            :rate="($rateTotal ?? 0) > 0 ? $count * 100 / $rateTotal : null"
+            :rate-label="isset($rateTotal) ? __('performance.workforce.recorded_days_share') : null"
             :hint="__($hints[$type] ?? null)"
             :icon="$icons[$type] ?? 'heroicon-o-calendar'"
             :accent="$accents[$type] ?? '#4f46e5'"

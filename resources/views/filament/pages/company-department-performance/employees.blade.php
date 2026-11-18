@@ -1,5 +1,7 @@
 @php
-    $employees = $this->employeesSummary;
+    $allEmployees = $this->employeesSummary;
+    $employees = $this->displayedEmployees;
+    $topRanked = $this->topRankedEmployees;
     $selectedCompany = $this->selectedCompany;
     $selectedDepartment = $this->selectedDepartment;
     $companyName = $selectedCompany?->trade_name ?: ($selectedCompany?->trade_name_en ?? '—');
@@ -21,6 +23,84 @@
         </button>
     </div>
 
+    <!-- Department Employees Leadership Sprint Track -->
+    @if($topRanked->isNotEmpty())
+        <div class="perf-sprint-card" aria-label="{{ __('performance.employee_sprint.title') }}">
+            <div class="perf-sprint-header">
+                <div class="perf-sprint-title-wrap">
+                    <span class="perf-sprint-icon">🏁</span>
+                    <div>
+                        <h3 class="perf-sprint-title">{{ __('performance.employee_sprint.title') }}</h3>
+                        <p class="perf-sprint-subtitle">{{ __('performance.employee_sprint.subtitle') }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="perf-sprint-lanes">
+                @foreach($topRanked as $ranked)
+                    @php
+                        $scoreVal = $ranked->score;
+                        $trackClass = $scoreVal >= 90 ? 'is-excellent' : ($scoreVal >= 65 ? 'is-good' : 'is-review');
+                    @endphp
+                    <div
+                        class="perf-sprint-row {{ $trackClass }}"
+                        aria-label="{{ $ranked->employee_name }} — {{ __('performance.sprint.score_of_100', ['score' => $scoreVal]) }}"
+                    >
+                        <div class="perf-sprint-rank-badge">
+                            @if($ranked->is_first)
+                                <span class="perf-sprint-crown">👑</span>
+                            @else
+                                <span class="perf-sprint-rank-num">#{{ $ranked->rank }}</span>
+                            @endif
+                        </div>
+
+                        <div class="perf-sprint-dept-info">
+                            <span class="perf-sprint-dept-name">{{ $ranked->employee_name }}</span>
+                            <span class="perf-sprint-tag">
+                                @if($ranked->is_first)
+                                    <span class="perf-sprint-leader-label">
+                                        {{ $ranked->is_shared_lead ? __('performance.sprint.shared_lead') : __('performance.sprint.leader') }}
+                                    </span>
+                                @elseif($ranked->is_tied_with_prev)
+                                    <span class="perf-sprint-diff-label is-tied">{{ __('performance.sprint.tied_score') }}</span>
+                                @else
+                                    <span class="perf-sprint-diff-label">
+                                        {{ $ranked->points_behind === 1 ? __('performance.sprint.points_behind_single') : __('performance.sprint.points_behind', ['points' => $ranked->points_behind]) }}
+                                    </span>
+                                @endif
+                            </span>
+                        </div>
+
+                        <div class="perf-sprint-track-bar">
+                            <div class="perf-sprint-track-fill" style="width: {{ $scoreVal }}%;"></div>
+                        </div>
+
+                        <div class="perf-sprint-score-badge">
+                            <strong>{{ $scoreVal }}</strong>
+                            <small>/ 100</small>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
+    <!-- Display mode: all / best first / worst employee -->
+    <div class="perf-rank-modes" role="group" aria-label="{{ __('performance.employee_ranking.label') }}">
+        <span class="perf-rank-modes-title">{{ __('performance.employee_ranking.label') }}</span>
+        @foreach(['all', 'best_first', 'worst'] as $rankMode)
+            @php $rankAction = "selectEmployeeRankMode('{$rankMode}')"; @endphp
+            <button
+                type="button"
+                class="perf-rank-mode {{ $this->employeeRankMode === $rankMode ? 'is-active' : '' }}"
+                wire:click="{{ $rankAction }}"
+                aria-pressed="{{ $this->employeeRankMode === $rankMode ? 'true' : 'false' }}"
+            >
+                {{ __('performance.employee_ranking.'.$rankMode) }}
+            </button>
+        @endforeach
+    </div>
+
     <div class="perf-cards-grid">
         @forelse($employees as $row)
             <div class="card inst" style="--i: {{ $loop->index }};" wire:key="employee-card-{{ $row->employee_id }}">
@@ -37,7 +117,7 @@
                             @endif
                         </div>
                     </div>
-                    <div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
                         @if($row->is_saudi)
                             <span class="inst-pill-badge is-saudi">
                                 {{ __('performance.columns.saudi') }}
@@ -46,6 +126,23 @@
                             <span class="inst-pill-badge is-foreign">
                                 {{ __('performance.columns.foreign') }}
                             </span>
+                        @endif
+
+                        @if($row->is_rankable && ($row->score?->available ?? false) && $row->score?->score !== null)
+                            @php
+                                $empScoreVal = (int) $row->score->score;
+                                $empNeedsReview = $empScoreVal < \App\Services\PerformanceScoreService::REVIEW_THRESHOLD;
+                                $empScoreCol = $empScoreVal >= 80 ? '#22c55e' : ($empNeedsReview ? '#ef4444' : '#f59e0b');
+                            @endphp
+                            <div class="dept-card-score-badge {{ $empNeedsReview ? 'needs-review' : '' }}" style="margin-top: 0;">
+                                <span class="dept-card-score-label">{{ __('performance.employee_ranking.score') }}:</span>
+                                <strong class="dept-card-score-val" style="color: {{ $empScoreCol }};">
+                                    {{ $empScoreVal }} / 100
+                                </strong>
+                                @if($empNeedsReview)
+                                    <span class="dept-card-score-warn" title="{{ __('performance.score.review_status') }}">⚠️</span>
+                                @endif
+                            </div>
                         @endif
                     </div>
                 </div>
@@ -103,20 +200,12 @@
                     </span>
                 </div>
 
-                <div class="rings-row">
-                    <x-performance.rate-ring
-                        :rate="$row->on_time_rate"
-                        :label="__('performance.columns.on_time_rate')"
-                        size="m"
-                        :action="'openKashf(\'services\', \'on_time\', ' . $this->selectedCompanyId . ', \'' . $this->selectedDepartmentId . '\', ' . $row->employee_id . ')'"
-                    />
-                    <x-performance.rate-ring
-                        :rate="$row->task_completion_rate"
-                        :label="__('performance.columns.task_completion_rate')"
-                        size="m"
-                        :action="'openKashf(\'tasks\', \'all\', ' . $this->selectedCompanyId . ', \'' . $this->selectedDepartmentId . '\', ' . $row->employee_id . ')'"
-                    />
-                </div>
+                <x-performance.operational-rates
+                    :on-time="$row->on_time_rate"
+                    :task-completion="$row->task_completion_rate"
+                    :on-time-action="'openKashf(\'services\', \'on_time\', ' . $this->selectedCompanyId . ', \'' . $this->selectedDepartmentId . '\', ' . $row->employee_id . ')'"
+                    :task-completion-action="'openKashf(\'tasks\', \'all\', ' . $this->selectedCompanyId . ', \'' . $this->selectedDepartmentId . '\', ' . $row->employee_id . ')'"
+                />
 
                 @if($row->performance_url)
                     <a href="{{ $row->performance_url }}" target="_blank" class="inst-footer is-link">
@@ -130,12 +219,18 @@
                 @endif
             </div>
         @empty
-            <div class="perf-empty-state-card">
-                <div class="perf-empty-icon">
-                    <x-heroicon-o-users style="width: 32px; height: 32px;" />
+            <div class="card is-empty-state">
+                <div class="empty-state-wrap">
+                    @if($this->employeeRankMode === 'worst')
+                        <x-heroicon-o-check-circle style="width: 32px; height: 32px; color: var(--g, #059669); margin-bottom: 0.5rem;" />
+                        <strong>{{ __('performance.employee_ranking.worst_empty_title') }}</strong>
+                        <p>{{ __('performance.employee_ranking.no_rankable') }}</p>
+                    @else
+                        <x-heroicon-o-users style="width: 32px; height: 32px; color: var(--mu, #6b7490); margin-bottom: 0.5rem;" />
+                        <strong>{{ __('performance.kashf.empty') }}</strong>
+                        <p>{{ __('performance.empty.no_employees') }}</p>
+                    @endif
                 </div>
-                <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
-                <div class="perf-empty-sub">{{ __('performance.empty.no_employees') }}</div>
             </div>
         @endforelse
     </div>

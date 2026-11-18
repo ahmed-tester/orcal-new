@@ -151,6 +151,7 @@ class ViolationSummaryService
                             'paid' => $sub->where('payment_status', ViolationPaymentStatus::PAID->value),
                             'partial' => $sub->where('payment_status', ViolationPaymentStatus::PARTIAL->value),
                             'pending' => $sub->where('payment_status', ViolationPaymentStatus::PENDING->value),
+                            'unpaid' => $sub->where('payment_status', ViolationPaymentStatus::UNPAID->value),
                             'overdue' => $sub->whereRaw(self::OVERDUE, [today()->toDateString(), today()->toDateString()]),
                             default => $sub->where('payment_status', $status),
                         };

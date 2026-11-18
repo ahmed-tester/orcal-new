@@ -36,16 +36,6 @@
             'unit' => null,
         ],
         [
-            'title' => __('performance.cards.on_time_rate'),
-            'value' => $stats->on_time_rate !== null ? "{$stats->on_time_rate}%" : __('performance.cards.no_data'),
-            'hint' => __('performance.cards.on_time_rate_hint'),
-            'icon' => 'heroicon-o-clock',
-            'accent' => '#7c3aed',
-            'action' => "openKashf('services', 'on_time', null, null)",
-            'unit' => null,
-            'rate' => $stats->on_time_rate,
-        ],
-        [
             'title' => __('performance.cards.open_deficiencies'),
             'value' => number_format($stats->open_deficiencies),
             'hint' => __('performance.cards.open_deficiencies_hint'),
@@ -53,17 +43,6 @@
             'accent' => '#ea580c',
             'action' => "openKashf('deficiencies', 'all', null, null)",
             'unit' => null,
-            'rate' => null,
-        ],
-        [
-            'title' => __('performance.cards.tasks_completion_rate'),
-            'value' => $stats->task_completion_rate !== null ? "{$stats->task_completion_rate}%" : __('performance.cards.no_data'),
-            'hint' => __('performance.cards.tasks_completion_rate_hint'),
-            'icon' => 'heroicon-o-clipboard-document-check',
-            'accent' => '#0891b2',
-            'action' => "openKashf('tasks', 'all', null, null)",
-            'unit' => null,
-            'rate' => $stats->task_completion_rate,
         ],
         [
             'title' => __('performance.columns.tasks_due'),
@@ -101,13 +80,24 @@
                 ? __('performance.levels.unassigned_or_no_department')
                 : ($selectedDepartment?->parent ? "{$selectedDepartment->name} ({$selectedDepartment->parent->name})" : $selectedDepartment?->name)));
 @endphp
-<x-performance.score-panel
-    :score="$this->performanceScore"
-    :scope-label="$scoreScopeLabel"
-    :company-id="$this->selectedCompanyId"
-    :department-id="$this->selectedDepartmentId"
-/>
+@if($this->selectedCompanyId === null || $this->selectedDepartmentId !== null)
+    <x-performance.score-panel
+        :score="$this->performanceScore"
+        :scope-label="$scoreScopeLabel"
+        :company-id="$this->selectedCompanyId"
+        :department-id="$this->selectedDepartmentId"
+    />
+@endif
 <div class="perf-kpi-grid perf-operations-kpi-grid">
+    <x-performance.operational-rates
+        class="perf-card perf-operations-rate-card"
+        :on-time="$stats->on_time_rate"
+        :task-completion="$stats->task_completion_rate"
+        on-time-action="openKashf('services', 'on_time', null, null)"
+        task-completion-action="openKashf('tasks', 'all', null, null)"
+        :show-hints="true"
+        :precision="1"
+    />
     @foreach($topCards as $c)
         <x-performance.metric-card
             :title="$c['title']"
@@ -117,7 +107,6 @@
             :accent="$c['accent']"
             :action="$c['action']"
             :unit="$c['unit']"
-            :rate="$c['rate'] ?? null"
             :index="$loop->index"
         />
     @endforeach

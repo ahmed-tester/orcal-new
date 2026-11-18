@@ -37,6 +37,8 @@ use RuntimeException;
 
 class PerformanceDashboardDemoSeeder extends Seeder
 {
+    public const SUPERVISION_TITLE = 'نوبة متابعة الأداء (ديمو)';
+
     private const PREFIX = 'PERF-DEMO';
 
     public static function isAvailable(): bool
@@ -267,7 +269,7 @@ class PerformanceDashboardDemoSeeder extends Seeder
         SupervisionShift::query()->whereDate('start_date', $start)->firstOrCreate([
             'company_id' => $company->id,
             'supervisor_id' => $employees[0]->id,
-            'title' => 'نوبة متابعة الأداء (ديمو)',
+            'title' => self::SUPERVISION_TITLE,
         ], [
             'assigned_employees' => [$employees[1]->id, $employees[2]->id, $employees[7]->id],
             'start_date' => $start,

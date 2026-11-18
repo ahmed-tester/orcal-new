@@ -268,6 +268,9 @@ class CompanyFinancialPerformanceTest extends TestCase
             ->assertSee('companyId%5B0%5D='.$company->id)
             ->assertSee('dateFrom=2026-11-01')
             ->assertSee('2,500.00')
+            ->assertSee(__('performance.financial.treasury_share'))
+            ->assertSeeHtml('<span>85.7%</span>')
+            ->assertSeeHtml('<span>14.3%</span>')
             ->assertSeeHtml('class="perf-financial-grid"')
             ->assertSeeHtml('wire:click="selectFinancialPreview(&#039;treasury&#039;, &#039;incoming&#039;)"')
             ->assertSeeHtml('id="financial-preview-current_balance"')
@@ -284,6 +287,8 @@ class CompanyFinancialPerformanceTest extends TestCase
             ->assertDontSee($first->transaction_number)
             ->assertSee(__('performance.financial.full_statement'))
             ->set('dateTo', '2026-11-02')
+            ->assertSeeHtml('<span>75%</span>')
+            ->assertSeeHtml('<span>25%</span>')
             ->assertSee($first->transaction_number)
             ->assertDontSee($latestIncoming->transaction_number)
             ->set('dateTo', '2026-11-30')
@@ -311,6 +316,7 @@ class CompanyFinancialPerformanceTest extends TestCase
             ->assertDontSeeHtml('id="financial-preview-incoming"')
             ->assertSeeHtml('id="financial-preview-receipt_cash"')
             ->assertDontSee(__('performance.financial.open_treasury'))
+            ->assertDontSee(__('performance.financial.treasury_share'))
             ->assertSee(__('performance.financial.branch_restricted_title'));
 
         $page->call('selectFinancialPreview', 'treasury', 'incoming')->assertForbidden();
@@ -405,12 +411,22 @@ class CompanyFinancialPerformanceTest extends TestCase
 
         $restricted = CompanyFinancialPerformanceService::overview($filters + ['company_id' => 99999], $companyIds);
         $this->assertSame(0.0, $restricted['groups']['receipts_and_custody']['custody']);
+        $this->assertSame(
+            ['receipt_cash' => null, 'receipt_non_cash' => null],
+            CompanyFinancialPerformanceService::indicatorRates('receipts_and_custody', $restricted['groups']['receipts_and_custody']),
+        );
         Filament::setCurrentPanel(Filament::getPanel('admin'));
         Livewire::test(CompanyDepartmentPerformance::class)
             ->set('dateFrom', '2026-11-01')
             ->set('dateTo', '2026-11-30')
             ->call('showFinancialOverview')
             ->assertSee(__('performance.financial.metric_hints.custody'))
+            ->assertSee(__('performance.financial.receipts_share'))
+            ->assertSee(__('performance.financial.fees_share'))
+            ->assertSeeHtml('<span>0%</span>')
+            ->assertSeeHtml('<span>100%</span>')
+            ->assertSeeHtml('<span>37.5%</span>')
+            ->assertSeeHtml('<span>62.5%</span>')
             ->assertSeeHtml('id="financial-preview-receipt_non_cash"')
             ->assertSee('BANK-001')
             ->call('selectFinancialPreview', 'treasury', 'outgoing')
@@ -467,6 +483,15 @@ class CompanyFinancialPerformanceTest extends TestCase
             ->set('dateTo', '2026-11-14')
             ->set('branchId', (string) $branch->id)
             ->call('showFinancialOverview')
+            ->assertSee(__('performance.financial.debt_share'))
+            ->assertSee(__('performance.financial.payroll_share'))
+            ->assertSee(__('performance.financial.collection_share'))
+            ->assertSeeHtml('<span>40%</span>')
+            ->assertSeeHtml('<span>60%</span>')
+            ->assertSeeHtml('<span>33.3%</span>')
+            ->assertSeeHtml('<span>66.7%</span>')
+            ->assertSeeHtml('<span>20%</span>')
+            ->assertSeeHtml('<span>80%</span>')
             ->call('openKashf', 'financial', 'debt_overdue')
             ->assertSee('DEBT-001')
             ->assertDontSee('DEBT-002')

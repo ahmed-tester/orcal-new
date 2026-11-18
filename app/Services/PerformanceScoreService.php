@@ -128,6 +128,66 @@ class PerformanceScoreService
     }
 
     /**
+     * Build the comprehensive operational performance score for an employee.
+     */
+    public static function employeeOperationalScore(
+        ?float $onTimeRate,
+        ?float $taskCompletionRate,
+        int $overdueServices,
+        int $openDeficiencies,
+        bool $hasActivity
+    ): object {
+        if (! $hasActivity) {
+            return (object) [
+                'available' => false,
+                'score' => null,
+                'is_rankable' => false,
+                'base_rate' => null,
+                'total_deduction' => 0,
+                'deductions' => collect(),
+            ];
+        }
+
+        $baseRate = null;
+        if ($onTimeRate !== null && $taskCompletionRate !== null) {
+            $baseRate = ($onTimeRate * 0.5) + ($taskCompletionRate * 0.5);
+        } elseif ($onTimeRate !== null) {
+            $baseRate = $onTimeRate;
+        } elseif ($taskCompletionRate !== null) {
+            $baseRate = $taskCompletionRate;
+        } else {
+            $baseRate = 100.0;
+        }
+
+        $deductions = collect([
+            (object) [
+                'key' => 'overdue_services',
+                'count' => $overdueServices,
+                'weight' => self::OVERDUE_TASK_WEIGHT,
+                'points' => $overdueServices * self::OVERDUE_TASK_WEIGHT,
+            ],
+            (object) [
+                'key' => 'open_deficiencies',
+                'count' => $openDeficiencies,
+                'weight' => self::OVERDUE_DEFICIENCY_WEIGHT,
+                'points' => $openDeficiencies * self::OVERDUE_DEFICIENCY_WEIGHT,
+            ],
+        ]);
+
+        $totalDeduction = (int) $deductions->sum('points');
+        $score = (int) round(max(0, min(self::FULL_SCORE, $baseRate - $totalDeduction)));
+
+        return (object) [
+            'available' => true,
+            'score' => $score,
+            'is_rankable' => true,
+            'base_rate' => round($baseRate, 1),
+            'total_deduction' => $totalDeduction,
+            'deductions' => $deductions,
+        ];
+    }
+
+    /**
      * Currently overdue open task items grouped by company and assignee
      * department. Mirrors the task scoping of the performance page: company,
      * branch, supervisor team and the Saudi-employee-only assignment scope.

@@ -267,6 +267,7 @@ class RolesAndPermissionsSeeder extends Seeder
             ],
             'التقارير وأدوات النظام' => [
                 'view_general_reports' => 'استعراض الشاشة المركزية للتقارير',
+                'view_supervisor_performance_report' => 'استعراض تقرير تقييم أداء المشرفين',
                 'view_notifications_report' => 'استعراض تقرير التنبيهات والوثائق',
                 'manage_translations' => 'الوصول لإدارة الترجمات',
                 'manage_smart_import' => 'الوصول للاستيراد الذكي (AI)',

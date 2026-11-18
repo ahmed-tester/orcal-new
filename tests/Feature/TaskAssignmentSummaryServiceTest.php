@@ -395,6 +395,7 @@ class TaskAssignmentSummaryServiceTest extends TestCase
         ]);
         $employee = $this->employee('Saudi Employee', 1, 1, $employeeUser, 'saudi_employee');
         $other = $this->employee('Other employee', 1, 1);
+        $foreign = $this->employee('Foreign employee', 1, 1, userType: 'foreign_employee');
         $task = $this->task('My task');
         $this->item($this->assignment($employee), $task, [
             'status' => 'completed', 'due_date' => '2026-11-10', 'completed_at' => '2026-11-09', 'weight' => 1, 'score' => 1,
@@ -410,6 +411,9 @@ class TaskAssignmentSummaryServiceTest extends TestCase
             ->assertOk()
             ->assertSeeHtml('class="tp-task-grid tp-task-counts"')
             ->assertSeeHtml('class="tp-task-grid tp-task-rates"')
+            ->assertSeeHtml('class="perf-ring-item')
+            ->assertSeeHtml('<span>50.00%</span>')
+            ->assertSeeHtml('<span>100.00%</span>')
             ->assertSee('My task')
             ->assertSee('My pending task')
             ->assertDontSee('Not mine')
@@ -423,12 +427,23 @@ class TaskAssignmentSummaryServiceTest extends TestCase
             ->assertSee('My pending task')
             ->set('month', '2026-10')
             ->assertSet('month', '2026-10')
-            ->assertDontSee('My task');
+            ->assertDontSee('My task')
+            ->assertSeeHtml('<span>0.00%</span>')
+            ->assertSeeHtml('<span class="ring-null">—</span>');
 
         Livewire::actingAs($this->superAdmin())->test(EmployeePerformance::class, ['record' => $employee])
             ->assertOk()
+            ->assertSeeHtml('<span>50.00%</span>')
             ->assertSee('My task')
             ->assertDontSee('Not mine');
+
+        Livewire::test(
+            \App\Filament\Resources\ForeignEmployees\Pages\EmployeePerformance::class,
+            ['record' => $foreign]
+        )
+            ->assertOk()
+            ->assertSeeHtml('class="tp-service-grid"')
+            ->assertDontSeeHtml('class="tp-task-grid tp-task-rates"');
 
         // A Saudi employee record is not available through the foreign employee entry point.
         $this->actingAs($this->superAdmin());

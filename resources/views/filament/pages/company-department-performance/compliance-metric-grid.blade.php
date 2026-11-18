@@ -5,10 +5,16 @@
 
 <div class="perf-workforce-grid perf-financial-grid">
     @foreach($cards as $type => $count)
+        @php
+            $document = $group === 'iqama' ? 'iqama' : (str_starts_with($type, 'insurance_') ? 'insurance' : 'work_permit');
+            $total = $rateTotals[$document];
+        @endphp
         <x-performance.metric-card
             :title="__('performance.compliance.'.$type)"
             :value="number_format($count)"
             :unit="$units[$type] ?? null"
+            :rate="$total > 0 ? $count * 100 / $total : null"
+            :rate-label="__('performance.compliance.recorded_documents_share')"
             :hint="__($hints[$type] ?? 'performance.compliance.metric_hints.'.$type)"
             :icon="$icons[$type] ?? 'heroicon-o-identification'"
             :accent="$accents[$type] ?? '#4f46e5'"

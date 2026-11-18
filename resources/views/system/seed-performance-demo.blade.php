@@ -22,7 +22,7 @@
             <p role="status">{{ __($translation.'.ready') }}</p>
             <ul>
                 @foreach ($companies as $company)
-                    <li><a href="{{ url()->query($dashboardUrl, ['companyId' => $company['id']]) }}">{{ $company['label'] }}</a></li>
+                    <li><a href="{{ $company['url'] ?? url()->query($dashboardUrl, ['companyId' => $company['id']]) }}">{{ $company['label'] }}</a></li>
                 @endforeach
             </ul>
         @endif
@@ -32,7 +32,7 @@
             <button type="submit">{{ __($translation.'.run') }}</button>
         </form>
 
-        <p><a href="{{ $dashboardUrl }}">{{ __('performance.title') }}</a></p>
+        <p><a href="{{ $dashboardUrl }}">{{ $dashboardLabel ?? __('performance.title') }}</a></p>
 
         @if ($companies && isset($escalationsUrl))
             <p>{{ __($translation.'.check') }}</p>

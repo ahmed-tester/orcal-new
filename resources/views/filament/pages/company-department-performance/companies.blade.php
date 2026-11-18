@@ -86,20 +86,12 @@
                     </span>
                 </div>
 
-                <div class="rings-row">
-                    <x-performance.rate-ring
-                        :rate="$row->on_time_rate"
-                        :label="__('performance.columns.on_time_rate')"
-                        size="m"
-                        :action="'openKashf(\'services\', \'on_time\', ' . $row->company_id . ')'"
-                    />
-                    <x-performance.rate-ring
-                        :rate="$row->task_completion_rate"
-                        :label="__('performance.columns.task_completion_rate')"
-                        size="m"
-                        :action="'openKashf(\'tasks\', \'all\', ' . $row->company_id . ')'"
-                    />
-                </div>
+                <x-performance.operational-rates
+                    :on-time="$row->on_time_rate"
+                    :task-completion="$row->task_completion_rate"
+                    :on-time-action="'openKashf(\'services\', \'on_time\', ' . $row->company_id . ')'"
+                    :task-completion-action="'openKashf(\'tasks\', \'all\', ' . $row->company_id . ')'"
+                />
 
                 <div class="inst-footer" wire:click="selectCompany({{ $row->company_id }})" role="button" tabindex="0">
                     <span>{{ __('performance.levels.view_departments') }}</span>

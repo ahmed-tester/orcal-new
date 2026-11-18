@@ -666,6 +666,9 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
             ->set('companyId', (string) $company->id)
             ->call('showComplianceOverview')
             ->assertSee(__('performance.compliance.subscriptions_unavailable'))
+            ->assertSee(__('performance.compliance.recorded_documents_share'))
+            ->assertSeeHtml('style="--col: #e11d48; --p: 100;"')
+            ->assertSeeHtml('<span class="ring-null">—</span>')
             ->assertSeeHtml('wire:click="selectCompliancePreview(&#039;iqama&#039;, &#039;iqama_expired&#039;)"')
             ->assertSeeHtml('wire:click="openKashf(\'compliance\', \'iqama_expired\')"')
             ->assertSeeHtml('wire:click="openKashf(\'compliance\', \'municipality_valid\')"')
@@ -1106,7 +1109,10 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
             ->set('dateFrom', '2026-11-01')
             ->set('dateTo', '2026-11-30')
             ->set('companyId', (string) $company->id)
-            ->call('showWorkforceOverview');
+            ->call('showWorkforceOverview')
+            ->assertSee(__('performance.workforce.recorded_days_share'))
+            ->assertSeeHtml('<span>50%</span>')
+            ->assertSeeHtml('<span>0%</span>');
 
         $cardGroups = $page->instance()->workforceCardGroups();
         $this->assertArrayHasKey('attendance', $cardGroups);
@@ -1379,5 +1385,285 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
         $page->call('selectDepartmentRankMode', 'worst')
             ->call('backToCompanies')
             ->assertSet('departmentRankMode', 'all');
+    }
+
+    public function test_operational_rate_pair_preserves_zero_missing_data_and_statement_scope(): void
+    {
+        $company = $this->createCompany('Operational Rates');
+        $department = $this->createDepartment('Operations', $company->id);
+        $employee = $this->createEmployee($company->id, $department->id);
+        $this->createOverdueTask($employee, $company->id, now()->startOfMonth()->toDateString());
+        $viewer = $this->createEmployee($company->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(CompanyDepartmentPerformance::class)
+            ->assertSeeHtml('<div class="perf-operational-rates perf-card perf-operations-rate-card">')
+            ->assertSeeHtml('wire:click="'.e("openKashf('services', 'on_time', null, null)").'"')
+            ->assertSeeHtml('<span>0%</span>')
+            ->assertSee(__('performance.cards.no_data'))
+            ->call('selectCompany', $company->id)
+            ->assertSeeHtml('<div class="perf-operational-rates">')
+            ->assertSee(__('performance.supervisors.completed_services_share'))
+            ->call('selectDepartment', $department->id)
+            ->assertSeeHtml('type="button" wire:click="'.e("openKashf('tasks', 'all', {$company->id}, '{$department->id}', {$employee->id})").'"')
+            ->call('openKashf', 'tasks', 'all', $company->id, $department->id, $employee->id)
+            ->assertSet('showKashfModal', true)
+            ->assertSet('kashfEmployeeId', $employee->id);
+    }
+
+    public function test_company_hero_explains_the_score_calculation(): void
+    {
+        $company = $this->createCompany('Company Score Rules');
+        $viewer = $this->createEmployee($company->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        Livewire::test(CompanyDepartmentPerformance::class)
+            ->call('selectCompany', $company->id)
+            ->assertSeeHtml('<details class="perf-hero-score-rules">')
+            ->assertSeeHtml('<summary>'.e(__('performance.hero.score_rules_toggle')).'</summary>')
+            ->assertSee(__('performance.score.rules_start'))
+            ->assertSee(__('performance.score.rules_task'))
+            ->assertSee(__('performance.score.rules_deficiency'))
+            ->assertSee(__('performance.score.rules_timing'))
+            ->assertSee(__('performance.score.rules_recovery'));
+    }
+
+    public function test_company_sprint_track_displays_top_5_eligible_departments_with_leader_and_gaps(): void
+    {
+        $company = $this->createCompany('Sprint Track Alpha');
+        $viewer = $this->createEmployee($company->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $overdue = now()->copy()->subDay()->toDateString();
+
+        // Create 7 departments with different scores:
+        // Dept 1: 0 overdue -> 100
+        // Dept 2: 1 overdue task -> 96 (diff 4)
+        // Dept 3: 1 overdue task -> 96 (tied with Dept 2)
+        // Dept 4: 2 overdue tasks -> 92 (diff 4)
+        // Dept 5: 3 overdue tasks -> 88 (diff 4)
+        // Dept 6: 4 overdue tasks -> 84 (should be cut off by 5 limit)
+        // Dept 7: 5 overdue tasks -> 80 (should be cut off by 5 limit)
+        $depts = [];
+        $overdueCounts = [
+            1 => 0, // score 100
+            2 => 1, // score 96
+            3 => 1, // score 96 (tied with dept 2)
+            4 => 2, // score 92
+            5 => 3, // score 88
+            6 => 4, // score 84 (cut off)
+            7 => 5, // score 80 (cut off)
+        ];
+
+        for ($i = 1; $i <= 7; $i++) {
+            $dept = $this->createDepartment("Sprint Dept {$i}", $company->id);
+            $emp = $this->createEmployee($company->id, $dept->id);
+            for ($k = 0; $k < $overdueCounts[$i]; $k++) {
+                $this->createOverdueTask($emp, $company->id, $overdue);
+            }
+            $depts[$i] = $dept;
+        }
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->call('selectCompany', $company->id);
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $top5 = $page->instance()->topRankedDepartments();
+        $this->assertCount(0, DB::getQueryLog(), 'topRankedDepartments must run 0 extra database queries');
+
+        $this->assertCount(5, $top5);
+        $this->assertSame($depts[1]->id, $top5[0]->department_id);
+        $this->assertSame(100, $top5[0]->score);
+        $this->assertTrue($top5[0]->is_first);
+        $this->assertFalse($top5[0]->is_shared_lead);
+
+        // Dept 2 (score 96)
+        $this->assertSame(96, $top5[1]->score);
+        $this->assertSame(4, $top5[1]->points_behind);
+        $this->assertFalse($top5[1]->is_tied_with_prev);
+
+        // Dept 3 (score 96 - tied with dept 2)
+        $this->assertSame(96, $top5[2]->score);
+        $this->assertSame(0, $top5[2]->points_behind);
+        $this->assertTrue($top5[2]->is_tied_with_prev);
+
+        // Dept 4 (score 92)
+        $this->assertSame(92, $top5[3]->score);
+        $this->assertSame(4, $top5[3]->points_behind);
+
+        // Dept 5 (score 88)
+        $this->assertSame(88, $top5[4]->score);
+        $this->assertSame(4, $top5[4]->points_behind);
+
+        // Assert 6th and 7th departments are excluded from top 5 sprint track
+        $this->assertFalse($top5->pluck('department_name')->contains('Sprint Dept 6'));
+        $this->assertFalse($top5->pluck('department_name')->contains('Sprint Dept 7'));
+
+        // In HTML, assert sprint track is rendered with leader label and clickable buttons
+        $page->assertSeeHtml('perf-sprint-card')
+            ->assertSeeHtml('perf-sprint-leader-label')
+            ->assertSee('Sprint Dept 1')
+            ->assertSee('Sprint Dept 5');
+    }
+
+    public function test_company_sprint_track_handles_shared_lead(): void
+    {
+        $company = $this->createCompany('Sprint Shared Lead Company');
+        $viewer = $this->createEmployee($company->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $deptA = $this->createDepartment('Lead Dept A', $company->id);
+        $this->createEmployee($company->id, $deptA->id);
+
+        $deptB = $this->createDepartment('Lead Dept B', $company->id);
+        $this->createEmployee($company->id, $deptB->id);
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->call('selectCompany', $company->id);
+
+        $top = $page->instance()->topRankedDepartments();
+
+        $this->assertCount(2, $top);
+        $this->assertSame(100, $top[0]->score);
+        $this->assertSame(100, $top[1]->score);
+        $this->assertTrue($top[0]->is_shared_lead);
+        $this->assertTrue($top[1]->is_tied_with_prev);
+
+        $page->assertSeeHtml('perf-sprint-leader-label');
+    }
+
+    public function test_sprint_track_remains_stable_when_switching_grid_rank_modes(): void
+    {
+        $company = $this->createCompany('Sprint Stability Co');
+        $viewer = $this->createEmployee($company->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $overdue = now()->copy()->subDay()->toDateString();
+        $goodDept = $this->createDepartment('Good Dept', $company->id);
+        $this->createEmployee($company->id, $goodDept->id);
+
+        $worstDept = $this->createDepartment('Worst Dept', $company->id);
+        $badEmp = $this->createEmployee($company->id, $worstDept->id);
+        $this->createOverdueTask($badEmp, $company->id, $overdue);
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->call('selectCompany', $company->id)
+            ->call('selectDepartmentRankMode', 'worst');
+
+        // Cards grid below shows only the worst department
+        $displayed = $page->instance()->displayedDepartments();
+        $this->assertSame([$worstDept->id], $displayed->pluck('department_id')->all());
+
+        // But top sprint track still ranks top departments (Good Dept is #1)
+        $sprint = $page->instance()->topRankedDepartments();
+        $this->assertSame($goodDept->id, $sprint[0]->department_id);
+        $this->assertSame(100, $sprint[0]->score);
+        $this->assertSame($worstDept->id, $sprint[1]->department_id);
+
+        // Clicking a sprint row selects the department
+        $page->call('selectDepartment', $goodDept->id)
+            ->assertSet('selectedDepartmentId', (string) $goodDept->id);
+    }
+
+    public function test_sprint_track_hidden_when_no_eligible_departments(): void
+    {
+        $company = $this->createCompany('Sprint Empty Co');
+        $viewer = $this->createEmployee($company->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        // Department with no employees and no tasks -> is_rankable === false
+        $this->createDepartment('Ghost Dept', $company->id);
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->call('selectCompany', $company->id);
+
+        $this->assertCount(0, $page->instance()->topRankedDepartments());
+        $page->assertDontSeeHtml('<div class="perf-sprint-card"')
+            ->assertDontSee(__('performance.sprint.title'));
+    }
+
+    public function test_employee_operational_score_formula_and_deductions(): void
+    {
+        // 1. Both rates available
+        $evalBoth = PerformanceScoreService::employeeOperationalScore(90.0, 80.0, 1, 1, true);
+        $this->assertTrue($evalBoth->available);
+        $this->assertTrue($evalBoth->is_rankable);
+        $this->assertSame(85.0, $evalBoth->base_rate);
+        $this->assertSame(6, $evalBoth->total_deduction); // 1*4 + 1*2 = 6
+        $this->assertSame(79, $evalBoth->score); // 85 - 6 = 79
+
+        // 2. On-time rate only (foreign or no tasks)
+        $evalOnTime = PerformanceScoreService::employeeOperationalScore(100.0, null, 0, 0, true);
+        $this->assertTrue($evalOnTime->available);
+        $this->assertSame(100.0, $evalOnTime->base_rate);
+        $this->assertSame(100, $evalOnTime->score);
+
+        // 3. Task completion only
+        $evalTask = PerformanceScoreService::employeeOperationalScore(null, 60.0, 0, 2, true);
+        $this->assertTrue($evalTask->available);
+        $this->assertSame(60.0, $evalTask->base_rate);
+        $this->assertSame(4, $evalTask->total_deduction);
+        $this->assertSame(56, $evalTask->score);
+
+        // 4. No rates but active services
+        $evalActive = PerformanceScoreService::employeeOperationalScore(null, null, 1, 0, true);
+        $this->assertTrue($evalActive->available);
+        $this->assertSame(100.0, $evalActive->base_rate);
+        $this->assertSame(4, $evalActive->total_deduction);
+        $this->assertSame(96, $evalActive->score);
+
+        // 5. Zero activity
+        $evalZero = PerformanceScoreService::employeeOperationalScore(null, null, 0, 0, false);
+        $this->assertFalse($evalZero->available);
+        $this->assertFalse($evalZero->is_rankable);
+        $this->assertNull($evalZero->score);
+
+        // 6. Deductions exceeding base rate clamped to 0
+        $evalClamp = PerformanceScoreService::employeeOperationalScore(20.0, null, 10, 5, true);
+        $this->assertSame(0, $evalClamp->score);
+    }
+
+    public function test_employee_sprint_track_and_ranking_modes(): void
+    {
+        $company = $this->createCompany('Emp Sprint Co');
+        $dept = $this->createDepartment('Operations', $company->id);
+
+        $topEmp = $this->createEmployee($company->id, $dept->id);
+        $midEmp = $this->createEmployee($company->id, $dept->id);
+        $worstEmp = $this->createEmployee($company->id, $dept->id);
+
+        // Overdue tasks deduct from employee score
+        $overdue = now()->startOfMonth()->toDateString();
+        $this->createOverdueTask($worstEmp, $company->id, $overdue);
+
+        $viewer = $this->createEmployee($company->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->call('selectCompany', $company->id)
+            ->call('selectDepartment', $dept->id);
+
+        $topRanked = $page->instance()->topRankedEmployees();
+        $this->assertNotEmpty($topRanked);
+        $this->assertSame(1, $topRanked->first()->rank);
+        $this->assertTrue($topRanked->first()->is_first);
+
+        // Rank modes
+        $page->call('selectEmployeeRankMode', 'worst');
+        $this->assertSame('worst', $page->get('employeeRankMode'));
+        $displayed = $page->instance()->displayedEmployees();
+        $this->assertSame([$worstEmp->id], $displayed->pluck('employee_id')->all());
+
+        // Reset on back to departments
+        $page->call('backToDepartments')
+            ->assertSet('employeeRankMode', 'all');
     }
 }

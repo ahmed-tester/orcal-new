@@ -45,6 +45,7 @@ return [
         'compliance' => 'Compliance & Expiries',
         'violations' => 'Violations',
         'financial' => 'Finance & Treasury',
+        'tickets' => 'Tickets & Support',
         'attendance_month' => 'Attendance Summary for :month',
         'leaves_year' => 'Leave Summary for :year',
         'attendance_details' => 'Open Attendance Summary',
@@ -121,6 +122,13 @@ return [
         'score_tasks_title' => 'Overdue Tasks Statement (Performance Score)',
         'compliance_title' => 'Employee Documents Statement (:type)',
         'violations_title' => 'Violations Statement (:type)',
+        'tickets_title' => 'Tickets & Support Statement (:type)',
+        'ticket_number' => 'Ticket #',
+        'ticket_subject' => 'Subject',
+        'ticket_category' => 'Category',
+        'ticket_priority' => 'Priority',
+        'ticket_assignee' => 'Assigned To',
+        'ticket_created_at' => 'Created At',
         'transaction_number' => 'Transaction #',
         'service' => 'Service',
         'beneficiary' => 'Beneficiary',
@@ -186,6 +194,7 @@ return [
 
     // Compliance & Subscriptions
     'compliance' => [
+        'recorded_documents_share' => 'Of recorded documents of the same type',
         'preview_title' => 'Preview of :metric',
         'preview_count' => 'Records shown: :count',
         'full_statement' => 'View full statement',
@@ -242,6 +251,8 @@ return [
 
     // Violations
     'violations' => [
+        'registered_share' => 'Of registered violations',
+        'amount_share' => 'Of total violation amounts',
         'summary_title' => 'Violations Summary & Regulatory Stages',
         'total_violations' => 'Total Violations Registered',
         'total_amount' => 'Total Violations Amount',
@@ -260,6 +271,30 @@ return [
         'currency' => 'SAR',
         'authority_name' => 'Issuing Authority',
         'authority_count' => 'Violations Count',
+    ],
+
+    'tickets' => [
+        'registered_share' => 'Of total tickets',
+        'summary_title' => 'Support Tickets Summary',
+        'total' => 'Total Tickets Registered',
+        'open' => 'Open Tickets',
+        'in_progress' => 'In Progress',
+        'waiting_user_reply' => 'Awaiting User Reply',
+        'resolved_closed' => 'Resolved & Closed',
+        'urgent_high' => 'Urgent & High Priority',
+        'categories_title' => 'Tickets by Category',
+        'category_name' => 'Category',
+        'total_count' => 'Total',
+        'active_count' => 'Active',
+        'unknown_category' => 'Unspecified Category',
+        'open_register' => 'Open Tickets Register',
+        'scope_note' => 'The date range applies to ticket creation date. Tickets are reported at the company level.',
+    ],
+
+    'tickets_demo' => [
+        'title' => 'Seed Demo Support Tickets',
+        'run' => 'Seed 12 Demo Tickets',
+        'ready' => 'Demo tickets seeded successfully. Select a company to open the performance dashboard:',
     ],
 
     // Empty States
@@ -300,8 +335,24 @@ return [
         'no_rankable' => 'No actual department with visible employees or overdue items exists in the current scope to show the lowest-score departments.',
     ],
 
+    'employee_ranking' => [
+        'label' => 'Employee Ranking',
+        'all' => 'All',
+        'best_first' => 'Best First',
+        'worst' => 'Lowest Performing',
+        'score' => 'Performance Score',
+        'worst_empty_title' => 'No Rankable Employees',
+        'no_rankable' => 'No employee with operational activity or performance indicators exists in the current scope to show the lowest-performing employees.',
+    ],
+
     // Financial & Treasury
     'financial' => [
+        'debt_share' => 'Of total debt amount',
+        'treasury_share' => 'Of total inflows and outflows',
+        'receipts_share' => 'Of total confirmed receipts',
+        'fees_share' => 'Of displayed fee payments',
+        'payroll_share' => 'Of net payroll due',
+        'collection_share' => 'Of net collections due',
         'preview_title' => 'Preview of :metric',
         'preview_count' => 'Records shown: :count',
         'full_statement' => 'View full statement',
@@ -411,6 +462,7 @@ return [
 
     // Workforce (Attendance & Leaves)
     'workforce' => [
+        'recorded_days_share' => 'Of recorded days',
         'attendance_title' => 'Attendance Summary',
         'leaves_title' => 'Leaves Summary',
         'open_attendance' => 'Open Attendance Register',
@@ -438,5 +490,33 @@ return [
             'pending_requests_count' => 'Leave requests awaiting management approval.',
             'total_approved_days' => 'Total approved leave days for employees during the year.',
         ],
+    ],
+
+    // Company Departments Leadership (Sprint Track)
+    'sprint' => [
+        'title' => 'Company Departments Leadership',
+        'subtitle' => 'Top 5 eligible departments ranked by operational performance score',
+        'leader' => 'Leader 👑',
+        'shared_lead' => 'Shared Lead 👑',
+        'points_behind' => ':points pts behind previous rank',
+        'points_behind_single' => '1 pt behind previous rank',
+        'tied_score' => 'Tied score',
+        'view_department' => 'View department details',
+        'score_of_100' => ':score / 100',
+        'rank_position' => 'Rank :rank',
+    ],
+
+    // Department Employees Leadership (Sprint Track)
+    'employee_sprint' => [
+        'title' => 'Department Employees Leadership',
+        'subtitle' => 'Top 5 eligible employees ranked by comprehensive operational performance score',
+    ],
+
+    // Operations Hero Card
+    'hero' => [
+        'company_score_title' => 'Company Partial Operational Performance Score',
+        'company_score_subtitle' => 'Measures overdue open tasks and deficiencies in current company scope',
+        'score_rules_toggle' => 'How is the score calculated?',
+        'departments_metrics_title' => 'Departments Metrics Matching Filters',
     ],
 ];

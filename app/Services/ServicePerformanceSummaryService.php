@@ -53,6 +53,12 @@ class ServicePerformanceSummaryService
         $query = self::baseQuery()
             ->where('service_transactions.executed_by', $employeeId);
 
+        $companyId = $filters['company_id'] ?? null;
+
+        if ($companyId !== null) {
+            $query->where('service_transactions.company_id', $companyId);
+        }
+
         self::excludeCancelled($query);
         if ($category !== null) {
             self::applyCategory($query, $category, $startDate, $endDate, $target);
@@ -136,6 +142,12 @@ class ServicePerformanceSummaryService
                 Carbon::parse($startDate)->startOfDay(),
                 Carbon::parse($endDate)->endOfDay(),
             ]);
+
+        $companyId = $filters['company_id'] ?? null;
+
+        if ($companyId !== null) {
+            $query->where('unified_deficiency_tasks.company_id', $companyId);
+        }
 
         if ($target && ($user = auth()->user()) && EmployeePerformanceAccessService::isSupervisor($user)
             && ! EmployeePerformanceAccessService::isSelf($user, $target)) {

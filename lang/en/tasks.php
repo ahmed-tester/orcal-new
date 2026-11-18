@@ -215,6 +215,12 @@ return [
 
     'creator_default' => 'Management',
 
+    'supervision_shifts' => [
+        'actions' => [
+            'view_evaluation' => 'View evaluation',
+        ],
+    ],
+
     'notifications' => [
         'new_assignment_title' => 'New Task Assignment',
         'new_assignment_body' => 'A new task assignment (:number) has been assigned to you by :creator.',

@@ -242,6 +242,69 @@
 
         @elseif($this->kashfDomain === 'financial')
             @include('filament.pages.company-department-performance.financial-records', ['type' => $this->kashfType])
+
+        @elseif($this->kashfDomain === 'tickets')
+            <div class="perf-table-wrapper">
+                <table class="perf-table">
+                    <thead>
+                        <tr>
+                            <th>{{ __('performance.kashf.ticket_number') }}</th>
+                            <th>{{ __('performance.kashf.ticket_subject') }}</th>
+                            <th>{{ __('performance.kashf.company') }}</th>
+                            <th style="text-align: center;">{{ __('performance.kashf.ticket_category') }}</th>
+                            <th style="text-align: center;">{{ __('performance.kashf.ticket_priority') }}</th>
+                            <th style="text-align: center;">{{ __('performance.kashf.status') }}</th>
+                            <th>{{ __('performance.kashf.ticket_assignee') }}</th>
+                            <th>{{ __('performance.kashf.ticket_created_at') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($records as $tkt)
+                            <tr>
+                                <td>
+                                    @if(\App\Filament\Resources\Tickets\TicketResource::canViewAny())
+                                        <a href="{{ \App\Filament\Resources\Tickets\TicketResource::getUrl('view', ['record' => $tkt]) }}" class="perf-tx-code" style="text-decoration: underline;">
+                                            <bdi>{{ $tkt->ticket_number ?? "#{$tkt->id}" }}</bdi>
+                                        </a>
+                                    @else
+                                        <strong class="perf-tx-code"><bdi>{{ $tkt->ticket_number ?? "#{$tkt->id}" }}</bdi></strong>
+                                    @endif
+                                </td>
+                                <td><span style="font-weight: 600;">{{ $tkt->subject }}</span></td>
+                                <td>{{ $tkt->company?->trade_name ?? '—' }}</td>
+                                <td style="text-align: center;">
+                                    <x-filament::badge :color="$tkt->category?->getColor() ?? 'gray'" size="xs">
+                                        {{ $tkt->category?->getLabel() ?? $tkt->category }}
+                                    </x-filament::badge>
+                                </td>
+                                <td style="text-align: center;">
+                                    <x-filament::badge :color="$tkt->priority?->getColor() ?? 'gray'" size="xs">
+                                        {{ $tkt->priority?->getLabel() ?? $tkt->priority }}
+                                    </x-filament::badge>
+                                </td>
+                                <td style="text-align: center;">
+                                    <x-filament::badge :color="$tkt->status?->getColor() ?? 'gray'" size="xs">
+                                        {{ $tkt->status?->getLabel() ?? $tkt->status }}
+                                    </x-filament::badge>
+                                </td>
+                                <td>{{ $tkt->assignedTo?->name ?? '—' }}</td>
+                                <td><bdi>{{ $tkt->created_at?->format('Y-m-d') ?? '—' }}</bdi></td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="8">
+                                    <div class="perf-empty-state-card" style="padding: 2.5rem 1rem;">
+                                        <div class="perf-empty-icon">
+                                            <x-heroicon-o-document-magnifying-glass style="width: 28px; height: 28px;" />
+                                        </div>
+                                        <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         @endif
 
         @if($records->hasPages())

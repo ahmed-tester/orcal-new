@@ -36,10 +36,22 @@ class SystemDocumentationPage extends Page
     {
         $this->activeGroup = request()->query('activeGroup', $this->activeGroup);
         $this->activeSub = request()->query('activeSub', null);
+
+        if ($this->activeGroup === 'performance') {
+            $this->activeGroup = 'reports';
+            $this->activeSub = 'performance';
+        }
     }
 
     public function setGroup(string $group): void
     {
+        if ($group === 'performance') {
+            $this->activeGroup = 'reports';
+            $this->activeSub = 'performance';
+
+            return;
+        }
+
         $this->activeGroup = $group;
         $this->activeSub = null;
     }
@@ -223,6 +235,9 @@ class SystemDocumentationPage extends Page
                 'has_detailed_guide' => true,
                 'view' => 'filament.pages.documentation.reports.reports-guide',
                 'resources' => [
+                    ['name' => __('navigation.company_department_performance'), 'url' => '/company-department-performance'],
+                    ['name' => __('supervisor_performance.navigation'), 'url' => '/supervisor-performance'],
+                    ['name' => __('tasks.my_tasks'), 'url' => '/my-tasks'],
                     ['name' => __('navigation.general_reports'), 'url' => '/general-reports'],
                     ['name' => __('navigation.notifications_report'), 'url' => '/notifications-report'],
                 ],
