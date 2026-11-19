@@ -3,6 +3,9 @@
 namespace App\Services;
 
 use App\Enums\DepartmentScope;
+use App\Filament\Resources\Departments\Pages\CreateDepartment;
+use App\Filament\Resources\Departments\Schemas\DepartmentForm;
+use App\Models\Company;
 use App\Models\Department;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -23,7 +26,7 @@ class DepartmentScopeService
         }
 
         if ($record->is_global) {
-            if ($record->companies()->count() > 0) {
+            if ($record->relationLoaded('companies') ? $record->companies->isNotEmpty() : $record->companies()->exists()) {
                 return DepartmentScope::SHARED;
             }
 
@@ -40,14 +43,28 @@ class DepartmentScopeService
     {
         return [
             Radio::make('department_scope')
-                ->label(__('organization.departments.scope.label'))
-                ->options(DepartmentScope::toOptionsArray())
+                ->label(fn ($get, $livewire) => DepartmentForm::label('scope', DepartmentForm::contextParentId($get, $livewire)))
+                ->options(function ($get, ?Department $record) {
+                    $options = DepartmentScope::toOptionsArray();
+                    if ($get('parent_id')) {
+                        unset($options[DepartmentScope::FAWAZ_GROUP->value]);
+                    } elseif (! $record || $record->parent_id !== null) {
+                        $options = [DepartmentScope::FAWAZ_GROUP->value => $options[DepartmentScope::FAWAZ_GROUP->value]];
+                    }
+
+                    return $options;
+                })
                 ->default(DepartmentScope::SINGLE->value)
                 ->inline()
                 ->live()
-                ->dehydrated(false)
+                ->visible(fn ($get, $livewire, ?Department $record) => ! static::hasFixedRootScope($get, $record)
+                    && (! ($livewire instanceof CreateDepartment) || ! $livewire->hasFixedAffiliation()))
+                ->dehydratedWhenHidden(fn ($livewire) => ! ($livewire instanceof CreateDepartment))
+                ->required()
                 ->afterStateHydrated(function ($component, $record) {
-                    $component->state(static::resolveScope($record)->value);
+                    $component->state($record
+                        ? static::resolveScope($record)->value
+                        : (request()->integer('parent') ? DepartmentScope::SINGLE->value : DepartmentScope::FAWAZ_GROUP->value));
                 })
                 ->afterStateUpdated(function ($state, callable $set) {
                     if (DepartmentScope::isFawazGroup($state)) {
@@ -75,37 +92,70 @@ class DepartmentScopeService
                 ->content(fn () => new HtmlString('
                     <div class="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 rounded-lg text-emerald-800 dark:text-emerald-200 text-sm flex items-center gap-2">
                         <span class="text-xl">🌐</span>
-                        <span><strong>' . e(__('organization.departments.scope.fawaz_group_badge')) . ':</strong> ' . e(__('organization.departments.scope.fawaz_group_info')) . '</span>
+                        <span><strong>'.e(__('organization.departments.scope.fawaz_group_badge')).':</strong> '.e(__('organization.departments.scope.fawaz_group_info')).'</span>
                     </div>
                 '))
-                ->visible(fn ($get) => DepartmentScope::isFawazGroup($get('department_scope')))
+                ->visible(fn ($get, ?Department $record) => static::hasFixedRootScope($get, $record)
+                    || DepartmentScope::isFawazGroup($get('department_scope')))
                 ->columnSpanFull(),
 
             CompanyFormService::makeCompanySelect('company_id', __('organization.departments.fields.company'))
-                ->visible(fn ($get) => DepartmentScope::isSingle($get('department_scope')))
-                ->required(fn ($get) => DepartmentScope::isSingle($get('department_scope'))),
+                ->label(fn ($get, $livewire) => DepartmentForm::label('company', DepartmentForm::contextParentId($get, $livewire)))
+                ->options(fn ($get, $livewire) => static::companyOptions($get, $livewire))
+                ->visible(fn ($get, $livewire, ?Department $record) => ! static::hasFixedRootScope($get, $record)
+                    && DepartmentScope::isSingle($get('department_scope'))
+                    && (! ($livewire instanceof CreateDepartment) || ! $livewire->inheritsCompany()))
+                ->required(fn ($get, $livewire) => DepartmentScope::isSingle($get('department_scope'))
+                    && (! ($livewire instanceof CreateDepartment) || ! $livewire->inheritsCompany())),
 
             Select::make('companies')
-                ->label(__('organization.departments.fields.companies'))
-                ->helperText(__('organization.departments.fields.companies_helper'))
-                ->relationship(
-                    name: 'companies',
-                    titleAttribute: 'trade_name',
-                    modifyQueryUsing: function ($query) {
-                        $user = auth()->user();
-                        if ($user && ! $user->isSuperAdmin()) {
-                            $authorizedIds = CompanyFormService::getAuthorizedCompanyIds($user);
-                            $query->whereIn('companies.id', ! empty($authorizedIds) ? $authorizedIds : [0]);
-                        }
+                ->label(fn ($get, $livewire) => DepartmentForm::label('companies', DepartmentForm::contextParentId($get, $livewire)))
+                ->helperText(fn ($livewire) => $livewire instanceof CreateDepartment && $livewire->creationParent()
+                    ? __('organization.departments.hierarchy.form.parent_companies_helper')
+                    : __('organization.departments.fields.companies_helper'))
+                ->options(fn ($get, $livewire) => static::companyOptions($get, $livewire))
+                ->afterStateHydrated(function ($component, ?Department $record) {
+                    if ($record) {
+                        $component->state($record->companies()->pluck('companies.id')->all());
                     }
-                )
+                })
                 ->multiple()
                 ->searchable()
                 ->preload()
-                ->visible(fn ($get) => DepartmentScope::isShared($get('department_scope')))
-                ->required(fn ($get) => DepartmentScope::isShared($get('department_scope')))
+                ->visible(fn ($get, $livewire, ?Department $record) => ! static::hasFixedRootScope($get, $record)
+                    && DepartmentScope::isShared($get('department_scope'))
+                    && (! ($livewire instanceof CreateDepartment) || ! $livewire->hasFixedAffiliation()))
+                ->required(fn ($get, $livewire) => DepartmentScope::isShared($get('department_scope'))
+                    && (! ($livewire instanceof CreateDepartment) || ! $livewire->hasFixedAffiliation()))
                 ->columnSpanFull(),
         ];
+    }
+
+    protected static function hasFixedRootScope($get, ?Department $record): bool
+    {
+        return $record && $record->parent_id === null && blank($get('parent_id'))
+            && static::resolveScope($record) === DepartmentScope::FAWAZ_GROUP;
+    }
+
+    protected static function companyOptions($get, $livewire): array
+    {
+        $query = Company::query();
+        $user = auth()->user();
+        if (! $user?->isSuperAdmin()) {
+            $query->whereIn('id', CompanyFormService::getAuthorizedCompanyIds($user));
+        }
+        $parentId = $livewire instanceof CreateDepartment ? $livewire->contextParentId : $get('parent_id');
+        if ($parentId) {
+            $parent = CompanyAccessScopeService::apply(Department::query())->find($parentId);
+            if (! $parent) {
+                return [];
+            }
+            if ($ids = $parent->getAssignedCompanyIds()) {
+                $query->whereIn('id', $ids);
+            }
+        }
+
+        return $query->pluck('trade_name', 'id')->all();
     }
 
     /**
@@ -160,12 +210,22 @@ class DepartmentScopeService
                 return match ($scope) {
                     DepartmentScope::FAWAZ_GROUP => $scope->getLabel(),
                     DepartmentScope::SHARED => $record->companies->isNotEmpty()
-                        ? $record->companies->pluck('trade_name')->join('، ')
+                        ? $record->companies->pluck('trade_name')->all()
                         : __('organization.departments.fields.global_badge'),
                     DepartmentScope::SINGLE => $record->company?->trade_name ?? '-',
                 };
             })
             ->badge(fn (Department $record) => $record->is_global)
+            ->listWithLineBreaks()
+            ->limitList(2)
+            ->expandableLimitedList()
+            ->tooltip(function (Department $record): ?string {
+                if (static::resolveScope($record) !== DepartmentScope::SHARED || $record->companies->count() <= 2) {
+                    return null;
+                }
+
+                return $record->companies->pluck('trade_name')->join(__('organization.departments.fields.companies_separator'));
+            })
             ->color(fn (Department $record) => static::resolveScope($record)->getColor())
             ->icon(fn (Department $record) => static::resolveScope($record)->getIcon())
             ->wrap();

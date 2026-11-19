@@ -2,42 +2,28 @@
 
 namespace App\Filament\Resources\Departments\Traits;
 
-use App\Services\DepartmentScopeService;
+use App\Enums\DepartmentScope;
+use App\Services\DepartmentHierarchyService;
+use Illuminate\Database\Eloquent\Model;
 
 trait HandlesDepartmentScope
 {
-    protected function mutateFormDataBeforeCreate(array $data): array
+    protected function handleRecordCreation(array $data): Model
     {
-        return $this->mutateDepartmentScopeData($data);
+        return $this->saveDepartment($data);
     }
 
-    protected function mutateFormDataBeforeSave(array $data): array
+    protected function handleRecordUpdate(Model $record, array $data): Model
     {
-        return $this->mutateDepartmentScopeData($data);
+        return $this->record = $this->saveDepartment($data, $record);
     }
 
-    protected function afterCreate(): void
+    protected function saveDepartment(array $data, ?Model $record = null): Model
     {
-        $this->syncDepartmentScope();
-    }
+        $scope = DepartmentScope::from($data['department_scope']);
+        $companies = (array) ($data['companies'] ?? []);
+        unset($data['department_scope'], $data['companies']);
 
-    protected function afterSave(): void
-    {
-        $this->syncDepartmentScope();
-    }
-
-    protected function mutateDepartmentScopeData(array $data): array
-    {
-        $scope = $this->form->getRawState()['department_scope'] ?? null;
-        $record = property_exists($this, 'record') ? $this->record : null;
-
-        return DepartmentScopeService::mutateBeforeSave($data, $scope, $record);
-    }
-
-    protected function syncDepartmentScope(): void
-    {
-        $scope = $this->form->getRawState()['department_scope'] ?? null;
-
-        DepartmentScopeService::afterSave($this->record, $scope);
+        return DepartmentHierarchyService::save($data, $record, $scope, $companies, 'data.');
     }
 }

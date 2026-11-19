@@ -3,35 +3,32 @@
 namespace App\Models;
 
 use App\Enums\GeneralStatus;
-use App\Services\CodeGeneratorService;
+use App\Observers\DepartmentObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+#[ObservedBy([DepartmentObserver::class])]
 class Department extends Model
 {
     use HasFactory;
 
-    public static function generateNextDepartmentCode(?int $companyId = null): string
-    {
-        return CodeGeneratorService::generate(
-            modelClass: static::class,
-            column: 'department_code',
-            prefix: 'DEP',
-            companyId: $companyId,
-            padLength: 3,
-        );
-    }
+    /** Final company assignment while the hierarchy service is saving a record. */
+    public ?array $pendingCompanyIds = null;
 
     protected $fillable = [
         'company_id',
         'is_global',
         'parent_id',
         'name',
+        'description',
         'department_code',
         'status',
+        'sort_order',
     ];
 
     protected function casts(): array
@@ -39,31 +36,18 @@ class Department extends Model
         return [
             'is_global' => 'boolean',
             'status' => GeneralStatus::class,
+            'sort_order' => 'integer',
         ];
     }
 
-    protected static function booted(): void
+    public function scopeOrdered(Builder $query): Builder
     {
-        static::creating(function (Department $department) {
-            if (blank($department->department_code)) {
-                $department->department_code = static::generateNextDepartmentCode($department->company_id);
-            }
-        });
+        return $query->orderBy('sort_order')->orderBy('id');
+    }
 
-        static::saved(function (Department $department) {
-            if ($department->is_global) {
-                $firstCompanyId = $department->companies()->value('companies.id');
-                if ($firstCompanyId && $department->company_id !== $firstCompanyId) {
-                    $department->withoutEvents(function () use ($department, $firstCompanyId) {
-                        $department->updateQuietly(['company_id' => $firstCompanyId]);
-                    });
-                }
-            } else {
-                if ($department->company_id) {
-                    $department->companies()->syncWithoutDetaching([$department->company_id]);
-                }
-            }
-        });
+    public function scopeRoots(Builder $query): Builder
+    {
+        return $query->whereNull('parent_id');
     }
 
     public function companies(): BelongsToMany
@@ -78,7 +62,9 @@ class Department extends Model
 
     public function getAssignedCompanyIds(): array
     {
-        $ids = $this->companies()->pluck('companies.id')->toArray();
+        $ids = $this->relationLoaded('companies')
+            ? $this->companies->modelKeys()
+            : $this->companies()->pluck('companies.id')->toArray();
         if (! empty($ids)) {
             return $ids;
         }
