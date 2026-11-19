@@ -37,9 +37,27 @@ class ViolationTransactionsTable
 
                 TextColumn::make('violation.violation_number')
                     ->label(__('violations.transactions.fields.violation'))
-                    ->searchable()
+                    ->formatStateUsing(function ($state, $record) {
+                        if ($record->link_type === 'unlinked' || (empty($record->violation_id) && empty($record->metadata['selected_violation_ids']))) {
+                            return __('violations.transactions.fields.link_types.unlinked');
+                        }
+                        if ($record->link_type === 'multiple' || (! empty($record->metadata['selected_violation_ids']))) {
+                            $count = count($record->metadata['selected_violation_ids'] ?? []);
+                            return "مجموعة مخالفات ({$count})";
+                        }
+                        return $state ?? '—';
+                    })
                     ->badge()
-                    ->color('primary'),
+                    ->color(function ($record) {
+                        if ($record->link_type === 'unlinked' || (empty($record->violation_id) && empty($record->metadata['selected_violation_ids']))) {
+                            return 'success';
+                        }
+                        if ($record->link_type === 'multiple' || (! empty($record->metadata['selected_violation_ids']))) {
+                            return 'info';
+                        }
+                        return 'primary';
+                    })
+                    ->searchable(),
 
                 TextColumn::make('transaction_type')
                     ->label(__('violations.transactions.fields.transaction_type'))
@@ -86,6 +104,7 @@ class ViolationTransactionsTable
                 BulkActionGroup::make([
                     // Deletion prevented
                 ]),
-            ]);
+            ])
+            ->defaultSort('id', 'desc');
     }
 }

@@ -35,6 +35,18 @@ class CreateViolationTransaction extends CreateRecord
     {
         $data['executed_by'] = auth()->id();
 
+        $linkType = $data['link_type'] ?? 'single';
+        $data['metadata'] = array_merge($data['metadata'] ?? [], [
+            'link_type' => $linkType,
+        ]);
+
+        if ($linkType === 'unlinked') {
+            $data['violation_id'] = null;
+            unset($data['metadata']['selected_violation_ids']);
+        } elseif ($linkType === 'multiple') {
+            $data['violation_id'] = null;
+        }
+
         return $data;
     }
 }

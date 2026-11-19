@@ -34,7 +34,20 @@ class ViolationTransaction extends Model
         'executed_by',
         'balance_after',
         'metadata',
+        'link_type',
     ];
+
+    public function getLinkTypeAttribute(): string
+    {
+        return $this->metadata['link_type'] ?? 'single';
+    }
+
+    public function setLinkTypeAttribute(?string $value): void
+    {
+        $meta = $this->metadata ?? [];
+        $meta['link_type'] = $value ?? 'single';
+        $this->metadata = $meta;
+    }
 
     protected function casts(): array
     {
@@ -86,21 +99,35 @@ class ViolationTransaction extends Model
             }
 
             // Update violation paid and remaining amounts on transaction
-            if ($transaction->violation_id) {
-                $violation = Violation::find($transaction->violation_id);
-                if ($violation) {
-                    $transType = $transaction->transaction_type instanceof ViolationTransactionType
-                        ? $transaction->transaction_type
-                        : ViolationTransactionType::tryFrom($transaction->transaction_type);
+            $transType = $transaction->transaction_type instanceof ViolationTransactionType
+                ? $transaction->transaction_type
+                : ViolationTransactionType::tryFrom($transaction->transaction_type);
 
-                    if ($transType === ViolationTransactionType::OUTGOING) {
+            if ($transType === ViolationTransactionType::OUTGOING) {
+                $closureDate = $transaction->transaction_date ? \Carbon\Carbon::parse($transaction->transaction_date)->toDateString() : now()->toDateString();
+
+                // 1. Multiple violations linked
+                $selectedIds = $transaction->metadata['selected_violation_ids'] ?? [];
+                if (! empty($selectedIds) && is_array($selectedIds)) {
+                    $violations = Violation::whereIn('id', $selectedIds)->get();
+                    foreach ($violations as $v) {
+                        $v->paid_amount = (float) $v->violation_amount;
+                        $v->remaining_amount = 0.0;
+                        $v->payment_status = ViolationPaymentStatus::PAID;
+                        $v->closure_date = $closureDate;
+                        $v->save();
+                    }
+                } elseif ($transaction->violation_id) {
+                    // 2. Single violation linked
+                    $violation = Violation::find($transaction->violation_id);
+                    if ($violation) {
                         $newPaid = (float) $violation->paid_amount + (float) $transaction->amount;
                         $violation->paid_amount = $newPaid;
-                        $violation->remaining_amount = (float) $violation->violation_amount - $newPaid;
+                        $violation->remaining_amount = max(0.0, (float) $violation->violation_amount - $newPaid);
 
                         if ($violation->remaining_amount <= 0) {
                             $violation->payment_status = ViolationPaymentStatus::PAID;
-                            $violation->closure_date = now()->toDateString();
+                            $violation->closure_date = $closureDate;
                         } else {
                             $violation->payment_status = ViolationPaymentStatus::PARTIAL;
                         }
