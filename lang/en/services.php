@@ -25,5 +25,6 @@ return [
     'beneficiary_placeholder' => 'Enter beneficiary name if available or leave blank...',
     'name_placeholder' => 'e.g. Iqama Renewal, Visa Issue, Work Permit...',
     'general' => 'General',
+    'general_badge' => 'General',
     'estimated_gov_fee' => 'Estimated Government Fee (SAR)',
 ];

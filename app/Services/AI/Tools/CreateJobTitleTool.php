@@ -3,10 +3,11 @@
 namespace App\Services\AI\Tools;
 
 use App\Enums\GeneralStatus;
-use App\Models\Company;
 use App\Models\Department;
 use App\Models\JobTitle;
 use App\Services\AI\Contracts\GeminiToolInterface;
+use App\Services\CompanyAccessScopeService;
+use App\Services\CompanyFormService;
 
 class CreateJobTitleTool implements GeminiToolInterface
 {
@@ -17,27 +18,29 @@ class CreateJobTitleTool implements GeminiToolInterface
 
     public function getDeclaration(): array
     {
+        $key = 'organization.job_titles.ai.';
+
         return [
             'name' => $this->getName(),
-            'description' => 'إدراج مسمى وظيفي جديد في المنشأة مع إمكانية ربطه بالقسم.',
+            'description' => __($key.'description'),
             'parameters' => [
                 'type' => 'OBJECT',
                 'properties' => [
                     'name' => [
                         'type' => 'STRING',
-                        'description' => 'المسمى الوظيفي (مثال: محاسب قانوني، مهندس برمجيات، مدير مبيعات)'
+                        'description' => __($key.'name'),
                     ],
                     'department_name' => [
                         'type' => 'STRING',
-                        'description' => 'اسم القسم التابع له (اختياري)'
+                        'description' => __($key.'department_name'),
                     ],
                     'job_description' => [
                         'type' => 'STRING',
-                        'description' => 'الوصف الوظيفي والمسؤوليات (اختياري)'
-                    ]
+                        'description' => __($key.'job_description'),
+                    ],
                 ],
-                'required' => ['name']
-            ]
+                'required' => ['name'],
+            ],
         ];
     }
 
@@ -49,17 +52,24 @@ class CreateJobTitleTool implements GeminiToolInterface
             $description = trim($arguments['job_description'] ?? '');
 
             if (empty($name)) {
-                return ['success' => false, 'message' => 'المسمى الوظيفي مطلوب.'];
+                return ['success' => false, 'message' => __('organization.job_titles.ai.name_required')];
             }
 
-            $companyId = auth()->user()?->company_id ?? Company::first()?->id ?? 1;
+            $companyId = auth()->user()?->company_id ?? CompanyFormService::getDefaultCompanyId();
+            if (! $companyId) {
+                return ['success' => false, 'message' => __('organization.departments.ai.company_required')];
+            }
 
             $departmentId = null;
-            if (!empty($deptName)) {
-                $dept = Department::firstOrCreate(
-                    ['company_id' => $companyId, 'name' => $deptName],
-                    ['status' => GeneralStatus::ACTIVE]
-                );
+            if (! empty($deptName)) {
+                $dept = CompanyAccessScopeService::apply(Department::query())
+                    ->where('name', $deptName)
+                    ->where(fn ($query) => $query->where('company_id', $companyId)
+                        ->orWhereHas('companies', fn ($companies) => $companies->where('companies.id', $companyId)))
+                    ->first();
+                if (! $dept) {
+                    return ['success' => false, 'message' => __('organization.departments.ai.select_existing')];
+                }
                 $departmentId = $dept->id;
             }
 
@@ -70,7 +80,7 @@ class CreateJobTitleTool implements GeminiToolInterface
             if ($existing) {
                 return [
                     'success' => false,
-                    'message' => "تنبيه (مكرر): المسمى الوظيفي ({$name}) مسجل مسبقاً، تم تخطيه.",
+                    'message' => __('organization.job_titles.ai.duplicate', ['name' => $name]),
                 ];
             }
 
@@ -84,17 +94,17 @@ class CreateJobTitleTool implements GeminiToolInterface
 
             return [
                 'success' => true,
-                'message' => "تم تسجيل المسمى الوظيفي ({$name}) بنجاح.",
+                'message' => __('organization.job_titles.ai.created', ['name' => $name]),
                 'record_name' => $name,
                 'details' => [
                     'name' => $name,
                     'department' => $deptName ?: '--',
-                ]
+                ],
             ];
         } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'message' => 'حدث خطأ أثناء حفظ المسمى الوظيفي: ' . $e->getMessage(),
+                'message' => __('organization.job_titles.ai.failed', ['error' => $e->getMessage()]),
             ];
         }
     }

@@ -65,6 +65,8 @@ class PerformanceScoreServiceTest extends TestCase
             $table->boolean('is_global')->default(false);
             $table->string('name');
             $table->string('department_code')->nullable();
+            $table->text('description')->nullable();
+            $table->unsignedInteger('sort_order')->default(0);
             $table->string('status')->default('active');
             $table->json('metadata')->nullable();
             $table->timestamps();

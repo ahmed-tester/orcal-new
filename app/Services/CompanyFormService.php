@@ -86,7 +86,7 @@ class CompanyFormService
         $pattern = '/^('.implode('|', $prefixes).')\s+/u';
         $normalized = preg_replace($pattern, '', $normalized);
 
-        // 5. Remove "ال" (definite article) at word beginnings when beneficial
+        // 5. Remove Arabic definite article at word beginnings when beneficial
         $words = preg_split('/\s+/u', trim($normalized));
         $cleanedWords = [];
         foreach ($words as $word) {
@@ -167,8 +167,7 @@ class CompanyFormService
 
         $targetLen = mb_strlen($targetNormalized);
 
-        // Safety guard: a one-letter difference between very short names
-        // (e.g. نور / نود) is far too risky to trust automatically.
+        // Safety guard: a one-letter difference between very short names is far too risky to trust automatically.
         if ($targetLen < 4) {
             return null;
         }
@@ -509,7 +508,9 @@ class CompanyFormService
                     }
                 });
 
-                return $query->pluck('name', 'id');
+                return DepartmentHierarchyService::pathLabels(
+                    $query->orderBy('sort_order')->orderBy('id')->get(['id', 'parent_id', 'name'])
+                );
             })
             ->searchable()
             ->preload()
@@ -571,7 +572,7 @@ class CompanyFormService
         }
 
         return $query->get()->mapWithKeys(function ($service) {
-            $suffix = $service->company_id ? '' : ' (عامة)';
+            $suffix = $service->company_id ? '' : ' ('.__('services.general_badge').')';
 
             return [$service->id => $service->name.$suffix];
         })->toArray();
@@ -644,7 +645,7 @@ class CompanyFormService
 
                 return static::employeeSearchResults($search, $query);
             })
-            ->getOptionLabelFromRecordUsing(fn ($record) => ($record->user?->name ?? "موظف #{$record->id}").($record->employee_number ? " ({$record->employee_number})" : '')
+            ->getOptionLabelFromRecordUsing(fn ($record) => ($record->user?->name ?? __('employees.single')." #{$record->id}").($record->employee_number ? " ({$record->employee_number})" : '')
             )
             ->searchable()
             ->preload()
@@ -667,7 +668,7 @@ class CompanyFormService
             ->limit(50)
             ->get()
             ->mapWithKeys(fn ($record) => [
-                $record->id => ($record->user?->name ?? "موظف #{$record->id}").($record->employee_number ? " ({$record->employee_number})" : ''),
+                $record->id => ($record->user?->name ?? __('employees.single')." #{$record->id}").($record->employee_number ? " ({$record->employee_number})" : ''),
             ])
             ->toArray();
     }

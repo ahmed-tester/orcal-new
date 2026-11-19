@@ -76,6 +76,8 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
             $table->boolean('is_global')->default(false);
             $table->string('name');
             $table->string('department_code')->nullable();
+            $table->text('description')->nullable();
+            $table->unsignedInteger('sort_order')->default(0);
             $table->string('status')->default('active');
             $table->json('metadata')->nullable();
             $table->timestamps();
@@ -410,14 +412,14 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
         ]);
         $this->actingAs($admin);
 
-        $parent = $this->createDepartment('الشؤون الإدارية', $company->id);
-        $child = $this->createDepartment('الأرشيف', $company->id, $parent->id);
+        $parent = $this->createDepartment('Administrative Affairs', $company->id);
+        $child = $this->createDepartment('Archive', $company->id, $parent->id);
 
         $summary = CompanyDepartmentPerformanceService::getDepartmentsSummary($company->id);
         $childRow = $summary->firstWhere('department_id', $child->id);
 
         $this->assertNotNull($childRow);
-        $this->assertEquals('الأرشيف (الشؤون الإدارية)', $childRow->department_name);
+        $this->assertEquals('Archive (Administrative Affairs)', $childRow->department_name);
     }
 
     public function test_executor_department_attribution_separated_from_beneficiary(): void

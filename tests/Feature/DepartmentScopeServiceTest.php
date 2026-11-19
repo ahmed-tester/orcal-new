@@ -48,6 +48,8 @@ class DepartmentScopeServiceTest extends TestCase
             $table->boolean('is_global')->default(false);
             $table->string('name');
             $table->string('department_code')->nullable();
+            $table->text('description')->nullable();
+            $table->unsignedInteger('sort_order')->default(0);
             $table->string('status')->default('active');
             $table->timestamps();
         });
@@ -266,7 +268,7 @@ class DepartmentScopeServiceTest extends TestCase
         ]);
 
         $this->assertNotEmpty($dept->department_code);
-        $this->assertStringStartsWith('DEP-', $dept->department_code);
+        $this->assertStringStartsWith('ADM-', $dept->department_code);
     }
 
     private function employeeUser(Department $department, ?int $companyId = null): User

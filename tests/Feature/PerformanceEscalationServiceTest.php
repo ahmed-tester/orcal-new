@@ -80,6 +80,8 @@ class PerformanceEscalationServiceTest extends TestCase
             $table->foreignId('parent_id')->nullable();
             $table->string('name');
             $table->string('department_code')->nullable();
+            $table->text('description')->nullable();
+            $table->unsignedInteger('sort_order')->default(0);
             $table->string('status')->default('active');
             $table->json('metadata')->nullable();
             $table->timestamps();
