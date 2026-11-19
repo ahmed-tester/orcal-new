@@ -5,6 +5,7 @@ namespace App\Filament\Resources\TemporaryEmployees\Pages;
 use App\Filament\Resources\TemporaryEmployees\TemporaryEmployeeResource;
 use App\Models\User;
 use App\Services\EmployeeAgeService;
+use App\Services\EmployeeIdentityService;
 use App\Services\PhoneService;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -37,6 +38,7 @@ class EditTemporaryEmployee extends EditRecord
 
         if ($details) {
             $data['national_id'] = $details->national_id;
+            $data['profession'] = $details->profession;
             $data['address'] = $details->address;
             $data['birth_date'] = $details->birth_date?->format('Y-m-d');
             $data['age'] = EmployeeAgeService::calculateAge($details->birth_date);
@@ -56,6 +58,7 @@ class EditTemporaryEmployee extends EditRecord
     {
         $employee = $this->record;
         $userId = $employee->user_id;
+        EmployeeIdentityService::ensureAvailable('national_id', $this->form->getRawState()['national_id'] ?? null, $employee, $userId);
 
         $metadata = $employee->metadata ?? [];
         if (is_string($metadata)) {
@@ -146,6 +149,7 @@ class EditTemporaryEmployee extends EditRecord
             [
                 'nationality' => 'saudi',
                 'national_id' => $data['national_id'] ?? null,
+                'profession' => $data['profession'] ?? null,
                 'birth_date' => $data['birth_date'] ?? null,
                 'metadata' => ! empty($data['birth_date']) ? ['age' => EmployeeAgeService::calculateAge($data['birth_date'])] : null,
                 'address' => $data['address'] ?? null,

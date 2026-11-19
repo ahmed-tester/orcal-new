@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Owners\Pages;
 use App\Enums\UserType;
 use App\Filament\Resources\Owners\OwnerResource;
 use App\Models\User;
+use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
@@ -44,9 +45,12 @@ class EditOwner extends EditRecord
         }
 
         $data['name_en'] = $owner->name_en;
+        $data['person_capacity'] = PersonCapacityService::resolveKey($owner, 'owner');
         $data['monthly_deduction_percentage'] = $owner->monthly_deduction_percentage;
         $data['owner_advances'] = $owner->owner_advances;
         $data['debts'] = $owner->debts;
+        $data['other_amount'] = $owner->other_amount;
+        $data['basic_salary'] = $owner->basic_salary;
         $data['other_financials'] = $owner->other_financials;
 
         return $data;
@@ -82,7 +86,11 @@ class EditOwner extends EditRecord
             'password' => $data['user_password'] ?? null,
         ];
 
-        return $data;
+        $capacity = $data['person_capacity'] ?? $this->form->getRawState()['person_capacity'] ?? null;
+        $metadata = PersonCapacityService::mergeIntoMetadata($owner->metadata ?? [], $capacity, 'owner');
+        unset($data['person_capacity']);
+
+        return ['metadata' => $metadata] + $data;
     }
 
     protected function afterSave(): void

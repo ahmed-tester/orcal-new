@@ -37,7 +37,7 @@ class BaseSystemNotification extends Notification implements ShouldQueue
         public ?string $recordType = null,
         public int|string|null $recordId = null,
         public ?string $icon = 'heroicon-o-bell',
-        public ?string $color = 'primary'
+        public ?string $color = 'primary',
     ) {
         $this->afterCommit = true;
     }
@@ -101,7 +101,7 @@ class BaseSystemNotification extends Notification implements ShouldQueue
             'icon' => $this->icon ?: 'heroicon-o-bell',
             'iconColor' => $this->color ?: 'primary',
             'color' => $this->color ?: 'primary',
-            'duration' => 5000,
+            'duration' => 'persistent',
             'actions' => $actions,
             'format' => 'filament',
             'event_key' => $this->eventKey,

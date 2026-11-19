@@ -120,7 +120,7 @@ class ViolationSummaryService
             ->groupBy('company_id');
     }
 
-    private static function filtered(array $filters): Builder
+    public static function filtered(array $filters): Builder
     {
         $query = FilterBarService::applyFilters(self::violations(), $filters, [
             'company' => true,
@@ -151,6 +151,7 @@ class ViolationSummaryService
                             'paid' => $sub->where('payment_status', ViolationPaymentStatus::PAID->value),
                             'partial' => $sub->where('payment_status', ViolationPaymentStatus::PARTIAL->value),
                             'pending' => $sub->where('payment_status', ViolationPaymentStatus::PENDING->value),
+                            'unpaid' => $sub->where('payment_status', ViolationPaymentStatus::UNPAID->value),
                             'overdue' => $sub->whereRaw(self::OVERDUE, [today()->toDateString(), today()->toDateString()]),
                             default => $sub->where('payment_status', $status),
                         };
@@ -162,4 +163,3 @@ class ViolationSummaryService
         return $query;
     }
 }
-

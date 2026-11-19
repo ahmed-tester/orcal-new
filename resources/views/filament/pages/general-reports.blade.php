@@ -57,6 +57,47 @@
         .report-custom-select-option .check-icon { color: #2563eb; }
         .dark .report-custom-select-option .check-icon { color: #60a5fa; }
         .report-custom-select-empty { padding: 0.75rem; text-align: center; font-size: 0.75rem; color: #94a3b8; }
+        
+        /* Central Filter Select Component Styles */
+        .fb-col { width: 100%; position: relative; }
+        .fb-label { font-size: 0.8125rem; font-weight: 700; color: #1e293b; margin-bottom: 0.375rem; display: block; }
+        .dark .fb-label { color: #e2e8f0; }
+        .fb-select-wrapper { position: relative; width: 100%; }
+        .fb-select-trigger { width: 100%; height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1px solid #cbd5e1; background-color: #ffffff; color: #0f172a; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all 0.15s; text-align: start; box-sizing: border-box; }
+        .dark .fb-select-trigger { background-color: #0f172a; border-color: #334155; color: #f8fafc; }
+        .fb-select-trigger:focus, .fb-select-trigger.active { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); outline: none; }
+        .fb-select-trigger.has-value { font-weight: 700; color: #2563eb; border-color: #93c5fd; background-color: #eff6ff; }
+        .dark .fb-select-trigger.has-value { color: #60a5fa; background-color: rgba(37,99,235,0.15); border-color: rgba(37,99,235,0.4); }
+        .fb-select-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: inherit; }
+        .fb-select-arrow { width: 16px !important; height: 16px !important; color: #64748b; flex-shrink: 0; margin-inline-start: 0.5rem; }
+        .fb-select-dropdown { position: absolute; top: calc(100% + 4px); inset-inline-start: 0; width: 100%; min-width: 220px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 0.625rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); z-index: 50; overflow: hidden; }
+        .dark .fb-select-dropdown { background: #1e293b; border-color: #334155; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); }
+        .fb-select-search-box { position: relative; padding: 0.5rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; }
+        .dark .fb-select-search-box { border-bottom-color: #334155; }
+        .fb-select-search-box .search-icon { position: absolute; inset-inline-start: 0.85rem; color: #94a3b8; pointer-events: none; width: 14px !important; height: 14px !important; }
+        .fb-select-search-box .search-clear-btn { position: absolute; inset-inline-end: 0.85rem; color: #94a3b8; cursor: pointer; background: none; border: none; padding: 0; display: inline-flex; }
+        .fb-select-search-box .search-clear-btn:hover { color: #dc2626; }
+        .fb-select-search-input { width: 100%; height: 32px; padding: 0.35rem 2rem; border-radius: 0.375rem; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 0.8125rem; color: #0f172a; outline: none; box-sizing: border-box; }
+        .dark .fb-select-search-input { background: #0f172a; border-color: #334155; color: #f8fafc; }
+        .fb-select-bulk-actions { display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.75rem; background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+        .dark .fb-select-bulk-actions { background-color: #0f172a; border-bottom-color: #334155; }
+        .fb-bulk-btn { font-size: 0.75rem; font-weight: 700; color: #2563eb; background: none; border: none; cursor: pointer; padding: 0.15rem 0.35rem; white-space: nowrap; transition: color 0.15s; }
+        .fb-bulk-btn:hover { color: #1d4ed8; text-decoration: underline; }
+        .fb-bulk-btn.text-danger { color: #dc2626; }
+        .fb-bulk-btn.text-danger:hover { color: #b91c1c; }
+        .fb-select-list { max-height: 220px; overflow-y: auto; list-style: none; margin: 0; padding: 0.25rem; }
+        .fb-select-option { display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0.65rem; border-radius: 0.375rem; font-size: 0.8125rem; color: #334155; cursor: pointer; transition: background 0.1s; user-select: none; }
+        .dark .fb-select-option { color: #cbd5e1; }
+        .fb-select-option:hover { background: #eff6ff; color: #2563eb; font-weight: 600; }
+        .dark .fb-select-option:hover { background: rgba(37,99,235,0.2); color: #60a5fa; }
+        .fb-select-option.selected { background: #eff6ff; color: #2563eb; font-weight: 700; }
+        .dark .fb-select-option.selected { background: rgba(37,99,235,0.25); color: #60a5fa; }
+        .fb-select-check-icon { width: 14px !important; height: 14px !important; color: #2563eb; flex-shrink: 0; }
+        .dark .fb-select-check-icon { color: #60a5fa; }
+        .fb-checkbox { width: 15px; height: 15px; border-radius: 3px; border: 1.5px solid #cbd5e1; display: inline-flex; align-items: center; justify-content: center; background: #fff; transition: all 0.1s; flex-shrink: 0; }
+        .dark .fb-checkbox { background: #0f172a; border-color: #475569; }
+        .fb-checkbox.checked { background: #2563eb; border-color: #2563eb; }
+        .fb-select-empty { padding: 0.75rem; text-align: center; font-size: 0.75rem; color: #94a3b8; }
         .report-search-wrapper { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 0.375rem; }
         .report-search-inner { position: relative; width: 100%; }
         .report-search-input { width: 100%; padding: 0.5rem 2.25rem; border-radius: 0.5rem; border: 1px solid #cbd5e1; background-color: #ffffff; color: #0f172a; font-size: 0.875rem; outline: none; box-sizing: border-box; }
@@ -294,15 +335,20 @@
                 </div>
             </div>
 
-            @if($dateFrom || $dateTo || $branchId || $status !== 'all' || $search)
+            @if($this->hasActiveFilters())
                 <div class="print-filters-summary">
                     @if($dateFrom || $dateTo)
                         <span class="print-filter-tag"><strong>{{ __('reports.period') }}:</strong> {{ $dateFrom ?? '...' }} {{ __('reports.to') }} {{ $dateTo ?? '...' }}</span>
                     @endif
-                    @if($branchId)
-                        @php $currentBranch = $this->branches->firstWhere('id', $branchId); @endphp
-                        @if($currentBranch)
-                            <span class="print-filter-tag"><strong>{{ __('reports.filters.branch') }}:</strong> {{ $currentBranch->name }}</span>
+                    @php
+                        $selectedBranchIds = \App\Services\FilterBarService::values($branchId);
+                    @endphp
+                    @if(!empty($selectedBranchIds))
+                        @php
+                            $branchNames = $this->branches->whereIn('id', $selectedBranchIds)->pluck('name')->join(', ');
+                        @endphp
+                        @if($branchNames)
+                            <span class="print-filter-tag"><strong>{{ __('reports.filters.branch') }}:</strong> {{ $branchNames }}</span>
                         @endif
                     @endif
                     @if($guarantorId)
@@ -311,8 +357,16 @@
                             <span class="print-filter-tag"><strong>{{ __('guarantors.single') }}:</strong> {{ $currentGuarantor->name }}</span>
                         @endif
                     @endif
-                    @if($status !== 'all')
-                        <span class="print-filter-tag"><strong>{{ __('reports.filters.status') }}:</strong> {{ __('reports.status.' . $status) ?? $status }}</span>
+                    @php
+                        $selectedStatuses = \App\Services\FilterBarService::values($status, ['all']);
+                    @endphp
+                    @if(!empty($selectedStatuses))
+                        @php
+                            $statusLabels = collect($selectedStatuses)->map(fn($st) => $this->statusOptions[$st] ?? (__('reports.status.' . $st) ?: $st))->join(', ');
+                        @endphp
+                        @if($statusLabels)
+                            <span class="print-filter-tag"><strong>{{ __('reports.filters.status') }}:</strong> {{ $statusLabels }}</span>
+                        @endif
                     @endif
                     @if($search)
                         <span class="print-filter-tag"><strong>{{ __('reports.filters.search') }}:</strong> {{ $search }}</span>
@@ -337,10 +391,16 @@
                         <td style="text-align: center; font-weight: 700;">{{ $index + 1 }}</td>
                         @foreach($this->columns as $column)
                             <td>
+                                @php
+                                    $cellVal = $row[$column['key']] ?? '—';
+                                    if (is_array($cellVal)) {
+                                        $cellVal = implode(', ', $cellVal);
+                                    }
+                                @endphp
                                 @if(str_contains($column['key'], 'price') || str_contains($column['key'], 'amount') || str_contains($column['key'], 'salary') || str_contains($column['key'], 'total'))
-                                    <span style="font-family: monospace; font-weight: 600;">{{ $row[$column['key']] ?? '—' }}</span>
+                                    <span style="font-family: monospace; font-weight: 600;">{{ $cellVal }}</span>
                                 @else
-                                    {{ $row[$column['key']] ?? '—' }}
+                                    {{ $cellVal }}
                                 @endif
                             </td>
                         @endforeach
@@ -525,86 +585,16 @@
                     </div>
                 </div>
 
-                {{-- Branch Searchable Select --}}
+                {{-- Branch Searchable Select (Multi-Select) --}}
                 <div class="report-filter-group">
-                    <label class="report-filter-label">{{ __('reports.filters.branch') }}</label>
-                    <div 
-                        x-data="{
-                            open: false,
-                            search: '',
-                            value: @entangle('branchId').live,
-                            options: {{ json_encode(array_merge([['value' => '', 'label' => __('reports.filters.all_branches')]], $this->branches->map(fn($b) => ['value' => (string)$b->id, 'label' => $b->name])->toArray())) }},
-                            get selectedLabel() {
-                                let found = this.options.find(o => String(o.value) === String(this.value ?? ''));
-                                return found ? found.label : '{{ __('reports.filters.all_branches') }}';
-                            },
-                            get filteredOptions() {
-                                if (!this.search.trim()) return this.options;
-                                let q = this.normalize(this.search.toLowerCase());
-                                return this.options.filter(o => this.normalize(o.label.toLowerCase()).includes(q));
-                            },
-                            normalize(str) {
-                                return (str || '')
-                                    .replace(/[إأآا]/g, 'ا')
-                                    .replace(/ة/g, 'ه')
-                                    .replace(/ى/g, 'ي')
-                                    .trim();
-                            },
-                            select(val) {
-                                this.value = val === '' ? null : val;
-                                this.open = false;
-                                this.search = '';
-                            }
-                        }"
-                        class="report-custom-select-wrapper"
-                        @click.outside="open = false"
-                    >
-                        <button 
-                            type="button" 
-                            @click="open = !open; if(open) $nextTick(() => $refs.searchInput.focus())" 
-                            class="report-custom-select-trigger"
-                            :class="{ 'active': open }"
-                        >
-                            <span class="report-custom-select-label" x-text="selectedLabel"></span>
-                            <x-heroicon-m-chevron-up-down class="report-icon-sm report-custom-select-arrow" />
-                        </button>
-
-                        <div 
-                            x-show="open" 
-                            x-transition
-                            class="report-custom-select-dropdown"
-                            x-cloak
-                        >
-                            <div class="report-custom-select-search-box">
-                                <x-heroicon-m-magnifying-glass class="report-icon-xs search-icon" />
-                                <input 
-                                    type="text" 
-                                    x-ref="searchInput" 
-                                    x-model="search" 
-                                    placeholder="{{ __('reports.filters.search_placeholder') }}" 
-                                    class="report-custom-select-search-input"
-                                    @keydown.escape="open = false"
-                                />
-                            </div>
-                            <ul class="report-custom-select-list">
-                                <template x-for="opt in filteredOptions" :key="opt.value">
-                                    <li 
-                                        @click="select(opt.value)" 
-                                        class="report-custom-select-option"
-                                        :class="{ 'selected': String(opt.value) === String(value ?? '') }"
-                                    >
-                                        <span x-text="opt.label"></span>
-                                        <template x-if="String(opt.value) === String(value ?? '')">
-                                            <x-heroicon-m-check class="report-icon-xs check-icon" />
-                                        </template>
-                                    </li>
-                                </template>
-                                <li x-show="filteredOptions.length === 0" class="report-custom-select-empty">
-                                    {{ __('reports.sidebar.no_results') }}
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
+                    <x-filter-select
+                        wire:model.live="branchId"
+                        label="{{ __('reports.filters.branch') }}"
+                        placeholder="{{ __('reports.filters.all_branches') }}"
+                        :options="$this->branches->pluck('name', 'id')->toArray()"
+                        :multiple="true"
+                        :searchable="true"
+                    />
                 </div>
 
                 @if($this->reportType === 'guarantors')
@@ -691,88 +681,16 @@
                     </div>
                 @endif
 
-                {{-- Status Searchable Select --}}
+                {{-- Status Searchable Select (Multi-Select) --}}
                 <div class="report-filter-group">
-                    <label class="report-filter-label">{{ __('reports.filters.status') }}</label>
-                    <div 
-                        x-data="{
-                            open: false,
-                            search: '',
-                            value: @entangle('status').live,
-                            get options() {
-                                return Object.entries($wire.statusOptions || {}).map(([val, label]) => ({ value: String(val), label: label }));
-                            },
-                            get selectedLabel() {
-                                let found = this.options.find(o => String(o.value) === String(this.value));
-                                return found ? found.label : '{{ __('reports.filters.status_all') }}';
-                            },
-                            get filteredOptions() {
-                                if (!this.search.trim()) return this.options;
-                                let q = this.normalize(this.search.toLowerCase());
-                                return this.options.filter(o => this.normalize(o.label.toLowerCase()).includes(q));
-                            },
-                            normalize(str) {
-                                return (str || '')
-                                    .replace(/[إأآا]/g, 'ا')
-                                    .replace(/ة/g, 'ه')
-                                    .replace(/ى/g, 'ي')
-                                    .trim();
-                            },
-                            select(val) {
-                                this.value = val;
-                                this.open = false;
-                                this.search = '';
-                            }
-                        }"
-                        class="report-custom-select-wrapper"
-                        @click.outside="open = false"
-                    >
-                        <button 
-                            type="button" 
-                            @click="open = !open; if(open) $nextTick(() => $refs.searchInput.focus())" 
-                            class="report-custom-select-trigger"
-                            :class="{ 'active': open }"
-                        >
-                            <span class="report-custom-select-label" x-text="selectedLabel"></span>
-                            <x-heroicon-m-chevron-up-down class="report-icon-sm report-custom-select-arrow" />
-                        </button>
-
-                        <div 
-                            x-show="open" 
-                            x-transition
-                            class="report-custom-select-dropdown"
-                            x-cloak
-                        >
-                            <div class="report-custom-select-search-box">
-                                <x-heroicon-m-magnifying-glass class="report-icon-xs search-icon" />
-                                <input 
-                                    type="text" 
-                                    x-ref="searchInput" 
-                                    x-model="search" 
-                                    placeholder="{{ __('reports.filters.search_placeholder') }}" 
-                                    class="report-custom-select-search-input"
-                                    @keydown.escape="open = false"
-                                />
-                            </div>
-                            <ul class="report-custom-select-list">
-                                <template x-for="opt in filteredOptions" :key="opt.value">
-                                    <li 
-                                        @click="select(opt.value)" 
-                                        class="report-custom-select-option"
-                                        :class="{ 'selected': String(opt.value) === String(value) }"
-                                    >
-                                        <span x-text="opt.label"></span>
-                                        <template x-if="String(opt.value) === String(value)">
-                                            <x-heroicon-m-check class="report-icon-xs check-icon" />
-                                        </template>
-                                    </li>
-                                </template>
-                                <li x-show="filteredOptions.length === 0" class="report-custom-select-empty">
-                                    {{ __('reports.sidebar.no_results') }}
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
+                    <x-filter-select
+                        wire:model.live="status"
+                        label="{{ __('reports.filters.status') }}"
+                        placeholder="{{ __('reports.filters.status_all') }}"
+                        :options="$this->statusOptions"
+                        :multiple="true"
+                        :searchable="false"
+                    />
                 </div>
 
                 {{-- Per Page --}}
@@ -861,9 +779,15 @@
                         <tr>
                             @foreach($this->columns as $column)
                                 <td>
+                                    @php
+                                        $cellVal = $row[$column['key']] ?? '—';
+                                        if (is_array($cellVal)) {
+                                            $cellVal = implode(', ', $cellVal);
+                                        }
+                                    @endphp
                                     @if($column['key'] === 'status' || $column['key'] === 'payment_status' || $column['key'] === 'transaction_type' || $column['key'] === 'is_completed' || $column['key'] === 'priority' || $column['key'] === 'is_active')
                                         @php
-                                            $val = $row[$column['key']] ?? '';
+                                            $val = is_string($cellVal) ? $cellVal : '';
                                             $color = match($val) {
                                                 __('reports.status.active'), __('reports.status.present'), __('reports.status.approved'), __('reports.status.paid'), __('reports.status.completed'), __('reports.status.accepted'), __('reports.status.incoming'), __('reports.values.yes'), __('reports.status.resolved'), __('reports.status.published') => 'success',
                                                 __('reports.status.inactive'), __('reports.status.absent'), __('reports.status.rejected'), __('reports.status.unpaid'), __('reports.status.outgoing'), __('reports.values.no'), __('reports.status.closed'), __('reports.status.critical'), __('reports.status.urgent') => 'danger',
@@ -873,9 +797,9 @@
                                         @endphp
                                         <x-filament::badge :color="$color">{{ $val }}</x-filament::badge>
                                     @elseif(str_contains($column['key'], 'price') || str_contains($column['key'], 'amount') || str_contains($column['key'], 'salary') || str_contains($column['key'], 'total'))
-                                        <span style="font-weight: 700; font-family: monospace; color: #0f172a;">{{ $row[$column['key']] ?? '—' }}</span>
+                                        <span style="font-weight: 700; font-family: monospace; color: #0f172a;">{{ $cellVal }}</span>
                                     @else
-                                        {{ $row[$column['key']] ?? '—' }}
+                                        {{ $cellVal }}
                                     @endif
                                 </td>
                             @endforeach

@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\SaudiEmployees\Tables;
 
-use App\Enums\UserType;
+use App\Filament\Actions\EmployeePerformanceAction;
 use App\Filament\Components\OrgSelect;
 use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
@@ -66,7 +66,7 @@ class SaudiEmployeesTable
                 TextColumn::make('employee_type')
                     ->label(__('employees.fields.employee_type'))
                     ->state(function ($record) {
-                        return $record->user?->user_type === UserType::SAUDI_EMPLOYEE
+                        return $record->isSaudi()
                             ? __('employees.fields.saudi_type')
                             : ($record->details?->nationality
                                 ? (Lang::has('employees.nationalities.'.$record->details->nationality)
@@ -75,8 +75,8 @@ class SaudiEmployeesTable
                                 : __('employees.fields.foreign_type'));
                     })
                     ->badge()
-                    ->color(fn ($record) => $record->user?->user_type === UserType::SAUDI_EMPLOYEE ? 'success' : 'info')
-                    ->icon(fn ($record) => $record->user?->user_type === UserType::SAUDI_EMPLOYEE ? 'heroicon-m-user' : 'heroicon-m-globe-alt'),
+                    ->color(fn ($record) => $record->isSaudi() ? 'success' : 'info')
+                    ->icon(fn ($record) => $record->isSaudi() ? 'heroicon-m-user' : 'heroicon-m-globe-alt'),
 
                 TextColumn::make('id_or_iqama')
                     ->label(__('employees.fields.national_id').' / '.__('employees.fields.iqama_number'))
@@ -90,7 +90,7 @@ class SaudiEmployeesTable
                     ->copyable()
                     ->icon('heroicon-m-identification')
                     ->description(function ($record) {
-                        if ($record->user?->user_type === UserType::SAUDI_EMPLOYEE || empty($record->details?->iqama_expiry)) {
+                        if ($record->isSaudi() || empty($record->details?->iqama_expiry)) {
                             return null;
                         }
                         $expiry = $record->details->iqama_expiry;
@@ -115,6 +115,10 @@ class SaudiEmployeesTable
                     ->state(fn ($record) => $record->metadata['job_title'] ?? $record->jobTitle?->name ?? '—')
                     ->badge()
                     ->color('info'),
+
+                TextColumn::make('details.profession')
+                    ->label(__('employees.fields.profession'))
+                    ->placeholder('—'),
 
                 TextColumn::make('details.guarantor.name')
                     ->label(__('guarantors.single'))
@@ -174,10 +178,25 @@ class SaudiEmployeesTable
             ->recordActions([
                 EditAction::make()
                     ->label(__('employees.actions.edit'))
-                    ->url(fn ($record) => $record->user?->user_type === UserType::FOREIGN_EMPLOYEE
+                    ->url(fn ($record) => ! $record->isSaudi()
                         ? ForeignEmployeeResource::getUrl('edit', ['record' => $record])
                         : SaudiEmployeeResource::getUrl('edit', ['record' => $record])
                     ),
+
+                Action::make('viewProfile')
+                    ->label(__('employees.actions.view'))
+                    ->icon('heroicon-o-eye')
+                    ->visible(fn ($record) => ! $record->isSaudi()
+                        ? ForeignEmployeeResource::hasPage('view') && \App\Filament\Resources\ForeignEmployees\Pages\ViewForeignEmployee::canAccess(['record' => $record])
+                        : SaudiEmployeeResource::hasPage('view') && \App\Filament\Resources\SaudiEmployees\Pages\ViewSaudiEmployee::canAccess(['record' => $record]))
+                    ->url(fn ($record) => ! $record->isSaudi()
+                        ? ForeignEmployeeResource::getUrl('view', ['record' => $record])
+                        : SaudiEmployeeResource::getUrl('view', ['record' => $record])),
+
+                EmployeePerformanceAction::make(fn ($record) => ! $record->isSaudi()
+                    ? ForeignEmployeeResource::class
+                    : SaudiEmployeeResource::class
+                )->color('gray'),
 
                 Action::make('guarantor_report')
                     ->label(__('guarantors.single'))

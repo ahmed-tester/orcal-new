@@ -17,6 +17,11 @@ class TaskAssignmentsTable
     public static function configure(Table $table): Table
     {
         return $table
+            // The assignment phase is Saudi-only, matching the employee
+            // selector in TaskAssignmentForm. Historical foreign rows stay in
+            // the database but are outside the operational log.
+            ->modifyQueryUsing(fn (Builder $query) => $query
+                ->whereHas('employee', fn (Builder $employee) => $employee->saudi()))
             ->columns([
                 TextColumn::make('transaction_number')
                     ->label(__('tasks.fields.transaction_number'))

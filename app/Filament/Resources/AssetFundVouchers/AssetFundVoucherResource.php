@@ -12,6 +12,7 @@ use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class AssetFundVoucherResource extends Resource
 {
@@ -49,6 +50,18 @@ class AssetFundVoucherResource extends Resource
     public static function table(Table $table): Table
     {
         return AssetFundVouchersTable::configure($table);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $user = auth()->user();
+        $query = parent::getEloquentQuery();
+
+        if ($user && $user->isSuperAdminOrOwner()) {
+            return $query;
+        }
+
+        return $query->whereHas('fund', fn (Builder $q) => $q->accessibleBy($user));
     }
 
     public static function getPages(): array

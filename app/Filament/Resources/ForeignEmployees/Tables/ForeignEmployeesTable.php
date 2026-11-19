@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\ForeignEmployees\Tables;
 
+use App\Filament\Actions\EmployeePerformanceAction;
 use App\Filament\Components\OrgSelect;
+use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Models\Guarantor;
 use App\Services\CompanyFormService;
 use App\Services\EmployeeAgeService;
@@ -212,6 +214,13 @@ class ForeignEmployeesTable
             ])
             ->recordActions([
                 EditAction::make()->label(__('employees.actions.edit')),
+                Action::make('viewProfile')
+                    ->label(__('employees.actions.view'))
+                    ->icon('heroicon-o-eye')
+                    ->visible(fn ($record) => ForeignEmployeeResource::hasPage('view')
+                        && \App\Filament\Resources\ForeignEmployees\Pages\ViewForeignEmployee::canAccess(['record' => $record]))
+                    ->url(fn ($record) => ForeignEmployeeResource::getUrl('view', ['record' => $record])),
+                EmployeePerformanceAction::make(ForeignEmployeeResource::class)->color('gray'),
                 Action::make('guarantor_report')
                     ->label(__('guarantors.single'))
                     ->icon('heroicon-o-shield-check')

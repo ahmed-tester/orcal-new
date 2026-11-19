@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\GeneralStatus;
+use App\Services\CodeGeneratorService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +13,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Department extends Model
 {
     use HasFactory;
+
+    public static function generateNextDepartmentCode(?int $companyId = null): string
+    {
+        return CodeGeneratorService::generate(
+            modelClass: static::class,
+            column: 'department_code',
+            prefix: 'DEP',
+            companyId: $companyId,
+            padLength: 3,
+        );
+    }
 
     protected $fillable = [
         'company_id',
@@ -25,12 +38,18 @@ class Department extends Model
     {
         return [
             'is_global' => 'boolean',
-            'status' => \App\Enums\GeneralStatus::class,
+            'status' => GeneralStatus::class,
         ];
     }
 
     protected static function booted(): void
     {
+        static::creating(function (Department $department) {
+            if (blank($department->department_code)) {
+                $department->department_code = static::generateNextDepartmentCode($department->company_id);
+            }
+        });
+
         static::saved(function (Department $department) {
             if ($department->is_global) {
                 $firstCompanyId = $department->companies()->value('companies.id');
@@ -60,12 +79,12 @@ class Department extends Model
     public function getAssignedCompanyIds(): array
     {
         $ids = $this->companies()->pluck('companies.id')->toArray();
-        if (!empty($ids)) {
+        if (! empty($ids)) {
             return $ids;
         }
 
-        if ($this->isGlobal()) {
-            return Company::pluck('id')->toArray();
+        if ($this->is_global) {
+            return [];
         }
 
         if ($this->company_id) {

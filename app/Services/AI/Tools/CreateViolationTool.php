@@ -9,6 +9,7 @@ use App\Models\Violation;
 use App\Models\ViolationCategory;
 use App\Models\ViolationType;
 use App\Services\AI\Contracts\GeminiToolInterface;
+use App\Services\CompanyFormService;
 
 class CreateViolationTool implements GeminiToolInterface
 {
@@ -21,67 +22,80 @@ class CreateViolationTool implements GeminiToolInterface
     {
         return [
             'name' => $this->getName(),
-            'description' => 'إدراج مخالفة نظامية أو غرامة مالية على المنشأة مع تحديد جهة الإصدار والمبلغ ومواعيد الاعتراض والسداد.',
+            'description' => __('smart_import.tools.create_violation_record.description'),
             'parameters' => [
                 'type' => 'OBJECT',
                 'properties' => [
                     'external_violation_number' => [
                         'type' => 'STRING',
-                        'description' => 'رقم المخالفة الخارجي أو رقم القرار من الجهة المصدرة'
+                        'description' => __('smart_import.tools.create_violation_record.external_violation_number_desc'),
                     ],
                     'violation_amount' => [
                         'type' => 'NUMBER',
-                        'description' => 'قيمة الغرامة أو المخالفة بالريال السعودي'
+                        'description' => __('smart_import.tools.create_violation_record.violation_amount_desc'),
                     ],
                     'issuing_authority' => [
                         'type' => 'STRING',
-                        'description' => 'الجهة المصدرة (مثال: أمانة الرياض، وزارة الموارد البشرية، الزكاة والضريبة، المرور)'
+                        'description' => __('smart_import.tools.create_violation_record.issuing_authority_desc'),
                     ],
                     'violation_date' => [
                         'type' => 'STRING',
-                        'description' => 'تاريخ تحرير المخالفة بصيغة YYYY-MM-DD'
+                        'description' => __('smart_import.tools.create_violation_record.violation_date_desc'),
                     ],
                     'category_name' => [
                         'type' => 'STRING',
-                        'description' => 'تصنيف المخالفة (مثال: بلديات، عمل وعمال، سلامة وصحة، مرور)'
+                        'description' => __('smart_import.tools.create_violation_record.category_name_desc'),
                     ],
                     'type_name' => [
                         'type' => 'STRING',
-                        'description' => 'نوع المخالفة المحدد (مثال: عدم تجديد رخصة، مخالفة اشتراطات بيئية)'
+                        'description' => __('smart_import.tools.create_violation_record.type_name_desc'),
                     ],
                     'description' => [
                         'type' => 'STRING',
-                        'description' => 'نص أو وصف المخالفة'
+                        'description' => __('smart_import.tools.create_violation_record.description_desc'),
                     ],
                     'paid_amount' => [
                         'type' => 'NUMBER',
-                        'description' => 'المبلغ المسدد إن وجد'
-                    ]
+                        'description' => __('smart_import.tools.create_violation_record.paid_amount_desc'),
+                    ],
                 ],
-                'required' => ['violation_amount']
-            ]
+                'required' => ['violation_amount'],
+            ],
         ];
     }
 
     public function execute(array $arguments): array
     {
         try {
-            $amount = (float)($arguments['violation_amount'] ?? 0);
+            $amount = (float) ($arguments['violation_amount'] ?? 0);
             $externalNumber = trim($arguments['external_violation_number'] ?? '');
-            $authority = trim($arguments['issuing_authority'] ?? 'جهة حكومية');
+            $authority = trim($arguments['issuing_authority'] ?? __('smart_import.tools.create_violation_record.default_authority'));
             $date = trim($arguments['violation_date'] ?? date('Y-m-d'));
-            $categoryName = trim($arguments['category_name'] ?? 'مخالفات عامة');
-            $typeName = trim($arguments['type_name'] ?? 'مخالفة نظامية');
+            $categoryName = trim($arguments['category_name'] ?? __('smart_import.tools.create_violation_record.default_category'));
+            $typeName = trim($arguments['type_name'] ?? __('smart_import.tools.create_violation_record.default_type'));
             $description = trim($arguments['description'] ?? '');
-            $paid = (float)($arguments['paid_amount'] ?? 0);
+            $paid = (float) ($arguments['paid_amount'] ?? 0);
 
             if ($amount <= 0) {
-                return ['success' => false, 'message' => 'مبلغ المخالفة يجب أن يكون أكبر من الصفر.'];
+                return ['success' => false, 'message' => __('smart_import.tools.create_violation_record.amount_must_be_positive')];
             }
 
-            $companyId = auth()->user()?->company_id ?? Company::first()?->id ?? 1;
+            $explicitCompanyId = ! empty($arguments['company_id']) ? (int) $arguments['company_id'] : null;
 
-            // فحص منع التكرار بناءً على الرقم الخارجي
+            if ($explicitCompanyId !== null && auth()->check()
+                && ! in_array($explicitCompanyId, array_map('intval', CompanyFormService::getAuthorizedCompanyIds()), true)) {
+                return ['success' => false, 'message' => __('violations.import.unauthorized_company')];
+            }
+
+            $companyId = $explicitCompanyId ?? auth()->user()?->company_id ?? Company::first()?->id ?? 1;
+
+            if ($explicitCompanyId !== null && auth()->check()
+                && ! in_array($explicitCompanyId, CompanyFormService::getAuthorizedCompanyIds(), true)) {
+                return ['success' => false, 'message' => __('violations.import.unauthorized_company')];
+            }
+
+            $companyId = $explicitCompanyId ?? auth()->user()?->company_id ?? Company::first()?->id ?? 1;
+
             if (!empty($externalNumber)) {
                 $duplicate = Violation::where('company_id', $companyId)
                     ->where('external_violation_number', $externalNumber)
@@ -89,21 +103,22 @@ class CreateViolationTool implements GeminiToolInterface
                 if ($duplicate) {
                     return [
                         'success' => false,
-                        'message' => "تنبيه (مكرر): مخالفة برقم خارجي ({$externalNumber}) مسجلة مسبقاً برقم #{$duplicate->violation_number}، تم تخطيها.",
+                        'message' => __('smart_import.tools.create_violation_record.duplicate_external_number', [
+                            'external_number' => $externalNumber,
+                            'violation_number' => $duplicate->violation_number,
+                        ]),
                     ];
                 }
             }
 
-            // العثور على التصنيف أو إنشاؤه
             $category = ViolationCategory::firstOrCreate(
-                ['name' => $categoryName ?: 'مخالفات عامة'],
-                ['code' => 'GEN', 'status' => 'active']
+                ['name' => $categoryName ?: __('smart_import.tools.create_violation_record.default_category')],
+                ['is_active' => true]
             );
 
-            // العثور على النوع
             $type = ViolationType::firstOrCreate(
-                ['name' => $typeName ?: 'مخالفة نظامية', 'violation_category_id' => $category->id],
-                ['type_code' => 'VIO', 'status' => 'active']
+                ['name' => $typeName ?: __('smart_import.tools.create_violation_record.default_type'), 'violation_category_id' => $category->id],
+                ['is_active' => true]
             );
 
             $remaining = max(0, $amount - $paid);
@@ -119,26 +134,34 @@ class CreateViolationTool implements GeminiToolInterface
                 'violation_amount' => $amount,
                 'paid_amount' => $paid,
                 'remaining_amount' => $remaining,
-                'description' => $description ?: 'استيراد ذكي — مخالفة وغرامة',
-                'stage' => ViolationStage::DISCOVERY,
+                'description' => $description ?: __('smart_import.tools.create_violation_record.default_description'),
+                'stage' => ViolationStage::CORRECTION,
                 'payment_status' => $paymentStatus,
                 'recorded_by' => auth()->id(),
             ]);
 
             return [
                 'success' => true,
-                'message' => "تم تسجيل مخالفة جديدة بنجاح بمبلغ " . number_format($amount, 2) . " ر.س صادرة من ({$authority}) برقم #{$violation->violation_number}",
-                'record_name' => "مخالفة #{$violation->violation_number}",
+                'message' => __('smart_import.tools.create_violation_record.success_message', [
+                    'amount' => number_format($amount, 2),
+                    'authority' => $authority,
+                    'violation_number' => $violation->violation_number,
+                ]),
+                'record_name' => __('smart_import.tools.create_violation_record.record_name', [
+                    'violation_number' => $violation->violation_number,
+                ]),
                 'details' => [
-                    'amount' => number_format($amount, 2) . ' ر.س',
+                    'amount' => number_format($amount, 2) . ' ' . __('smart_import.fields.currency'),
                     'authority' => $authority,
                     'date' => $date,
-                ]
+                ],
             ];
         } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'message' => 'حدث خطأ أثناء حفظ المخالفة: ' . $e->getMessage(),
+                'message' => __('smart_import.tools.create_violation_record.failed_message', [
+                    'error' => $e->getMessage(),
+                ]),
             ];
         }
     }

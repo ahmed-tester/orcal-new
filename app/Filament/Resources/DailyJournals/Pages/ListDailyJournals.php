@@ -5,6 +5,7 @@ namespace App\Filament\Resources\DailyJournals\Pages;
 use App\Filament\Resources\DailyJournals\DailyJournalResource;
 use App\Filament\Traits\HasFilterBarState;
 use App\Services\FilterBarService;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,6 +21,10 @@ class ListDailyJournals extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('summary')
+                ->label(__('finance.daily_journals.summary.title'))
+                ->icon('heroicon-o-chart-bar')
+                ->url(fn () => DailyJournalResource::getUrl('index')),
             CreateAction::make(),
         ];
     }

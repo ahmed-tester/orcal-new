@@ -7,19 +7,16 @@ return [
     'title' => 'الحضور والانصراف',
     'group' => 'إدارة شؤون الموظفين',
     'breadcrumb' => 'الموارد البشرية',
-
     'sections' => [
         'entry_data' => 'بيانات حضور وانصراف الموظف',
         'records_history' => 'سجل الحضور والانصراف — :date',
         'employee_history' => 'سجل حضور الموظف (:name)',
         'date_history' => 'سجل الحضور ليوم (:date)',
     ],
-
     'tags' => [
         'branch' => 'فرع: :branch',
         'super_admin' => 'جميع الفروع (مدير عام)',
     ],
-
     'fields' => [
         'record_number' => 'الرقم',
         'employee' => 'اسم الموظف',
@@ -35,11 +32,9 @@ return [
         'status' => 'حالة الحضور',
         'notes' => 'ملاحظات',
     ],
-
     'placeholders' => [
         'manual_no_device' => 'يدوي / بدون جهاز',
     ],
-
     'units' => [
         'hour' => 'ساعة',
         'hours' => 'ساعات',
@@ -47,7 +42,6 @@ return [
         'minute' => 'دقيقة',
         'minutes' => 'دقائق',
     ],
-
     'statuses' => [
         'present' => 'حاضر في الموعد',
         'present_short' => 'حاضر',
@@ -60,13 +54,11 @@ return [
         'leave' => 'إجازة معتمدة',
         'leave_short' => 'إجازة',
     ],
-
     'sources' => [
         'fingerprint' => 'جهاز البصمة',
         'manual' => 'تسجيل يدوي',
         'system' => 'آلي (النظام)',
     ],
-
     'actions' => [
         'save' => 'حفظ السجل',
         'update' => 'تحديث السجل',
@@ -86,7 +78,6 @@ return [
         ],
         'export_csv' => 'تصدير كـ CSV',
     ],
-
     'notifications' => [
         'absent_check_success' => 'تم فحص وتسجيل غياب الموظفين المتأخرين بنجاح',
         'absent_check_failed' => 'حدث خطأ أثناء فحص الغياب: :error',
@@ -96,16 +87,13 @@ return [
         'delete_confirm' => 'هل أنت متأكد من حذف هذا السجل نهائياً؟',
         'edit_mode' => 'تم تفعيل وضع التعديل',
     ],
-
     'helpers' => [
         'late_hours_calculation' => 'يتم احتساب دقائق التأخير آلياً بناءً على مواعيد الفرع وفترة السماح',
     ],
-
     'validation' => [
         'employee_required' => 'يرجى اختيار الموظف',
         'date_required' => 'حقل التاريخ إجباري',
     ],
-
     'summary' => [
         'title' => 'ملخص حضور وانصراف الموظفين',
         'subtitle' => 'عرض مجمّع لحضور الموظفين مع إمكانية استعراض سجل أيام الشهر لكل موظف',
@@ -210,7 +198,6 @@ return [
             'signature_manager' => 'مدير الفرع / الموارد البشرية',
         ],
     ],
-
     'table' => [
         'search_placeholder' => 'بحث سريع باسم الموظف، الرقم الوظيفي، أو التاريخ (مثال: 2026-09-13)...',
         'total_records' => 'إجمالي السجلات:',

@@ -4,7 +4,6 @@ return [
     'single' => 'سند / مستخلص',
     'plural' => 'الفواتير والمستخلصات',
     'title' => 'الفواتير والمستخلصات',
-
     'sections' => [
         'general_info' => 'البيانات الأساسية',
         'general_info_desc' => 'تحديد نوع المستند، التاريخ، المبلغ، والطرف المعني',
@@ -14,25 +13,21 @@ return [
         'contract_details_desc' => 'حقول مرنة لتوثيق موضوع العقد وتفاصيل وسبب طلب الدفعة',
         'notes_section' => 'ملاحظات إضافية',
     ],
-
     'types' => [
         'receipt' => 'سند قبض - مستخلص',
         'payment' => 'سند صرف',
         'request' => 'طلب دفعة',
     ],
-
     'payment_methods' => [
         'cash' => 'نقداً',
         'check' => 'شيك',
         'bank_transfer' => 'تحويل بنكي',
     ],
-
     'statuses' => [
         'draft' => 'مسودة',
         'approved' => 'معتمد ومُرحل',
         'cancelled' => 'ملغي',
     ],
-
     'fields' => [
         'voucher_type' => 'نوع المستند / السند',
         'voucher_number' => 'رقم السند',
@@ -60,7 +55,6 @@ return [
         'status' => 'حالة السند',
         'created_by' => 'أُنشئ بواسطة',
     ],
-
     'actions' => [
         'create' => 'إنشاء مستند جديد',
         'edit' => 'تعديل',
@@ -71,12 +65,10 @@ return [
         'approve' => 'اعتماد وترحيل للخزينة',
         'convert_receipt' => 'تحويل إلى سند قبض',
     ],
-
     'messages' => [
         'approved_success' => 'تم اعتماد السند وترحيل الحركة للخزينة بنجاح.',
         'already_approved' => 'هذا السند معتمد بالفعل ومرحل للخزينة.',
     ],
-
     'placeholders' => [
         'auto' => 'توليد تلقائي (Auto)',
         'amount' => '0.00',

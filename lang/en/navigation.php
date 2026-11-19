@@ -79,6 +79,9 @@ return [
     'letters_group' => 'Official Letters & Correspondence',
     'official_letters' => 'Official Letters',
 
+    // Performance
+    'company_department_performance' => 'Company & Department Performance',
+
     // Asset Funds
     'asset_funds'          => 'Asset Funds',
     'asset_fund_vouchers'  => 'Deposit & Withdrawal Vouchers',

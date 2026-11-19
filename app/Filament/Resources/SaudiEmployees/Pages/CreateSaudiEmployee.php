@@ -10,6 +10,7 @@ use App\Models\EmployeeDetail;
 use App\Models\Owner;
 use App\Models\User;
 use App\Services\EmployeeAgeService;
+use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Hash;
@@ -22,73 +23,7 @@ class CreateSaudiEmployee extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $rawState = $this->form->getRawState();
-        $registrationSource = $data['registration_source'] ?? $rawState['registration_source'] ?? 'manual';
-        $selectedOwnerId = $data['selected_owner_id'] ?? $rawState['selected_owner_id'] ?? null;
-
-        if ($registrationSource === 'from_owner' && ! empty($selectedOwnerId)) {
-            $owner = Owner::with('user')->find($selectedOwnerId);
-            if (! $owner || ! $owner->user) {
-                throw ValidationException::withMessages([
-                    'selected_owner_id' => __('employees.fields.errors.owner_data_unavailable'),
-                ]);
-            }
-
-            if (Employee::where('user_id', $owner->user->id)->exists()) {
-                throw ValidationException::withMessages([
-                    'selected_owner_id' => __('employees.fields.errors.owner_already_employee'),
-                ]);
-            }
-
-            $data['user_id'] = $owner->user->id;
-
-            // Update owner user account data if changes were provided in form
-            $userUpdates = array_filter([
-                'name' => $data['user_name'] ?? null,
-                'email' => ! empty($data['user_email']) ? trim($data['user_email']) : null,
-                'phone' => ! empty($data['user_phone']) ? PhoneService::normalize($data['user_phone']) : null,
-            ]);
-            if (! empty($data['user_password'])) {
-                $userUpdates['password'] = Hash::make($data['user_password']);
-            }
-            if (! empty($userUpdates)) {
-                $owner->user->update($userUpdates);
-            }
-        } else {
-            $nationalId = $data['national_id'] ?? null;
-            if (! empty($nationalId) && EmployeeDetail::where('national_id', $nationalId)->exists()) {
-                throw ValidationException::withMessages([
-                    'national_id' => __('employees.fields.errors.national_id_exists'),
-                ]);
-            }
-
-            $email = ! empty($data['user_email'])
-                ? trim($data['user_email'])
-                : ('saudi_'.($nationalId ?? uniqid()).'@orcal.sa');
-
-            if (User::where('email', $email)->exists()) {
-                throw ValidationException::withMessages([
-                    'user_email' => __('employees.fields.errors.email_exists'),
-                ]);
-            }
-
-            $normalizedPhone = PhoneService::normalize($data['user_phone'] ?? null);
-            if ($normalizedPhone && User::where('phone', $normalizedPhone)->exists()) {
-                throw ValidationException::withMessages([
-                    'user_phone' => __('validation.unique', ['attribute' => __('employees.fields.phone')]),
-                ]);
-            }
-
-            $user = User::create([
-                'name' => $data['user_name'] ?? 'Employee',
-                'email' => $email,
-                'phone' => $normalizedPhone,
-                'password' => ! empty($data['user_password']) ? Hash::make($data['user_password']) : Hash::make('12345678'),
-                'user_type' => UserType::SAUDI_EMPLOYEE,
-                'status' => 'active',
-            ]);
-
-            $data['user_id'] = $user->id;
-        }
+        $data = PersonCapacityService::resolveUserForRegistration('employee', $data, $rawState);
 
         if (empty($data['company_id']) && ! empty($data['branch_id'])) {
             $branch = Branch::find($data['branch_id']);
@@ -111,7 +46,10 @@ class CreateSaudiEmployee extends CreateRecord
             unset($data['name_en']);
         }
 
-        unset($data['registration_source'], $data['selected_owner_id']);
+        $capacity = $data['person_capacity'] ?? $rawState['person_capacity'] ?? null;
+        $data['metadata'] = PersonCapacityService::mergeIntoMetadata($data['metadata'] ?? [], $capacity, 'employee');
+
+        unset($data['registration_source'], $data['selected_owner_id'], $data['person_capacity']);
 
         return $data;
     }
@@ -124,6 +62,7 @@ class CreateSaudiEmployee extends CreateRecord
             'employee_id' => $this->record->id,
             'nationality' => 'saudi',
             'national_id' => $data['national_id'] ?? null,
+            'profession' => $data['profession'] ?? null,
             'birth_date' => $data['birth_date'] ?? null,
             'metadata' => ! empty($data['birth_date']) ? ['age' => EmployeeAgeService::calculateAge($data['birth_date'])] : null,
             'address' => $data['address'] ?? null,

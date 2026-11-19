@@ -25,10 +25,11 @@ class AssetFundStatementController extends Controller
         $fund = AssetFund::findOrFail($fundId);
 
         $user = auth()->user();
-        $employeeId = $user?->employee?->id;
-        $isManagerOrAccountant = $employeeId && ($fund->manager_employee_id === $employeeId || $fund->accountant_employee_id === $employeeId);
+        $hasPermission = $user?->isSuperAdminOrOwner()
+            || $user?->can('view_asset_fund_statement')
+            || $user?->can('view_any_asset_fund');
 
-        if (! ($user?->isSuperAdminOrOwner() || $user?->can('view_asset_fund_statement') || $user?->can('view_any_asset_fund') || $isManagerOrAccountant)) {
+        if (! ($hasPermission && $fund->isAccessibleBy($user))) {
             abort(403, __('asset_funds.statement.unauthorized'));
         }
 

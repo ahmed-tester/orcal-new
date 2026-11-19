@@ -185,6 +185,7 @@ return [
     // Payment Statuses
     // ====================================================
     'payment_statuses' => [
+        'unpaid' => 'Unpaid',
         'pending' => 'Active — Pending Payment',
         'partial' => 'Active — Partial Payment',
         'paid' => 'Closed — Fully Paid',
@@ -297,5 +298,8 @@ return [
         'suspended_body' => 'Violation :number for :company is now payment due',
         'stage_expiring_title' => 'Alert: Stage Expiring Soon',
         'stage_expiring_body' => 'Violation :number — :stage expires in :days days',
+    ],
+    'import' => [
+        'unauthorized_company' => 'You are not authorized to add violations to the selected company.',
     ],
 ];

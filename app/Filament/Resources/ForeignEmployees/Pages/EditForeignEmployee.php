@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\ForeignEmployees\Pages;
 
+use App\Filament\Actions\EmployeePerformanceAction;
 use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Models\User;
 use App\Services\EmployeeAgeService;
+use App\Services\EmployeeIdentityService;
 use App\Services\GuarantorService;
 use App\Services\PhoneService;
 use Filament\Actions\DeleteAction;
@@ -19,6 +21,8 @@ class EditForeignEmployee extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            EmployeePerformanceAction::make(ForeignEmployeeResource::class)->record($this->getRecord())->color('gray'),
+
             DeleteAction::make()->label(__('employees.actions.delete')),
         ];
     }
@@ -83,6 +87,7 @@ class EditForeignEmployee extends EditRecord
     protected function mutateFormDataBeforeSave(array $data): array
     {
         $employee = $this->record;
+        EmployeeIdentityService::ensureAvailable('iqama_number', $this->form->getRawState()['iqama_number'] ?? null, $employee);
         $userId = $employee->user_id;
 
         $metadata = $employee->metadata ?? [];

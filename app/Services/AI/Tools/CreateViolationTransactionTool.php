@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Violation;
 use App\Models\ViolationTransaction;
 use App\Services\AI\Contracts\GeminiToolInterface;
+use App\Services\CompanyFormService;
 
 class CreateViolationTransactionTool implements GeminiToolInterface
 {
@@ -19,45 +20,52 @@ class CreateViolationTransactionTool implements GeminiToolInterface
     {
         return [
             'name' => $this->getName(),
-            'description' => 'إدراج حركة أو سند في صندوق تحصيل المخالفات (قبض تحصيل غرامة / صرف تسوية).',
+            'description' => __('smart_import.tools.create_violation_transaction.description'),
             'parameters' => [
                 'type' => 'OBJECT',
                 'properties' => [
                     'amount' => [
                         'type' => 'NUMBER',
-                        'description' => 'مبلغ السند بالريال السعودي'
+                        'description' => __('smart_import.tools.create_violation_transaction.amount_desc'),
                     ],
                     'violation_identifier' => [
                         'type' => 'STRING',
-                        'description' => 'رقم المخالفة أو رقم السند المرتبط بها'
+                        'description' => __('smart_import.tools.create_violation_transaction.violation_identifier_desc'),
                     ],
                     'transaction_type' => [
                         'type' => 'STRING',
-                        'description' => 'نوع الحركة: incoming (سند قبض/تحصيل) أو outgoing (سند صرف)'
+                        'description' => __('smart_import.tools.create_violation_transaction.transaction_type_desc'),
                     ],
                     'transaction_date' => [
                         'type' => 'STRING',
-                        'description' => 'تاريخ السند بصيغة YYYY-MM-DD (الافتراضي اليوم)'
+                        'description' => __('smart_import.tools.create_violation_transaction.transaction_date_desc'),
                     ],
                     'description' => [
                         'type' => 'STRING',
-                        'description' => 'البيان أو سبب السند'
-                    ]
+                        'description' => __('smart_import.tools.create_violation_transaction.description_desc'),
+                    ],
                 ],
-                'required' => ['amount']
-            ]
+                'required' => ['amount'],
+            ],
         ];
     }
 
     public function execute(array $arguments): array
     {
         try {
-            $amount = (float)($arguments['amount'] ?? 0);
+            $amount = (float) ($arguments['amount'] ?? 0);
             if ($amount <= 0) {
-                return ['success' => false, 'message' => 'مبلغ حركة المخالفة يجب أن يكون أكبر من الصفر.'];
+                return ['success' => false, 'message' => __('smart_import.tools.create_violation_transaction.amount_must_be_positive')];
             }
 
-            $companyId = auth()->user()?->company_id ?? Company::first()?->id ?? 1;
+            $explicitCompanyId = ! empty($arguments['company_id']) ? (int) $arguments['company_id'] : null;
+
+            if ($explicitCompanyId !== null && auth()->check()
+                && ! in_array($explicitCompanyId, array_map('intval', CompanyFormService::getAuthorizedCompanyIds()), true)) {
+                return ['success' => false, 'message' => __('violations.import.unauthorized_company')];
+            }
+
+            $companyId = $explicitCompanyId ?? auth()->user()?->company_id ?? Company::first()?->id ?? 1;
 
             $violationId = null;
             if (!empty($arguments['violation_identifier'])) {
@@ -80,22 +88,32 @@ class CreateViolationTransactionTool implements GeminiToolInterface
                 'transaction_type' => $txType,
                 'amount'           => $amount,
                 'transaction_date' => $txDate,
-                'description'      => $arguments['description'] ?? 'استيراد ذكي — سند صندوق المخالفات',
+                'description'      => $arguments['description'] ?? __('smart_import.tools.create_violation_transaction.default_description'),
                 'executed_by'      => auth()->id(),
             ]);
 
-            $typeLabel = ($txType === ViolationTransactionType::INCOMING) ? 'قبض تحصيل' : 'صرف';
+            $typeLabel = ($txType === ViolationTransactionType::INCOMING)
+                ? __('smart_import.tools.create_violation_transaction.type_incoming')
+                : __('smart_import.tools.create_violation_transaction.type_outgoing');
 
             return [
                 'success' => true,
-                'message' => "تم تسجيل سند {$typeLabel} في صندوق المخالفات بمبلغ (" . number_format($amount, 2) . " ر.س) بنجاح برقم #{$tx->voucher_number}",
+                'message' => __('smart_import.tools.create_violation_transaction.success_message', [
+                    'type' => $typeLabel,
+                    'amount' => number_format($amount, 2),
+                    'voucher_number' => $tx->voucher_number,
+                ]),
                 'transaction_id' => $tx->id,
-                'name' => "سند #{$tx->voucher_number}",
+                'name' => __('smart_import.tools.create_violation_transaction.record_name', [
+                    'voucher_number' => $tx->voucher_number,
+                ]),
             ];
         } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'message' => 'تعذر حفظ حركة صندوق المخالفات: ' . $e->getMessage(),
+                'message' => __('smart_import.tools.create_violation_transaction.failed_message', [
+                    'error' => $e->getMessage(),
+                ]),
             ];
         }
     }

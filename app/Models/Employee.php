@@ -127,6 +127,10 @@ class Employee extends Model
                 array_filter($computed, fn ($value) => $value !== null)
             );
         });
+
+        static::deleted(function (Employee $employee) {
+            \App\Services\PersonCapacityService::cleanupOrphanedUser($employee->user_id, 'employee', $employee->id);
+        });
     }
 
     public function scopeSaudi(Builder $query): Builder
@@ -140,6 +144,22 @@ class Employee extends Model
                     ->orWhere('nationality', 'like', '%saudi%')
                 );
         });
+    }
+
+    public function isSaudi(): bool
+    {
+        $userType = $this->user?->user_type;
+        if ($userType === UserType::SAUDI_EMPLOYEE || $userType === UserType::OWNER) {
+            return true;
+        }
+
+        $nationality = $this->details?->nationality;
+        if ($nationality) {
+            return str_contains(mb_strtolower($nationality), 'سعود')
+                || str_contains(strtolower($nationality), 'saudi');
+        }
+
+        return false;
     }
 
     public function scopeForeign(Builder $query): Builder

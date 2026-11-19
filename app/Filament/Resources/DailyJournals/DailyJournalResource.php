@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\DailyJournals;
 
 use App\Filament\Resources\DailyJournals\Pages\CreateDailyJournal;
+use App\Filament\Resources\DailyJournals\Pages\DailyJournalsSummary;
 use App\Filament\Resources\DailyJournals\Pages\EditDailyJournal;
 use App\Filament\Resources\DailyJournals\Pages\ListDailyJournals;
 use App\Filament\Resources\DailyJournals\Schemas\DailyJournalForm;
@@ -64,9 +65,10 @@ class DailyJournalResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => ListDailyJournals::route('/'),
+            'index' => DailyJournalsSummary::route('/'),
+            'detailed' => ListDailyJournals::route('/detailed'),
             'create' => CreateDailyJournal::route('/create'),
-            'edit'   => EditDailyJournal::route('/{record}/edit'),
+            'edit' => EditDailyJournal::route('/{record}/edit'),
         ];
     }
 }
