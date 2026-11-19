@@ -7,6 +7,7 @@
 use App\Filament\Pages\CompanyDepartmentPerformance;
 use App\Filament\Pages\SupervisorPerformance;
 use App\Filament\Resources\PerformanceEscalations\PerformanceEscalationResource;
+use Database\Seeders\DepartmentPerformanceDemoSeeder;
 use Database\Seeders\PerformanceDashboardDemoSeeder;
 use Database\Seeders\PerformanceEscalationDemoSeeder;
 use Database\Seeders\SupervisorPerformanceDemoSeeder;
@@ -109,6 +110,29 @@ Route::match(['get', 'post'], '/system/seed-performance-demo', function (Request
         'dashboardUrl' => CompanyDepartmentPerformance::getUrl(panel: 'admin'),
     ]);
 })->name('system.seed-performance-demo');
+
+Route::match(['get', 'post'], '/system/seed-department-performance-demo', function (Request $request) {
+    abort_unless(PerformanceDashboardDemoSeeder::isAvailable(), 404);
+
+    if (! $request->user()) {
+        return redirect()->guest(Filament::getPanel('admin')->getLoginUrl());
+    }
+
+    abort_unless($request->user()->isSuperAdmin(), 403);
+
+    try {
+        $companies = $request->isMethod('post') ? app(DepartmentPerformanceDemoSeeder::class)->run() : [];
+    } catch (DomainException $exception) {
+        return redirect()->route('system.seed-department-performance-demo')->withErrors($exception->getMessage());
+    }
+
+    return view('system.seed-performance-demo', [
+        'companies' => $companies,
+        'dashboardUrl' => CompanyDepartmentPerformance::getUrl(panel: 'admin'),
+        'translation' => 'performance.department_demo',
+        'submitRoute' => 'system.seed-department-performance-demo',
+    ]);
+})->name('system.seed-department-performance-demo');
 
 Route::match(['get', 'post'], '/system/seed-supervisor-performance-demo', function (Request $request) {
     abort_unless(PerformanceDashboardDemoSeeder::isAvailable(), 404);

@@ -77,6 +77,7 @@ class PerformanceScoreServiceTest extends TestCase
         });
 
         (require database_path('migrations/2026_09_20_160000_create_tasks_and_weekly_notes_tables.php'))->up();
+        (require database_path('migrations/2026_11_18_151000_add_task_item_review_workflow.php'))->up();
 
         Schema::table('task_assignments', function (Blueprint $table) {
             $table->json('metadata')->nullable();
@@ -240,6 +241,7 @@ class PerformanceScoreServiceTest extends TestCase
             'task_id' => $task->id,
             'due_date' => $dueDate,
             'status' => $status->value,
+            'requires_review' => false,
         ]);
     }
 
@@ -455,6 +457,106 @@ class PerformanceScoreServiceTest extends TestCase
 
         $this->assertSame(100, $score->score);
         $this->assertSame(0, $score->deductions->firstWhere('key', 'overdue_tasks')->count);
+    }
+
+    public function test_departments_overview_scores_each_department_type_by_its_scope(): void
+    {
+        $this->actingSuperAdmin();
+        $companyA = $this->createCompany('Company A');
+        $companyB = $this->createCompany('Company B');
+        $companyC = $this->createCompany('Company C');
+        $overdue = now()->copy()->subDay()->toDateString();
+
+        $shared = Department::create(['name' => 'Shared', 'is_global' => true, 'department_code' => 'D-S']);
+        $shared->companies()->attach([$companyA->id, $companyB->id]);
+        $group = Department::create(['name' => 'Group', 'is_global' => true, 'department_code' => 'D-G']);
+        $single = $this->createDepartment('Single', $companyC->id);
+
+        $sharedA = $this->createEmployee($companyA->id, $shared->id);
+        $sharedB = $this->createEmployee($companyB->id, $shared->id);
+        $sharedUnlinked = $this->createEmployee($companyC->id, $shared->id);
+        $groupA = $this->createEmployee($companyA->id, $group->id);
+        $groupC = $this->createEmployee($companyC->id, $group->id);
+        $singleC = $this->createEmployee($companyC->id, $single->id);
+
+        $this->createTaskItem($companyA->id, $sharedA, $overdue, TaskStatus::PENDING);
+        $this->createDeficiency($companyB->id, $sharedB, $overdue, 'open');
+        $this->createDeficiency($companyB->id, $sharedB, $overdue, 'open');
+        $this->createTaskItem($companyC->id, $sharedUnlinked, $overdue, TaskStatus::PENDING);
+        $this->createTaskItem($companyC->id, $groupC, $overdue, TaskStatus::PENDING);
+        $this->createTaskItem($companyC->id, $singleC, $overdue, TaskStatus::PENDING);
+
+        $rows = CompanyDepartmentPerformanceService::getDepartmentsOverview()->keyBy('department_id');
+
+        // Shared: 1 task in A + 2 deficiencies in B; the unlinked company C is ignored.
+        $this->assertSame(92, $rows[$shared->id]->score->score);
+        $this->assertSame(2, $rows[$shared->id]->companies->count());
+        $this->assertSame(2, $rows[$shared->id]->employees_count);
+        $this->assertSame(96, $rows[$shared->id]->lowest_company->score->score);
+
+        // Group-wide: derived from employees in any scoped company, no links needed.
+        $this->assertSame(96, $rows[$group->id]->score->score);
+        $this->assertSame(2, $rows[$group->id]->companies->count());
+        $this->assertTrue($rows[$group->id]->affiliated_company_names->isEmpty());
+
+        // Single: only its own company.
+        $this->assertSame(96, $rows[$single->id]->score->score);
+        $this->assertSame([$companyC->id], $rows[$single->id]->companies->pluck('company_id')->all());
+        $this->assertSame(['Company C'], $rows[$single->id]->affiliated_company_names->all());
+
+        // Narrowing to one linked company reproduces the per-company score.
+        $filtered = CompanyDepartmentPerformanceService::getDepartmentsOverview(['company_id' => [$companyB->id]])->keyBy('department_id');
+        $this->assertSame(96, $filtered[$shared->id]->score->score);
+        $this->assertSame(['Company A', 'Company B'], $filtered[$shared->id]->affiliated_company_names->all());
+        $this->assertSame([$companyB->id], $filtered[$shared->id]->companies->pluck('company_id')->all());
+        $this->assertArrayNotHasKey($single->id, $filtered->all());
+        $this->assertArrayNotHasKey($group->id, $filtered->all());
+
+        $this->actingAs($groupA->user);
+        $restricted = CompanyDepartmentPerformanceService::getDepartmentsOverview()->keyBy('department_id');
+        $this->assertSame(['Company A'], $restricted[$shared->id]->affiliated_company_names->all());
+    }
+
+    public function test_departments_overview_statements_match_card_counts_and_do_not_double_count(): void
+    {
+        $this->actingSuperAdmin();
+        $company = $this->createCompany('Statements');
+        $department = $this->createDepartment('Ops', $company->id);
+        $employee = $this->createEmployee($company->id, $department->id);
+        $overdue = now()->copy()->subDay()->toDateString();
+
+        $this->createTaskItem($company->id, $employee, $overdue, TaskStatus::PENDING);
+        $this->createDeficiency($company->id, $employee, $overdue, 'open');
+
+        $row = CompanyDepartmentPerformanceService::getDepartmentsOverview()->firstWhere('department_id', $department->id);
+
+        $this->assertSame(1, $row->overdue_tasks);
+        $this->assertSame(1, $row->overdue_deficiencies);
+        $this->assertSame(
+            $row->overdue_tasks,
+            CompanyDepartmentPerformanceService::getKashfTasksQuery([], 'score_overdue', $company->id, $department->id)->count()
+        );
+        $this->assertSame(
+            $row->overdue_deficiencies,
+            CompanyDepartmentPerformanceService::getKashfDeficienciesQuery([], 'score_overdue', $company->id, $department->id)->count()
+        );
+    }
+
+    public function test_departments_overview_is_empty_without_authorized_companies(): void
+    {
+        $this->seq++;
+        $plainUser = User::create([
+            'name' => "Plain {$this->seq}",
+            'email' => "plain{$this->seq}@test.local",
+            'password' => bcrypt('password'),
+            'user_type' => UserType::FOREIGN_EMPLOYEE->value,
+        ]);
+        $company = $this->createCompany('Hidden');
+        $department = $this->createDepartment('Hidden Dept', $company->id);
+        $this->createEmployee($company->id, $department->id);
+        $this->actingAs($plainUser);
+
+        $this->assertTrue(CompanyDepartmentPerformanceService::getDepartmentsOverview()->isEmpty());
     }
 
     public function test_supervisor_shift_limits_score_to_assigned_team(): void

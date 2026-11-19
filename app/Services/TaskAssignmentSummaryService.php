@@ -24,6 +24,8 @@ class TaskAssignmentSummaryService
         'completed_count',
         'in_progress_count',
         'pending_count',
+        'pending_review_count',
+        'returned_count',
         'postponed_count',
         'overdue_count',
         'completed_in_period',
@@ -31,6 +33,8 @@ class TaskAssignmentSummaryService
         'due_completed_count',
         'on_time_count',
         'dated_completed_count',
+        'approved_items_count',
+        'assigned_weight_sum',
         'weight_sum',
         'score_sum',
     ];
@@ -135,6 +139,8 @@ class TaskAssignmentSummaryService
                 COALESCE(task_summary.completed_count, 0) as completed_count,
                 COALESCE(task_summary.in_progress_count, 0) as in_progress_count,
                 COALESCE(task_summary.pending_count, 0) as pending_count,
+                COALESCE(task_summary.pending_review_count, 0) as pending_review_count,
+                COALESCE(task_summary.returned_count, 0) as returned_count,
                 COALESCE(task_summary.postponed_count, 0) as postponed_count,
                 COALESCE(task_summary.overdue_count, 0) as overdue_count,
                 COALESCE(task_summary.completed_in_period, 0) as completed_in_period,
@@ -142,10 +148,12 @@ class TaskAssignmentSummaryService
                 COALESCE(task_summary.due_completed_count, 0) as due_completed_count,
                 COALESCE(task_summary.on_time_count, 0) as on_time_count,
                 COALESCE(task_summary.dated_completed_count, 0) as dated_completed_count,
+                COALESCE(task_summary.approved_items_count, 0) as approved_items_count,
+                COALESCE(task_summary.assigned_weight_sum, 0) as assigned_weight_sum,
                 COALESCE(task_summary.weight_sum, 0) as weight_sum,
                 COALESCE(task_summary.score_sum, 0) as score_sum,
                 CASE WHEN COALESCE(task_summary.weight_sum, 0) > 0
-                    THEN ROUND((task_summary.score_sum / task_summary.weight_sum) * 100, 2)
+                    THEN ROUND(((task_summary.score_sum * 1.0) / task_summary.weight_sum) * 100, 2)
                     ELSE 0 END as weighted_percentage
             ')
             ->with(['user', 'company', 'branch', 'department', 'jobTitle']);
@@ -187,7 +195,7 @@ class TaskAssignmentSummaryService
     {
         return self::items($filters)
             ->whereHas('taskAssignment', fn (Builder $query) => $query->where('employee_id', $employeeId))
-            ->with(['task', 'taskAssignment'])
+            ->with(['task', 'taskAssignment', 'reviews.submitter', 'reviews.decider'])
             ->orderByRaw('COALESCE(due_date, completed_at) IS NULL')
             ->orderByRaw('COALESCE(due_date, completed_at)')
             ->orderBy('id')
@@ -329,10 +337,12 @@ class TaskAssignmentSummaryService
             ->selectRaw('SUM(CASE WHEN task_assignment_items.status = ? THEN 1 ELSE 0 END) as completed_count', [TaskStatus::COMPLETED->value])
             ->selectRaw('SUM(CASE WHEN task_assignment_items.status = ? THEN 1 ELSE 0 END) as in_progress_count', [TaskStatus::IN_PROGRESS->value])
             ->selectRaw('SUM(CASE WHEN task_assignment_items.status = ? THEN 1 ELSE 0 END) as pending_count', [TaskStatus::PENDING->value])
+            ->selectRaw('SUM(CASE WHEN task_assignment_items.status = ? THEN 1 ELSE 0 END) as pending_review_count', [TaskStatus::PENDING_REVIEW->value])
+            ->selectRaw('SUM(CASE WHEN task_assignment_items.status = ? THEN 1 ELSE 0 END) as returned_count', [TaskStatus::RETURNED_FOR_REVISION->value])
             ->selectRaw('SUM(CASE WHEN task_assignment_items.status = ? THEN 1 ELSE 0 END) as postponed_count', [TaskStatus::POSTPONED->value])
             ->selectRaw(
-                'SUM(CASE WHEN task_assignment_items.status IN (?, ?) AND task_assignment_items.due_date IS NOT NULL AND task_assignment_items.due_date < ? THEN 1 ELSE 0 END) as overdue_count',
-                [TaskStatus::PENDING->value, TaskStatus::IN_PROGRESS->value, today()->toDateString()]
+                'SUM(CASE WHEN task_assignment_items.status IN (?, ?, ?) AND task_assignment_items.due_date IS NOT NULL AND task_assignment_items.due_date < ? THEN 1 ELSE 0 END) as overdue_count',
+                [TaskStatus::PENDING->value, TaskStatus::IN_PROGRESS->value, TaskStatus::RETURNED_FOR_REVISION->value, today()->toDateString()]
             )
             ->selectRaw(
                 'SUM(CASE WHEN task_assignment_items.status = ? AND task_assignment_items.completed_at BETWEEN ? AND ? THEN 1 ELSE 0 END) as completed_in_period',
@@ -354,8 +364,19 @@ class TaskAssignmentSummaryService
                 'SUM(CASE WHEN task_assignment_items.status = ? AND task_assignment_items.due_date IS NOT NULL AND task_assignment_items.completed_at IS NOT NULL THEN 1 ELSE 0 END) as dated_completed_count',
                 [TaskStatus::COMPLETED->value]
             )
-            ->selectRaw('SUM(COALESCE(task_assignment_items.weight, 0)) as weight_sum')
-            ->selectRaw('SUM(COALESCE(task_assignment_items.score, 0)) as score_sum')
+            ->selectRaw(
+                'SUM(CASE WHEN task_assignment_items.requires_review = 0 OR task_assignment_items.status = ? THEN 1 ELSE 0 END) as approved_items_count',
+                [TaskStatus::COMPLETED->value]
+            )
+            ->selectRaw('SUM(COALESCE(task_assignment_items.weight, 0)) as assigned_weight_sum')
+            ->selectRaw(
+                'SUM(CASE WHEN task_assignment_items.requires_review = 0 OR task_assignment_items.status = ? THEN COALESCE(task_assignment_items.weight, 0) ELSE 0.0 END) as weight_sum',
+                [TaskStatus::COMPLETED->value]
+            )
+            ->selectRaw(
+                'SUM(CASE WHEN task_assignment_items.requires_review = 0 OR task_assignment_items.status = ? THEN COALESCE(task_assignment_items.score, 0) ELSE 0.0 END) as score_sum',
+                [TaskStatus::COMPLETED->value]
+            )
             ->groupBy('task_assignments.employee_id');
     }
 
@@ -374,8 +395,12 @@ class TaskAssignmentSummaryService
         $query->where(function (Builder $period) use ($startDate, $endDate) {
             $period->whereBetween('task_assignment_items.due_date', [$startDate, $endDate])
                 ->orWhereBetween('task_assignment_items.completed_at', [$startDate, $endDate])
+                ->orWhere(function (Builder $pendingReview) use ($startDate, $endDate) {
+                    $pendingReview->where('task_assignment_items.status', TaskStatus::PENDING_REVIEW->value)
+                        ->whereBetween('task_assignment_items.submitted_at', ["{$startDate} 00:00:00", "{$endDate} 23:59:59"]);
+                })
                 ->orWhere(function (Builder $overdue) use ($endDate) {
-                    $overdue->whereIn('task_assignment_items.status', [TaskStatus::PENDING->value, TaskStatus::IN_PROGRESS->value])
+                    $overdue->whereIn('task_assignment_items.status', TaskStatus::employeeOpenValues())
                         ->whereNotNull('task_assignment_items.due_date')
                         ->whereDate('task_assignment_items.due_date', '<', today())
                         ->whereDate('task_assignment_items.due_date', '<=', $endDate);
@@ -386,6 +411,8 @@ class TaskAssignmentSummaryService
                         ->whereIn('task_assignment_items.status', [
                             TaskStatus::PENDING->value,
                             TaskStatus::IN_PROGRESS->value,
+                            TaskStatus::RETURNED_FOR_REVISION->value,
+                            TaskStatus::PENDING_REVIEW->value,
                             TaskStatus::POSTPONED->value,
                         ])
                         ->whereHas('taskAssignment', fn (Builder $assignment) => $assignment

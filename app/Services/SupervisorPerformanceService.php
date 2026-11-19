@@ -35,6 +35,8 @@ class SupervisorPerformanceService
 
     public const METRIC_OPEN = 'open';
 
+    public const METRIC_PENDING_REVIEW = 'pending_review';
+
     public const METRIC_EXCLUDED = 'excluded';
 
     public const ITEM_ON_TIME = 'on_time';
@@ -42,6 +44,8 @@ class SupervisorPerformanceService
     public const ITEM_LATE = 'late';
 
     public const ITEM_OPEN = 'open';
+
+    public const ITEM_PENDING_REVIEW = 'pending_review';
 
     public const ITEM_MISSING_DATE = 'missing_date';
 
@@ -57,16 +61,11 @@ class SupervisorPerformanceService
      * the production environment, matching the existing employee performance
      * screens.
      */
-    public static function availableInEnvironment(): bool
-    {
-        return ! app()->environment('production');
-    }
-
     public static function canViewReport(?User $user = null): bool
     {
         $user ??= auth()->user();
 
-        if (! $user || ! self::availableInEnvironment()) {
+        if (! $user) {
             return false;
         }
 
@@ -251,6 +250,7 @@ class SupervisorPerformanceService
                 'on_time' => $counts['on_time'],
                 'late' => $counts['late'],
                 'open' => $counts['open'],
+                'pending_review' => $counts['pending_review'],
                 'missing_date' => $counts['missing_date'],
                 'ambiguous' => $counts['ambiguous'],
                 'rate' => $counts['due'] > 0 ? round(($counts['on_time'] / $counts['due']) * 100, 2) : null,
@@ -358,7 +358,9 @@ class SupervisorPerformanceService
             'service_visible' => $serviceVisible,
             'summary' => $summary,
             'items' => $taskVisible ? TaskAssignmentSummaryService::employeeItems($employee->id, $filters) : collect(),
-            'weighted_percentage' => $summary ? TaskAssignmentSummaryService::weightedPercentage($summary) : null,
+            'weighted_percentage' => ($summary && (float) ($summary->weight_sum ?? 0) > 0)
+                ? TaskAssignmentSummaryService::weightedPercentage($summary)
+                : null,
             'completion_rate' => $summary ? TaskAssignmentSummaryService::completionRate($summary) : null,
             'on_time_rate' => $summary ? TaskAssignmentSummaryService::onTimeRate($summary) : null,
             'services' => $serviceVisible ? [
@@ -436,8 +438,9 @@ class SupervisorPerformanceService
             self::METRIC_ON_TIME => $items->where('state', self::ITEM_ON_TIME),
             self::METRIC_LATE => $items->where('state', self::ITEM_LATE),
             self::METRIC_OPEN => $items->where('state', self::ITEM_OPEN),
+            self::METRIC_PENDING_REVIEW => $items->where('state', self::ITEM_PENDING_REVIEW),
             self::METRIC_EXCLUDED => $items->filter(fn (array $item) => in_array($item['state'], [self::ITEM_AMBIGUOUS, self::ITEM_MISSING_DATE], true)),
-            default => $items->filter(fn (array $item) => in_array($item['state'], [self::ITEM_ON_TIME, self::ITEM_LATE, self::ITEM_OPEN], true)),
+            default => $items->filter(fn (array $item) => in_array($item['state'], [self::ITEM_ON_TIME, self::ITEM_LATE, self::ITEM_OPEN, self::ITEM_PENDING_REVIEW], true)),
         };
     }
 
@@ -731,6 +734,10 @@ class SupervisorPerformanceService
                 : self::ITEM_LATE;
         }
 
+        if ($item->status === TaskStatus::PENDING_REVIEW) {
+            return self::ITEM_PENDING_REVIEW;
+        }
+
         return self::ITEM_OPEN;
     }
 
@@ -745,6 +752,7 @@ class SupervisorPerformanceService
             'on_time' => 0,
             'late' => 0,
             'open' => 0,
+            'pending_review' => 0,
             'missing_date' => 0,
             'ambiguous' => 0,
         ];
@@ -778,6 +786,7 @@ class SupervisorPerformanceService
             $totals['on_time'] += $row['on_time'];
             $totals['late'] += $row['late'];
             $totals['open'] += $row['open'];
+            $totals['pending_review'] += $row['pending_review'];
             $totals['missing_date'] += $row['missing_date'];
             $totals['ambiguous'] += $row['ambiguous'];
         }
@@ -800,6 +809,7 @@ class SupervisorPerformanceService
             'on_time' => 0,
             'late' => 0,
             'open' => 0,
+            'pending_review' => 0,
             'missing_date' => 0,
             'ambiguous' => 0,
             'excluded' => 0,

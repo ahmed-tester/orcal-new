@@ -7,6 +7,7 @@ use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Models\EmployeeDetail;
 use App\Models\User;
 use App\Services\EmployeeAgeService;
+use App\Services\EmployeeIdentityService;
 use App\Services\GuarantorService;
 use App\Services\PhoneService;
 use Filament\Resources\Pages\CreateRecord;
@@ -19,12 +20,7 @@ class CreateForeignEmployee extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $iqamaNumber = $data['iqama_number'] ?? null;
-        if (! empty($iqamaNumber) && EmployeeDetail::where('iqama_number', $iqamaNumber)->exists()) {
-            throw ValidationException::withMessages([
-                'iqama_number' => __('employees.fields.errors.iqama_exists'),
-            ]);
-        }
+        EmployeeIdentityService::ensureAvailable('iqama_number', $this->form->getRawState()['iqama_number'] ?? null);
 
         if (! empty($data['user_email'])) {
             $email = trim($data['user_email']);

@@ -8,6 +8,19 @@ return [
         'run' => 'Prepare Demo Data',
         'ready' => 'The demo companies are ready to view.',
     ],
+    'department_demo' => [
+        'title' => 'Department performance demo',
+        'run' => 'Prepare department demo data',
+        'ready' => 'Demo data is ready. Open the performance dashboard and select By department in Operations.',
+        'requires_dashboard_demo' => 'Run the main performance demo at /system/seed-performance-demo first to prepare both demo companies.',
+        'shared' => 'Shared support (department demo)',
+        'group' => 'Group follow-up (department demo)',
+        'empty' => 'Department without data (department demo)',
+        'employee' => 'Demo employee for :department - :company',
+        'task' => 'Request follow-up (department demo)',
+        'deficiency' => 'Complete document :number (department demo)',
+        'service' => 'Transaction review (department demo)',
+    ],
     'escalation_demo' => [
         'title' => 'Performance Escalation Test Data',
         'run' => 'Prepare Escalation Test Data',
@@ -333,6 +346,27 @@ return [
         'score' => 'Performance Score',
         'worst_empty_title' => 'No Rankable Departments',
         'no_rankable' => 'No actual department with visible employees or overdue items exists in the current scope to show the lowest-score departments.',
+    ],
+
+    // Department-centric view (operations tab)
+    'department_view' => [
+        'mode_label' => 'View mode',
+        'mode_company' => 'By company',
+        'mode_department' => 'By department',
+        'title' => 'Department performance across companies',
+        'scope_single' => 'Single-company department',
+        'scope_shared' => 'Shared across companies',
+        'scope_group' => 'Standalone group department',
+        'affiliation_single' => 'Department’s company',
+        'affiliation_shared' => 'Companies linked to the department',
+        'show_all_companies' => 'Show all linked companies',
+        'evaluated_companies' => 'Companies included in the evaluation',
+        'companies_count' => '{0} No companies evaluated|{1} One company evaluated|[2,*] :count companies evaluated',
+        'aggregate_score' => 'Aggregate score',
+        'lowest_company' => 'Lowest company: :company',
+        'details' => 'Department details',
+        'employees' => 'Employees',
+        'scope_note' => 'The score reflects the companies shown within your permissions and the current company filter, and measures open overdue items at read time.',
     ],
 
     'employee_ranking' => [

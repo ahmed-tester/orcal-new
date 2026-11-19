@@ -94,6 +94,7 @@ class PerformanceEscalationServiceTest extends TestCase
         (require database_path('migrations/2026_11_15_100000_create_performance_escalations_table.php'))->up();
 
         (require database_path('migrations/2026_09_20_160000_create_tasks_and_weekly_notes_tables.php'))->up();
+        (require database_path('migrations/2026_11_18_151000_add_task_item_review_workflow.php'))->up();
 
         Schema::table('task_assignments', function (Blueprint $table) {
             $table->json('metadata')->nullable();

@@ -112,6 +112,27 @@
     @endforeach
 </div>
 
+<!-- View mode: by company / by department -->
+@if($this->selectedCompanyId === null)
+    <div class="perf-rank-modes" role="group" aria-label="{{ __('performance.department_view.mode_label') }}">
+        <span class="perf-rank-modes-title">{{ __('performance.department_view.mode_label') }}</span>
+        @foreach(['company', 'department'] as $viewMode)
+            <button
+                type="button"
+                class="perf-rank-mode {{ $this->operationsViewMode === $viewMode ? 'is-active' : '' }}"
+                wire:click="selectOperationsViewMode('{{ $viewMode }}')"
+                aria-pressed="{{ $this->operationsViewMode === $viewMode ? 'true' : 'false' }}"
+            >
+                {{ __('performance.department_view.mode_'.$viewMode) }}
+            </button>
+        @endforeach
+    </div>
+@endif
+
+@if($this->operationsViewMode === 'department')
+    @include('filament.pages.company-department-performance.departments-overview')
+@else
+
 <!-- Hierarchy Stepper / Breadcrumbs Bar -->
 <div class="perf-stepper-bar">
     <div class="stepper-trail">
@@ -182,4 +203,6 @@
     @include('filament.pages.company-department-performance.departments')
 @else
     @include('filament.pages.company-department-performance.employees')
+@endif
+
 @endif

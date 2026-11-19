@@ -74,7 +74,7 @@ class ForeignEmployeeResource extends Resource
             'index' => ListForeignEmployees::route('/'),
             'create' => CreateForeignEmployee::route('/create'),
             'edit' => EditForeignEmployee::route('/{record}/edit'),
-            ...(! app()->isProduction() ? ['performance' => EmployeePerformance::route('/{record}/performance')] : []),
+            'performance' => EmployeePerformance::route('/{record}/performance'),
             ...(class_exists(ViewForeignEmployee::class) ? ['view' => ViewForeignEmployee::route('/{record}')] : []),
         ];
     }

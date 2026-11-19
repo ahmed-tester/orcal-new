@@ -11,6 +11,7 @@ use App\Models\EmployeeDetail;
 use App\Models\Owner;
 use App\Models\User;
 use App\Services\EmployeeAgeService;
+use App\Services\EmployeeIdentityService;
 use App\Services\PhoneService;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Hash;
@@ -26,6 +27,7 @@ class CreateTemporaryEmployee extends CreateRecord
         $registrationSource = $data['registration_source'] ?? $rawState['registration_source'] ?? 'manual';
         $selectedOwnerId = $data['selected_owner_id'] ?? $rawState['selected_owner_id'] ?? null;
         $selectedSaudiEmployeeId = $data['selected_saudi_employee_id'] ?? $rawState['selected_saudi_employee_id'] ?? null;
+        $nationalId = $rawState['national_id'] ?? null;
 
         $metadata = $data['metadata'] ?? [];
         if (is_string($metadata)) {
@@ -50,6 +52,7 @@ class CreateTemporaryEmployee extends CreateRecord
                     'selected_owner_id' => __('employees.fields.errors.owner_data_unavailable'),
                 ]);
             }
+            EmployeeIdentityService::ensureAvailable('national_id', $nationalId, sharedUserId: $owner->user->id);
             $data['user_id'] = $owner->user->id;
             $metadata['source_owner_id'] = $owner->id;
 
@@ -71,6 +74,7 @@ class CreateTemporaryEmployee extends CreateRecord
                     'selected_saudi_employee_id' => 'بيانات الموظف السعودي المحدد غير متوفرة أو حسابه غير موجود.',
                 ]);
             }
+            EmployeeIdentityService::ensureAvailable('national_id', $nationalId, sharedUserId: $emp->user->id);
             $data['user_id'] = $emp->user->id;
             $metadata['source_employee_id'] = $emp->id;
 
@@ -87,7 +91,6 @@ class CreateTemporaryEmployee extends CreateRecord
             }
         } else {
             // Manual registration
-            $nationalId = $data['national_id'] ?? null;
             $email = ! empty($data['user_email'])
                 ? trim($data['user_email'])
                 : ('temp_'.($nationalId ?? uniqid()).'@orcal.sa');
@@ -97,6 +100,8 @@ class CreateTemporaryEmployee extends CreateRecord
             $existingUser = User::where('email', $email)
                 ->when($normalizedPhone, fn ($q) => $q->orWhere('phone', $normalizedPhone))
                 ->first();
+
+            EmployeeIdentityService::ensureAvailable('national_id', $nationalId, sharedUserId: $existingUser?->id);
 
             if ($existingUser) {
                 $data['user_id'] = $existingUser->id;

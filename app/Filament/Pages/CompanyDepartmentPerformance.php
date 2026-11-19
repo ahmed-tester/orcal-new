@@ -14,15 +14,12 @@ use App\Filament\Traits\HasFilterBarState;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Department;
-use App\Models\ServiceTransaction;
-use App\Models\TaskAssignment;
 use App\Services\AttendanceSummaryService;
 use App\Services\CompanyCompliancePerformanceService;
 use App\Services\CompanyDepartmentPerformanceService;
 use App\Services\CompanyFinancialPerformanceService;
 use App\Services\CompanyTicketsPerformanceService;
 use App\Services\CompanyViolationsPerformanceService;
-use App\Services\EmployeePerformanceAccessService;
 use App\Services\LeaveSummaryService;
 use App\Services\PerformanceScoreService;
 use Filament\Pages\Page;
@@ -30,7 +27,6 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\WithPagination;
@@ -43,8 +39,6 @@ class CompanyDepartmentPerformance extends Page
     protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-chart-bar-square';
 
     protected static ?int $navigationSort = 2;
-
-    protected static bool $shouldRegisterNavigation = false;
 
     private const ATTENDANCE_STATEMENT_TYPES = ['present_days', 'late_days', 'absent_days'];
 
@@ -60,6 +54,11 @@ class CompanyDepartmentPerformance extends Page
         self::DEPARTMENT_RANK_MODE_BEST_FIRST,
         self::DEPARTMENT_RANK_MODE_WORST,
     ];
+
+    /** Operations tab grouping modes. */
+    public const OPERATIONS_VIEW_COMPANY = 'company';
+
+    public const OPERATIONS_VIEW_DEPARTMENT = 'department';
 
     public const EMPLOYEE_RANK_MODE_ALL = 'all';
 
@@ -96,6 +95,12 @@ class CompanyDepartmentPerformance extends Page
 
     #[Locked]
     public string $employeeRankMode = self::EMPLOYEE_RANK_MODE_ALL;
+
+    #[Locked]
+    public string $operationsViewMode = self::OPERATIONS_VIEW_COMPANY;
+
+    #[Locked]
+    public ?int $detailsDepartmentId = null;
 
     #[Locked]
     public mixed $selectedDepartmentId = null;
@@ -147,7 +152,7 @@ class CompanyDepartmentPerformance extends Page
 
     public static function canAccess(array $parameters = []): bool
     {
-        return false;
+        return auth()->user()?->isSuperAdmin() ?? false;
     }
 
     public function handleFilterBarUpdate(): void
@@ -955,6 +960,11 @@ class CompanyDepartmentPerformance extends Page
             return null;
         }
 
+        if ($this->isDepartmentOverviewScoreStatement($this->kashfDomain, $this->kashfType, $this->kashfDepartmentId)
+            && ! $this->departmentOverviewIncludesCompany($this->kashfCompanyId, $this->kashfDepartmentId)) {
+            return null;
+        }
+
         return match ($this->kashfDomain) {
             'services' => CompanyDepartmentPerformanceService::getKashfServicesQuery(
                 $this->filters(),
@@ -1044,6 +1054,70 @@ class CompanyDepartmentPerformance extends Page
         abort_unless(in_array($type, self::ATTENDANCE_STATEMENT_TYPES, true), 404);
     }
 
+    public function selectOperationsViewMode(string $mode): void
+    {
+        abort_unless(in_array($mode, [self::OPERATIONS_VIEW_COMPANY, self::OPERATIONS_VIEW_DEPARTMENT], true), 404);
+
+        $this->operationsViewMode = $mode;
+        $this->closeDepartmentDetails();
+        $this->closeKashf();
+        $this->backToCompanies();
+    }
+
+    #[Computed]
+    public function departmentsOverview(): Collection
+    {
+        return CompanyDepartmentPerformanceService::getDepartmentsOverview($this->filters());
+    }
+
+    #[Computed]
+    public function detailsDepartment(): ?object
+    {
+        if ($this->detailsDepartmentId === null) {
+            return null;
+        }
+
+        return $this->departmentsOverview->firstWhere('department_id', $this->detailsDepartmentId);
+    }
+
+    public function openDepartmentDetails(int $departmentId): void
+    {
+        abort_unless($this->departmentsOverview->contains('department_id', $departmentId), 404);
+
+        $this->detailsDepartmentId = $departmentId;
+        $this->dispatch('open-modal', id: 'performance-department-details-modal');
+    }
+
+    public function closeDepartmentDetails(): void
+    {
+        $this->detailsDepartmentId = null;
+        $this->dispatch('close-modal', id: 'performance-department-details-modal');
+    }
+
+    public function openDepartmentScoreKashf(string $domain, int $companyId, int $departmentId): void
+    {
+        abort_unless($this->operationsViewMode === self::OPERATIONS_VIEW_DEPARTMENT, 404);
+        abort_unless(in_array($domain, ['tasks', 'deficiencies'], true), 404);
+
+        $this->closeDepartmentDetails();
+        $this->openKashf($domain, 'score_overdue', $companyId, $departmentId);
+    }
+
+    private function isDepartmentOverviewScoreStatement(string $domain, string $type, mixed $departmentId): bool
+    {
+        return $this->operationsViewMode === self::OPERATIONS_VIEW_DEPARTMENT
+            && $type === 'score_overdue'
+            && in_array($domain, ['tasks', 'deficiencies'], true)
+            && $departmentId !== null;
+    }
+
+    private function departmentOverviewIncludesCompany(?int $companyId, mixed $departmentId): bool
+    {
+        $department = $this->departmentsOverview->firstWhere('department_id', $departmentId);
+
+        return $companyId !== null && ($department?->companies->contains('company_id', $companyId) ?? false);
+    }
+
     public function selectCompany(int $companyId): void
     {
         $this->selectedCompanyId = $companyId;
@@ -1083,6 +1157,10 @@ class CompanyDepartmentPerformance extends Page
         mixed $departmentId = null,
         ?int $employeeId = null
     ): void {
+        if ($this->isDepartmentOverviewScoreStatement($domain, $type, $departmentId)) {
+            abort_unless($employeeId === null && $this->departmentOverviewIncludesCompany($companyId, $departmentId), 404);
+        }
+
         if ($domain === 'compliance') {
             CompanyCompliancePerformanceService::authorizeStatement($type);
         }

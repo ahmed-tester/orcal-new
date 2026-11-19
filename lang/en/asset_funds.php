@@ -122,6 +122,7 @@ return [
             'cannot_delete_deposit_with_withdrawals' => 'Cannot delete deposit voucher because it has linked withdrawal vouchers.',
             'amount_exceeds_fund_gross_balance'      => 'The total withdrawal amount (:amount SAR) exceeds the fund available balance including taxes, deductions and other % (:available SAR). Negative balance is not allowed.',
             'amount_exceeds_deposit_balance'         => 'The withdrawal total amount exceeds the remaining available balance in the selected deposit voucher including taxes and deductions (:remaining SAR).',
+            'linked_deposit_fund_mismatch'           => 'The selected deposit voucher does not belong to the same fund as the withdrawal voucher or you are not authorized to access it.',
         ],
     ],
 

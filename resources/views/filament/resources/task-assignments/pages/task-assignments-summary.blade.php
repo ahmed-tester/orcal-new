@@ -25,16 +25,30 @@
         .dark .task-summary-page .task-summary-table td { color: #f1f5f9; }
         .task-summary-page .report-table-pagination { padding: 1rem; border-top: 1px solid #e2e8f0; }
         .dark .task-summary-page .report-table-pagination { border-top-color: #334155; }
-        .task-summary-page .task-statement-item { margin-block: 0.85rem; padding: 0.85rem; border: 1px solid #e2e8f0; border-radius: 0.65rem; background: #f8fafc; }
+        .task-summary-page .task-statement-employee { padding: 0.875rem 1rem; border: 1px solid #e2e8f0; border-radius: 0.75rem; background: #f8fafc; margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+        .dark .task-summary-page .task-statement-employee { background: #0f172a; border-color: #334155; }
+        .task-summary-page .task-statement-employee-meta { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; font-size: 0.8125rem; color: #475569; }
+        .dark .task-summary-page .task-statement-employee-meta { color: #cbd5e1; }
+        .task-summary-page .task-statement-item { margin-block: 0.75rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 0.75rem; background: #ffffff; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
         .dark .task-summary-page .task-statement-item { background: #0f172a; border-color: #334155; }
-        .task-summary-page .task-statement-meta { display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem; margin-block: 0.55rem; }
-        .task-summary-page .task-statement-meta dt { font-size: 0.75rem; color: #64748b; }
-        .task-summary-page .task-statement-meta dd { font-weight: 700; font-size: 0.8125rem; }
+        .task-summary-page .task-statement-item-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; }
+        .dark .task-summary-page .task-statement-item-header { border-bottom-color: #1e293b; }
+        .task-summary-page .task-statement-code { font-size: 0.75rem; font-weight: 600; color: #475569; background: #f1f5f9; padding: 0.2rem 0.6rem; border-radius: 9999px; }
+        .dark .task-summary-page .task-statement-code { color: #cbd5e1; background: #1e293b; }
+        .task-summary-page .task-statement-meta { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.625rem; margin-top: 0.75rem; }
+        .task-summary-page .task-statement-meta > div { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 0.5rem 0.65rem; display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+        .dark .task-summary-page .task-statement-meta > div { background: #1e293b; border-color: #334155; }
+        .task-summary-page .task-statement-meta dt { font-size: 0.72rem; font-weight: 600; color: #64748b; }
+        .dark .task-summary-page .task-statement-meta dt { color: #94a3b8; }
+        .task-summary-page .task-statement-meta dd { font-weight: 700; font-size: 0.875rem; color: #0f172a; font-variant-numeric: tabular-nums; margin: 0; }
+        .dark .task-summary-page .task-statement-meta dd { color: #f8fafc; }
         .task-summary-page .report-icon-md { width: 20px !important; height: 20px !important; flex-shrink: 0; }
         .task-summary-page .report-icon-sm { width: 16px !important; height: 16px !important; flex-shrink: 0; }
 
         @media (max-width: 1100px) { .task-summary-page .report-stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 900px) { .task-summary-page .task-statement-meta { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         @media (max-width: 768px) { .task-summary-page .report-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 540px) { .task-summary-page .task-statement-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         @media (max-width: 480px) { .task-summary-page .report-stats-grid { grid-template-columns: minmax(0, 1fr); } }
     </style>
 
@@ -121,7 +135,9 @@
                             <td style="color:#b91c1c; font-weight:700;">{{ (int) $row->overdue_count }}</td>
                             <td>{{ (int) $row->completed_in_period }}</td>
                             <td>{{ (int) $row->due_in_period }}</td>
-                            <td><bdi>{{ number_format(\App\Services\TaskAssignmentSummaryService::weightedPercentage($row), 2) }}%</bdi></td>
+                            <td>
+                                <bdi>{{ (float) ($row->weight_sum ?? 0) > 0 ? number_format(\App\Services\TaskAssignmentSummaryService::weightedPercentage($row), 2).'%' : __('tasks.summary.no_data') }}</bdi>
+                            </td>
                             <td>
                                 @php($rate = \App\Services\TaskAssignmentSummaryService::completionRate($row))
                                 <bdi>{{ $rate === null ? __('tasks.summary.no_data') : number_format($rate, 2).'%' }}</bdi>
@@ -149,24 +165,41 @@
 
             @if($details)
                 @php($employee = $details['employee'])
-                <div style="display:flex; flex-direction:column; gap:0.5rem;">
+                <div class="task-statement-employee">
                     <div style="font-size:1.05rem; font-weight:800;">{{ $employee->user?->name ?? $employee->employee_number }}</div>
-                    <div style="display:flex; flex-wrap:wrap; gap:0.4rem 1.2rem; font-size:0.8rem; color:#64748b;">
-                        <span>{{ __('tasks.summary.columns.company') }}: {{ $employee->company?->trade_name ?? '—' }}</span>
-                        <span>{{ __('tasks.summary.columns.branch') }}: {{ $employee->branch?->name ?? '—' }}</span>
-                        <span>{{ __('tasks.summary.columns.department') }}: {{ $employee->department?->name ?? '—' }}</span>
-                        <span>{{ __('tasks.summary.columns.employee_number') }}: <bdi>{{ $employee->employee_number ?? '—' }}</bdi></span>
+                    <div class="task-statement-employee-meta">
+                        <span><strong>{{ __('tasks.summary.columns.company') }}:</strong> {{ $employee->company?->trade_name ?? '—' }}</span>
+                        <span><strong>{{ __('tasks.summary.columns.branch') }}:</strong> {{ $employee->branch?->name ?? '—' }}</span>
+                        <span><strong>{{ __('tasks.summary.columns.department') }}:</strong> {{ $employee->department?->name ?? '—' }}</span>
+                        <span><strong>{{ __('tasks.summary.columns.employee_number') }}:</strong> <bdi>{{ $employee->employee_number ?? '—' }}</bdi></span>
                     </div>
                 </div>
 
                 @forelse($details['items'] as $item)
                     <article class="task-statement-item">
-                        <header style="display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem;">
-                            <strong>{{ $item->task?->name ?? '—' }}</strong>
-                            <x-filament::badge :color="$item->status?->getColor() ?? 'gray'">
-                                {{ $item->status?->getLabel() ?? '—' }}
-                            </x-filament::badge>
-                            <span style="font-size:0.75rem; color:#64748b;"><bdi>{{ $item->taskAssignment?->transaction_number }}</bdi></span>
+                        <header class="task-statement-item-header">
+                            <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem;">
+                                <strong style="font-size:0.95rem;">{{ $item->task?->name ?? '—' }}</strong>
+                                <x-filament::badge :color="$item->status?->getColor() ?? 'gray'">
+                                    {{ $item->status?->getLabel() ?? '—' }}
+                                </x-filament::badge>
+                                @if(filled($item->taskAssignment?->transaction_number))
+                                    <span class="task-statement-code"><bdi>{{ $item->taskAssignment?->transaction_number }}</bdi></span>
+                                @endif
+                            </div>
+
+                            @if($item->taskAssignment && \App\Filament\Resources\TaskAssignments\TaskAssignmentResource::canEdit($item->taskAssignment))
+                                <x-filament::button
+                                    tag="a"
+                                    size="xs"
+                                    color="primary"
+                                    outlined
+                                    :href="\App\Filament\Resources\TaskAssignments\TaskAssignmentResource::getUrl('edit', ['record' => $item->taskAssignment])"
+                                    icon="heroicon-m-arrow-top-right-on-square"
+                                >
+                                    {{ __('tasks.summary.open_assignment') }}
+                                </x-filament::button>
+                            @endif
                         </header>
 
                         <dl class="task-statement-meta">
@@ -177,12 +210,6 @@
                             <div><dt>{{ __('tasks.fields.score_percentage') }}</dt><dd><bdi>{{ number_format((float) $item->score_percentage, 2) }}%</bdi></dd></div>
                             <div><dt>{{ __('tasks.fields.overall_percentage') }}</dt><dd><bdi>{{ number_format((float) $item->taskAssignment?->overall_percentage, 2) }}%</bdi></dd></div>
                         </dl>
-
-                        @if($item->taskAssignment && \App\Filament\Resources\TaskAssignments\TaskAssignmentResource::canEdit($item->taskAssignment))
-                            <x-filament::link :href="\App\Filament\Resources\TaskAssignments\TaskAssignmentResource::getUrl('edit', ['record' => $item->taskAssignment])" icon="heroicon-m-arrow-top-right-on-square">
-                                {{ __('tasks.summary.open_assignment') }}
-                            </x-filament::link>
-                        @endif
                     </article>
                 @empty
                     <p>{{ __('tasks.summary.empty') }}</p>

@@ -77,7 +77,7 @@ class SaudiEmployeeResource extends Resource
             'index' => ListSaudiEmployees::route('/'),
             'create' => CreateSaudiEmployee::route('/create'),
             'edit' => EditSaudiEmployee::route('/{record}/edit'),
-            ...(! app()->isProduction() ? ['performance' => EmployeePerformance::route('/{record}/performance')] : []),
+            'performance' => EmployeePerformance::route('/{record}/performance'),
             ...(class_exists(ViewSaudiEmployee::class) ? ['view' => ViewSaudiEmployee::route('/{record}')] : []),
         ];
     }

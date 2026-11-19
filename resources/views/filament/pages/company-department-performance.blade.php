@@ -1676,6 +1676,59 @@
             }
         }
 
+        /* 3-Columns Department Overview Grid & Card Refinements */
+        .company-perf-page .dept-grid-style--3 {
+            display: grid;
+            gap: 20px;
+            grid-template-columns: 1fr;
+        }
+
+        @media (min-width: 768px) {
+            .company-perf-page .dept-grid-style--3 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 1100px) {
+            .company-perf-page .dept-grid-style--3 {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .company-perf-page .dept-overview-card {
+            padding: 20px 18px;
+            gap: 14px;
+        }
+
+        .company-perf-page .dept-card-score-badge.dept-overview-lowest-badge {
+            width: 100%;
+            justify-content: space-between;
+            border-radius: 12px;
+            padding: 7px 12px;
+            gap: 10px;
+            text-align: start;
+            line-height: 1.45;
+        }
+
+        .company-perf-page .dept-overview-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 10px 12px;
+            background: color-mix(in srgb, var(--tx) 3%, transparent);
+            border: 1px solid var(--bd);
+            border-radius: 12px;
+        }
+
+        .company-perf-page .dept-overview-stats .perf-department-service-share + .perf-department-service-share {
+            border-top: 1px dashed var(--bd);
+            padding-top: 8px;
+        }
+
+        .company-perf-page .dept-overview-stat-val.has-overdue {
+            color: #ef4444;
+        }
+
         /* Department display mode buttons */
         .company-perf-page .perf-rank-modes {
             display: flex;
@@ -1785,6 +1838,8 @@
         .company-perf-page .dept-card-score-val {
             font-weight: 800;
             font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         .company-perf-page .dept-card-score-warn {
@@ -1847,9 +1902,76 @@
         }
 
         .company-perf-page .dept-card-lead {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 5px;
             font-size: 13px;
             color: var(--mu);
             font-weight: 500;
+            line-height: 1.4;
+        }
+
+        .company-perf-page .dept-overview-scope {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-block-start: 2px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.4;
+        }
+
+        .company-perf-page .dept-overview-scope svg {
+            width: 16px;
+            height: 16px;
+            flex: none;
+        }
+
+        .company-perf-page .dept-overview-scope--single {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .company-perf-page .dept-overview-scope--shared {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .company-perf-page .dept-overview-scope--group {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .company-perf-page .dept-overview-affiliation {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 8px;
+            color: var(--tx);
+            overflow-wrap: anywhere;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .company-perf-page .dept-card-header .dept-overview-affiliation {
+            justify-content: center;
+        }
+
+        .company-perf-page .dept-overview-affiliation button {
+            color: inherit;
+            font-weight: 700;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        .company-perf-page .dept-overview-company-count {
+            color: var(--tx);
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.4;
         }
 
         .company-perf-page .dept-lead-role {

@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Enums\UserType;
 use App\Models\Employee;
-use App\Models\EmployeeDetail;
 use App\Models\Owner;
 use App\Models\User;
 use App\Services\PhoneService;
@@ -48,6 +47,11 @@ class PersonCapacityService
             return $stored;
         }
 
+        return static::resolveLinkedCapacity($record, $isOwner);
+    }
+
+    private static function resolveLinkedCapacity(mixed $record, bool $isOwner): string
+    {
         if ($isOwner) {
             return (bool) $record?->user?->employee ? 'employee_and_owner' : 'owner';
         }
@@ -99,30 +103,33 @@ class PersonCapacityService
 
         return TextColumn::make('person_capacity')
             ->label($isOwner ? __('owners.fields.person_capacity') : __('employees.fields.person_capacity'))
-            ->state(function ($record) use ($for, $isOwner) {
-                $key = static::resolveKey($record, $for);
-                $options = static::getOptions($isOwner || $record instanceof Owner ? 'owner' : 'employee');
+            ->state(function ($record) use ($isOwner) {
+                $ownerRecord = $isOwner || $record instanceof Owner;
+                $key = static::resolveLinkedCapacity($record, $ownerRecord);
+                $options = static::getOptions($ownerRecord ? 'owner' : 'employee');
 
-                return $options[$key] ?? ($isOwner ? __('owners.fields.capacity_owner') : __('employees.fields.capacity_employee'));
+                return $options[$key];
             })
             ->badge()
-            ->color(function ($record) use ($for, $isOwner) {
-                $key = static::resolveKey($record, $for);
+            ->color(function ($record) use ($isOwner) {
+                $ownerRecord = $isOwner || $record instanceof Owner;
+                $key = static::resolveLinkedCapacity($record, $ownerRecord);
 
                 if ($key === 'employee_and_owner') {
                     return 'warning';
                 }
 
-                return ($isOwner || $record instanceof Owner) ? 'success' : 'info';
+                return $ownerRecord ? 'success' : 'info';
             })
-            ->icon(function ($record) use ($for, $isOwner) {
-                $key = static::resolveKey($record, $for);
+            ->icon(function ($record) use ($isOwner) {
+                $ownerRecord = $isOwner || $record instanceof Owner;
+                $key = static::resolveLinkedCapacity($record, $ownerRecord);
 
                 if ($key === 'employee_and_owner') {
                     return 'heroicon-m-briefcase';
                 }
 
-                return ($isOwner || $record instanceof Owner) ? 'heroicon-m-building-office-2' : 'heroicon-m-user';
+                return $ownerRecord ? 'heroicon-m-building-office-2' : 'heroicon-m-user';
             });
     }
 
@@ -140,21 +147,11 @@ class PersonCapacityService
             ->options(static::getOptions($for))
             ->query(function ($query, array $data) use ($relation, $onlyKey) {
                 $value = $data['value'] ?? null;
-                if (! $value) {
-                    return;
+                if ($value === 'employee_and_owner') {
+                    $query->whereHas($relation);
+                } elseif ($value === $onlyKey) {
+                    $query->whereDoesntHave($relation);
                 }
-
-                $query->where(function ($q) use ($value, $relation, $onlyKey) {
-                    $q->where('metadata->person_capacity', $value)
-                        ->orWhere(function ($fallback) use ($value, $relation, $onlyKey) {
-                            $fallback->whereNull('metadata->person_capacity');
-                            if ($value === 'employee_and_owner') {
-                                $fallback->whereHas($relation);
-                            } elseif ($value === $onlyKey) {
-                                $fallback->whereDoesntHave($relation);
-                            }
-                        });
-                });
             });
     }
 
@@ -253,6 +250,9 @@ class PersonCapacityService
      */
     protected static function resolveEmployeeRegistration(string $source, array $data, array $rawState): array
     {
+        $nationalId = $rawState['national_id'] ?? $data['national_id'] ?? null;
+        EmployeeIdentityService::ensureAvailable('national_id', $nationalId);
+
         $selectedOwnerId = $data['selected_owner_id'] ?? $rawState['selected_owner_id'] ?? null;
 
         if ($source === 'from_owner' && ! empty($selectedOwnerId)) {
@@ -276,13 +276,6 @@ class PersonCapacityService
         }
 
         // Manual Saudi employee registration
-        $nationalId = $data['national_id'] ?? null;
-        if (! empty($nationalId) && EmployeeDetail::where('national_id', $nationalId)->exists()) {
-            throw ValidationException::withMessages([
-                'national_id' => __('employees.fields.errors.national_id_exists'),
-            ]);
-        }
-
         $email = ! empty($data['user_email'])
             ? trim($data['user_email'])
             : ('saudi_' . ($nationalId ?? uniqid()) . '@orcal.sa');

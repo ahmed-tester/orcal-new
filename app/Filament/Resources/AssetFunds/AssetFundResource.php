@@ -12,6 +12,7 @@ use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class AssetFundResource extends Resource
 {
@@ -49,6 +50,11 @@ class AssetFundResource extends Resource
     public static function table(Table $table): Table
     {
         return AssetFundsTable::configure($table);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->accessibleBy(auth()->user());
     }
 
     public static function getPages(): array

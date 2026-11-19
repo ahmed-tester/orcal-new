@@ -57,6 +57,7 @@ class SupervisorPerformanceServiceTest extends TestCase
         });
 
         (require database_path('migrations/2026_09_20_160000_create_tasks_and_weekly_notes_tables.php'))->up();
+        (require database_path('migrations/2026_11_18_151000_add_task_item_review_workflow.php'))->up();
 
         Schema::create('supervision_shifts', function (Blueprint $table) {
             $table->id();
@@ -595,8 +596,9 @@ class SupervisorPerformanceServiceTest extends TestCase
         $this->assertSame(['TX-1'], $services['transactions']->pluck('transaction_number')->all());
     }
 
-    public function test_page_hides_outside_production_and_rejects_unscoped_statements(): void
+    public function test_page_is_available_in_production_and_rejects_unscoped_statements(): void
     {
+        $this->app->instance('env', 'production');
         $this->actingAs($this->superAdmin());
         $supervisor = $this->employee('Page supervisor', 1, 1);
         $member = $this->employee('Page member', 1, 1);
@@ -624,6 +626,7 @@ class SupervisorPerformanceServiceTest extends TestCase
             'status' => 'completed',
         ]);
 
+        $this->assertTrue(SupervisorPerformanceService::canViewReport());
         $this->assertTrue(SupervisorPerformance::canAccess());
 
         Livewire::test(SupervisorPerformance::class)
@@ -642,14 +645,43 @@ class SupervisorPerformanceServiceTest extends TestCase
             ->call('openStatement', $otherCompanyShift, SupervisorPerformanceService::METRIC_DUE)
             ->assertNotFound();
 
-        $this->app['env'] = 'production';
+    }
 
-        try {
-            $this->assertFalse(SupervisorPerformanceService::canViewReport());
-            $this->assertFalse(SupervisorPerformance::canAccess());
-        } finally {
-            $this->app['env'] = 'testing';
-        }
+    public function test_pending_review_items_are_counted_and_open_in_the_statement(): void
+    {
+        $this->actingAs($this->superAdmin());
+        $supervisor = $this->employee('Review supervisor', 1, 1);
+        $member = $this->employee('Review member', 1, 1);
+        $shift = $this->shift([
+            'company_id' => 1,
+            'supervisor_id' => $supervisor,
+            'assigned_employees' => [$member],
+            'start_date' => '2026-11-01',
+            'end_date' => '2026-11-09',
+            'status' => 'completed',
+        ]);
+        $assignment = $this->assignment($member);
+        $pendingItem = $this->item($assignment, $this->task('Pending review item'), [
+            'status' => 'pending_review', 'due_date' => '2026-11-05',
+        ]);
+        $this->item($assignment, $this->task('Open item'), [
+            'status' => 'pending', 'due_date' => '2026-11-05',
+        ]);
+
+        $page = Livewire::test(SupervisorPerformance::class)
+            ->set('companyId', 1)
+            ->set('supervisorId', $supervisor)
+            ->set('month', '2026-11');
+
+        $this->assertSame(1, $page->instance()->report['rows'][0]['pending_review']);
+        $this->assertSame(1, $page->instance()->report['totals']['pending_review']);
+
+        $page->call('openStatement', $shift, SupervisorPerformanceService::METRIC_PENDING_REVIEW)
+            ->assertSet('showStatementModal', true)
+            ->assertSee('Pending review item')
+            ->assertDontSee('Open item');
+
+        $this->assertSame([$pendingItem], $page->instance()->statementItems->pluck('item.id')->values()->all());
     }
 
     public function test_items_are_loaded_as_task_assignment_items_with_their_relations(): void

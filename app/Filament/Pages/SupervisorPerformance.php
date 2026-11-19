@@ -240,6 +240,7 @@ class SupervisorPerformance extends Page
             SupervisorPerformanceService::METRIC_ON_TIME,
             SupervisorPerformanceService::METRIC_LATE,
             SupervisorPerformanceService::METRIC_OPEN,
+            SupervisorPerformanceService::METRIC_PENDING_REVIEW,
             SupervisorPerformanceService::METRIC_EXCLUDED,
         ], true), 404);
 

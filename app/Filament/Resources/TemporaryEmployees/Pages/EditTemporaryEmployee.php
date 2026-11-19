@@ -5,6 +5,7 @@ namespace App\Filament\Resources\TemporaryEmployees\Pages;
 use App\Filament\Resources\TemporaryEmployees\TemporaryEmployeeResource;
 use App\Models\User;
 use App\Services\EmployeeAgeService;
+use App\Services\EmployeeIdentityService;
 use App\Services\PhoneService;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -57,6 +58,7 @@ class EditTemporaryEmployee extends EditRecord
     {
         $employee = $this->record;
         $userId = $employee->user_id;
+        EmployeeIdentityService::ensureAvailable('national_id', $this->form->getRawState()['national_id'] ?? null, $employee, $userId);
 
         $metadata = $employee->metadata ?? [];
         if (is_string($metadata)) {

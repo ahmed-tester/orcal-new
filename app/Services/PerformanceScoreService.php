@@ -249,7 +249,7 @@ class PerformanceScoreService
             ->join('employees', 'task_assignments.employee_id', '=', 'employees.id')
             ->whereIn('employees.company_id', $companyIds)
             ->whereIn('task_assignments.employee_id', Employee::query()->saudi()->select('employees.id'))
-            ->whereIn('task_assignment_items.status', [TaskStatus::PENDING->value, TaskStatus::IN_PROGRESS->value])
+            ->whereIn('task_assignment_items.status', TaskStatus::employeeOpenValues())
             ->whereNotNull('task_assignment_items.due_date')
             ->where('task_assignment_items.due_date', '<', Carbon::today()->toDateString());
 

@@ -96,6 +96,7 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
         });
 
         (require database_path('migrations/2026_09_20_160000_create_tasks_and_weekly_notes_tables.php'))->up();
+        (require database_path('migrations/2026_11_18_151000_add_task_item_review_workflow.php'))->up();
 
         Schema::table('task_assignments', function (Blueprint $table) {
             $table->json('metadata')->nullable();
@@ -620,6 +621,113 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
             ->assertDontSeeHtml('wire:key="company-card-'.$companyA->id.'"');
 
         $this->assertSame([['id' => $branchB, 'label' => 'Filter Branch Beta']], $page->instance()->branchFilterOptions());
+    }
+
+    public function test_performance_page_rejects_guests_and_non_super_admins(): void
+    {
+        $this->assertFalse(CompanyDepartmentPerformance::canAccess());
+
+        $company = $this->createCompany('Restricted Company');
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        foreach ([UserType::OWNER, UserType::SAUDI_EMPLOYEE] as $type) {
+            $viewer = $this->createEmployee($company->id, null, null, $type->value);
+            $this->actingAs($viewer->user);
+
+            Livewire::test(CompanyDepartmentPerformance::class)->assertForbidden();
+        }
+    }
+
+    public function test_super_admin_opens_department_overview_and_statements_in_the_card_scope(): void
+    {
+        $linked = $this->createCompany('Linked Company');
+        $linkedB = $this->createCompany('Linked Company B');
+        $linkedC = $this->createCompany('Linked Company C');
+        $unlinked = $this->createCompany('Unlinked Company');
+        $branch = DB::table('branches')->insertGetId(['company_id' => $linked->id, 'name' => 'Visible Branch']);
+        $viewer = $this->createEmployee($linked->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $department = Department::create(['name' => 'Shared Operations', 'is_global' => true]);
+        $department->companies()->attach([$linked->id, $linkedB->id, $linkedC->id]);
+        $visible = $this->createEmployee($linked->id, $department->id, $branch);
+        $outsideBranch = $this->createEmployee($linked->id, $department->id);
+        $outsideCompany = $this->createEmployee($unlinked->id, $department->id);
+        $due = today()->subDay()->toDateString();
+        $this->createOverdueTask($visible, $linked->id, $due);
+        $this->createOverdueTask($outsideBranch, $linked->id, $due);
+        $this->createOverdueTask($outsideCompany, $unlinked->id, $due);
+
+        $page = Livewire::test(CompanyDepartmentPerformance::class)
+            ->assertOk()
+            ->call('selectOperationsViewMode', 'department')
+            ->set('companyId', [(string) $linked->id])
+            ->assertSeeHtml('wire:key="department-overview-card-'.$department->id.'"')
+            ->assertSee('Linked Company · Linked Company B')
+            ->assertSee(__('performance.department_view.show_all_companies'))
+            ->call('openDepartmentDetails', $department->id)
+            ->assertDispatched('open-modal', id: 'performance-department-details-modal')
+            ->assertSee('Linked Company · Linked Company B · Linked Company C')
+            ->call('openDepartmentScoreKashf', 'tasks', $linked->id, $department->id)
+            ->assertDispatched('open-modal', id: 'performance-kashf-modal');
+
+        $this->assertSame(2, $page->instance()->kashfRecords()->total());
+
+        $page->set('branchId', (string) $branch);
+        $this->assertSame(1, $page->instance()->departmentsOverview()->first()->overdue_tasks);
+
+        $page->call('openDepartmentScoreKashf', 'tasks', $linked->id, $department->id);
+        $this->assertSame(1, $page->instance()->kashfRecords()->total());
+
+        $page->set('branchId', null)
+            ->set('companyId', null)
+            ->call('openKashf', 'tasks', 'score_overdue', $unlinked->id, $department->id)
+            ->assertStatus(404);
+    }
+
+    public function test_department_overview_weights_indicators_by_volume_and_sorts_by_aggregate_score(): void
+    {
+        $companyA = $this->createCompany('Company A');
+        $companyB = $this->createCompany('Company B');
+        $viewer = $this->createEmployee($companyA->id, null, null, UserType::SUPER_ADMIN->value);
+        $this->actingAs($viewer->user);
+
+        $shared = Department::create(['name' => 'Shared Operations', 'is_global' => true]);
+        $shared->companies()->attach([$companyA->id, $companyB->id]);
+        $single = $this->createDepartment('Single Operations', $companyA->id);
+        $employeeA = $this->createEmployee($companyA->id, $shared->id);
+        $employeeB = $this->createEmployee($companyB->id, $shared->id);
+        $singleEmployee = $this->createEmployee($companyA->id, $single->id);
+        $due = today()->subDays(2)->toDateString();
+        $completion = today()->subDay()->toDateString();
+        $filters = ['date_from' => $due, 'date_to' => today()->toDateString()];
+
+        foreach ([$employeeA, $employeeB, $singleEmployee] as $employee) {
+            $this->createOverdueTask($employee, $employee->company_id, $due);
+        }
+        $this->createOverdueDeficiency($companyA->id, $singleEmployee, $due);
+        $completed = $this->createOverdueTask($employeeA, $companyA->id, $due, TaskStatus::COMPLETED);
+        $completed->update(['completed_at' => $completion]);
+
+        foreach ([$employeeA, $employeeA, $employeeB] as $index => $employee) {
+            ServiceTransaction::create([
+                'transaction_number' => 'SRV-WEIGHTED-'.$index,
+                'transaction_date' => $due,
+                'completion_date' => $completion,
+                'due_date' => $employee->is($employeeA) ? $completion : $due,
+                'company_id' => $employee->company_id,
+                'executed_by' => $employee->id,
+                'service_status' => 'completed',
+            ]);
+        }
+
+        $rows = CompanyDepartmentPerformanceService::getDepartmentsOverview($filters);
+        $this->assertSame([$shared->id, $single->id], $rows->pluck('department_id')->all());
+        $this->assertSame(92, $rows->first()->score->score);
+        $this->assertSame(96, $rows->first()->lowest_company->score->score);
+        $this->assertSame(66.7, $rows->first()->on_time_rate);
+        $this->assertSame(33.3, $rows->first()->task_completion_rate);
     }
 
     public function test_violations_tab_renders_and_opens_the_payments_statement(): void

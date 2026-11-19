@@ -7,13 +7,18 @@ use App\Filament\Resources\TaskAssignments\TaskAssignmentResource;
 use App\Models\Employee;
 use App\Models\TaskAssignment;
 use App\Models\TaskAssignmentItem;
+use App\Models\TaskAssignmentItemReview;
 use App\Services\EmployeePerformanceAccessService;
 use App\Services\ServicePerformanceSummaryService;
+use App\Services\TaskAssignmentItemReviewService;
 use App\Services\TaskAssignmentSummaryService;
+use Filament\Notifications\Notification;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -32,6 +37,30 @@ trait HasTaskPerformanceDashboard
     public ?string $cardFilter = null;
 
     public ?string $serviceCardFilter = null;
+
+    public string $search = '';
+
+    public string $statusQuickFilter = 'all';
+
+    #[Locked]
+    public ?int $activeReviewItemId = null;
+
+    #[Locked]
+    public ?int $expectedReviewId = null;
+
+    public ?string $submissionNote = null;
+
+    public ?string $approvalScore = null;
+
+    public ?string $approvalNote = null;
+
+    public string $returnCategory = TaskAssignmentItemReview::RETURN_EXECUTION_DEFECT;
+
+    public ?string $returnReason = null;
+
+    public ?string $extensionNewDueDate = null;
+
+    public ?string $extensionReason = null;
 
     abstract protected function performanceEmployee(): ?Employee;
 
@@ -109,9 +138,12 @@ trait HasTaskPerformanceDashboard
             'filters' => $filters,
             'task_visible' => $taskVisible,
             'service_visible' => $serviceVisible,
-            'weighted_percentage' => $row ? TaskAssignmentSummaryService::weightedPercentage($row) : 0.0,
+            'weighted_percentage' => ($row && (float) ($row->weight_sum ?? 0) > 0)
+                ? TaskAssignmentSummaryService::weightedPercentage($row)
+                : null,
             'completion_rate' => $row ? TaskAssignmentSummaryService::completionRate($row) : null,
             'on_time_rate' => $row ? TaskAssignmentSummaryService::onTimeRate($row) : null,
+            'is_closed_month' => $periodEnd->isBefore(today()),
         ];
     }
 
@@ -169,18 +201,43 @@ trait HasTaskPerformanceDashboard
         $monthStart = TaskAssignmentSummaryService::monthStart($this->month);
         $monthEnd = $monthStart->copy()->endOfMonth();
 
-        return match ($this->cardFilter) {
+        $filtered = match ($this->cardFilter) {
             'completed' => $items->filter(fn (TaskAssignmentItem $item) => $item->status === TaskStatus::COMPLETED
                 && $item->completed_at !== null
                 && $item->completed_at->betweenIncluded($monthStart, $monthEnd)),
             'due' => $items->filter(fn (TaskAssignmentItem $item) => $item->due_date !== null
                 && $item->due_date->betweenIncluded($monthStart, $monthEnd)),
-            'overdue' => $items->filter(fn (TaskAssignmentItem $item) => in_array($item->status, [TaskStatus::PENDING, TaskStatus::IN_PROGRESS], true)
+            'overdue' => $items->filter(fn (TaskAssignmentItem $item) => ($item->status?->isEmployeeOpen() ?? false)
                 && $item->due_date !== null
                 && $item->due_date->lt(today())),
+            'pending_review' => $items->filter(fn (TaskAssignmentItem $item) => $item->status === TaskStatus::PENDING_REVIEW),
             'postponed' => $items->filter(fn (TaskAssignmentItem $item) => $item->status === TaskStatus::POSTPONED),
             default => $items,
         };
+
+        if ($this->statusQuickFilter === 'action_needed') {
+            $filtered = $filtered->filter(fn (TaskAssignmentItem $item) => ($item->status?->isEmployeeOpen() ?? false)
+                || $item->status === TaskStatus::RETURNED_FOR_REVISION);
+        }
+
+        $needle = mb_strtolower(trim($this->search));
+        if ($needle !== '') {
+            $filtered = $filtered->filter(function (TaskAssignmentItem $item) use ($needle): bool {
+                $taskName = mb_strtolower((string) ($item->task?->name ?? ''));
+                $assignmentNo = mb_strtolower((string) ($item->taskAssignment?->transaction_number ?? ''));
+
+                return str_contains($taskName, $needle) || str_contains($assignmentNo, $needle);
+            });
+        }
+
+        return $filtered->values();
+    }
+
+    public function clearTaskFilters(): void
+    {
+        $this->cardFilter = null;
+        $this->statusQuickFilter = 'all';
+        $this->search = '';
     }
 
     public function filterCard(?string $filter): void
@@ -282,5 +339,220 @@ trait HasTaskPerformanceDashboard
     public function canViewAssignments(): bool
     {
         return Gate::allows('viewAny', TaskAssignment::class);
+    }
+
+    public function canSubmitItem(TaskAssignmentItem $item): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && TaskAssignmentItemReviewService::canSubmit($user, $item);
+    }
+
+    public function canReviewItem(TaskAssignmentItem $item): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && TaskAssignmentItemReviewService::canReview($user, $item);
+    }
+
+    public function canExtendItemDueDate(TaskAssignmentItem $item): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && TaskAssignmentItemReviewService::canExtendDueDate($user, $item);
+    }
+
+    #[Computed]
+    public function activeReviewItem(): ?TaskAssignmentItem
+    {
+        if (! $this->activeReviewItemId) {
+            return null;
+        }
+
+        return TaskAssignmentItem::query()
+            ->with(['task', 'taskAssignment.employee', 'reviews.submitter', 'reviews.decider'])
+            ->find($this->activeReviewItemId);
+    }
+
+    public function openSubmitModal(int $itemId): void
+    {
+        $item = $this->resolveAuthorizedPerformanceItem($itemId);
+        $this->activeReviewItemId = $item->getKey();
+        $this->submissionNote = null;
+        $this->resetValidation();
+        $this->dispatch('open-modal', id: 'task-item-submit-modal');
+    }
+
+    public function submitItemForReview(): void
+    {
+        $user = auth()->user();
+        abort_if($user === null, 403);
+        $item = $this->resolveAuthorizedPerformanceItem((int) $this->activeReviewItemId);
+
+        try {
+            TaskAssignmentItemReviewService::submitForReview($user, $item, $this->submissionNote);
+        } catch (ValidationException $e) {
+            $this->setErrorBag($e->validator->errors());
+
+            return;
+        }
+
+        $this->resetReviewModalState();
+        $this->dispatch('close-modal', id: 'task-item-submit-modal');
+        Notification::make()->title(__('tasks.review.notifications.saved_submitted'))->success()->send();
+    }
+
+    public function openApproveModal(int $itemId): void
+    {
+        $item = $this->resolveAuthorizedPerformanceItem($itemId);
+        $this->activeReviewItemId = $item->getKey();
+        $this->expectedReviewId = TaskAssignmentItemReviewService::latestPendingReviewId($item);
+        $this->approvalScore = number_format((float) $item->weight, 2, '.', '');
+        $this->approvalNote = null;
+        $this->resetValidation();
+        $this->dispatch('open-modal', id: 'task-item-approve-modal');
+    }
+
+    public function approveItemReview(): void
+    {
+        $user = auth()->user();
+        abort_if($user === null, 403);
+        $item = $this->resolveAuthorizedPerformanceItem((int) $this->activeReviewItemId);
+
+        if (! is_numeric($this->approvalScore)) {
+            $this->addError('approvalScore', __('tasks.review.errors.invalid_score'));
+
+            return;
+        }
+
+        if ($this->expectedReviewId === null) {
+            $this->addError('score', __('tasks.review.errors.no_pending_submission'));
+
+            return;
+        }
+
+        try {
+            TaskAssignmentItemReviewService::approve($user, $item, (float) $this->approvalScore, $this->approvalNote, $this->expectedReviewId);
+        } catch (ValidationException $e) {
+            $this->setErrorBag($e->validator->errors());
+
+            return;
+        }
+
+        $this->resetReviewModalState();
+        $this->dispatch('close-modal', id: 'task-item-approve-modal');
+        Notification::make()->title(__('tasks.review.notifications.saved_approved'))->success()->send();
+    }
+
+    public function openReturnModal(int $itemId): void
+    {
+        $item = $this->resolveAuthorizedPerformanceItem($itemId);
+        $this->activeReviewItemId = $item->getKey();
+        $this->expectedReviewId = TaskAssignmentItemReviewService::latestPendingReviewId($item);
+        $this->returnCategory = TaskAssignmentItemReview::RETURN_EXECUTION_DEFECT;
+        $this->returnReason = null;
+        $this->resetValidation();
+        $this->dispatch('open-modal', id: 'task-item-return-modal');
+    }
+
+    public function returnItemForRevision(): void
+    {
+        $user = auth()->user();
+        abort_if($user === null, 403);
+        $item = $this->resolveAuthorizedPerformanceItem((int) $this->activeReviewItemId);
+
+        if ($this->expectedReviewId === null) {
+            $this->addError('reason', __('tasks.review.errors.no_pending_submission'));
+
+            return;
+        }
+
+        try {
+            TaskAssignmentItemReviewService::returnForRevision(
+                $user,
+                $item,
+                (string) ($this->returnReason ?? ''),
+                $this->returnCategory,
+                $this->expectedReviewId,
+            );
+        } catch (ValidationException $e) {
+            $this->setErrorBag($e->validator->errors());
+
+            return;
+        }
+
+        $this->resetReviewModalState();
+        $this->dispatch('close-modal', id: 'task-item-return-modal');
+        Notification::make()->title(__('tasks.review.notifications.saved_returned'))->warning()->send();
+    }
+
+    public function openExtendModal(int $itemId): void
+    {
+        $item = $this->resolveAuthorizedPerformanceItem($itemId);
+        $this->activeReviewItemId = $item->getKey();
+        $this->extensionNewDueDate = $item->due_date?->toDateString() ?? now()->toDateString();
+        $this->extensionReason = null;
+        $this->resetValidation();
+        $this->dispatch('open-modal', id: 'task-item-extend-modal');
+    }
+
+    public function extendItemDueDate(): void
+    {
+        $user = auth()->user();
+        abort_if($user === null, 403);
+        $item = $this->resolveAuthorizedPerformanceItem((int) $this->activeReviewItemId);
+
+        try {
+            TaskAssignmentItemReviewService::extendDueDate(
+                $user,
+                $item,
+                (string) ($this->extensionNewDueDate ?? ''),
+                (string) ($this->extensionReason ?? ''),
+            );
+        } catch (ValidationException $e) {
+            $this->setErrorBag($e->validator->errors());
+
+            return;
+        }
+
+        $this->resetReviewModalState();
+        $this->dispatch('close-modal', id: 'task-item-extend-modal');
+        Notification::make()->title(__('tasks.review.notifications.saved_extended'))->info()->send();
+    }
+
+    public function openHistoryModal(int $itemId): void
+    {
+        $item = $this->resolveAuthorizedPerformanceItem($itemId);
+        $this->activeReviewItemId = $item->getKey();
+        $this->dispatch('open-modal', id: 'task-item-history-modal');
+    }
+
+    private function resolveAuthorizedPerformanceItem(int $itemId): TaskAssignmentItem
+    {
+        $employee = $this->performanceEmployee();
+        abort_if($employee === null, 403);
+        $this->authorizePerformance($employee);
+
+        $item = TaskAssignmentItem::query()
+            ->with(['task', 'taskAssignment.employee'])
+            ->findOrFail($itemId);
+
+        abort_unless((int) ($item->taskAssignment?->employee_id ?? 0) === (int) $employee->getKey(), 403);
+
+        return $item;
+    }
+
+    private function resetReviewModalState(): void
+    {
+        $this->activeReviewItemId = null;
+        $this->expectedReviewId = null;
+        $this->submissionNote = null;
+        $this->approvalScore = null;
+        $this->approvalNote = null;
+        $this->returnCategory = TaskAssignmentItemReview::RETURN_EXECUTION_DEFECT;
+        $this->returnReason = null;
+        $this->extensionNewDueDate = null;
+        $this->extensionReason = null;
+        unset($this->performance, $this->performanceItems, $this->activeReviewItem);
     }
 }

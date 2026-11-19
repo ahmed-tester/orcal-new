@@ -6,6 +6,7 @@ use App\Filament\Actions\EmployeePerformanceAction;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Models\User;
 use App\Services\EmployeeAgeService;
+use App\Services\EmployeeIdentityService;
 use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
 use Filament\Actions\DeleteAction;
@@ -56,6 +57,7 @@ class EditSaudiEmployee extends EditRecord
     protected function mutateFormDataBeforeSave(array $data): array
     {
         $employee = $this->record;
+        EmployeeIdentityService::ensureAvailable('national_id', $this->form->getRawState()['national_id'] ?? null, $employee);
         $userId = $employee->user_id;
 
         $metadata = $employee->metadata ?? [];

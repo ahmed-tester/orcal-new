@@ -69,6 +69,7 @@ class TaskAssignmentSummaryServiceTest extends TestCase
         });
 
         (require database_path('migrations/2026_09_20_160000_create_tasks_and_weekly_notes_tables.php'))->up();
+        (require database_path('migrations/2026_11_18_151000_add_task_item_review_workflow.php'))->up();
 
         Schema::create('service_transactions', function (Blueprint $table) {
             $table->id();
@@ -526,14 +527,26 @@ class TaskAssignmentSummaryServiceTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_employee_performance_actions_hide_in_production_and_when_the_route_is_missing(): void
+    public function test_employee_performance_actions_work_in_production_and_hide_when_the_route_is_missing(): void
     {
+        $this->app->instance('env', 'production');
         $this->actingAs($this->superAdmin());
         $employee = Employee::findOrFail($this->employee('Employee', 1, 1));
         $action = EmployeePerformanceAction::make(SaudiEmployeeResource::class)->record($employee);
 
+        $this->assertTrue(SaudiEmployeeResource::hasPage('performance'));
+        $this->assertTrue(ForeignEmployeeResource::hasPage('performance'));
         $this->assertTrue($action->isVisible());
         $this->assertSame(SaudiEmployeeResource::getUrl('performance', ['record' => $employee]), $action->getUrl());
+        Livewire::test(EmployeePerformance::class, ['record' => $employee->getRouteKey()])->assertOk();
+
+        $foreignEmployee = Employee::findOrFail($this->employee('Foreign employee', 1, 1, userType: 'foreign_employee'));
+        $foreignAction = EmployeePerformanceAction::make(ForeignEmployeeResource::class)->record($foreignEmployee);
+        $this->assertTrue($foreignAction->isVisible());
+        $this->assertSame(ForeignEmployeeResource::getUrl('performance', ['record' => $foreignEmployee]), $foreignAction->getUrl());
+        Livewire::test(ForeignEmployeeResource::getPages()['performance']->getPage(), [
+            'record' => $foreignEmployee->getRouteKey(),
+        ])->assertOk();
 
         $routes = app('router')->getRoutes();
         $this->app['router']->setRoutes(new RouteCollection);
@@ -545,13 +558,6 @@ class TaskAssignmentSummaryServiceTest extends TestCase
             $this->app['router']->setRoutes($routes);
         }
 
-        $this->app->instance('env', 'production');
-
-        $this->assertFalse(SaudiEmployeeResource::hasPage('performance'));
-        $this->assertFalse(ForeignEmployeeResource::hasPage('performance'));
-        $this->assertFalse($action->isVisible());
-        $this->assertNull($action->getUrl());
-        $this->get('/saudi-employees/'.$employee->getKey().'/performance')->assertNotFound();
     }
 
     public function test_service_cards_filter_deficiencies_by_month_and_use_the_completion_date_for_shift_scope(): void

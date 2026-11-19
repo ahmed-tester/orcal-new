@@ -12,7 +12,7 @@ class EmployeePerformanceAction
     public static function make(string|Closure $resource): Action
     {
         $resolveResource = static function (?Employee $record) use ($resource): ?string {
-            if ($record === null || app()->isProduction()) {
+            if ($record === null) {
                 return null;
             }
 

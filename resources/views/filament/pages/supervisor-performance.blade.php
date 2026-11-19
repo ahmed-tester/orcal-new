@@ -279,6 +279,10 @@
                         <span class="sup-kpi-value"><bdi>{{ $totals['open'] }}</bdi></span>
                     </div>
                     <div class="sup-kpi">
+                        <span class="sup-kpi-label">{{ __('supervisor_performance.summary.pending_review') }}</span>
+                        <span class="sup-kpi-value"><bdi>{{ $totals['pending_review'] ?? 0 }}</bdi></span>
+                    </div>
+                    <div class="sup-kpi">
                         <span class="sup-kpi-label">{{ __('supervisor_performance.summary.excluded') }}</span>
                         <span class="sup-kpi-value"><bdi>{{ $totals['excluded'] }}</bdi></span>
                     </div>
@@ -316,6 +320,7 @@
                                     <th>{{ __('supervisor_performance.table.on_time') }}</th>
                                     <th>{{ __('supervisor_performance.table.late') }}</th>
                                     <th>{{ __('supervisor_performance.table.open') }}</th>
+                                    <th>{{ __('supervisor_performance.table.pending_review') }}</th>
                                     <th>{{ __('supervisor_performance.table.excluded') }}</th>
                                     <th>{{ __('supervisor_performance.table.rate') }}</th>
                                 </tr>
@@ -403,6 +408,13 @@
                                                     wire:click="openStatement({{ $row['shift_id'] }}, 'open')"
                                                     title="{{ __('supervisor_performance.table.view_hint') }}">
                                                     <bdi>{{ $row['open'] }}</bdi>
+                                                </button>
+                                            </td>
+                                            <td>
+                                                <button type="button" class="sup-num-btn"
+                                                    wire:click="openStatement({{ $row['shift_id'] }}, 'pending_review')"
+                                                    title="{{ __('supervisor_performance.table.view_hint') }}">
+                                                    <bdi>{{ $row['pending_review'] ?? 0 }}</bdi>
                                                 </button>
                                             </td>
                                             <td>
@@ -659,6 +671,7 @@
                                                 \App\Services\SupervisorPerformanceService::ITEM_ON_TIME => 'success',
                                                 \App\Services\SupervisorPerformanceService::ITEM_LATE => 'warning',
                                                 \App\Services\SupervisorPerformanceService::ITEM_OPEN => 'danger',
+                                                \App\Services\SupervisorPerformanceService::ITEM_PENDING_REVIEW => 'info',
                                                 \App\Services\SupervisorPerformanceService::ITEM_AMBIGUOUS => 'gray',
                                                 default => 'info',
                                             }" size="xs">
