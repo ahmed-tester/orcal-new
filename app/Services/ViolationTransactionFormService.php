@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\ViolationPaymentStatus;
 use App\Models\Violation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
@@ -41,6 +42,7 @@ class ViolationTransactionFormService
         return Violation::query()
             ->where('company_id', $companyId)
             ->where('remaining_amount', '>', 0)
+            ->where('payment_status', '!=', ViolationPaymentStatus::PAID->value)
             ->get();
     }
 
