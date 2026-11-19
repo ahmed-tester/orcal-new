@@ -706,6 +706,17 @@
                     </div>
 
                     @if($data['task_visible'])
+                        <x-filament::button
+                            tag="a"
+                            color="gray"
+                            size="sm"
+                            target="_blank"
+                            :href="route('task-assignments.statement.print', ['employee' => $employee->id, 'month' => $this->month])"
+                            icon="heroicon-o-printer"
+                        >
+                            {{ __('tasks.performance.print_statement') }}
+                        </x-filament::button>
+
                         <x-filament::button color="primary" size="sm" wire:click="exportCsv" icon="heroicon-o-arrow-down-tray">
                             {{ __('tasks.performance.export') }}
                         </x-filament::button>
@@ -927,6 +938,11 @@
                                                 @if($this->canSubmitItem($item))
                                                     <x-filament::button size="xs" color="primary" wire:click="openSubmitModal({{ $item->id }})">
                                                         {{ $isReturned ? __('tasks.review.actions.resubmit') : __('tasks.review.actions.submit') }}
+                                                    </x-filament::button>
+                                                @endif
+                                                @if($this->canEscalateItem($item))
+                                                    <x-filament::button size="xs" color="danger" wire:click="openEscalateModal({{ $item->id }})">
+                                                        {{ __('tasks.review.actions.escalate') }}
                                                     </x-filament::button>
                                                 @endif
                                                 @if($this->canReviewItem($item))
@@ -1165,6 +1181,26 @@
                 <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
                     <x-filament::button color="gray" x-on:click="$dispatch('close-modal', { id: 'task-item-submit-modal' })">{{ __('tasks.review.actions.cancel') }}</x-filament::button>
                     <x-filament::button color="primary" wire:click="submitItemForReview">{{ __('tasks.review.actions.submit') }}</x-filament::button>
+                </div>
+            </div>
+        </x-filament::modal>
+
+        <x-filament::modal id="task-item-escalate-modal" width="lg">
+            <x-slot name="heading">
+                {{ __('tasks.review.actions.escalate_heading') }}
+            </x-slot>
+            <div style="display:flex; flex-direction:column; gap:0.85rem;">
+                <p style="font-size:0.85rem; color:#64748b; margin:0;">
+                    {{ __('tasks.review.labels.escalate_description') }}
+                </p>
+                <div>
+                    <label class="tp-modal-field-label">{{ __('tasks.review.fields.escalation_reason') }} <span style="color:#dc2626;">*</span></label>
+                    <textarea wire:model="escalationReason" rows="3" class="tp-modal-input" placeholder="{{ __('tasks.review.placeholders.escalation_reason') }}"></textarea>
+                    @error('escalationReason') <p style="color:#dc2626; font-size:0.75rem; margin-top:0.25rem;">{{ $message }}</p> @enderror
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                    <x-filament::button color="gray" x-on:click="$dispatch('close-modal', { id: 'task-item-escalate-modal' })">{{ __('tasks.review.actions.cancel') }}</x-filament::button>
+                    <x-filament::button color="danger" wire:click="escalateItem">{{ __('tasks.review.actions.confirm_escalate') }}</x-filament::button>
                 </div>
             </div>
         </x-filament::modal>

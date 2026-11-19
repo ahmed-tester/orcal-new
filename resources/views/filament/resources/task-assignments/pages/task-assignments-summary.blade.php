@@ -99,10 +99,34 @@
             reset-method="resetFilters"
         >
             <x-slot name="actions">
-                <button type="button" wire:click="exportCsv" class="fi-btn fi-btn-color-gray fi-size-md" style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem; border-radius:0.5rem; background:#0f172a; color:#fff; font-weight:700; font-size:0.85rem;">
-                    <x-heroicon-o-arrow-down-tray class="report-icon-sm" />
-                    <span>{{ __('tasks.summary.export') }}</span>
-                </button>
+                <div style="display:inline-flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                    @if(! empty($this->selectedEmployees))
+                        <a
+                            href="{{ $this->buildPrintUrl() }}"
+                            target="_blank"
+                            class="fi-btn fi-btn-color-primary fi-size-md"
+                            style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem; border-radius:0.5rem; background:#2563eb; color:#fff; font-weight:700; font-size:0.85rem; text-decoration:none;"
+                        >
+                            <x-heroicon-o-printer class="report-icon-sm" />
+                            <span>{{ __('tasks.summary.print_selected', ['count' => count($this->selectedEmployees)]) }}</span>
+                        </a>
+                    @else
+                        <a
+                            href="{{ $this->buildPrintUrl() }}"
+                            target="_blank"
+                            class="fi-btn fi-btn-color-gray fi-size-md"
+                            style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem; border-radius:0.5rem; background:#334155; color:#fff; font-weight:700; font-size:0.85rem; text-decoration:none;"
+                        >
+                            <x-heroicon-o-printer class="report-icon-sm" />
+                            <span>{{ __('tasks.summary.print') }}</span>
+                        </a>
+                    @endif
+
+                    <button type="button" wire:click="exportCsv" class="fi-btn fi-btn-color-gray fi-size-md" style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1rem; border-radius:0.5rem; background:#0f172a; color:#fff; font-weight:700; font-size:0.85rem;">
+                        <x-heroicon-o-arrow-down-tray class="report-icon-sm" />
+                        <span>{{ __('tasks.summary.export') }}</span>
+                    </button>
+                </div>
             </x-slot>
         </x-filter-bar>
 
@@ -110,6 +134,14 @@
             <table class="task-summary-table">
                 <thead>
                     <tr>
+                        <th scope="col" style="width: 36px; text-align: center; padding: 0.5rem;">
+                            <input
+                                type="checkbox"
+                                wire:model.live="selectAll"
+                                title="{{ __('tasks.summary.select_all') }}"
+                                style="border-radius: 4px; cursor: pointer; width: 16px; height: 16px;"
+                            />
+                        </th>
                         @foreach(['employee', 'company', 'branch', 'department', 'total_items', 'completed_count', 'in_progress_count', 'pending_count', 'postponed_count', 'overdue_count', 'completed_in_period', 'due_in_period', 'weighted_percentage', 'completion_rate', 'on_time_rate'] as $column)
                             <th scope="col">{{ __('tasks.summary.columns.'.$column) }}</th>
                         @endforeach
@@ -118,11 +150,33 @@
                 <tbody>
                     @forelse($rows as $row)
                         <tr wire:key="task-employee-{{ $row->id }}">
+                            <td style="text-align: center; padding: 0.5rem;">
+                                <input
+                                    type="checkbox"
+                                    value="{{ $row->id }}"
+                                    wire:model.live="selectedEmployees"
+                                    style="border-radius: 4px; cursor: pointer; width: 16px; height: 16px;"
+                                />
+                            </td>
                             <td>
-                                <x-filament::link tag="button" wire:click="openDetails({{ $row->id }})">
-                                    {{ $row->user?->name ?? $row->employee_number ?? '#'.$row->id }}
-                                </x-filament::link>
-                                <div style="font-size:0.7rem; color:#94a3b8;"><bdi>{{ $row->employee_number }}</bdi></div>
+                                <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
+                                    <div>
+                                        <x-filament::link tag="button" wire:click="openDetails({{ $row->id }})">
+                                            {{ $row->user?->name ?? $row->employee_number ?? '#'.$row->id }}
+                                        </x-filament::link>
+                                        <div style="font-size:0.7rem; color:#94a3b8;"><bdi>{{ $row->employee_number }}</bdi></div>
+                                    </div>
+                                    <a
+                                        href="{{ $this->buildEmployeeStatementPrintUrl($row->id) }}"
+                                        target="_blank"
+                                        title="{{ __('tasks.summary.print_statement') }}"
+                                        style="color:#64748b; padding:4px; border-radius:4px; display:inline-flex; align-items:center; justify-content:center; text-decoration:none;"
+                                        onmouseover="this.style.color='#2563eb'"
+                                        onmouseout="this.style.color='#64748b'"
+                                    >
+                                        <x-heroicon-o-printer class="report-icon-sm" />
+                                    </a>
+                                </div>
                             </td>
                             <td>{{ $row->company?->trade_name ?? '—' }}</td>
                             <td>{{ $row->branch?->name ?? '—' }}</td>
@@ -148,7 +202,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="15">{{ __('tasks.summary.empty') }}</td></tr>
+                        <tr><td colspan="16">{{ __('tasks.summary.empty') }}</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -216,6 +270,16 @@
                 @endforelse
 
                 <x-slot:footerActions>
+                    <x-filament::button
+                        tag="a"
+                        color="primary"
+                        target="_blank"
+                        :href="$this->buildEmployeeStatementPrintUrl($employee->id)"
+                        icon="heroicon-o-printer"
+                    >
+                        {{ __('tasks.summary.print_statement') }}
+                    </x-filament::button>
+
                     <x-filament::button color="gray" x-on:click="close()" wire:click="closeDetails">
                         {{ __('tasks.summary.close') }}
                     </x-filament::button>
