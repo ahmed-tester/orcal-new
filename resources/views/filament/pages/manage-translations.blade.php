@@ -231,6 +231,29 @@
             border-color: #0369a1;
         }
 
+        .trans-screens-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+        .trans-badge-screen {
+            background: #ecfdf5;
+            color: #047857;
+            border: 1px solid #a7f3d0;
+            display: inline-flex;
+            align-items: center;
+            padding: 0.18rem 0.5rem;
+            border-radius: 0.45rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+        .dark .trans-badge-screen {
+            background: #064e3b;
+            color: #6ee7b7;
+            border-color: #047857;
+        }
+
         .trans-key-pill {
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: 0.8rem;
@@ -429,6 +452,7 @@
                         <tr>
                             <th style="width: 50px; text-align: center;">{{ __('translations.th_number') }}</th>
                             <th style="width: 150px;">{{ __('translations.th_file') }}</th>
+                            <th style="width: 240px;">{{ __('translations.th_screens') }}</th>
                             <th style="width: 300px;">{{ __('translations.th_key') }}</th>
                             <th>{{ __('translations.th_value') }}</th>
                         </tr>
@@ -452,6 +476,14 @@
                                 </td>
 
                                 <td>
+                                    <div class="trans-screens-wrap">
+                                        @foreach($item['screens'] as $screen)
+                                            <span class="trans-badge-screen">{{ $screen }}</span>
+                                        @endforeach
+                                    </div>
+                                </td>
+
+                                <td>
                                     <span class="trans-key-pill">
                                         {{ $item['key'] }}
                                     </span>
@@ -470,7 +502,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" style="text-align: center; padding: 3rem 1rem; color: #94a3b8;">
+                                <td colspan="5" style="text-align: center; padding: 3rem 1rem; color: #94a3b8;">
                                     {{ __('translations.no_translations_found') }}
                                 </td>
                             </tr>

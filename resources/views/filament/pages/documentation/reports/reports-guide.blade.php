@@ -550,6 +550,55 @@
 
 <div class="carnet-wrapper" id="carnet-reports-hub">
 
+    <!-- شريط التبديل بين التقارير العامة ولوحة الأداء الشاملة -->
+    <div class="carnet-sub-header-bar" style="margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; background: #ffffff; padding: 12px 18px; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+        <div class="carnet-sub-nav-tabs" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <button
+                type="button"
+                wire:click="setSub(null)"
+                class="carnet-sub-tab-pill {{ empty($activeSub) || !in_array($activeSub, ['performance', 'company-department-performance', 'supervisor-performance', 'employee-performance']) ? 'active' : '' }}"
+                style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 9px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; border: 1px solid #cbd5e1; background: {{ empty($activeSub) || !in_array($activeSub, ['performance', 'company-department-performance', 'supervisor-performance', 'employee-performance']) ? '#0284c7; color: #ffffff; border-color: #0284c7;' : '#f8fafc; color: #475569;' }}"
+            >
+                <span>📊 التقارير العامة والتنبيهات المسبقة</span>
+            </button>
+            <button
+                type="button"
+                wire:click="setSub('performance')"
+                class="carnet-sub-tab-pill {{ in_array($activeSub, ['performance', 'company-department-performance', 'supervisor-performance', 'employee-performance']) ? 'active' : '' }}"
+                style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 9px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; border: 1px solid #cbd5e1; background: {{ in_array($activeSub, ['performance', 'company-department-performance', 'supervisor-performance', 'employee-performance']) ? '#4f46e5; color: #ffffff; border-color: #4f46e5;' : '#f8fafc; color: #475569;' }}"
+            >
+                <span>🎯 لوحة ومؤشرات الأداء الشاملة</span>
+                <span style="background: #dc2626; color: #ffffff; font-size: 11px; padding: 2px 7px; border-radius: 6px; font-weight: 800; margin-right: 4px;">🎬 فيديو مسجل</span>
+            </button>
+        </div>
+
+        @if(in_array($activeSub, ['performance', 'company-department-performance', 'supervisor-performance', 'employee-performance']))
+            <button
+                type="button"
+                wire:click="setSub(null)"
+                class="carnet-btn carnet-btn-outline"
+                style="font-size: 13px; font-weight: 700; color: #0284c7;"
+            >
+                <span>➔</span>
+                <span>العودة للتقارير العامة والتنبيهات</span>
+            </button>
+        @else
+            <button
+                type="button"
+                wire:click="setSub('performance')"
+                class="carnet-btn carnet-btn-outline"
+                style="font-size: 13px; font-weight: 700; color: #4f46e5; border-color: #c7d2fe; background: #eef2ff;"
+            >
+                <span>🎯</span>
+                <span>شرح لوحة الأداء والفيديو</span>
+                <span>⇦</span>
+            </button>
+        @endif
+    </div>
+
+    @if(in_array($activeSub, ['performance', 'company-department-performance', 'supervisor-performance', 'employee-performance']))
+        @include('filament.pages.documentation.reports.performance-guide')
+    @else
     <!-- 1. شريط الأدوات العلوي (مطابق لكارنت: العنوان، حقل البحث، أزرار الطباعة والمشاركة والانتقال) -->
     <div class="carnet-top-bar">
         <div class="carnet-title-box">
@@ -889,6 +938,8 @@
 
     <!-- إشعار نسخ الرابط -->
     <div id="carnet-reports-toast">تم نسخ رابط الدليل إلى الحافظة بنجاح ✓</div>
+
+    @endif
 
 </div>
 

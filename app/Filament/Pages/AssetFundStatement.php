@@ -26,16 +26,9 @@ class AssetFundStatement extends Page
             return false;
         }
 
-        if ($user->isSuperAdminOrOwner() || $user->can('view_asset_fund_statement') || $user->can('view_any_asset_fund')) {
-            return true;
-        }
-
-        $employeeId = $user->employee?->id;
-        if ($employeeId && AssetFund::where('manager_employee_id', $employeeId)->orWhere('accountant_employee_id', $employeeId)->exists()) {
-            return true;
-        }
-
-        return false;
+        return $user->isSuperAdminOrOwner()
+            || $user->can('view_asset_fund_statement')
+            || $user->can('view_any_asset_fund');
     }
 
     // ─── Filter State ─────────────────────────────────────────────────────
@@ -114,30 +107,20 @@ class AssetFundStatement extends Page
 
     public function getFundsProperty(): Collection
     {
-        $user = auth()->user();
-        $query = AssetFund::orderBy('fund_name');
-
-        if ($user && ! $user->isSuperAdminOrOwner() && ! $user->can('view_any_asset_fund') && ! $user->can('view_asset_fund_statement')) {
-            $employeeId = $user->employee?->id;
-            if ($employeeId) {
-                $query->where(function ($q) use ($employeeId) {
-                    $q->where('manager_employee_id', $employeeId)
-                      ->orWhere('accountant_employee_id', $employeeId);
-                });
-            }
-        }
-
-        return $query->get(['id', 'fund_name', 'fund_number']);
+        return AssetFund::query()
+            ->accessibleBy(auth()->user())
+            ->orderBy('fund_name')
+            ->get(['id', 'fund_name', 'fund_number']);
     }
 
     public function getDepositVouchersProperty(): Collection
     {
-        if (! $this->fund_id) {
+        if (! $this->selected_fund) {
             return collect();
         }
 
         $query = AssetFundVoucher::with(['company', 'creator', 'linkedDepositVoucher'])
-            ->where('asset_fund_id', $this->fund_id)
+            ->where('asset_fund_id', $this->selected_fund->id)
             ->where(function ($q) {
                 $q->where('type', 'deposit')
                   ->orWhere('type', \App\Enums\AssetFundVoucherType::DEPOSIT->value);
@@ -156,12 +139,12 @@ class AssetFundStatement extends Page
 
     public function getWithdrawalVouchersProperty(): Collection
     {
-        if (! $this->fund_id) {
+        if (! $this->selected_fund) {
             return collect();
         }
 
         $query = AssetFundVoucher::with(['company', 'creator', 'linkedDepositVoucher'])
-            ->where('asset_fund_id', $this->fund_id)
+            ->where('asset_fund_id', $this->selected_fund->id)
             ->where(function ($q) {
                 $q->where('type', 'withdrawal')
                   ->orWhere('type', \App\Enums\AssetFundVoucherType::WITHDRAWAL->value);
@@ -204,7 +187,9 @@ class AssetFundStatement extends Page
 
     public function getSelectedFundProperty(): ?AssetFund
     {
-        return $this->fund_id ? AssetFund::find($this->fund_id) : null;
+        return $this->fund_id
+            ? AssetFund::query()->accessibleBy(auth()->user())->find($this->fund_id)
+            : null;
     }
 
     /**

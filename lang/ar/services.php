@@ -25,5 +25,6 @@ return [
     'beneficiary_placeholder' => 'أدخل اسم المستفيد إن وجد أو اتركه فارغاً...',
     'name_placeholder' => 'مثال: تجديد إقامة، استخراج تأشيرة، رخصة عمل...',
     'general' => 'عام',
+    'general_badge' => 'عامة',
     'estimated_gov_fee' => 'رسوم حكومية تقديرية (ر.س)',
 ];

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\AssetFundStatus;
 use App\Services\CodeGeneratorService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -91,6 +92,45 @@ class AssetFund extends Model
     public function getTotalWithdrawalsAttribute(): float
     {
         return (float) $this->vouchers()->where('type', 'withdrawal')->sum('total_amount');
+    }
+
+    // ─── Scopes & Access Helpers ─────────────────────────────────────────────
+
+    public function scopeAccessibleBy(Builder $query, ?User $user): Builder
+    {
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->isSuperAdminOrOwner()) {
+            return $query;
+        }
+
+        $employeeId = $user->employee?->id;
+
+        if (! $employeeId) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $q) use ($employeeId) {
+            $q->where('manager_employee_id', $employeeId)
+                ->orWhere('accountant_employee_id', $employeeId);
+        });
+    }
+
+    public function isAccessibleBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->isSuperAdminOrOwner()) {
+            return true;
+        }
+
+        $employeeId = $user->employee?->id;
+
+        return (bool) ($employeeId && ($this->manager_employee_id === $employeeId || $this->accountant_employee_id === $employeeId));
     }
 
     // ─── Relations ───────────────────────────────────────────────────────────

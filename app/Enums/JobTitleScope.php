@@ -19,8 +19,8 @@ enum JobTitleScope: string implements HasLabel, HasColor, HasIcon
     public function getLabel(): string
     {
         return match ($this) {
-            self::COMPANY => 'مربوط بمنشأة محددة 🏢',
-            self::GLOBAL  => 'مسمى وظيفي عام للمجموعة بالكامل (غير مربوط بأي منشأة) 🌐',
+            self::COMPANY => __('organization.job_titles.scope.company'),
+            self::GLOBAL  => __('organization.job_titles.scope.global'),
         };
     }
 

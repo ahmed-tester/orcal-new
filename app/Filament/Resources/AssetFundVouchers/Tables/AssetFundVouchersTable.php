@@ -11,6 +11,7 @@ use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class AssetFundVouchersTable
 {
@@ -106,7 +107,7 @@ class AssetFundVouchersTable
 
                 SelectFilter::make('asset_fund_id')
                     ->label(__('asset_funds.asset_fund_vouchers.fields.fund'))
-                    ->relationship('fund', 'fund_name'),
+                    ->relationship('fund', 'fund_name', fn (Builder $query) => $query->accessibleBy(auth()->user())),
             ])
             ->defaultSort('voucher_date', 'desc')
             ->actions([

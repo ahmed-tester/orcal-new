@@ -2,9 +2,12 @@
 
 namespace App\Filament\Resources\SaudiEmployees\Pages;
 
+use App\Filament\Actions\EmployeePerformanceAction;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Models\User;
 use App\Services\EmployeeAgeService;
+use App\Services\EmployeeIdentityService;
+use App\Services\PersonCapacityService;
 use App\Services\PhoneService;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -18,6 +21,8 @@ class EditSaudiEmployee extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            EmployeePerformanceAction::make(SaudiEmployeeResource::class)->record($this->getRecord())->color('gray'),
+
             DeleteAction::make()->label(__('employees.actions.delete')),
         ];
     }
@@ -37,12 +42,14 @@ class EditSaudiEmployee extends EditRecord
 
         if ($details) {
             $data['national_id'] = $details->national_id;
+            $data['profession'] = $details->profession;
             $data['address'] = $details->address;
             $data['birth_date'] = $details->birth_date?->format('Y-m-d');
             $data['age'] = EmployeeAgeService::calculateAge($details->birth_date);
         }
 
         $data['name_en'] = $employee->metadata['name_en'] ?? null;
+        $data['person_capacity'] = PersonCapacityService::resolveKey($employee, 'employee');
 
         return $data;
     }
@@ -50,18 +57,22 @@ class EditSaudiEmployee extends EditRecord
     protected function mutateFormDataBeforeSave(array $data): array
     {
         $employee = $this->record;
+        EmployeeIdentityService::ensureAvailable('national_id', $this->form->getRawState()['national_id'] ?? null, $employee);
         $userId = $employee->user_id;
 
+        $metadata = $employee->metadata ?? [];
         if (array_key_exists('name_en', $data)) {
-            $metadata = $employee->metadata ?? [];
             if (! empty($data['name_en'])) {
                 $metadata['name_en'] = trim($data['name_en']);
             } else {
                 unset($metadata['name_en']);
             }
-            $data['metadata'] = $metadata;
             unset($data['name_en']);
         }
+
+        $capacity = $data['person_capacity'] ?? $this->form->getRawState()['person_capacity'] ?? null;
+        $data['metadata'] = PersonCapacityService::mergeIntoMetadata($metadata, $capacity, 'employee');
+        unset($data['person_capacity']);
 
         if (! empty($data['user_email'])) {
             $email = trim($data['user_email']);
@@ -112,6 +123,7 @@ class EditSaudiEmployee extends EditRecord
             [
                 'nationality' => 'saudi',
                 'national_id' => $data['national_id'] ?? null,
+                'profession' => $data['profession'] ?? null,
                 'birth_date' => $data['birth_date'] ?? null,
                 'metadata' => ! empty($data['birth_date']) ? ['age' => EmployeeAgeService::calculateAge($data['birth_date'])] : null,
                 'address' => $data['address'] ?? null,

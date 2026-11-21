@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'single' => 'Employee',
+    'plural' => 'Employees',
     'saudi_single' => 'Saudi Employee',
     'saudi_plural' => 'Saudi Employees',
     'foreign_single' => 'Resident Employee (Expat)',

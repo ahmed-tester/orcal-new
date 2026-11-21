@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-
-use App\Traits\HasHijriDates;
+use App\Enums\TaskStatus;
 use App\Observers\TaskAssignmentObserver;
+use App\Traits\HasHijriDates;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -24,7 +24,6 @@ class TaskAssignment extends Model
             'to_date',
         ];
     }
-
 
     protected $fillable = [
         'transaction_number',
@@ -51,9 +50,9 @@ class TaskAssignment extends Model
     protected static function booted(): void
     {
         static::saving(function (TaskAssignment $assignment) {
-            $assignment->total_weight = (float)($assignment->total_weight ?? 0);
-            $assignment->total_score = (float)($assignment->total_score ?? 0);
-            $assignment->overall_percentage = (float)($assignment->overall_percentage ?? 0);
+            $assignment->total_weight = (float) ($assignment->total_weight ?? 0);
+            $assignment->total_score = (float) ($assignment->total_score ?? 0);
+            $assignment->overall_percentage = (float) ($assignment->overall_percentage ?? 0);
         });
     }
 
@@ -88,14 +87,16 @@ class TaskAssignment extends Model
         $this->loadMissing('items');
 
         $totalWeight = (float) $this->items->sum('weight');
-        $totalScore = (float) $this->items->sum('score');
-        $overallPercentage = $totalWeight > 0 ? round(($totalScore / $totalWeight) * 100, 2) : 0.00;
+        $eligibleItems = $this->items->filter(fn (TaskAssignmentItem $item) => $item->isEligibleForQuality());
+        $eligibleWeight = (float) $eligibleItems->sum('weight');
+        $totalScore = (float) $eligibleItems->sum('score');
+        $overallPercentage = $eligibleWeight > 0 ? round(($totalScore / $eligibleWeight) * 100, 2) : 0.00;
 
         $this->updateQuietly([
             'total_weight' => $totalWeight,
             'total_score' => $totalScore,
             'overall_percentage' => $overallPercentage,
-            'is_completed' => $this->items->isNotEmpty() && $this->items->every(fn ($item) => $item->status === \App\Enums\TaskStatus::COMPLETED),
+            'is_completed' => $this->items->isNotEmpty() && $this->items->every(fn ($item) => $item->status === TaskStatus::COMPLETED),
         ]);
     }
 }

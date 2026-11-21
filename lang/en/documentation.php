@@ -463,6 +463,20 @@ return [
         'card_transactions_desc' => 'Tracking collected disciplinary proceeds, fund deposits, and statutory disbursement for staff welfare.',
     ],
 
+    // Performance Guide
+    'performance_guide' => [
+        'tag' => 'Performance Metrics & Operational Governance',
+        'hub_heading' => 'Comprehensive Performance Command Center',
+        'hub_note' => 'Complete guide for the interactive performance dashboard, individual employee performance, 50/50 supervisor evaluations, score calculations, and automated escalations.',
+        'card_title' => 'Performance Dashboard & Evaluation',
+        'card_desc' => 'Interactive guide with full video demonstration covering employee performance, supervisor 50/50 rating, and the 5 operational & financial dimensions.',
+        'video_title' => 'Watch Performance Command Center Video',
+        'video_desc' => 'Recorded video demonstration detailing individual employee performance, supervisor 50/50 shift evaluation, and the general company/department performance dashboard:',
+        'open_company_perf' => 'Open Company Performance',
+        'open_supervisor_perf' => 'Open Supervisor Performance',
+        'open_my_tasks' => 'Open My Tasks',
+    ],
+
     // Common labels
     'common' => [
         'general_concept' => 'Overview & Purpose:',

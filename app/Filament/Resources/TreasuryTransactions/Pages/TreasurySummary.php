@@ -2,12 +2,14 @@
 
 namespace App\Filament\Resources\TreasuryTransactions\Pages;
 
+use App\Filament\Components\CashHandoverActions;
 use App\Filament\Resources\TreasuryTransactions\TreasuryTransactionResource;
 use App\Filament\Traits\HasFilterBarState;
 use App\Models\Company;
 use App\Models\PaymentCollectionItem;
 use App\Models\TreasuryTransaction;
 use App\Services\CompanyFormService;
+use App\Services\TreasuryCustodyService;
 use App\Services\TreasurySummaryService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -66,6 +68,10 @@ class TreasurySummary extends Page
     protected function getHeaderActions(): array
     {
         return [
+            CashHandoverActions::receiveHeaderAction(),
+
+            // TreasuryCustodyService::receiveCustodyHeaderAction(),
+
             Action::make('create')
                 ->label(__('finance.treasury_transactions.summary.create_transaction'))
                 ->icon('heroicon-o-plus-circle')

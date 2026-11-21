@@ -9,34 +9,37 @@ class CodeGeneratorService
     /**
      * Generate a sequential code scoped by company_id.
      *
-     * @param  class-string<Model>  $modelClass   The Eloquent model class.
-     * @param  string               $column       The code/number column name.
-     * @param  string               $prefix       The prefix (e.g. 'EMP', 'INV', 'BR').
-     * @param  int|null             $companyId    The company ID to scope the sequence.
-     * @param  int                  $padLength    How many digits to pad the sequence to.
-     * @param  string|null          $datePart     Optional date format to include (e.g. 'Ym', 'Ymd').
-     * @param  callable|null        $scopeQuery   Optional extra constraint on the counted rows,
-     *                                            used when one table needs independent sequences
-     *                                            (e.g. per voucher type).
-     * @return string
+     * @param  class-string<Model>  $modelClass  The Eloquent model class.
+     * @param  string  $column  The code/number column name.
+     * @param  string  $prefix  The prefix (e.g. 'EMP', 'INV', 'BR').
+     * @param  int|null  $companyId  The company ID to scope the sequence.
+     * @param  int  $padLength  How many digits to pad the sequence to.
+     * @param  string|null  $datePart  Optional date format to include (e.g. 'Ym', 'Ymd').
+     * @param  callable|null  $scopeQuery  Optional extra constraint on the counted rows,
+     *                                     used when one table needs independent sequences
+     *                                     (e.g. per voucher type).
+     * @param  bool  $ignoreCompany  When true the sequence is not scoped by company
+     *                               and the code carries no company part.
      */
     public static function generate(
-        string    $modelClass,
-        string    $column,
-        string    $prefix,
-        ?int      $companyId = null,
-        int       $padLength = 4,
-        ?string   $datePart = null,
+        string $modelClass,
+        string $column,
+        string $prefix,
+        ?int $companyId = null,
+        int $padLength = 4,
+        ?string $datePart = null,
         ?callable $scopeQuery = null,
+        bool $ignoreCompany = false,
     ): string {
-        $companyId = $companyId ?: static::resolveCompanyId();
+        $companyId = $ignoreCompany ? null : ($companyId ?: static::resolveCompanyId());
+        $scopedByCompany = ! $ignoreCompany && static::modelHasCompanyId($modelClass);
 
         // Count existing records for this company to determine next sequence
         $query = $modelClass::withoutGlobalScopes()
             ->whereNotNull($column)
             ->where($column, '!=', '');
 
-        if (static::modelHasCompanyId($modelClass)) {
+        if ($scopedByCompany) {
             $query->where('company_id', $companyId);
         }
 
@@ -47,12 +50,12 @@ class CodeGeneratorService
         $count = $query->count();
         $nextSeq = $count + 1;
 
-        $code = static::buildCode($prefix, $companyId, $nextSeq, $padLength, $datePart, static::modelHasCompanyId($modelClass));
+        $code = static::buildCode($prefix, $companyId, $nextSeq, $padLength, $datePart, $scopedByCompany);
 
         // Ensure uniqueness across the entire table to prevent database unique constraint violations
         while ($modelClass::withoutGlobalScopes()->where($column, $code)->exists()) {
             $nextSeq++;
-            $code = static::buildCode($prefix, $companyId, $nextSeq, $padLength, $datePart, static::modelHasCompanyId($modelClass));
+            $code = static::buildCode($prefix, $companyId, $nextSeq, $padLength, $datePart, $scopedByCompany);
         }
 
         return $code;
@@ -65,16 +68,16 @@ class CodeGeneratorService
      */
     protected static function buildCode(
         string $prefix,
-        ?int   $companyId,
-        int    $seq,
-        int    $padLength,
+        ?int $companyId,
+        int $seq,
+        int $padLength,
         ?string $datePart,
-        bool   $includeCompanyId,
+        bool $includeCompanyId,
     ): string {
         $parts = [$prefix];
 
         if ($includeCompanyId && $companyId) {
-            $parts[] = 'C' . $companyId;
+            $parts[] = 'C'.$companyId;
         }
 
         if ($datePart) {
@@ -101,7 +104,7 @@ class CodeGeneratorService
     {
         static $cache = [];
 
-        if (!isset($cache[$modelClass])) {
+        if (! isset($cache[$modelClass])) {
             $instance = new $modelClass;
             $cache[$modelClass] = in_array('company_id', $instance->getFillable());
         }

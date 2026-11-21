@@ -8,10 +8,34 @@ use App\Models\Employee;
 use App\Models\Guarantor;
 use App\Models\PayrollRecord;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class PayrollSheetService
 {
+    public static function savedRecordsInPeriod(array $filters, array $companyIds): Builder
+    {
+        $query = CompanyAccessScopeService::apply(PayrollRecord::query())->whereIn('company_id', $companyIds);
+        $dates = $filters;
+        if (filled($dates['date_from'] ?? null)) {
+            $dates['date_from'] = Carbon::parse($dates['date_from'])->startOfMonth()->toDateString();
+        }
+        if (filled($dates['date_to'] ?? null)) {
+            $dates['date_to'] = Carbon::parse($dates['date_to'])->endOfMonth()->toDateString();
+        }
+
+        return FilterBarService::applyFilters($query, $dates, [
+            'branch' => true,
+            'branch_column' => 'employee.branch_id',
+            'date_column' => 'payroll_month',
+        ]);
+    }
+
+    public static function selectSavedAmounts(Builder $query): Builder
+    {
+        return $query->selectRaw('SUM(net_amount) as total_net, SUM(paid_amount) as total_paid, SUM(remaining_amount) as total_remaining');
+    }
+
     /**
      * Build employee rows and summary metrics for the interactive payroll / collection sheet.
      */
@@ -585,13 +609,10 @@ class PayrollSheetService
             $query->whereIn('company_id', $companyIds);
         }
 
-        $records = $query->selectRaw('
+        $records = self::selectSavedAmounts($query)->selectRaw('
             MONTH(payroll_month) as m,
             DATE_FORMAT(payroll_month, "%Y-%m") as month_key,
             COUNT(id) as total_employees,
-            SUM(net_amount) as total_net,
-            SUM(paid_amount) as total_paid,
-            SUM(remaining_amount) as total_remaining,
             SUM(CASE WHEN payment_status = "paid" OR remaining_amount <= 0 THEN 1 ELSE 0 END) as paid_count
         ')
             ->groupBy('m', 'month_key')

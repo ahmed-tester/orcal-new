@@ -58,6 +58,13 @@ class DebtSummaryService
             ->first();
     }
 
+    public static function statementQuery(array $filters): Builder
+    {
+        return self::filtered($filters)
+            ->with(['company', 'employee.user'])
+            ->orderByDesc('debt_date')->orderByDesc('id');
+    }
+
     public static function details(int $id, array $filters): array
     {
         $query = self::filtered($filters);

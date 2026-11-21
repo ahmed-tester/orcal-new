@@ -37,10 +37,20 @@ class AssetFundVoucherForm
 
                         Select::make('asset_fund_id')
                             ->label(__('asset_funds.asset_fund_vouchers.fields.fund'))
-                            ->options(fn () => AssetFund::where('status', 'active')->pluck('fund_name', 'id'))
+                            ->options(fn () => AssetFund::query()
+                                ->where('status', 'active')
+                                ->accessibleBy(auth()->user())
+                                ->orderBy('fund_name')
+                                ->pluck('fund_name', 'id'))
                             ->searchable()
                             ->preload()
                             ->required()
+                            ->rule(fn (): \Closure => function (string $attribute, $value, \Closure $fail) {
+                                $fund = AssetFund::find($value);
+                                if (! $fund || ! $fund->isAccessibleBy(auth()->user())) {
+                                    $fail(__('asset_funds.statement.unauthorized'));
+                                }
+                            })
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set, callable $get, ?AssetFundVoucher $record) {
                                 if ($state && ! $record) {
@@ -239,10 +249,22 @@ class AssetFundVoucherForm
                     ->schema([
                         Placeholder::make('fund_gross_balance_info')
                             ->hiddenLabel()
-                            ->visible(fn (callable $get) => ($get('type') instanceof AssetFundVoucherType ? $get('type')->value : $get('type')) === AssetFundVoucherType::WITHDRAWAL->value && ! empty($get('asset_fund_id')))
+                            ->visible(function (callable $get): bool {
+                                $type = $get('type') instanceof AssetFundVoucherType ? $get('type')->value : $get('type');
+                                $fundId = (int) $get('asset_fund_id');
+
+                                return $type === AssetFundVoucherType::WITHDRAWAL->value
+                                    && $fundId > 0
+                                    && AssetFund::query()->accessibleBy(auth()->user())->whereKey($fundId)->exists();
+                            })
                             ->content(function (callable $get, ?AssetFundVoucher $record): \Illuminate\Support\HtmlString {
                                 $fundId = (int) $get('asset_fund_id');
-                                $available = AssetFundVoucher::getFundGrossAvailableBalance($fundId, $record?->id);
+                                $fund = AssetFund::query()->accessibleBy(auth()->user())->find($fundId);
+                                if (! $fund) {
+                                    return new \Illuminate\Support\HtmlString('');
+                                }
+
+                                $available = AssetFundVoucher::getFundGrossAvailableBalance($fund->id, $record?->id);
                                 $isPositive = $available > 0;
                                 $color = $isPositive ? '#1e40af' : '#b91c1c';
                                 $border = $isPositive ? '#bfdbfe' : '#fca5a5';
@@ -251,7 +273,7 @@ class AssetFundVoucherForm
                                 return new \Illuminate\Support\HtmlString("
                                     <div style='background: {$bg}; border: 1px solid {$border}; border-radius: .5rem; padding: .65rem 1rem; font-size: .85rem; color: {$color}; display: flex; justify-content: space-between; align-items: center;'>
                                         <span><strong>" . __('asset_funds.asset_fund_vouchers.fields.fund_gross_available') . ":</strong></span>
-                                        <span style='font-size: 1.15rem; font-weight: 800; direction: ltr;'>" . number_format($available, 2) . " <small style='font-size:.75rem'>ر.س</small></span>
+                                        <span style='font-size: 1.15rem; font-weight: 800; direction: ltr;'>" . number_format($available, 2) . " <small style='font-size:.75rem'>" . e(__('asset_funds.statement.currency')) . "</small></span>
                                     </div>
                                 ");
                             })
@@ -290,6 +312,7 @@ class AssetFundVoucherForm
                                         $q->where('type', AssetFundVoucherType::DEPOSIT->value)
                                           ->orWhere('type', 'deposit');
                                     })
+                                    ->whereHas('fund', fn ($q) => $q->accessibleBy(auth()->user()))
                                     ->with(['company', 'fund'])
                                     ->orderByDesc('voucher_date')
                                     ->orderByDesc('id');
@@ -310,10 +333,28 @@ class AssetFundVoucherForm
 
                                 return $options;
                             })
+                            ->rule(fn (callable $get, ?AssetFundVoucher $record): \Closure => function (string $attribute, $value, \Closure $fail) use ($get, $record) {
+                                if (! $value) {
+                                    return;
+                                }
+
+                                $dep = AssetFundVoucher::with('fund')->find($value);
+                                $fundId = $get('asset_fund_id') ?? $record?->asset_fund_id;
+                                $depType = $dep?->type instanceof AssetFundVoucherType ? $dep->type->value : $dep?->type;
+
+                                if (
+                                    ! $dep
+                                    || $depType !== AssetFundVoucherType::DEPOSIT->value
+                                    || ! $dep->fund?->isAccessibleBy(auth()->user())
+                                    || ($fundId && (int) $dep->asset_fund_id !== (int) $fundId)
+                                ) {
+                                    $fail(__('asset_funds.asset_fund_vouchers.errors.linked_deposit_fund_mismatch'));
+                                }
+                            })
                             ->afterStateUpdated(function ($state, callable $set, callable $get) {
                                 if ($state && empty($get('asset_fund_id'))) {
-                                    $dep = AssetFundVoucher::find($state);
-                                    if ($dep) {
+                                    $dep = AssetFundVoucher::with('fund')->find($state);
+                                    if ($dep && $dep->fund?->isAccessibleBy(auth()->user())) {
                                         $set('asset_fund_id', $dep->asset_fund_id);
                                     }
                                 }
@@ -370,7 +411,6 @@ class AssetFundVoucherForm
                                     $tax = (float) ($get('tax_amount') ?? 0);
                                     $total = (float) $value + $tax;
 
-                                    // 1. تحقق صارم على مستوى إجمالي الصندوق (شامل الضرائب والاستقطاعات والنسبة الأخرى) لمنع السوالب
                                     if ($fundId && $total > 0) {
                                         $fundAvailable = AssetFundVoucher::getFundGrossAvailableBalance((int) $fundId, $record?->id);
                                         if ($total > $fundAvailable) {
@@ -382,7 +422,6 @@ class AssetFundVoucherForm
                                         }
                                     }
 
-                                    // 2. تحقق على مستوى سند الإيداع المرتبط (إن وُجد)
                                     if ($get('disbursement_type') === 'linked_deposit' && $depositId = $get('linked_deposit_voucher_id')) {
                                         $remaining = AssetFundVoucher::getRemainingBalanceForDeposit((int) $depositId, $record?->id);
                                         if ($total > $remaining) {

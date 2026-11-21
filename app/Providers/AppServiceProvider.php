@@ -26,20 +26,29 @@ use App\Models\JobTitle;
 use App\Models\Leave;
 use App\Models\LeaveType;
 use App\Models\LoanFundMemberPayment;
+use App\Models\Mail\MailAccount;
+use App\Models\Mail\MailAttachment;
+use App\Models\Mail\MailConversation;
+use App\Models\Mail\MailExclusionKeyword;
+use App\Models\Mail\MailImportanceKeyword;
+use App\Models\Mail\MailMessage;
+use App\Models\Mail\MailTrustedDomain;
+use App\Models\Mail\MailTrustedEmail;
 use App\Models\Offer;
 use App\Models\OfficialLetter;
 use App\Models\Owner;
 use App\Models\PaymentCollectionItem;
 use App\Models\PayrollRecord;
+use App\Models\PerformanceEscalation;
 use App\Models\PosDevice;
 use App\Models\SaudiEmployee;
-use App\Models\TemporaryEmployee;
 use App\Models\Service;
 use App\Models\ServiceTransaction;
 use App\Models\Setting;
 use App\Models\SupervisionShift;
 use App\Models\Task;
 use App\Models\TaskAssignment;
+use App\Models\TemporaryEmployee;
 use App\Models\TreasuryTransaction;
 use App\Models\User;
 use App\Models\WeeklyNote;
@@ -65,21 +74,27 @@ use App\Policies\JobTitlePolicy;
 use App\Policies\LeavePolicy;
 use App\Policies\LeaveTypePolicy;
 use App\Policies\LoanFundMemberPaymentPolicy;
+use App\Policies\Mail\MailAccountPolicy;
+use App\Policies\Mail\MailAttachmentPolicy;
+use App\Policies\Mail\MailConversationPolicy;
+use App\Policies\Mail\MailMessagePolicy;
+use App\Policies\Mail\MailRulePolicy;
 use App\Policies\OfferPolicy;
 use App\Policies\OfficialLetterPolicy;
 use App\Policies\OwnerPolicy;
 use App\Policies\PaymentCollectionItemPolicy;
 use App\Policies\PayrollRecordPolicy;
+use App\Policies\PerformanceEscalationPolicy;
 use App\Policies\PosDevicePolicy;
 use App\Policies\RolePolicy;
 use App\Policies\SaudiEmployeePolicy;
-use App\Policies\TemporaryEmployeePolicy;
 use App\Policies\ServicePolicy;
 use App\Policies\ServiceTransactionPolicy;
 use App\Policies\SettingPolicy;
 use App\Policies\SupervisionShiftPolicy;
 use App\Policies\TaskAssignmentPolicy;
 use App\Policies\TaskPolicy;
+use App\Policies\TemporaryEmployeePolicy;
 use App\Policies\TreasuryTransactionPolicy;
 use App\Policies\UserPolicy;
 use App\Policies\WeeklyNotePolicy;
@@ -144,7 +159,20 @@ class AppServiceProvider extends ServiceProvider
         // }
 
         // Super Admin and Owners have full unrestricted access to everything
-        Gate::before(function ($user, $ability) {
+        Gate::before(function ($user, $ability, $arguments = []) {
+            if (in_array($ability, [
+                'view_mail_inbox', 'reply_mail', 'manage_mail_rules', 'manage_mail_accounts',
+                'run_mail_sync', 'review_mail', 'delete_mail',
+            ], true)) {
+                return null;
+            }
+
+            $subject = $arguments[0] ?? null;
+            $subjectClass = is_object($subject) ? $subject::class : $subject;
+            if (is_string($subjectClass) && str_starts_with($subjectClass, 'App\\Models\\Mail\\')) {
+                return null;
+            }
+
             if (method_exists($user, 'isSuperAdminOrOwner') && $user->isSuperAdminOrOwner()) {
                 return true;
             }
@@ -200,7 +228,18 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(ServiceTransaction::class, ServiceTransactionPolicy::class);
         Gate::policy(SupervisionShift::class, SupervisionShiftPolicy::class);
         Gate::policy(OfficialLetter::class, OfficialLetterPolicy::class);
+        Gate::policy(PerformanceEscalation::class, PerformanceEscalationPolicy::class);
         Gate::policy(LoanFundMemberPayment::class, LoanFundMemberPaymentPolicy::class);
+
+        // Mail Inbox Policies
+        Gate::policy(MailAccount::class, MailAccountPolicy::class);
+        Gate::policy(MailMessage::class, MailMessagePolicy::class);
+        Gate::policy(MailConversation::class, MailConversationPolicy::class);
+        Gate::policy(MailAttachment::class, MailAttachmentPolicy::class);
+        Gate::policy(MailTrustedEmail::class, MailRulePolicy::class);
+        Gate::policy(MailTrustedDomain::class, MailRulePolicy::class);
+        Gate::policy(MailImportanceKeyword::class, MailRulePolicy::class);
+        Gate::policy(MailExclusionKeyword::class, MailRulePolicy::class);
 
         // Global Select Searchable Configuration for all Filament Forms and Tables
         Select::configureUsing(function (Select $select): void {

@@ -3,7 +3,10 @@
 namespace App\Filament\Resources\SupervisionShifts\Tables;
 
 use App\Filament\Components\OrgSelect;
+use App\Filament\Pages\SupervisorPerformance;
 use App\Models\Employee;
+use App\Models\SupervisionShift;
+use App\Services\SupervisorPerformanceService;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -144,6 +147,26 @@ class SupervisionShiftsTable
             ])
             ->recordActions([
                 ActionGroup::make([
+                    \Filament\Actions\Action::make('view_evaluation')
+                        ->label(__('tasks.supervision_shifts.actions.view_evaluation'))
+                        ->icon('heroicon-o-chart-bar')
+                        ->color('success')
+                        ->visible(fn (SupervisionShift $record): bool => SupervisorPerformanceService::canViewReport()
+                            && filled($record->supervisor_id)
+                            && filled($record->company_id)
+                            && in_array(
+                                (int) $record->company_id,
+                                SupervisorPerformanceService::authorizedCompanyIds(),
+                                true,
+                            ))
+                        ->url(fn (SupervisionShift $record): string => SupervisorPerformance::getUrl([
+                            'companyId' => $record->company_id,
+                            'supervisorId' => $record->supervisor_id,
+                            'month' => ($record->start_date ?? $record->end_date ?? now())->format('Y-m'),
+                            'type' => $record->isShift() ? 'shift' : 'supervision',
+                            'shift' => $record->id,
+                            'tab' => 'supervision',
+                        ])),
                     \Filament\Actions\Action::make('print')
                         ->label(__('tasks.supervision_shifts.actions.print_shift'))
                         ->icon('heroicon-o-printer')

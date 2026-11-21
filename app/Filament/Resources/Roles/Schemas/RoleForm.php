@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Roles\Schemas;
 
+use App\Services\OperationsPermissionService;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
@@ -192,6 +193,7 @@ class RoleForm
                     'update_service_transaction' => __('permissions.update_service_transaction'),
                     'delete_service_transaction' => __('permissions.delete_service_transaction'),
                     'approve_service_transaction' => __('permissions.approve_service_transaction'),
+                    ...OperationsPermissionService::getPermissions(),
 
                     'view_any_service' => __('permissions.view_any_service'),
                     'create_service' => __('permissions.create_service'),
@@ -359,7 +361,17 @@ class RoleForm
                 'permissions' => [
                     'view_general_reports' => __('permissions.view_general_reports'),
                     'view_notifications_report' => __('permissions.view_notifications_report'),
+                    'view_any_performance_escalation' => __('permissions.view_any_performance_escalation'),
+                    'resolve_performance_escalation' => __('permissions.resolve_performance_escalation'),
                 ],
+            ],
+
+            'permissions_mail' => [
+                'label' => __('navigation.mail_messages_group'),
+                'permissions' => collect([
+                    'view_mail_inbox', 'reply_mail', 'manage_mail_rules', 'manage_mail_accounts',
+                    'run_mail_sync', 'review_mail', 'delete_mail',
+                ])->mapWithKeys(fn ($permission) => [$permission => __('mail_inbox.permissions.'.$permission)])->all(),
             ],
 
             // 12. Frequently Asked Questions (FAQ)

@@ -2,19 +2,21 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Schemas\MailSettingsForm;
 use App\Models\Setting;
+use App\Services\DatabaseResetService;
+use App\Services\Mail\MailAccessService;
+use App\Services\Mail\MailSettingsService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
@@ -22,7 +24,9 @@ use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 class ManageSettings extends Page implements HasForms
 {
@@ -41,6 +45,7 @@ class ManageSettings extends Page implements HasForms
     public static function canAccess(): bool
     {
         $user = auth()->user();
+
         return $user && ($user->isSuperAdminOrOwner() || $user->can('view_any_setting') || $user->can('manage_settings') || $user->can('update_setting'));
     }
 
@@ -72,6 +77,9 @@ class ManageSettings extends Page implements HasForms
     public function mount(): void
     {
         $settings = Setting::all()->pluck('value', 'key')->toArray();
+        if (auth()->user() && MailAccessService::canAdministerAllMail(auth()->user())) {
+            $settings = array_replace($settings, MailSettingsService::values());
+        }
         $this->form->fill($settings);
     }
 
@@ -99,19 +107,19 @@ class ManageSettings extends Page implements HasForms
                                             ->helperText(__('settings.manage.general.site_name_helper'))
                                             ->required()
                                             ->columnSpan(2)
-                                            ->disabled(!$canEdit),
+                                            ->disabled(! $canEdit),
 
                                         TextInput::make('company_phone')
                                             ->label(__('settings.manage.general.company_phone'))
                                             ->helperText(__('settings.manage.general.company_phone_helper'))
                                             ->tel()
-                                            ->disabled(!$canEdit),
+                                            ->disabled(! $canEdit),
 
                                         TextInput::make('company_email')
                                             ->label(__('settings.manage.general.company_email'))
                                             ->helperText(__('settings.manage.general.company_email_helper'))
                                             ->email()
-                                            ->disabled(!$canEdit),
+                                            ->disabled(! $canEdit),
                                     ]),
                             ]),
 
@@ -131,7 +139,7 @@ class ManageSettings extends Page implements HasForms
                                             ->numeric()
                                             ->minValue(1)
                                             ->default(90)
-                                            ->disabled(!$canEdit),
+                                            ->disabled(! $canEdit),
 
                                         TextInput::make('iqama_alert_second_days')
                                             ->label(__('settings.manage.alerts.iqama_alert_second_days'))
@@ -139,7 +147,7 @@ class ManageSettings extends Page implements HasForms
                                             ->numeric()
                                             ->minValue(1)
                                             ->default(60)
-                                            ->disabled(!$canEdit),
+                                            ->disabled(! $canEdit),
 
                                         TextInput::make('iqama_alert_third_days')
                                             ->label(__('settings.manage.alerts.iqama_alert_third_days'))
@@ -147,7 +155,7 @@ class ManageSettings extends Page implements HasForms
                                             ->numeric()
                                             ->minValue(1)
                                             ->default(30)
-                                            ->disabled(!$canEdit),
+                                            ->disabled(! $canEdit),
                                     ]),
                             ]),
 
@@ -166,7 +174,7 @@ class ManageSettings extends Page implements HasForms
                                             ->helperText(__('settings.manage.uploads.allowed_upload_extensions_helper'))
                                             ->default('pdf,jpg,jpeg,png')
                                             ->required()
-                                            ->disabled(!$canEdit),
+                                            ->disabled(! $canEdit),
 
                                         TextInput::make('max_upload_size_kb')
                                             ->label(__('settings.manage.uploads.max_upload_size_kb'))
@@ -175,7 +183,7 @@ class ManageSettings extends Page implements HasForms
                                             ->minValue(100)
                                             ->default(5120)
                                             ->required()
-                                            ->disabled(!$canEdit),
+                                            ->disabled(! $canEdit),
                                     ]),
                             ]),
 
@@ -202,7 +210,7 @@ class ManageSettings extends Page implements HasForms
                                             ->password()
                                             ->revealable()
                                             ->live()
-                                            ->disabled(!$canEdit),
+                                            ->disabled(! $canEdit),
 
                                         Select::make('gemini_model')
                                             ->label(__('settings.manage.ai.gemini_model'))
@@ -218,9 +226,9 @@ class ManageSettings extends Page implements HasForms
                                             ->default('gemini-3.5-flash')
                                             ->required()
                                             ->live()
-                                            ->disabled(!$canEdit),
+                                            ->disabled(! $canEdit),
 
-                                        \Filament\Schemas\Components\Actions::make([
+                                        Actions::make([
                                             Action::make('test_gemini_btn')
                                                 ->label(__('settings.manage.ai.test_btn'))
                                                 ->icon('heroicon-m-check-badge')
@@ -229,6 +237,12 @@ class ManageSettings extends Page implements HasForms
                                         ])->columnSpanFull(),
                                     ]),
                             ]),
+
+                        Tab::make('mail')
+                            ->label(__('mail_inbox.actions.settings'))
+                            ->icon('heroicon-m-envelope')
+                            ->visible(fn (): bool => auth()->user() && MailAccessService::canAdministerAllMail(auth()->user()))
+                            ->schema(MailSettingsForm::configure(Schema::make($this))),
 
                         // 5. Database Reset Tab
                         Tab::make('database_reset')
@@ -250,7 +264,7 @@ class ManageSettings extends Page implements HasForms
                                                 ->description(__('settings.manage.database_reset.modules.finance.desc'))
                                                 ->icon('heroicon-o-banknotes')
                                                 ->schema([
-                                                    \Filament\Schemas\Components\Actions::make([
+                                                    Actions::make([
                                                         Action::make('reset_finance')
                                                             ->label(__('settings.manage.database_reset.modules.finance.button'))
                                                             ->icon('heroicon-o-trash')
@@ -275,7 +289,7 @@ class ManageSettings extends Page implements HasForms
                                                 ->description(__('settings.manage.database_reset.modules.hr.desc'))
                                                 ->icon('heroicon-o-user-group')
                                                 ->schema([
-                                                    \Filament\Schemas\Components\Actions::make([
+                                                    Actions::make([
                                                         Action::make('reset_hr')
                                                             ->label(__('settings.manage.database_reset.modules.hr.button'))
                                                             ->icon('heroicon-o-trash')
@@ -300,7 +314,7 @@ class ManageSettings extends Page implements HasForms
                                                 ->description(__('settings.manage.database_reset.modules.contracts_offers.desc'))
                                                 ->icon('heroicon-o-document-text')
                                                 ->schema([
-                                                    \Filament\Schemas\Components\Actions::make([
+                                                    Actions::make([
                                                         Action::make('reset_contracts_offers')
                                                             ->label(__('settings.manage.database_reset.modules.contracts_offers.button'))
                                                             ->icon('heroicon-o-trash')
@@ -325,7 +339,7 @@ class ManageSettings extends Page implements HasForms
                                                 ->description(__('settings.manage.database_reset.modules.tasks_violations.desc'))
                                                 ->icon('heroicon-o-clipboard-document-check')
                                                 ->schema([
-                                                    \Filament\Schemas\Components\Actions::make([
+                                                    Actions::make([
                                                         Action::make('reset_tasks_violations')
                                                             ->label(__('settings.manage.database_reset.modules.tasks_violations.button'))
                                                             ->icon('heroicon-o-trash')
@@ -350,7 +364,7 @@ class ManageSettings extends Page implements HasForms
                                                 ->description(__('settings.manage.database_reset.modules.funds_rosca.desc'))
                                                 ->icon('heroicon-o-arrows-right-left')
                                                 ->schema([
-                                                    \Filament\Schemas\Components\Actions::make([
+                                                    Actions::make([
                                                         Action::make('reset_funds_rosca')
                                                             ->label(__('settings.manage.database_reset.modules.funds_rosca.button'))
                                                             ->icon('heroicon-o-trash')
@@ -375,7 +389,7 @@ class ManageSettings extends Page implements HasForms
                                                 ->description(__('settings.manage.database_reset.modules.asset_funds.desc'))
                                                 ->icon('heroicon-o-archive-box')
                                                 ->schema([
-                                                    \Filament\Schemas\Components\Actions::make([
+                                                    Actions::make([
                                                         Action::make('reset_asset_funds')
                                                             ->label(__('settings.manage.database_reset.modules.asset_funds.button'))
                                                             ->icon('heroicon-o-trash')
@@ -400,7 +414,7 @@ class ManageSettings extends Page implements HasForms
                                                 ->description(__('settings.manage.database_reset.modules.companies_clients.desc'))
                                                 ->icon('heroicon-o-building-office-2')
                                                 ->schema([
-                                                    \Filament\Schemas\Components\Actions::make([
+                                                    Actions::make([
                                                         Action::make('reset_companies_clients')
                                                             ->label(__('settings.manage.database_reset.modules.companies_clients.button'))
                                                             ->icon('heroicon-o-trash')
@@ -434,7 +448,7 @@ class ManageSettings extends Page implements HasForms
         $user = auth()->user();
         $canEdit = $user && ($user->isSuperAdminOrOwner() || $user->can('manage_settings') || $user->can('update_setting'));
 
-        if (!$canEdit) {
+        if (! $canEdit) {
             return [];
         }
 
@@ -451,6 +465,13 @@ class ManageSettings extends Page implements HasForms
     public function saveSettings(): void
     {
         $formData = $this->form->getState();
+
+        $mailKeys = array_keys(MailSettingsService::values());
+        $mailData = Arr::only($formData, $mailKeys);
+        if ($mailData !== []) {
+            MailSettingsService::save($mailData);
+        }
+        $formData = Arr::except($formData, $mailKeys);
 
         foreach ($formData as $key => $value) {
             Setting::updateOrCreate(
@@ -492,19 +513,20 @@ class ManageSettings extends Page implements HasForms
                 ->body(__('settings.manage.ai.no_api_key_body'))
                 ->warning()
                 ->send();
+
             return;
         }
 
         try {
             $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
-            $response = \Illuminate\Support\Facades\Http::timeout(15)->post($endpoint, [
+            $response = Http::timeout(15)->post($endpoint, [
                 'contents' => [
                     [
                         'parts' => [
-                            ['text' => 'Hello, respond with SUCCESS only.']
-                        ]
-                    ]
-                ]
+                            ['text' => 'Hello, respond with SUCCESS only.'],
+                        ],
+                    ],
+                ],
             ]);
 
             if ($response->successful()) {
@@ -515,7 +537,7 @@ class ManageSettings extends Page implements HasForms
                     ->duration(8000)
                     ->send();
             } else {
-                $rawError = $response->json('error.message') ?? ('HTTP ' . $response->status());
+                $rawError = $response->json('error.message') ?? ('HTTP '.$response->status());
                 $formattedError = $this->formatGeminiErrorMessage($rawError);
 
                 Notification::make()
@@ -564,12 +586,12 @@ class ManageSettings extends Page implements HasForms
      */
     public function performDatabaseReset(): void
     {
-        if (!((auth()->user()?->isSuperAdmin() ?? false) || (auth()->user()?->can('reset_database') ?? false))) {
+        if (! ((auth()->user()?->isSuperAdmin() ?? false) || (auth()->user()?->can('reset_database') ?? false))) {
             abort(403);
         }
 
         try {
-            $result = \App\Services\DatabaseResetService::resetDatabase();
+            $result = DatabaseResetService::resetDatabase();
 
             Notification::make()
                 ->title(__('settings.manage.database_reset.success_title'))
@@ -597,14 +619,14 @@ class ManageSettings extends Page implements HasForms
      */
     public function performModuleReset(string $moduleKey): void
     {
-        if (!((auth()->user()?->isSuperAdmin() ?? false) || (auth()->user()?->can('reset_database') ?? false))) {
+        if (! ((auth()->user()?->isSuperAdmin() ?? false) || (auth()->user()?->can('reset_database') ?? false))) {
             abort(403);
         }
 
         try {
-            $result = \App\Services\DatabaseResetService::resetModule($moduleKey);
+            $result = DatabaseResetService::resetModule($moduleKey);
 
-            $moduleName = __('settings.manage.database_reset.modules.' . $moduleKey . '.title');
+            $moduleName = __('settings.manage.database_reset.modules.'.$moduleKey.'.title');
 
             Notification::make()
                 ->title(__('settings.manage.database_reset.module_success_title', ['module' => $moduleName]))
@@ -627,4 +649,3 @@ class ManageSettings extends Page implements HasForms
         }
     }
 }
-
