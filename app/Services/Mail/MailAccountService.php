@@ -36,12 +36,12 @@ class MailAccountService
      */
     public static function providerOptions(): array
     {
-        return [
+        return array_values(array_filter([
             self::PROVIDER_GMAIL,
-            self::PROVIDER_OUTLOOK,
+            app()->isProduction() ? null : self::PROVIDER_OUTLOOK,
             self::PROVIDER_YAHOO,
             self::PROVIDER_CUSTOM,
-        ];
+        ]));
     }
 
     public static function inferProvider(?string $email, ?string $host = null): string

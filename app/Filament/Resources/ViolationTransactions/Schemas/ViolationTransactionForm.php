@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\ViolationTransactions\Schemas;
 
 use App\Enums\ViolationTransactionType;
+use App\Models\ViolationTransaction;
 use App\Services\CompanyFormService;
 use App\Services\ViolationTransactionFormService;
 use Filament\Forms\Components\CheckboxList;
@@ -66,14 +67,14 @@ class ViolationTransactionForm
                         Select::make('violation_id')
                             ->label(__('violations.transactions.fields.violation'))
                             ->placeholder(fn (callable $get) => filled($get('company_id')) ? null : __('violations.transactions.fields.select_company_first'))
-                            ->options(fn (callable $get) => ViolationTransactionFormService::getSingleViolationOptions($get('company_id')))
+                            ->options(fn (callable $get, ?ViolationTransaction $record) => ViolationTransactionFormService::getSingleViolationOptions($get('company_id'), $record?->violation_id))
                             ->searchable()
                             ->preload()
                             ->visible(fn (callable $get) => ($get('link_type') ?? ViolationTransactionFormService::LINK_SINGLE) === ViolationTransactionFormService::LINK_SINGLE)
                             ->required(fn (callable $get) => ($get('link_type') ?? ViolationTransactionFormService::LINK_SINGLE) === ViolationTransactionFormService::LINK_SINGLE)
                             ->live()
-                            ->afterStateUpdated(fn ($state, callable $set, callable $get) =>
-                                ViolationTransactionFormService::handleSingleViolationUpdated($state, $set, $get)
+                            ->afterStateUpdated(fn ($state, callable $set) =>
+                                ViolationTransactionFormService::handleSingleViolationUpdated($state, $set)
                             )
                             ->columnSpan(2),
 
@@ -89,7 +90,7 @@ class ViolationTransactionForm
 
                         CheckboxList::make('metadata.selected_violation_ids')
                             ->label(__('violations.transactions.fields.selected_violations'))
-                            ->options(fn (callable $get) => ViolationTransactionFormService::getMultipleViolationOptions($get('company_id')))
+                            ->options(fn (callable $get, ?ViolationTransaction $record) => ViolationTransactionFormService::getMultipleViolationOptions($get('company_id'), $record?->metadata['selected_violation_ids'] ?? []))
                             ->searchable()
                             ->bulkToggleable()
                             ->columns(2)
@@ -100,8 +101,8 @@ class ViolationTransactionForm
                             ->visible(fn (callable $get) => $get('link_type') === ViolationTransactionFormService::LINK_MULTIPLE && filled($get('company_id')))
                             ->required(fn (callable $get) => $get('link_type') === ViolationTransactionFormService::LINK_MULTIPLE)
                             ->live()
-                            ->afterStateUpdated(fn ($state, callable $set) =>
-                                ViolationTransactionFormService::handleMultipleViolationsUpdated($state, $set)
+                            ->afterStateUpdated(fn ($state, callable $set, ?ViolationTransaction $record) =>
+                                ViolationTransactionFormService::handleMultipleViolationsUpdated($state, $set, $record)
                             ),
 
                         Placeholder::make('unlinked_notice')

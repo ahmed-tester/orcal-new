@@ -413,6 +413,8 @@ class TaskAssignmentSummaryService
                             TaskStatus::IN_PROGRESS->value,
                             TaskStatus::RETURNED_FOR_REVISION->value,
                             TaskStatus::PENDING_REVIEW->value,
+                            TaskStatus::TRANSFERRED->value,
+                            TaskStatus::ESCALATED->value,
                             TaskStatus::POSTPONED->value,
                         ])
                         ->whereHas('taskAssignment', fn (Builder $assignment) => $assignment
@@ -458,6 +460,12 @@ class TaskAssignmentSummaryService
 
         if (filled($filters['employee_id'] ?? null)) {
             $query->whereKey((int) $filters['employee_id']);
+        }
+
+        $employeeIds = array_values(array_filter(array_map('intval', (array) ($filters['employee_ids'] ?? []))));
+
+        if ($employeeIds !== []) {
+            $query->whereIn('employees.id', $employeeIds);
         }
     }
 }

@@ -69,24 +69,28 @@ class ViolationTransaction extends Model
                 $transaction->voucher_number = ViolationTransactionService::generateVoucherNumber($transaction->company_id);
             }
 
+            // Validate multiple-violation amount against locked DB rows before insert
+            ViolationTransactionService::validateMultipleSettlementAmount($transaction, false);
+
             // Calculate running balance
             if (empty($transaction->balance_after) || (float) $transaction->balance_after === 0.0) {
                 $transaction->balance_after = ViolationTransactionService::calculateBalanceAfter($transaction);
             }
+        });
 
-            // Settle linked violation(s)
+        static::created(function (ViolationTransaction $transaction) {
+            // Settle linked violation(s) once after the outgoing transaction is persisted
             ViolationTransactionService::settleLinkedViolations($transaction);
         });
 
-        static::saved(function (ViolationTransaction $transaction) {
-            // Ensure multiple selected violations are marked paid when saved
-            $selectedIds = $transaction->metadata['selected_violation_ids'] ?? [];
-            if (! empty($selectedIds) && is_array($selectedIds)) {
-                ViolationTransactionService::settleMultipleViolations(
-                    $selectedIds,
-                    $transaction->transaction_date ? Carbon::parse($transaction->transaction_date)->toDateString() : null
-                );
-            }
+        static::updating(function (ViolationTransaction $transaction) {
+            // Validate multiple-violation amount against locked DB rows before update
+            ViolationTransactionService::validateMultipleSettlementAmount($transaction, true);
+        });
+
+        static::updated(function (ViolationTransaction $transaction) {
+            // Reverse old financial effects, apply new settlement, and recalculate balances
+            ViolationTransactionService::syncUpdatedTransaction($transaction);
         });
     }
 

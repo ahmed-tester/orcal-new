@@ -48,12 +48,38 @@ class CreateDepartmentTool implements GeminiToolInterface
                 return ['success' => false, 'message' => __('organization.departments.ai.name_required')];
             }
 
-            $companies = array_values(array_unique(array_map('intval', $arguments['companies'] ?? [])));
-            $scope = ! $parentId ? DepartmentScope::FAWAZ_GROUP : ($companies ? DepartmentScope::SHARED : DepartmentScope::SINGLE);
-            $companyId = isset($arguments['company_id']) ? (int) $arguments['company_id'] : CompanyFormService::getDefaultCompanyId();
-            if ($scope === DepartmentScope::SINGLE && ! $companyId) {
-                return ['success' => false, 'message' => __('organization.departments.ai.company_required')];
+            $companies = array_values(array_unique(array_filter(array_map('intval', $arguments['companies'] ?? []))));
+            $targetLevel = DepartmentHierarchyService::targetLevelForParent($parentId);
+
+            if ($targetLevel > DepartmentHierarchyService::MAX_DEPTH) {
+                return ['success' => false, 'message' => __('organization.departments.hierarchy.errors.max_depth_exceeded')];
             }
+
+            if ($targetLevel <= 2) {
+                if (! empty($arguments['company_id']) || $companies !== []) {
+                    return ['success' => false, 'message' => __('organization.departments.hierarchy.errors.general_level_forbids_companies')];
+                }
+                $scope = DepartmentScope::FAWAZ_GROUP;
+                $companyId = null;
+                $companies = [];
+            } else {
+                if (count($companies) >= 2) {
+                    $scope = DepartmentScope::SHARED;
+                    $companyId = null;
+                } elseif (count($companies) === 1) {
+                    $scope = DepartmentScope::SINGLE;
+                    $companyId = $companies[0];
+                    $companies = [];
+                } else {
+                    $scope = DepartmentScope::SINGLE;
+                    $companyId = isset($arguments['company_id']) ? (int) $arguments['company_id'] : CompanyFormService::getDefaultCompanyId();
+                }
+
+                if ($scope === DepartmentScope::SINGLE && ! $companyId) {
+                    return ['success' => false, 'message' => __('organization.departments.ai.company_required')];
+                }
+            }
+
             if (CompanyAccessScopeService::apply(Department::query())->where('parent_id', $parentId)->where('name', $name)->exists()) {
                 return ['success' => false, 'message' => __('organization.departments.ai.duplicate', ['name' => $name])];
             }

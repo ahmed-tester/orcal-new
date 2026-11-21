@@ -2,7 +2,10 @@
 
 namespace App\Services\Reports\Types;
 
+use App\Enums\DepartmentScope;
 use App\Models\Department;
+use App\Services\DepartmentHierarchyService;
+use App\Services\DepartmentScopeService;
 
 class DepartmentsReport extends AbstractReport
 {
@@ -60,7 +63,7 @@ class DepartmentsReport extends AbstractReport
     public function getQuery(?string $dateFrom, ?string $dateTo, ?int $branchId, string $status, ?string $search)
     {
         $query = Department::query()
-            ->with(['company', 'parent'])
+            ->with(['company', 'parent', 'companies'])
             ->withCount('employees');
 
         $this->applyCompanyScope($query);
@@ -98,11 +101,22 @@ class DepartmentsReport extends AbstractReport
 
     public function formatRow($item, bool $isCsv = false): array
     {
+        $scope = DepartmentScopeService::resolveScope($item);
+        $companyName = match ($scope) {
+            DepartmentScope::FAWAZ_GROUP => DepartmentHierarchyService::levelOf($item) === 1
+                ? __('organization.departments.scope.group_umbrella')
+                : __('organization.departments.scope.general_main'),
+            DepartmentScope::SHARED => $item->companies->isNotEmpty()
+                ? $item->companies->pluck('trade_name')->join(__('organization.departments.fields.companies_separator'))
+                : __('organization.departments.fields.global_badge'),
+            DepartmentScope::SINGLE => $item->company?->trade_name ?? $item->company?->name ?? '—',
+        };
+
         return [
             'department_code' => $item->department_code ?? '—',
             'name' => $item->name,
             'parent_name' => $item->parent?->name ?? '—',
-            'company_name' => $item->company?->trade_name ?? $item->company?->name ?? '—',
+            'company_name' => $companyName,
             'employees_count' => $item->employees_count ?? 0,
             'status' => $this->translateStatus($item->status ?? 'active'),
         ];

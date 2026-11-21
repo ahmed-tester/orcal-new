@@ -93,3 +93,35 @@
     </article>
 @endforeach
 
+@if($details['showTransactions'] && ($details['unlinkedTransactions'] ?? collect())->isNotEmpty())
+    <article class="violation-summary-card">
+        <div class="violation-summary-card__head">
+            <strong>{{ __('violations.transactions.fields.unlinked_section_title') }}</strong>
+        </div>
+        <div style="overflow-x: auto; margin-top: 0.75rem;">
+            <table class="violation-summary-table" style="font-size: 0.825rem;">
+                <thead>
+                    <tr>
+                        <th scope="col">{{ __('violations.transactions.fields.voucher_number') }}</th>
+                        <th scope="col">{{ __('violations.transactions.fields.transaction_date') }}</th>
+                        <th scope="col">{{ __('violations.transactions.fields.transaction_type') }}</th>
+                        <th scope="col">{{ __('violations.transactions.fields.amount') }}</th>
+                        <th scope="col">{{ __('violations.transactions.fields.description') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($details['unlinkedTransactions'] as $transaction)
+                        <tr>
+                            <td><bdi>{{ $transaction->voucher_number }}</bdi></td>
+                            <td><bdi>{{ $transaction->transaction_date?->format('Y-m-d') ?? '—' }}</bdi></td>
+                            <td>{{ $transaction->transaction_type?->getLabel() }}</td>
+                            <td><bdi>{{ number_format((float) $transaction->amount, 2) }}</bdi></td>
+                            <td>{{ $transaction->description ?? '—' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </article>
+@endif
+

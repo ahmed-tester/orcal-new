@@ -43,7 +43,7 @@ class ViolationTransactionsTable
                         }
                         if ($record->link_type === 'multiple' || (! empty($record->metadata['selected_violation_ids']))) {
                             $count = count($record->metadata['selected_violation_ids'] ?? []);
-                            return "مجموعة مخالفات ({$count})";
+                            return __('violations.transactions.fields.multiple_badge', ['count' => $count]);
                         }
                         return $record->violation?->violation_number ?? '—';
                     })

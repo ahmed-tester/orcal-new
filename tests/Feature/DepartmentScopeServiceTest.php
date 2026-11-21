@@ -197,7 +197,8 @@ class DepartmentScopeServiceTest extends TestCase
         $this->assertTrue($this->employeeUser($shared, $c3->id)->canAccessAllCompanies());
 
         $parent = Department::create(['name' => 'Group', 'is_global' => true]);
-        $local = Department::create(['name' => 'Local', 'company_id' => $c1->id, 'parent_id' => $parent->id]);
+        $main = Department::create(['name' => 'Main', 'is_global' => true, 'parent_id' => $parent->id]);
+        $local = Department::create(['name' => 'Local', 'company_id' => $c1->id, 'parent_id' => $main->id]);
         $local->companies()->detach();
 
         $this->assertSame([$c1->id], $local->getAssignedCompanyIds());

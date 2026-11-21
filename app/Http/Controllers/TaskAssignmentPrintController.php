@@ -36,14 +36,9 @@ class TaskAssignmentPrintController extends Controller
             'search'         => ['nullable', 'string', 'max:255'],
         ]);
 
-        $query = TaskAssignmentSummaryService::summaryQuery($filters);
-
-        // If specific employees requested, narrow down
-        if (! empty($filters['employee_ids'])) {
-            $query->whereIn('employees.id', $filters['employee_ids']);
-        }
-
-        $rows = $query->orderBy('employees.id')->get();
+        $rows = TaskAssignmentSummaryService::summaryQuery($filters)
+            ->orderBy('employees.id')
+            ->get();
 
         $stats = TaskAssignmentSummaryService::stats($filters);
 

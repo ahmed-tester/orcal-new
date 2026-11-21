@@ -457,8 +457,9 @@ class TaskAssignmentItemReviewService
             $meta['escalated_at'] = now()->toDateTimeString();
             $meta['escalated_by'] = $user->id;
 
-            $noteText = ' [تم التصعيد للإدارة: '.$cleanReason.']';
-            $newNotes = filled($locked->notes) ? $locked->notes.$noteText : 'تم التصعيد للإدارة: '.$cleanReason;
+            $escalatedNote = __('tasks.review.labels.escalated_note', ['reason' => $cleanReason]);
+            $noteText = ' ['.$escalatedNote.']';
+            $newNotes = filled($locked->notes) ? $locked->notes.$noteText : $escalatedNote;
 
             TaskAssignmentItem::withoutReviewGuard(function () use ($locked, $newNotes, $meta): void {
                 $locked->update([

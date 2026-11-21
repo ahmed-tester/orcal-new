@@ -14,6 +14,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Services\AI\Tools\CreateDepartmentTool;
 use App\Services\CodeGeneratorService;
+use App\Services\CompanyAccessScopeService;
 use App\Services\DepartmentHierarchyService;
 use App\Services\DepartmentScopeService;
 use Filament\Facades\Filament;
@@ -77,8 +78,6 @@ class DepartmentHierarchyTest extends TestCase
 
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('department_id')->nullable();
-            $table->foreignId('company_id')->nullable();
         });
         Schema::create('owners', function (Blueprint $table) {
             $table->id();
@@ -114,20 +113,22 @@ class DepartmentHierarchyTest extends TestCase
 
     public function test_codes_use_prefix_by_creation_position_and_stay_fixed_after_move(): void
     {
+        $company = Company::create(['trade_name' => 'A']);
         $administration = $this->group('Operations');
+        $otherAdmin = $this->group('Support');
         $main = $this->group('Supervision', $administration->id);
-        $sub = $this->group('Riyadh', $main->id);
-        $deeper = $this->group('North Riyadh', $sub->id);
+        $sub = Department::create(['name' => 'Riyadh', 'parent_id' => $main->id, 'company_id' => $company->id]);
 
         $this->assertSame('ADM-0001', $administration->department_code);
+        $this->assertSame('ADM-0002', $otherAdmin->department_code);
         $this->assertSame('SEC-0001', $main->department_code);
         $this->assertSame('SUB-0001', $sub->department_code);
-        $this->assertSame('SUB-0002', $deeper->department_code);
 
-        DepartmentHierarchyService::move($sub, $administration->id);
+        DepartmentHierarchyService::move($main, $otherAdmin->id);
 
-        $this->assertSame('SUB-0001', $sub->fresh()->department_code);
-        $this->assertSame(2, DepartmentHierarchyService::levelOf($sub->fresh()));
+        $this->assertSame('SEC-0001', $main->fresh()->department_code);
+        $this->assertSame(2, DepartmentHierarchyService::levelOf($main->fresh()));
+        $this->assertSame(3, DepartmentHierarchyService::levelOf($sub->fresh()));
     }
 
     public function test_code_sequence_ignores_company_scope(): void
@@ -151,15 +152,32 @@ class DepartmentHierarchyTest extends TestCase
         $this->assertSame('DEP-C'.$company->id.'-001', $code);
     }
 
-    public function test_chain_deeper_than_three_levels_is_allowed(): void
+    public function test_fourth_level_is_rejected_across_model_service_and_ui(): void
     {
-        $parent = null;
-        foreach (range(1, 6) as $i) {
-            $parent = $this->group('Level '.$i, $parent?->id);
+        $company = Company::create(['trade_name' => 'A']);
+        $admin = $this->group('Level 1');
+        $main = $this->group('Level 2', $admin->id);
+        $sub = Department::create(['name' => 'Level 3', 'parent_id' => $main->id, 'company_id' => $company->id]);
+
+        $this->assertSame(3, DepartmentHierarchyService::levelOf($sub));
+        $this->assertCount(2, DepartmentHierarchyService::ancestorIds($sub));
+
+        try {
+            DepartmentHierarchyService::save(['name' => 'Level 4', 'parent_id' => $sub->id, 'company_id' => $company->id], null, DepartmentScope::SINGLE);
+            $this->fail('Fourth level was accepted by save().');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('parent_id', $e->errors());
         }
 
-        $this->assertSame(6, DepartmentHierarchyService::levelOf($parent));
-        $this->assertCount(5, DepartmentHierarchyService::ancestorIds($parent));
+        try {
+            DepartmentHierarchyService::createFromContext(['name' => 'Level 4', 'company_id' => $company->id], $sub->id);
+            $this->fail('Fourth level was accepted by createFromContext().');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('parent_id', $e->errors());
+        }
+
+        Livewire::withQueryParams(['parent' => $sub->id])->test(CreateDepartment::class)->assertNotFound();
+        Livewire::withQueryParams(['parent' => $sub->id])->test(ListDepartments::class)->assertNotFound();
     }
 
     public function test_display_labels_and_siblings_reuse_ancestor_queries(): void
@@ -258,11 +276,12 @@ class DepartmentHierarchyTest extends TestCase
 
     public function test_move_appends_last_and_keeps_branch(): void
     {
+        $company = Company::create(['trade_name' => 'A']);
         $x = $this->group('X');
         $y = $this->group('Y');
         $existing = $this->group('Existing', $y->id);
         $moved = $this->group('Moved', $x->id);
-        $child = $this->group('Child', $moved->id);
+        $child = Department::create(['name' => 'Child', 'parent_id' => $moved->id, 'company_id' => $company->id]);
 
         DepartmentHierarchyService::move($moved, $y->id);
 
@@ -289,7 +308,8 @@ class DepartmentHierarchyTest extends TestCase
     {
         $company = Company::create(['trade_name' => 'A']);
         $root = $this->group('Root');
-        $local = Department::create(['name' => 'Local', 'company_id' => $company->id, 'parent_id' => $root->id]);
+        $main = $this->group('Main', $root->id);
+        $local = Department::create(['name' => 'Local', 'company_id' => $company->id, 'parent_id' => $main->id]);
 
         $this->expectException(ValidationException::class);
         DepartmentHierarchyService::move($local, null);
@@ -311,16 +331,20 @@ class DepartmentHierarchyTest extends TestCase
         Department::create(['name' => 'Outside', 'company_id' => $c3->id, 'parent_id' => $restricted->id]);
     }
 
-    public function test_group_parent_accepts_children_of_any_company(): void
+    public function test_main_parent_accepts_subdepartments_of_any_company_and_rejects_empty(): void
     {
         $c1 = Company::create(['trade_name' => 'A']);
         $c2 = Company::create(['trade_name' => 'B']);
         $group = $this->group('Group');
+        $main = $this->group('Main', $group->id);
 
-        Department::create(['name' => 'One', 'company_id' => $c1->id, 'parent_id' => $group->id]);
-        Department::create(['name' => 'Two', 'company_id' => $c2->id, 'parent_id' => $group->id]);
+        DepartmentHierarchyService::save(['name' => 'One', 'company_id' => $c1->id, 'parent_id' => $main->id], null, DepartmentScope::SINGLE);
+        DepartmentHierarchyService::save(['name' => 'Two', 'parent_id' => $main->id], null, DepartmentScope::SHARED, [$c1->id, $c2->id]);
 
-        $this->assertSame(2, $group->children()->count());
+        $this->assertSame(2, $main->children()->count());
+
+        $this->expectException(ValidationException::class);
+        DepartmentHierarchyService::save(['name' => 'Empty', 'parent_id' => $main->id], null, DepartmentScope::FAWAZ_GROUP);
     }
 
     public function test_shared_child_company_set_is_validated_by_form_rule(): void
@@ -335,22 +359,21 @@ class DepartmentHierarchyTest extends TestCase
         DepartmentHierarchyService::assertValidSave(['parent_id' => $restricted->id, 'is_global' => true], null, [$c1->id, $c2->id]);
     }
 
-    public function test_moving_branch_checks_descendants_against_new_parent(): void
+    public function test_moving_branch_rejects_exceeding_three_layers_or_incompatible_descendants(): void
     {
         $c1 = Company::create(['trade_name' => 'A']);
-        $c2 = Company::create(['trade_name' => 'B']);
-        $restricted = $this->sharedWith($this->group('Restricted'), [$c1->id]);
-
-        $group = $this->group('Group');
-        $branch = Department::create(['name' => 'Branch', 'company_id' => $c1->id, 'parent_id' => $group->id]);
-        $leaf = Department::create(['name' => 'Leaf', 'company_id' => $c2->id, 'parent_id' => $group->id]);
-        DB::table('departments')->where('id', $leaf->id)->update(['parent_id' => $branch->id]);
+        $admin1 = $this->group('Admin 1');
+        $admin2 = $this->group('Admin 2');
+        $targetMain = $this->group('Target Main', $admin2->id);
+        $branchMain = $this->group('Branch Main', $admin1->id);
+        Department::create(['name' => 'Leaf', 'company_id' => $c1->id, 'parent_id' => $branchMain->id]);
 
         try {
-            DepartmentHierarchyService::move($branch, $restricted->id);
-            $this->fail('Move with conflicting descendant was accepted.');
-        } catch (ValidationException) {
-            $this->assertSame($group->id, $branch->fresh()->parent_id);
+            DepartmentHierarchyService::move($branchMain, $targetMain->id);
+            $this->fail('Move exceeding three layers was accepted.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('parent_id', $e->errors());
+            $this->assertSame($admin1->id, $branchMain->fresh()->parent_id);
         }
     }
 
@@ -367,10 +390,7 @@ class DepartmentHierarchyTest extends TestCase
         $this->assertSame(['has_employees'], DepartmentHierarchyService::deletionBlockers($child));
 
         DB::table('employees')->delete();
-        DB::table('users')->insert(['department_id' => $child->id]);
-        $this->assertFalse($child->delete());
-
-        DB::table('users')->delete();
+        $this->assertSame([], DepartmentHierarchyService::deletionBlockers($child));
         $this->assertTrue($child->delete());
         $this->assertNotNull(Department::query()->find($parent->id));
         $this->assertNull(Department::query()->find($child->id));
@@ -393,22 +413,24 @@ class DepartmentHierarchyTest extends TestCase
         $this->assertSame([$a->id, $c->id, $b->id], $root->children()->ordered()->pluck('id')->all());
     }
 
-    public function test_parent_options_show_paths_and_exclude_self_and_descendants(): void
+    public function test_parent_options_show_paths_and_exclude_self_descendants_and_third_level(): void
     {
+        $company = Company::create(['trade_name' => 'A']);
         $root = $this->group('Root');
         $main = $this->group('Main', $root->id);
-        $sub = $this->group('Sub', $main->id);
+        $sub = Department::create(['name' => 'Sub', 'parent_id' => $main->id, 'company_id' => $company->id]);
         $other = $this->group('Other');
 
-        $options = DepartmentHierarchyService::parentOptions(Department::query(), $main);
+        $optionsForMain = DepartmentHierarchyService::parentOptions(Department::query(), $main);
 
-        $this->assertSame('Root', $options[$root->id]);
-        $this->assertSame('Other', $options[$other->id]);
-        $this->assertArrayNotHasKey($main->id, $options);
-        $this->assertArrayNotHasKey($sub->id, $options);
+        $this->assertSame('Root', $optionsForMain[$root->id]);
+        $this->assertSame('Other', $optionsForMain[$other->id]);
+        $this->assertArrayNotHasKey($main->id, $optionsForMain);
+        $this->assertArrayNotHasKey($sub->id, $optionsForMain);
 
         $all = DepartmentHierarchyService::parentOptions(Department::query());
-        $this->assertSame('Root / Main / Sub', $all[$sub->id]);
+        $this->assertSame('Root / Main', $all[$main->id]);
+        $this->assertArrayNotHasKey($sub->id, $all);
     }
 
     public function test_path_labels_never_reveal_ancestors_outside_the_visible_set(): void
@@ -445,21 +467,25 @@ class DepartmentHierarchyTest extends TestCase
         $this->assertSame([$legacy->id, $root->id], $ids);
     }
 
-    public function test_shared_assignment_cannot_be_narrowed_past_a_child_and_nothing_is_saved(): void
+    public function test_shared_assignment_normalizes_single_company_and_allows_organizational_dependents(): void
     {
         $a = Company::create(['trade_name' => 'A']);
         $b = Company::create(['trade_name' => 'B']);
         $root = $this->group('Root');
-        $parent = DepartmentHierarchyService::save(['name' => 'Parent', 'parent_id' => $root->id], null, DepartmentScope::SHARED, [$a->id, $b->id]);
-        DepartmentHierarchyService::save(['name' => 'Child', 'parent_id' => $parent->id, 'company_id' => $b->id], null, DepartmentScope::SINGLE);
+        $main = $this->group('Main', $root->id);
+        DB::table('employees')->insert(['department_id' => $main->id, 'company_id' => $b->id]);
 
-        try {
-            DepartmentHierarchyService::save(['name' => 'Changed', 'parent_id' => $root->id], $parent, DepartmentScope::SHARED, [$a->id]);
-            $this->fail('Conflicting child assignment was accepted.');
-        } catch (ValidationException) {
-            $this->assertSame('Parent', $parent->fresh()->name);
-            $this->assertSame([$a->id, $b->id], $parent->companies()->orderBy('companies.id')->pluck('companies.id')->all());
-        }
+        $singleFromShared = DepartmentHierarchyService::save(
+            ['name' => 'Normalized', 'parent_id' => $main->id],
+            null,
+            DepartmentScope::SHARED,
+            [$a->id],
+        );
+
+        $this->assertFalse($singleFromShared->is_global);
+        $this->assertSame($a->id, $singleFromShared->company_id);
+        $this->assertSame([$a->id], $singleFromShared->getAssignedCompanyIds());
+        $this->assertSame(2, DepartmentHierarchyService::levelOf($main));
     }
 
     public function test_scope_change_cannot_strand_an_employee(): void
@@ -467,11 +493,12 @@ class DepartmentHierarchyTest extends TestCase
         $a = Company::create(['trade_name' => 'A']);
         $b = Company::create(['trade_name' => 'B']);
         $root = $this->group('Root');
-        $department = DepartmentHierarchyService::save(['name' => 'Team', 'parent_id' => $root->id], null, DepartmentScope::SHARED, [$a->id, $b->id]);
+        $main = $this->group('Main', $root->id);
+        $department = DepartmentHierarchyService::save(['name' => 'Team', 'parent_id' => $main->id], null, DepartmentScope::SHARED, [$a->id, $b->id]);
         DB::table('employees')->insert(['department_id' => $department->id, 'company_id' => $b->id]);
 
         $this->expectException(ValidationException::class);
-        DepartmentHierarchyService::save(['parent_id' => $root->id, 'company_id' => $a->id], $department, DepartmentScope::SINGLE);
+        DepartmentHierarchyService::save(['parent_id' => $main->id, 'company_id' => $a->id], $department, DepartmentScope::SINGLE);
     }
 
     public function test_local_new_root_is_rejected_but_unchanged_legacy_root_can_be_edited(): void
@@ -490,8 +517,9 @@ class DepartmentHierarchyTest extends TestCase
         $a = Company::create(['trade_name' => 'A']);
         $b = Company::create(['trade_name' => 'B']);
         $root = $this->group('Root');
-        $one = Department::create(['name' => 'Visible', 'company_id' => $a->id, 'parent_id' => $root->id]);
-        $two = Department::create(['name' => 'Hidden', 'company_id' => $b->id, 'parent_id' => $root->id]);
+        $main = $this->group('Main', $root->id);
+        $one = Department::create(['name' => 'Visible', 'company_id' => $a->id, 'parent_id' => $main->id]);
+        $two = Department::create(['name' => 'Hidden', 'company_id' => $b->id, 'parent_id' => $main->id]);
         $user = new User(['user_type' => UserType::SAUDI_EMPLOYEE]);
         $user->forceFill(['id' => 100]);
         $user->setRelation('roles', collect());
@@ -504,37 +532,58 @@ class DepartmentHierarchyTest extends TestCase
             DepartmentHierarchyService::shift($one, 1);
             $this->fail('A hidden sibling was reordered.');
         } catch (AuthorizationException) {
-            $this->assertSame([$one->id, $two->id], $root->children()->ordered()->pluck('id')->all());
+            $this->assertSame([$one->id, $two->id], $main->children()->ordered()->pluck('id')->all());
         }
     }
 
-    public function test_filament_creates_and_browses_an_administration_and_its_child(): void
+    public function test_filament_creates_and_browses_three_layers_and_hides_fourth_layer_creation(): void
     {
         $company = Company::create(['trade_name' => 'A']);
         Livewire::test(CreateDepartment::class)->fillForm([
-            'name' => 'Operations', 'department_scope' => 'fawaz_group', 'status' => 'active',
+            'name' => 'Operations', 'status' => 'active',
         ])->call('create')->assertHasNoFormErrors();
         $root = Department::query()->where('name', 'Operations')->sole();
-        Livewire::withQueryParams(['parent' => $root->id])->test(CreateDepartment::class)->fillForm([
-            'name' => 'Team', 'parent_id' => $root->id, 'department_scope' => 'single',
-            'company_id' => $company->id, 'status' => 'active',
-        ])->call('create')->assertHasNoFormErrors();
-        $child = Department::query()->where('name', 'Team')->sole();
 
-        Livewire::withQueryParams([])->test(ListDepartments::class)->assertCanSeeTableRecords([$root])->assertCanNotSeeTableRecords([$child]);
+        Livewire::withQueryParams(['parent' => $root->id])->test(CreateDepartment::class)
+            ->assertFormFieldIsHidden('parent_id')
+            ->assertFormFieldIsHidden('department_scope')
+            ->assertFormFieldIsHidden('company_id')
+            ->assertFormFieldIsHidden('companies')
+            ->fillForm(['name' => 'Supervision', 'status' => 'active'])
+            ->call('create')->assertHasNoFormErrors();
+        $main = Department::query()->where('name', 'Supervision')->sole();
+        $this->assertTrue($main->is_global);
+        $this->assertNull($main->company_id);
+
+        Livewire::withQueryParams(['parent' => $main->id])->test(CreateDepartment::class)
+            ->assertFormFieldIsHidden('parent_id')
+            ->assertFormFieldIsVisible('department_scope')
+            ->assertFormFieldIsVisible('company_id')
+            ->fillForm([
+                'name' => 'Team', 'department_scope' => 'single',
+                'company_id' => $company->id, 'status' => 'active',
+            ])->call('create')->assertHasNoFormErrors();
+        $sub = Department::query()->where('name', 'Team')->sole();
+
+        Livewire::withQueryParams([])->test(ListDepartments::class)->assertCanSeeTableRecords([$root])->assertCanNotSeeTableRecords([$main, $sub]);
         Livewire::withQueryParams(['parent' => $root->id])->test(ListDepartments::class)
-            ->assertCanSeeTableRecords([$child])->assertCanNotSeeTableRecords([$root]);
+            ->assertCanSeeTableRecords([$main])->assertCanNotSeeTableRecords([$root, $sub])
+            ->assertActionVisible('create');
+        Livewire::withQueryParams(['parent' => $main->id])->test(ListDepartments::class)
+            ->assertCanSeeTableRecords([$sub])->assertCanNotSeeTableRecords([$root, $main])
+            ->assertActionVisible('create');
     }
 
     public function test_filament_rejects_removing_a_local_parent_without_changing_scope(): void
     {
         $company = Company::create(['trade_name' => 'A']);
         $root = $this->group('Root');
-        $child = Department::create(['name' => 'Child', 'company_id' => $company->id, 'parent_id' => $root->id]);
+        $main = $this->group('Main', $root->id);
+        $child = Department::create(['name' => 'Child', 'company_id' => $company->id, 'parent_id' => $main->id]);
         Livewire::test(EditDepartment::class, ['record' => $child->id])
             ->fillForm(['parent_id' => null, 'department_scope' => 'single', 'company_id' => $company->id])
             ->call('save')->assertHasFormErrors();
-        $this->assertSame($root->id, $child->fresh()->parent_id);
+        $this->assertSame($main->id, $child->fresh()->parent_id);
     }
 
     public function test_filament_scope_rejection_does_not_sync_companies_before_validation(): void
@@ -542,30 +591,31 @@ class DepartmentHierarchyTest extends TestCase
         $a = Company::create(['trade_name' => 'A']);
         $b = Company::create(['trade_name' => 'B']);
         $root = $this->group('Root');
-        $parent = DepartmentHierarchyService::save(['name' => 'Parent', 'parent_id' => $root->id], null, DepartmentScope::SHARED, [$a->id, $b->id]);
-        Department::create(['name' => 'Child', 'parent_id' => $parent->id, 'company_id' => $b->id]);
-        Livewire::test(EditDepartment::class, ['record' => $parent->id])
-            ->fillForm(['companies' => [$a->id]])->call('save')->assertHasFormErrors(['company_id']);
-        $this->assertSame([$a->id, $b->id], $parent->companies()->orderBy('companies.id')->pluck('companies.id')->all());
+        $main = $this->group('Main', $root->id);
+        $sub = DepartmentHierarchyService::save(['name' => 'Sub', 'parent_id' => $main->id], null, DepartmentScope::SHARED, [$a->id, $b->id]);
+        DB::table('employees')->insert(['department_id' => $sub->id, 'company_id' => $b->id]);
+        Livewire::test(EditDepartment::class, ['record' => $sub->id])
+            ->fillForm(['department_scope' => 'single', 'company_id' => $a->id])->call('save')->assertHasFormErrors(['company_id']);
+        $this->assertSame([$a->id, $b->id], $sub->companies()->orderBy('companies.id')->pluck('companies.id')->all());
     }
 
-    public function test_filament_moves_a_local_department_and_keeps_its_code_and_children(): void
+    public function test_filament_moves_a_main_department_between_administrations_and_keeps_code_and_children(): void
     {
         $company = Company::create(['trade_name' => 'A']);
         $first = $this->group('First');
         $second = $this->group('Second');
-        $main = Department::create(['name' => 'Main', 'company_id' => $company->id, 'parent_id' => $first->id]);
-        $sub = Department::create(['name' => 'Sub', 'company_id' => $company->id, 'parent_id' => $main->id]);
-        $leaf = Department::create(['name' => 'Leaf', 'company_id' => $company->id, 'parent_id' => $sub->id]);
-        $existing = Department::create(['name' => 'Existing', 'company_id' => $company->id, 'parent_id' => $second->id]);
-        $code = $sub->department_code;
+        $existing = $this->group('Existing', $second->id);
+        $main = $this->group('Main', $first->id);
+        $leaf = Department::create(['name' => 'Leaf', 'company_id' => $company->id, 'parent_id' => $main->id]);
+        $code = $main->department_code;
 
-        Livewire::test(EditDepartment::class, ['record' => $sub->id])
+        Livewire::test(EditDepartment::class, ['record' => $main->id])
             ->fillForm(['parent_id' => $second->id])->call('save')->assertHasNoFormErrors();
-        $this->assertSame($code, $sub->fresh()->department_code);
-        $this->assertSame($sub->id, $leaf->fresh()->parent_id);
-        $this->assertSame([$existing->id, $sub->id], $second->children()->ordered()->pluck('id')->all());
-        $this->assertSame(2, DepartmentHierarchyService::levelOf($sub->fresh()));
+        $this->assertSame($code, $main->fresh()->department_code);
+        $this->assertSame($main->id, $leaf->fresh()->parent_id);
+        $this->assertSame([$existing->id, $main->id], $second->children()->ordered()->pluck('id')->all());
+        $this->assertSame(2, DepartmentHierarchyService::levelOf($main->fresh()));
+        $this->assertSame(3, DepartmentHierarchyService::levelOf($leaf->fresh()));
     }
 
     public function test_old_unclassified_roots_are_available_from_their_filter(): void
@@ -581,18 +631,20 @@ class DepartmentHierarchyTest extends TestCase
     {
         $company = Company::create(['trade_name' => 'A']);
         $root = $this->group('Root');
-        $child = Department::create(['name' => 'Needle', 'company_id' => $company->id, 'parent_id' => $root->id]);
+        $main = $this->group('Main', $root->id);
+        $child = Department::create(['name' => 'Needle', 'company_id' => $company->id, 'parent_id' => $main->id]);
         Livewire::test(ListDepartments::class)->searchTable('Needle')->assertCanNotSeeTableRecords([$child])
             ->filterTable('all_levels')->assertCanSeeTableRecords([$child]);
     }
 
-    public function test_scope_change_cannot_strand_a_user_or_a_job_title(): void
+    public function test_scope_change_cannot_strand_an_employee_or_a_job_title(): void
     {
         $a = Company::create(['trade_name' => 'A']);
         $b = Company::create(['trade_name' => 'B']);
         $root = $this->group('Root');
-        foreach (['users', 'job_titles'] as $table) {
-            $department = DepartmentHierarchyService::save(['name' => $table, 'parent_id' => $root->id], null, DepartmentScope::SHARED, [$a->id, $b->id]);
+        $main = $this->group('Main', $root->id);
+        foreach (['employees', 'job_titles'] as $table) {
+            $department = DepartmentHierarchyService::save(['name' => $table, 'parent_id' => $main->id], null, DepartmentScope::SHARED, [$a->id, $b->id]);
             DB::table($table)->insert(['department_id' => $department->id, 'company_id' => $b->id]);
             try {
                 DepartmentHierarchyService::save(['company_id' => $a->id], $department, DepartmentScope::SINGLE);
@@ -611,19 +663,33 @@ class DepartmentHierarchyTest extends TestCase
         $this->assertFalse($department->delete());
     }
 
-    public function test_ai_creates_group_roots_and_shared_children_through_the_same_save_service(): void
+    public function test_ai_creates_three_layers_and_rejects_fourth_or_companies_on_general_levels(): void
     {
         $a = Company::create(['trade_name' => 'A']);
         $b = Company::create(['trade_name' => 'B']);
         $tool = new CreateDepartmentTool;
-        $result = $tool->execute(['name' => 'AI administration']);
-        $this->assertTrue($result['success']);
+
+        $adminResult = $tool->execute(['name' => 'AI administration']);
+        $this->assertTrue($adminResult['success']);
         $root = Department::query()->where('name', 'AI administration')->sole();
         $this->assertNull($root->company_id);
-        $result = $tool->execute(['name' => 'AI shared', 'parent_id' => $root->id, 'companies' => [$a->id, $b->id]]);
-        $this->assertTrue($result['success']);
-        $child = Department::query()->where('name', 'AI shared')->sole();
-        $this->assertSame([$a->id, $b->id], $child->companies()->orderBy('companies.id')->pluck('companies.id')->all());
+
+        $badMain = $tool->execute(['name' => 'AI main with company', 'parent_id' => $root->id, 'company_id' => $a->id]);
+        $this->assertFalse($badMain['success']);
+
+        $mainResult = $tool->execute(['name' => 'AI main', 'parent_id' => $root->id]);
+        $this->assertTrue($mainResult['success']);
+        $main = Department::query()->where('name', 'AI main')->sole();
+        $this->assertTrue($main->is_global);
+        $this->assertNull($main->company_id);
+
+        $subResult = $tool->execute(['name' => 'AI shared sub', 'parent_id' => $main->id, 'companies' => [$a->id, $b->id]]);
+        $this->assertTrue($subResult['success']);
+        $sub = Department::query()->where('name', 'AI shared sub')->sole();
+        $this->assertSame([$a->id, $b->id], $sub->companies()->orderBy('companies.id')->pluck('companies.id')->all());
+
+        $fourthResult = $tool->execute(['name' => 'AI fourth', 'parent_id' => $sub->id, 'company_id' => $a->id]);
+        $this->assertFalse($fourthResult['success']);
     }
 
     public function test_unauthorized_parent_returns_404_and_cannot_be_used_to_create_a_department(): void
@@ -641,12 +707,13 @@ class DepartmentHierarchyTest extends TestCase
     {
         $company = Company::create(['trade_name' => 'A']);
         $root = $this->group('Root');
-        $a = Department::create(['name' => 'A', 'company_id' => $company->id, 'parent_id' => $root->id]);
-        $b = Department::create(['name' => 'B', 'company_id' => $company->id, 'parent_id' => $root->id]);
+        $main = $this->group('Main', $root->id);
+        $a = Department::create(['name' => 'A', 'company_id' => $company->id, 'parent_id' => $main->id]);
+        $b = Department::create(['name' => 'B', 'company_id' => $company->id, 'parent_id' => $main->id]);
         $this->actAsStaff($company->id);
         $this->assertTrue(DepartmentHierarchyService::canReorder($a));
         DepartmentHierarchyService::shift($a, 1);
-        $this->assertSame([$b->id, $a->id], $root->children()->ordered()->pluck('id')->all());
+        $this->assertSame([$b->id, $a->id], $main->children()->ordered()->pluck('id')->all());
     }
 
     public function test_numeric_order_cannot_bypass_hidden_sibling_protection(): void
@@ -654,15 +721,16 @@ class DepartmentHierarchyTest extends TestCase
         $a = Company::create(['trade_name' => 'A']);
         $b = Company::create(['trade_name' => 'B']);
         $root = $this->group('Root');
-        $one = Department::create(['name' => 'Visible', 'company_id' => $a->id, 'parent_id' => $root->id]);
-        $two = Department::create(['name' => 'Hidden', 'company_id' => $b->id, 'parent_id' => $root->id]);
+        $main = $this->group('Main', $root->id);
+        $one = Department::create(['name' => 'Visible', 'company_id' => $a->id, 'parent_id' => $main->id]);
+        $two = Department::create(['name' => 'Hidden', 'company_id' => $b->id, 'parent_id' => $main->id]);
         $this->actAsStaff($a->id);
         try {
             DepartmentHierarchyService::save(['name' => 'Changed', 'sort_order' => 2], $one, DepartmentScope::SINGLE);
             $this->fail('Numeric sorting changed hidden siblings.');
         } catch (AuthorizationException) {
             $this->assertSame('Visible', $one->fresh()->name);
-            $this->assertSame([$one->id, $two->id], $root->children()->ordered()->pluck('id')->all());
+            $this->assertSame([$one->id, $two->id], $main->children()->ordered()->pluck('id')->all());
         }
     }
 
@@ -671,29 +739,33 @@ class DepartmentHierarchyTest extends TestCase
         $a = Company::create(['trade_name' => 'A']);
         $b = Company::create(['trade_name' => 'B']);
         $root = $this->group('Root');
-        $department = DepartmentHierarchyService::save(['name' => 'Shared', 'parent_id' => $root->id], null, DepartmentScope::SHARED, [$a->id, $b->id]);
+        $main = $this->group('Main', $root->id);
+        $department = DepartmentHierarchyService::save(['name' => 'Shared', 'parent_id' => $main->id], null, DepartmentScope::SHARED, [$a->id, $b->id]);
         $code = $department->department_code;
         $department = DepartmentHierarchyService::save(['description' => ''], $department, DepartmentScope::SHARED, [$b->id]);
         $this->assertSame($b->id, $department->company_id);
+        $this->assertFalse($department->is_global);
         $this->assertSame([$b->id], $department->getAssignedCompanyIds());
         $this->assertNull($department->description);
         $this->assertSame($code, $department->department_code);
     }
 
-    public function test_service_accepts_deep_local_subdepartments_without_loading_or_rewriting_ancestors(): void
+    public function test_service_accepts_three_layers_and_rejects_fourth_layer_without_rewriting_ancestors(): void
     {
         $company = Company::create(['trade_name' => 'A']);
         $root = $this->group('Root');
-        $parent = $root;
-        foreach (range(2, 12) as $depth) {
-            $parent = DepartmentHierarchyService::save(['name' => 'Level '.$depth, 'parent_id' => $parent->id, 'company_id' => $company->id], null, DepartmentScope::SINGLE);
-        }
-        $this->assertSame(12, DepartmentHierarchyService::levelOf($parent));
-        $this->assertSame(__('organization.departments.hierarchy.levels.sub'), DepartmentHierarchyService::levelLabel($parent));
+        $main = DepartmentHierarchyService::save(['name' => 'Main', 'parent_id' => $root->id], null, DepartmentScope::FAWAZ_GROUP);
+        $sub = DepartmentHierarchyService::save(['name' => 'Sub', 'parent_id' => $main->id, 'company_id' => $company->id], null, DepartmentScope::SINGLE);
+
+        $this->assertSame(3, DepartmentHierarchyService::levelOf($sub));
+        $this->assertSame(__('organization.departments.hierarchy.levels.sub'), DepartmentHierarchyService::levelLabel($sub));
         $this->assertNull($root->fresh()->parent_id);
+
+        $this->expectException(ValidationException::class);
+        DepartmentHierarchyService::save(['name' => 'Level 4', 'parent_id' => $sub->id, 'company_id' => $company->id], null, DepartmentScope::SINGLE);
     }
 
-    public function test_administration_creation_hides_parent_and_affiliation_and_uses_dynamic_labels(): void
+    public function test_administration_and_main_creation_hide_parent_and_affiliation_and_use_dynamic_labels(): void
     {
         $page = Livewire::test(CreateDepartment::class)
             ->assertFormFieldIsHidden('parent_id')
@@ -702,87 +774,50 @@ class DepartmentHierarchyTest extends TestCase
             ->assertFormSet(['parent_id' => null, 'department_scope' => 'fawaz_group'])
             ->assertSee(__('organization.departments.hierarchy.form.create', ['type' => __('organization.departments.hierarchy.levels.administration')]));
         $this->assertSame(__('organization.departments.hierarchy.form.create', ['type' => __('organization.departments.hierarchy.levels.administration')]), $page->instance()->getTitle());
-    }
 
-    public function test_subdepartment_inherits_single_company_and_does_not_offer_parent_or_company_selects(): void
-    {
-        $company = Company::create(['trade_name' => 'Inherited company']);
         $root = $this->group('Root');
-        $main = Department::create(['name' => 'Main', 'parent_id' => $root->id, 'company_id' => $company->id]);
-        Livewire::withQueryParams(['parent' => $main->id])->test(CreateDepartment::class)
+        $mainPage = Livewire::withQueryParams(['parent' => $root->id])->test(CreateDepartment::class)
             ->assertFormFieldIsHidden('parent_id')
             ->assertFormFieldIsHidden('department_scope')
             ->assertFormFieldIsHidden('company_id')
             ->assertFormFieldIsHidden('companies')
-            ->assertFormSet(['company_id' => $company->id, 'parent_id' => $main->id])
-            ->assertSee('Inherited company')->assertSee('Main')
-            ->fillForm(['name' => 'Inherited child'])->call('create')->assertHasNoFormErrors();
-        $child = Department::query()->where('name', 'Inherited child')->sole();
-        $this->assertSame($main->id, $child->parent_id);
-        $this->assertSame([$company->id], $child->getAssignedCompanyIds());
-        $this->assertStringStartsWith('SUB-', $child->department_code);
+            ->assertFormSet(['parent_id' => $root->id, 'department_scope' => 'fawaz_group'])
+            ->assertSee(__('organization.departments.hierarchy.form.create', ['type' => __('organization.departments.hierarchy.levels.main')]));
+        $this->assertSame(__('organization.departments.hierarchy.form.create', ['type' => __('organization.departments.hierarchy.levels.main')]), $mainPage->instance()->getTitle());
     }
 
-    public function test_creation_inside_group_administration_still_requires_explicit_company(): void
+    public function test_subdepartment_inside_main_requires_explicit_company_and_rejects_forged_parent(): void
     {
-        Company::create(['trade_name' => 'A']);
+        $a = Company::create(['trade_name' => 'A']);
         $root = $this->group('Root');
-        Livewire::withQueryParams(['parent' => $root->id])->test(CreateDepartment::class)
+        $main = $this->group('Main', $root->id);
+
+        Livewire::withQueryParams(['parent' => $main->id])->test(CreateDepartment::class)
             ->assertFormFieldIsHidden('parent_id')
             ->assertFormFieldIsVisible('department_scope')
             ->assertFormFieldIsVisible('company_id')
-            ->fillForm(['name' => 'Main without company'])->call('create')->assertHasFormErrors(['company_id']);
-    }
+            ->fillForm(['name' => 'Sub without company'])->call('create')->assertHasFormErrors(['company_id']);
 
-    public function test_shared_parent_defaults_all_companies_and_allows_narrowing_the_selection(): void
-    {
-        $a = Company::create(['trade_name' => 'A']);
-        $b = Company::create(['trade_name' => 'B']);
-        $root = $this->group('Root');
-        $shared = DepartmentHierarchyService::save(['name' => 'Shared parent', 'parent_id' => $root->id], null, DepartmentScope::SHARED, [$a->id, $b->id]);
-        Livewire::withQueryParams(['parent' => $shared->id])->test(CreateDepartment::class)
-            ->assertFormFieldIsHidden('parent_id')->assertFormFieldIsVisible('companies')
-            ->assertFormSet(['department_scope' => 'shared', 'companies' => [$a->id, $b->id]])
-            ->fillForm(['name' => 'Subset child', 'companies' => [$b->id]])->call('create')->assertHasNoFormErrors();
-        $this->assertSame([$b->id], Department::query()->where('name', 'Subset child')->sole()->getAssignedCompanyIds());
-    }
-
-    public function test_creation_context_overrides_forged_parent_and_inherited_company_fields(): void
-    {
-        $a = Company::create(['trade_name' => 'A']);
-        $b = Company::create(['trade_name' => 'B']);
-        $root = $this->group('Root');
-        $main = Department::create(['name' => 'Main', 'parent_id' => $root->id, 'company_id' => $a->id]);
         Livewire::withQueryParams(['parent' => $main->id])->test(CreateDepartment::class)
-            ->set('data.parent_id', null)->set('data.company_id', $b->id)
-            ->set('data.department_scope', 'shared')->set('data.companies', [$b->id])
-            ->set('data.name', 'Forged child')->call('create')->assertHasNoFormErrors();
-        $child = Department::query()->where('name', 'Forged child')->sole();
-        $this->assertSame($main->id, $child->parent_id);
-        $this->assertFalse($child->is_global);
-        $this->assertSame([$a->id], $child->getAssignedCompanyIds());
+            ->set('data.parent_id', null)
+            ->fillForm(['name' => 'Forged sub', 'department_scope' => 'single', 'company_id' => $a->id])
+            ->call('create')->assertHasNoFormErrors();
+
+        $sub = Department::query()->where('name', 'Forged sub')->sole();
+        $this->assertSame($main->id, $sub->parent_id);
+        $this->assertSame([$a->id], $sub->getAssignedCompanyIds());
+        $this->assertStringStartsWith('SUB-', $sub->department_code);
     }
 
-    public function test_shared_parent_rejects_companies_outside_its_assignment(): void
-    {
-        $a = Company::create(['trade_name' => 'A']);
-        $b = Company::create(['trade_name' => 'B']);
-        $root = $this->group('Root');
-        $shared = DepartmentHierarchyService::save(['name' => 'Shared', 'parent_id' => $root->id], null, DepartmentScope::SHARED, [$a->id]);
-        Livewire::withQueryParams(['parent' => $shared->id])->test(CreateDepartment::class)
-            ->fillForm(['name' => 'Outside', 'companies' => [$b->id]])->call('create')->assertHasFormErrors();
-        $this->assertFalse(Department::query()->where('name', 'Outside')->exists());
-    }
-
-    public function test_create_another_keeps_the_locked_creation_context_and_company_defaults(): void
+    public function test_create_another_keeps_the_locked_creation_context(): void
     {
         $company = Company::create(['trade_name' => 'A']);
         $root = $this->group('Root');
-        $main = Department::create(['name' => 'Main', 'parent_id' => $root->id, 'company_id' => $company->id]);
+        $main = $this->group('Main', $root->id);
         Livewire::withQueryParams(['parent' => $main->id])->test(CreateDepartment::class)
-            ->fillForm(['name' => 'First child'])->call('create', true)->assertHasNoFormErrors()
-            ->assertSet('contextParentId', $main->id)->assertFormSet(['company_id' => $company->id])
-            ->fillForm(['name' => 'Second child'])->call('create')->assertHasNoFormErrors();
+            ->fillForm(['name' => 'First child', 'department_scope' => 'single', 'company_id' => $company->id])->call('create', true)->assertHasNoFormErrors()
+            ->assertSet('contextParentId', $main->id)
+            ->fillForm(['name' => 'Second child', 'department_scope' => 'single', 'company_id' => $company->id])->call('create')->assertHasNoFormErrors();
         $this->assertSame(2, $main->children()->count());
     }
 
@@ -790,7 +825,7 @@ class DepartmentHierarchyTest extends TestCase
     {
         $company = Company::create(['trade_name' => 'A']);
         $root = $this->group('Root');
-        $main = Department::create(['name' => 'Main', 'parent_id' => $root->id, 'company_id' => $company->id]);
+        $main = $this->group('Main', $root->id);
         $sub = Department::create(['name' => 'Sub', 'parent_id' => $main->id, 'company_id' => $company->id]);
         $page = Livewire::test(EditDepartment::class, ['record' => $sub->id])->assertFormFieldIsVisible('parent_id');
         $this->assertSame(__('organization.departments.hierarchy.form.edit', ['type' => __('organization.departments.hierarchy.levels.sub')]), $page->instance()->getTitle());
@@ -806,17 +841,24 @@ class DepartmentHierarchyTest extends TestCase
         $page->set('contextParentId', null);
     }
 
-    public function test_shared_defaults_only_include_the_parents_companies_authorized_for_the_creator(): void
+    public function test_staff_can_create_subdepartment_for_authorized_company_but_not_general_structure(): void
     {
         $a = Company::create(['trade_name' => 'A']);
         $b = Company::create(['trade_name' => 'B']);
         $root = $this->group('Root');
-        $shared = DepartmentHierarchyService::save(['name' => 'Shared', 'parent_id' => $root->id], null, DepartmentScope::SHARED, [$a->id, $b->id]);
+        $main = $this->group('Main', $root->id);
         $this->actAsStaff($a->id);
-        Livewire::withQueryParams(['parent' => $shared->id])->test(CreateDepartment::class)
-            ->assertFormSet(['companies' => [$a->id]])
-            ->fillForm(['name' => 'Authorized subset'])->call('create')->assertHasNoFormErrors();
-        $this->assertSame([$a->id], Department::query()->where('name', 'Authorized subset')->sole()->getAssignedCompanyIds());
+
+        Livewire::test(CreateDepartment::class)->assertForbidden();
+        Livewire::withQueryParams(['parent' => $root->id])->test(CreateDepartment::class)->assertForbidden();
+
+        Livewire::withQueryParams(['parent' => $main->id])->test(CreateDepartment::class)
+            ->fillForm(['name' => 'Staff sub', 'department_scope' => 'single', 'company_id' => $a->id])
+            ->call('create')->assertHasNoFormErrors();
+        $this->assertSame([$a->id], Department::query()->where('name', 'Staff sub')->sole()->getAssignedCompanyIds());
+
+        $this->expectException(AuthorizationException::class);
+        DepartmentHierarchyService::save(['name' => 'Unauthorized', 'parent_id' => $main->id, 'company_id' => $b->id], null, DepartmentScope::SINGLE);
     }
 
     public function test_editing_an_independent_administration_hides_and_preserves_its_scope(): void
@@ -833,17 +875,127 @@ class DepartmentHierarchyTest extends TestCase
         $this->assertSame([], $root->fresh()->getAssignedCompanyIds());
     }
 
-    public function test_moving_an_administration_under_a_parent_reveals_affiliation_choices(): void
+    public function test_moving_an_administration_under_a_main_department_reveals_affiliation_choices(): void
     {
         $company = Company::create(['trade_name' => 'A']);
         $root = $this->group('Root');
         $other = $this->group('Other');
+        $otherMain = $this->group('Other Main', $other->id);
         Livewire::test(EditDepartment::class, ['record' => $root->id])
-            ->fillForm(['parent_id' => $other->id])
+            ->fillForm(['parent_id' => $otherMain->id])
             ->assertFormFieldIsVisible('department_scope')->assertFormFieldIsVisible('company_id')
             ->fillForm(['company_id' => $company->id])->call('save')->assertHasNoFormErrors();
-        $this->assertSame($other->id, $root->fresh()->parent_id);
+        $this->assertSame($otherMain->id, $root->fresh()->parent_id);
         $this->assertSame([$company->id], $root->fresh()->getAssignedCompanyIds());
+    }
+
+    public function test_shared_subdepartment_is_not_visible_to_unrelated_company_staff(): void
+    {
+        $a = Company::create(['trade_name' => 'A']);
+        $b = Company::create(['trade_name' => 'B']);
+        $c = Company::create(['trade_name' => 'C']);
+        $root = $this->group('Root');
+        $main = $this->group('Main', $root->id);
+        $shared = DepartmentHierarchyService::save(['name' => 'Shared AB', 'parent_id' => $main->id], null, DepartmentScope::SHARED, [$a->id, $b->id]);
+
+        $this->actAsStaff($c->id);
+        $visibleIds = CompanyAccessScopeService::apply(Department::query())->pluck('id')->all();
+        $this->assertContains($root->id, $visibleIds);
+        $this->assertContains($main->id, $visibleIds);
+        $this->assertNotContains($shared->id, $visibleIds);
+    }
+
+    public function test_branch_restricted_staff_cannot_see_shared_departments_outside_their_companies(): void
+    {
+        $a = Company::create(['trade_name' => 'A']);
+        $b = Company::create(['trade_name' => 'B']);
+        $c = Company::create(['trade_name' => 'C']);
+        $root = $this->group('Root');
+        $main = $this->group('Main', $root->id);
+        $sharedAB = DepartmentHierarchyService::save(['name' => 'Shared AB', 'parent_id' => $main->id], null, DepartmentScope::SHARED, [$a->id, $b->id]);
+        $localC = DepartmentHierarchyService::save(['name' => 'Local C', 'parent_id' => $main->id, 'company_id' => $c->id], null, DepartmentScope::SINGLE);
+
+        $user = new User(['user_type' => UserType::SAUDI_EMPLOYEE, 'branch_id' => 10]);
+        $user->forceFill(['id' => 101, 'status' => 'active']);
+        $user->exists = true;
+        $user->setRelation('roles', collect());
+        $user->setRelation('employee', new Employee(['company_id' => $c->id, 'branch_id' => 10]));
+        $this->actingAs($user);
+
+        $visibleIds = CompanyAccessScopeService::apply(Department::query())->pluck('id')->all();
+        $this->assertContains($root->id, $visibleIds);
+        $this->assertContains($main->id, $visibleIds);
+        $this->assertContains($localC->id, $visibleIds);
+        $this->assertNotContains($sharedAB->id, $visibleIds);
+    }
+
+    public function test_owner_cannot_update_or_delete_general_structure_even_with_global_gate_before(): void
+    {
+        $company = Company::create(['trade_name' => 'A']);
+        $root = $this->group('Root');
+        $main = $this->group('Main', $root->id);
+        $sub = Department::create(['name' => 'Sub', 'parent_id' => $main->id, 'company_id' => $company->id]);
+
+        $owner = new User(['user_type' => UserType::OWNER]);
+        $owner->forceFill(['id' => 102, 'status' => 'active']);
+        $owner->exists = true;
+        $owner->setRelation('roles', collect());
+        DB::table('owners')->insert(['user_id' => $owner->id, 'company_id' => $company->id]);
+        $this->actingAs($owner);
+
+        $this->assertFalse(Gate::allows('update', $root));
+        $this->assertFalse(Gate::allows('delete', $root));
+        $this->assertFalse(Gate::allows('update', $main));
+        $this->assertFalse(Gate::allows('delete', $main));
+        $this->assertTrue(Gate::allows('update', $sub));
+        $this->assertTrue(Gate::allows('delete', $sub));
+    }
+
+    public function test_edit_form_move_between_layer_two_and_layer_three_enforces_company_rules(): void
+    {
+        $company = Company::create(['trade_name' => 'A']);
+        $admin = $this->group('Admin');
+        $main = $this->group('Main', $admin->id);
+        $movingMain = $this->group('Moving Main', $admin->id);
+        $sub = Department::create(['name' => 'Sub', 'parent_id' => $main->id, 'company_id' => $company->id]);
+
+        Livewire::test(EditDepartment::class, ['record' => $movingMain->id])
+            ->fillForm(['parent_id' => $main->id])
+            ->call('save')
+            ->assertHasFormErrors(['company_id']);
+        $this->assertSame($admin->id, $movingMain->fresh()->parent_id);
+
+        Livewire::test(EditDepartment::class, ['record' => $sub->id])
+            ->fillForm(['parent_id' => $admin->id])
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $this->assertSame($admin->id, $sub->fresh()->parent_id);
+        $this->assertTrue($sub->fresh()->is_global);
+        $this->assertNull($sub->fresh()->company_id);
+        $this->assertSame([], $sub->fresh()->getAssignedCompanyIds());
+    }
+
+    public function test_edit_form_rejects_moving_parent_with_children_when_children_would_violate_layer_rules(): void
+    {
+        $company = Company::create(['trade_name' => 'A']);
+        $admin1 = $this->group('Admin 1');
+        $admin2 = $this->group('Admin 2');
+        $main = $this->group('Main', $admin1->id);
+        Department::create(['name' => 'Sub', 'parent_id' => $main->id, 'company_id' => $company->id]);
+
+        // Promoting a Main (with company-assigned Sub) to Layer 1 would leave Sub in Layer 2 with companies
+        Livewire::test(EditDepartment::class, ['record' => $main->id])
+            ->fillForm(['parent_id' => null])
+            ->call('save')
+            ->assertHasFormErrors(['parent_id']);
+        $this->assertSame($admin1->id, $main->fresh()->parent_id);
+
+        // Moving Admin 1 (with general Main) under Admin 2 would leave Main in Layer 3 without companies
+        Livewire::test(EditDepartment::class, ['record' => $admin1->id])
+            ->fillForm(['parent_id' => $admin2->id])
+            ->call('save')
+            ->assertHasFormErrors(['parent_id']);
+        $this->assertNull($admin1->fresh()->parent_id);
     }
 
     public function test_fixed_root_affiliation_is_enforced_by_the_save_service(): void

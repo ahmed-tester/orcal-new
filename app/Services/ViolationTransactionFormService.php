@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Enums\ViolationPaymentStatus;
+use App\Enums\ViolationTransactionType;
 use App\Models\Violation;
+use App\Models\ViolationTransaction;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 
@@ -31,18 +33,30 @@ class ViolationTransactionFormService
     }
 
     /**
-     * Get query for open/unpaid violations scoped by company.
+     * Get query for open/unpaid violations scoped by company, optionally including specific IDs (for edit mode).
+     *
+     * @param array<int> $includeIds
      */
-    public static function getOpenViolationsQuery(?int $companyId): Collection
+    public static function getOpenViolationsQuery(?int $companyId, array $includeIds = []): Collection
     {
         if (! $companyId) {
             return collect();
         }
 
+        $includeIds = array_values(array_filter(array_map('intval', $includeIds)));
+
         return Violation::query()
             ->where('company_id', $companyId)
-            ->where('remaining_amount', '>', 0)
-            ->where('payment_status', '!=', ViolationPaymentStatus::PAID->value)
+            ->where(function ($query) use ($includeIds) {
+                $query->where(function ($open) {
+                    $open->where('remaining_amount', '>', 0)
+                        ->where('payment_status', '!=', ViolationPaymentStatus::PAID->value);
+                });
+
+                if (! empty($includeIds)) {
+                    $query->orWhereIn('id', $includeIds);
+                }
+            })
             ->get();
     }
 
@@ -51,15 +65,18 @@ class ViolationTransactionFormService
      *
      * @return array<int, string>
      */
-    public static function getSingleViolationOptions(?int $companyId): array
+    public static function getSingleViolationOptions(?int $companyId, ?int $includeId = null): array
     {
-        return self::getOpenViolationsQuery($companyId)
+        $includeIds = $includeId ? [$includeId] : [];
+
+        return self::getOpenViolationsQuery($companyId, $includeIds)
             ->mapWithKeys(function (Violation $v) {
                 $code = $v->violation_number ?? "ID: {$v->id}";
                 $authority = $v->issuing_authority ?? '—';
                 $remaining = number_format((float) $v->remaining_amount, 2);
+                $badge = __('violations.transactions.fields.remaining_badge', ['amount' => $remaining]);
 
-                return [$v->id => "{$code} — {$authority} (المتبقي: {$remaining} ريال)"];
+                return [$v->id => "{$code} — {$authority} ({$badge})"];
             })
             ->all();
     }
@@ -67,21 +84,23 @@ class ViolationTransactionFormService
     /**
      * Options for the multiple violations checkbox list with HTML formatting.
      *
+     * @param array<int> $includeIds
      * @return array<int, HtmlString>
      */
-    public static function getMultipleViolationOptions(?int $companyId): array
+    public static function getMultipleViolationOptions(?int $companyId, array $includeIds = []): array
     {
-        return self::getOpenViolationsQuery($companyId)
+        return self::getOpenViolationsQuery($companyId, $includeIds)
             ->mapWithKeys(function (Violation $v) {
                 $code = e($v->violation_number ?? "ID: {$v->id}");
                 $authority = e($v->issuing_authority ?? '—');
                 $remaining = number_format((float) $v->remaining_amount, 2);
+                $badge = e(__('violations.transactions.fields.remaining_badge', ['amount' => $remaining]));
 
                 $html = new HtmlString(
                     '<span style="display:inline-flex; align-items:center; gap:0.4rem; flex-wrap:wrap; font-size:0.82rem;">' .
                         '<strong style="color:#1d4ed8;">' . $code . '</strong>' .
                         '<span style="color:#64748b;">(' . $authority . ')</span>' .
-                        '<span style="background:#fee2e2; color:#b91c1c; font-weight:700; font-size:0.75rem; padding:1px 6px; border-radius:4px;">المتبقي: ' . $remaining . ' ريال</span>' .
+                        '<span style="background:#fee2e2; color:#b91c1c; font-weight:700; font-size:0.75rem; padding:1px 6px; border-radius:4px;">' . $badge . '</span>' .
                     '</span>'
                 );
 
@@ -91,19 +110,31 @@ class ViolationTransactionFormService
     }
 
     /**
-     * Calculate the total remaining amount for an array of violation IDs.
+     * Calculate the total remaining amount for an array of violation IDs,
+     * including amounts already settled by the record being edited.
      *
      * @param array<int> $violationIds
      */
-    public static function calculateTotalRemaining(array $violationIds): float
+    public static function calculateTotalRemaining(array $violationIds, ?ViolationTransaction $record = null): float
     {
         if (empty($violationIds)) {
             return 0.0;
         }
 
-        return (float) Violation::query()
-            ->whereIn('id', $violationIds)
-            ->sum('remaining_amount');
+        $ids = array_values(array_unique(array_map('intval', $violationIds)));
+        $violations = Violation::query()->whereIn('id', $ids)->get();
+
+        $recordSettled = [];
+        if ($record && $record->transaction_type === ViolationTransactionType::OUTGOING) {
+            $recordSettled = ViolationTransactionService::resolveOldSettledAmounts($record, $violations->keyBy('id'), true);
+        }
+
+        $total = 0.0;
+        foreach ($violations as $violation) {
+            $total += (float) $violation->remaining_amount + (float) ($recordSettled[$violation->id] ?? 0.0);
+        }
+
+        return round($total, 2);
     }
 
     /**
@@ -115,12 +146,15 @@ class ViolationTransactionFormService
             self::LINK_UNLINKED => [
                 $set('violation_id', null),
                 $set('metadata.selected_violation_ids', []),
+                $set('amount', null),
             ],
             self::LINK_SINGLE => [
                 $set('metadata.selected_violation_ids', []),
+                $set('amount', null),
             ],
             self::LINK_MULTIPLE => [
                 $set('violation_id', null),
+                $set('amount', null),
             ],
             default => null,
         };
@@ -139,10 +173,10 @@ class ViolationTransactionFormService
     /**
      * Handle calculation when multiple violations selection changes.
      */
-    public static function handleMultipleViolationsUpdated(mixed $selectedIds, callable $set): void
+    public static function handleMultipleViolationsUpdated(mixed $selectedIds, callable $set, ?ViolationTransaction $record = null): void
     {
         if (! empty($selectedIds) && is_array($selectedIds)) {
-            $total = self::calculateTotalRemaining($selectedIds);
+            $total = self::calculateTotalRemaining($selectedIds, $record);
             $set('amount', number_format($total, 2, '.', ''));
         } else {
             $set('amount', 0);
@@ -152,13 +186,38 @@ class ViolationTransactionFormService
     /**
      * Handle auto-fill when single violation is selected.
      */
-    public static function handleSingleViolationUpdated(mixed $violationId, callable $set, callable $get): void
+    public static function handleSingleViolationUpdated(mixed $violationId, callable $set): void
     {
-        if ($violationId && empty($get('amount'))) {
-            $violation = Violation::find($violationId);
-            if ($violation) {
-                $set('amount', (float) $violation->remaining_amount);
-            }
+        if (! $violationId) {
+            return;
         }
+
+        $violation = Violation::find($violationId);
+        if ($violation) {
+            $set('amount', (float) $violation->remaining_amount);
+        }
+    }
+
+    /**
+     * Normalize link_type, violation_id, and metadata before persisting a transaction.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    public static function normalizeLinkData(array $data): array
+    {
+        $linkType = $data['link_type'] ?? self::LINK_SINGLE;
+        $data['metadata'] = array_merge($data['metadata'] ?? [], [
+            'link_type' => $linkType,
+        ]);
+
+        if ($linkType === self::LINK_UNLINKED) {
+            $data['violation_id'] = null;
+            unset($data['metadata']['selected_violation_ids']);
+        } elseif ($linkType === self::LINK_MULTIPLE) {
+            $data['violation_id'] = null;
+        }
+
+        return $data;
     }
 }

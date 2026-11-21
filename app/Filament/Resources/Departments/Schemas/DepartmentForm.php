@@ -96,10 +96,15 @@ class DepartmentForm
                             ->default(fn () => request()->integer('parent') ?: null)
                             ->live()
                             ->afterStateUpdated(function ($state, $get, $set) {
-                                $group = ! filled($state);
-                                if ($group || $get('department_scope') === DepartmentScope::FAWAZ_GROUP->value) {
-                                    $set('department_scope', $group ? 'fawaz_group' : 'single');
-                                    $set('is_global', $group);
+                                $targetLevel = DepartmentHierarchyService::targetLevelForParent(filled($state) ? (int) $state : null);
+                                if ($targetLevel <= 2) {
+                                    $set('department_scope', DepartmentScope::FAWAZ_GROUP->value);
+                                    $set('is_global', true);
+                                    $set('company_id', null);
+                                    $set('companies', []);
+                                } elseif ($get('department_scope') === DepartmentScope::FAWAZ_GROUP->value) {
+                                    $set('department_scope', DepartmentScope::SINGLE->value);
+                                    $set('is_global', false);
                                     $set('company_id', null);
                                     $set('companies', []);
                                 }

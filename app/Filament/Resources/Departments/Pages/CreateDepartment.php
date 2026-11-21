@@ -2,13 +2,11 @@
 
 namespace App\Filament\Resources\Departments\Pages;
 
-use App\Enums\DepartmentScope;
 use App\Filament\Resources\Departments\DepartmentResource;
 use App\Filament\Resources\Departments\Schemas\DepartmentForm;
 use App\Filament\Resources\Departments\Traits\HandlesDepartmentScope;
 use App\Models\Department;
 use App\Services\DepartmentHierarchyService;
-use App\Services\DepartmentScopeService;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Contracts\Support\Htmlable;
@@ -29,7 +27,16 @@ class CreateDepartment extends CreateRecord
     public function mount(): void
     {
         $this->contextParentId = request()->integer('parent') ?: null;
-        $this->creationParent();
+        $parent = $this->creationParent();
+
+        if ($parent && DepartmentHierarchyService::levelOf($parent) >= DepartmentHierarchyService::MAX_DEPTH) {
+            abort(404);
+        }
+
+        if ((! $parent || DepartmentHierarchyService::levelOf($parent) === 1) && ! auth()->user()?->isSuperAdmin()) {
+            abort(403);
+        }
+
         parent::mount();
     }
 
@@ -45,12 +52,12 @@ class CreateDepartment extends CreateRecord
 
     public function hasFixedAffiliation(): bool
     {
-        return ! $this->creationParent() || $this->inheritsCompany();
+        return ! $this->creationParent() || DepartmentHierarchyService::levelOf($this->creationParent()) === 1;
     }
 
     public function inheritsCompany(): bool
     {
-        return $this->creationParent() && DepartmentScopeService::resolveScope($this->creationParent()) === DepartmentScope::SINGLE;
+        return false;
     }
 
     protected function afterFill(): void

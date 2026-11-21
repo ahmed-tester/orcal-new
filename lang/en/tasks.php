@@ -44,6 +44,7 @@ return [
         'due_date' => 'Due Date',
         'completed_at' => 'Completed At',
         'transferred_to_employee' => 'Transferred to Employee',
+        'postponed_to_date' => 'Postponed To Date',
     ],
 
     'statuses' => [
@@ -290,6 +291,7 @@ return [
             'no_history' => 'No submission attempts recorded yet.',
             'extended_from' => 'Extended from :date',
             'escalate_description' => 'If you cannot complete this task, you can escalate it to management with reasons.',
+            'escalated_note' => 'Escalated to management: :reason',
         ],
         'placeholders' => [
             'escalation_reason' => 'Enter the reason for escalation...',
@@ -310,6 +312,8 @@ return [
             'due_date_requires_extension' => 'Changing due date after assignment requires the documented extension action.',
             'cannot_escalate' => 'You cannot escalate this task.',
             'escalation_reason_required' => 'Escalation reason is required.',
+            'transfer_target_required' => 'Target employee for transfer is required.',
+            'transfer_same_employee' => 'Cannot transfer task to the same employee.',
         ],
         'notifications' => [
             'submitted_title' => 'Task Item Pending Review',

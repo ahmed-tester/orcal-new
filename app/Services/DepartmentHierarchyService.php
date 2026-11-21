@@ -22,24 +22,20 @@ class DepartmentHierarchyService
 
     public const PREFIX_SUB = 'SUB';
 
+    public const MAX_DEPTH = 3;
+
     /** Creation defaults come from the authorized parent, not editable browser fields. */
     public static function creationDefaults(?Department $parent): array
     {
-        $scope = $parent ? DepartmentScopeService::resolveScope($parent) : DepartmentScope::FAWAZ_GROUP;
-        $companies = $parent?->getAssignedCompanyIds() ?? [];
-        if ($parent && ! auth()->user()?->isSuperAdmin()) {
-            $companies = array_values(array_intersect($companies, CompanyFormService::getAuthorizedCompanyIds()));
-        }
-        $inheritedSingle = $parent && $scope === DepartmentScope::SINGLE;
-        $scope = ! $parent ? DepartmentScope::FAWAZ_GROUP
-            : ($scope === DepartmentScope::SHARED ? DepartmentScope::SHARED : DepartmentScope::SINGLE);
+        $targetLevel = static::targetLevelForParent($parent?->id);
+        $isGeneral = $targetLevel <= 2;
 
         return [
             'parent_id' => $parent?->id,
-            'department_scope' => $scope->value,
-            'is_global' => $scope !== DepartmentScope::SINGLE,
-            'company_id' => $inheritedSingle ? $parent->company_id : null,
-            'companies' => $scope === DepartmentScope::SHARED ? $companies : [],
+            'department_scope' => $isGeneral ? DepartmentScope::FAWAZ_GROUP->value : DepartmentScope::SINGLE->value,
+            'is_global' => $isGeneral,
+            'company_id' => null,
+            'companies' => [],
         ];
     }
 
@@ -48,15 +44,28 @@ class DepartmentHierarchyService
         return static::transaction(function () use ($data, $parentId, $errorKeyPrefix) {
             $parent = $parentId ? CompanyAccessScopeService::apply(Department::query())
                 ->with('companies')->lockForUpdate()->findOrFail($parentId) : null;
+            $targetLevel = static::targetLevelForParent($parentId);
+
+            if ($targetLevel > self::MAX_DEPTH) {
+                static::fail($errorKeyPrefix.'parent_id', 'max_depth_exceeded');
+            }
+
+            if ($targetLevel <= 2 && (filled($data['company_id'] ?? null) || ! empty($data['companies'] ?? []))) {
+                static::fail($errorKeyPrefix.'company_id', 'general_level_forbids_companies');
+            }
+
             $defaults = static::creationDefaults($parent);
             $data = array_replace($defaults, $data);
             $data['parent_id'] = $parentId;
-            if (! $parent || DepartmentScopeService::resolveScope($parent) === DepartmentScope::SINGLE) {
+            if ($targetLevel <= 2) {
                 $data = array_replace($data, $defaults);
             }
             $scope = DepartmentScope::tryFrom((string) $data['department_scope']);
             if (! $scope) {
                 static::fail($errorKeyPrefix.'department_scope', 'scope_invalid');
+            }
+            if ($targetLevel === self::MAX_DEPTH && $scope === DepartmentScope::FAWAZ_GROUP) {
+                static::fail($errorKeyPrefix.'company_id', 'subdepartment_requires_companies');
             }
             $companies = (array) $data['companies'];
             unset($data['companies'], $data['department_scope']);
@@ -82,6 +91,19 @@ class DepartmentHierarchyService
                 Gate::authorize('create', Department::class);
             }
 
+            if ($scope === DepartmentScope::FAWAZ_GROUP && (filled($data['company_id'] ?? null) || ! empty($companyIds))) {
+                static::fail($errorKeyPrefix.'company_id', 'general_level_forbids_companies');
+            }
+
+            if ($scope === DepartmentScope::SHARED) {
+                $normalized = static::normalizedIds($companyIds);
+                if (count($normalized) === 1) {
+                    $scope = DepartmentScope::SINGLE;
+                    $data['company_id'] = $normalized[0];
+                    $companyIds = $normalized;
+                }
+            }
+
             [$data, $companyIds] = static::prepareSave($data, $record, $scope, $companyIds);
             $parentId = $data['parent_id'];
 
@@ -93,6 +115,9 @@ class DepartmentHierarchyService
             $assignmentChanged = $record && static::companyIds($record) != static::normalizedIds($companyIds);
             if ($moving || $assignmentChanged) {
                 static::assertBranchAssignable($record, $errorKeyPrefix);
+            }
+            if ($moving) {
+                static::assertBranchLayerCompatibility($record, static::targetLevelForParent($parentId), $errorKeyPrefix);
             }
 
             $position = isset($data['sort_order']) ? max(1, (int) $data['sort_order']) : null;
@@ -144,19 +169,74 @@ class DepartmentHierarchyService
         }
     }
 
-    /** Existing unclassified roots may be edited, but new roots must be group administrations. */
+    protected static function assertBranchLayerCompatibility(Department $record, int $targetLevel, string $prefix = ''): void
+    {
+        $descendantIds = static::descendantIds((int) $record->id);
+        if ($descendantIds === []) {
+            return;
+        }
+
+        $descendants = Department::query()->whereKey($descendantIds)->with('companies')->get()->keyBy('id');
+        $offsets = [(int) $record->id => 0];
+        $queue = [(int) $record->id];
+
+        while ($queue !== []) {
+            $currentId = array_shift($queue);
+            foreach ($descendants as $descendant) {
+                if ((int) $descendant->parent_id === $currentId) {
+                    $offsets[(int) $descendant->id] = $offsets[$currentId] + 1;
+                    $queue[] = (int) $descendant->id;
+                }
+            }
+        }
+
+        foreach ($descendants as $descendant) {
+            $descLevel = $targetLevel + ($offsets[(int) $descendant->id] ?? 1);
+            if ($descLevel > self::MAX_DEPTH) {
+                static::fail($prefix.'parent_id', 'max_depth_exceeded');
+            }
+            if ($descLevel <= 2 && ! static::isGroupLevel($descendant)) {
+                static::fail($prefix.'parent_id', 'general_level_forbids_companies');
+            }
+            if ($descLevel === self::MAX_DEPTH && static::companyIds($descendant) === []) {
+                static::fail($prefix.'parent_id', 'subdepartment_requires_companies');
+            }
+        }
+    }
+
+    /** Enforce three-layer structure: L1 & L2 are general without companies; L3 requires companies. */
     protected static function assertStructure(array $data, ?Department $record, array $companyIds, string $prefix): void
     {
+        $targetLevel = static::targetLevelForParent($data['parent_id']);
+
+        if ($targetLevel > self::MAX_DEPTH) {
+            static::fail($prefix.'parent_id', 'max_depth_exceeded');
+        }
+
+        if ($record?->exists && ($targetLevel + static::subtreeDepth((int) $record->id) - 1) > self::MAX_DEPTH) {
+            static::fail($prefix.'parent_id', 'max_depth_exceeded');
+        }
+
         $isGroup = (bool) $data['is_global'] && $companyIds === [];
-        if ($data['parent_id'] === null) {
-            $legacyRoot = $record && $record->parent_id === null
-                && (bool) $record->is_global === (bool) $data['is_global']
-                && static::companyIds($record) === static::normalizedIds($companyIds);
-            if (! $isGroup && ! $legacyRoot) {
-                static::fail($prefix.'parent_id', 'root_requires_group_scope');
-            }
-        } elseif ($isGroup || $companyIds === []) {
-            static::fail($prefix.'company_id', 'child_requires_company_scope');
+        $untouchedLegacy = $record
+            && (int) ($record->parent_id ?? 0) === (int) ($data['parent_id'] ?? 0)
+            && (bool) $record->is_global === (bool) $data['is_global']
+            && static::companyIds($record) === static::normalizedIds($companyIds);
+
+        if ($untouchedLegacy) {
+            return;
+        }
+
+        if ($targetLevel === 1 && ! $isGroup) {
+            static::fail($prefix.'parent_id', 'root_requires_group_scope');
+        }
+
+        if ($targetLevel === 2 && ! $isGroup) {
+            static::fail($prefix.'company_id', 'general_level_forbids_companies');
+        }
+
+        if ($targetLevel === 3 && ($isGroup || $companyIds === [])) {
+            static::fail($prefix.'company_id', 'subdepartment_requires_companies');
         }
     }
 
@@ -167,6 +247,9 @@ class DepartmentHierarchyService
             throw new AuthorizationException;
         }
         if ($parentId && ! CompanyAccessScopeService::apply(Department::query())->whereKey($parentId)->exists()) {
+            throw new AuthorizationException;
+        }
+        if (static::targetLevelForParent($parentId) <= 2 && ! $user->isSuperAdmin()) {
             throw new AuthorizationException;
         }
         if (! $user->isSuperAdmin()) {
@@ -193,6 +276,9 @@ class DepartmentHierarchyService
         $companyIds = CompanyFormService::getAuthorizedCompanyIds($user);
         foreach ($records as $record) {
             Gate::authorize('update', $record);
+            if (static::levelOf($record) <= 2) {
+                throw new AuthorizationException;
+            }
             if (! in_array($record->id, $visibleIds) || array_diff(static::companyIds($record), $companyIds)) {
                 throw new AuthorizationException;
             }
@@ -313,11 +399,56 @@ class DepartmentHierarchyService
     }
 
     /**
-     * 1 for an administration, 2 for a main department, 3 and deeper for sub departments.
+     * 1 for an administration, 2 for a main department, 3 for a sub department.
      */
     public static function levelOf(Department $department): int
     {
         return count(static::ancestorIds($department, forDisplay: true)) + 1;
+    }
+
+    public static function targetLevelForParent(?int $parentId): int
+    {
+        if (! $parentId) {
+            return 1;
+        }
+
+        $parent = static::displayAncestor($parentId)
+            ?? Department::query()->find($parentId, ['id', 'parent_id']);
+
+        if (! $parent) {
+            return 1;
+        }
+
+        return static::levelOf($parent) + 1;
+    }
+
+    public static function subtreeDepth(int $departmentId): int
+    {
+        $depth = 0;
+        $seen = [$departmentId => true];
+        $frontier = [$departmentId];
+
+        while ($frontier !== []) {
+            $depth++;
+            $children = Department::query()
+                ->whereIn('parent_id', $frontier)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            $frontier = [];
+
+            foreach ($children as $childId) {
+                if (isset($seen[$childId])) {
+                    continue;
+                }
+
+                $seen[$childId] = true;
+                $frontier[] = $childId;
+            }
+        }
+
+        return $depth;
     }
 
     public static function levelKey(Department $department): string
@@ -457,28 +588,28 @@ class DepartmentHierarchyService
         }
     }
 
-    /** Reject narrowing assignments that would strand children, employees, users or job titles. */
+    /** Reject narrowing assignments that would strand children, employees or job titles. */
     public static function assertDependentsCompatible(Department $record, array $companyIds, string $prefix = ''): void
     {
         $companyIds = static::normalizedIds($companyIds);
         if ($companyIds === static::companyIds($record->fresh())) {
             return;
         }
-        if ($companyIds !== []) {
-            foreach ($record->children()->with('companies')->get() as $child) {
-                $childIds = static::companyIds($child);
-                if ($childIds === [] || array_diff($childIds, $companyIds)) {
-                    static::fail($prefix.'company_id', 'children_outside_scope');
-                }
-            }
+
+        if ($companyIds === []) {
+            return;
         }
-        foreach (['employees', 'users', 'job_titles'] as $table) {
+
+        if ($record->children()->exists()) {
+            static::fail($prefix.'company_id', 'max_depth_exceeded');
+        }
+
+        foreach (['employees', 'job_titles'] as $table) {
             if (! Schema::hasColumn($table, 'company_id')) {
                 continue;
             }
             $assigned = DB::table($table)->where('department_id', $record->id)->whereNotNull('company_id');
-            $conflict = $companyIds === [] ? $assigned->exists() : $assigned->whereNotIn('company_id', $companyIds)->exists();
-            if ($conflict) {
+            if ($assigned->whereNotIn('company_id', $companyIds)->exists()) {
                 static::fail($prefix.'company_id', 'assignments_outside_scope');
             }
         }
@@ -496,26 +627,25 @@ class DepartmentHierarchyService
     {
         return static::transaction(function () use ($department, $newParentId, $position) {
             $department = Department::query()->lockForUpdate()->findOrFail($department->id);
-            static::authorizeUpdates(Department::query()->whereKey([$department->id, ...static::descendantIds((int) $department->id)])->get());
+            $descendantIds = static::descendantIds((int) $department->id);
+            static::authorizeUpdates(Department::query()->whereKey([$department->id, ...$descendantIds])->get());
             static::authorizeAssignment($newParentId, static::companyIds($department));
             static::assertParentAssignable($department, $newParentId);
 
-            if ($newParentId === null && ! static::isGroupLevel($department)) {
-                static::fail('parent_id', 'root_requires_group_scope');
+            $targetLevel = static::targetLevelForParent($newParentId);
+            if (($targetLevel + static::subtreeDepth((int) $department->id) - 1) > self::MAX_DEPTH) {
+                static::fail('parent_id', 'max_depth_exceeded');
             }
 
-            if ($newParentId !== null) {
-                foreach ([$department->getKey(), ...static::descendantIds((int) $department->getKey())] as $id) {
-                    $branchNode = Department::query()->findOrFail($id);
-                    $nodeParentId = (int) $id === (int) $department->getKey() ? $newParentId : $branchNode->parent_id;
-                    static::assertCompaniesWithinParent(
-                        $nodeParentId,
-                        (bool) $branchNode->is_global,
-                        $branchNode->company_id,
-                        $branchNode->companies()->pluck('companies.id')->all(),
-                    );
-                }
+            if ($targetLevel <= 2 && ! static::isGroupLevel($department)) {
+                static::fail('parent_id', $targetLevel === 1 ? 'root_requires_group_scope' : 'general_level_forbids_companies');
             }
+
+            if ($targetLevel === self::MAX_DEPTH && static::companyIds($department) === []) {
+                static::fail('parent_id', 'subdepartment_requires_companies');
+            }
+
+            static::assertBranchLayerCompatibility($department, $targetLevel);
 
             $oldParentId = $department->parent_id ? (int) $department->parent_id : null;
 
@@ -584,7 +714,7 @@ class DepartmentHierarchyService
             $blockers[] = 'has_children';
         }
 
-        if ($department->employees()->exists() || DB::table('users')->where('department_id', $department->getKey())->exists()) {
+        if ($department->employees()->exists()) {
             $blockers[] = 'has_employees';
         }
         if (Schema::hasTable('job_titles') && DB::table('job_titles')->where('department_id', $department->id)->exists()) {
@@ -662,9 +792,15 @@ class DepartmentHierarchyService
     public static function parentOptions($visibleQuery, ?Department $record = null): array
     {
         $excluded = [];
+        $maxAllowedParentLevel = self::MAX_DEPTH - 1;
 
         if ($record?->exists) {
             $excluded = [(int) $record->getKey(), ...static::descendantIds((int) $record->getKey())];
+            $maxAllowedParentLevel = max(0, self::MAX_DEPTH - static::subtreeDepth((int) $record->getKey()));
+        }
+
+        if ($maxAllowedParentLevel <= 0) {
+            return [];
         }
 
         $departments = $visibleQuery
@@ -674,7 +810,8 @@ class DepartmentHierarchyService
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get(['id', 'parent_id', 'name'])
-            ->reject(fn (Department $department) => in_array((int) $department->id, $excluded, true));
+            ->reject(fn (Department $department) => in_array((int) $department->id, $excluded, true)
+                || static::levelOf($department) > $maxAllowedParentLevel);
 
         return static::pathLabels($departments);
     }

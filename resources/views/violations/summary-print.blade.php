@@ -350,7 +350,7 @@
 
             @if($details['showTransactions'])
                 @php
-                    $allTransactions = $violations->flatMap->transactions->sortByDesc('transaction_date');
+                    $allTransactions = ($details['companyTransactions'] ?? $violations->flatMap->transactions->unique('id'))->sortByDesc('transaction_date');
                 @endphp
                 <div class="section-title">{{ __('violations.summary.transactions_records') }}</div>
                 <div class="table-wrap">
@@ -371,7 +371,15 @@
                                 <tr>
                                     <td class="numeric">{{ $loop->iteration }}</td>
                                     <td><strong><bdi>{{ $trans->voucher_number }}</bdi></strong></td>
-                                    <td><bdi>{{ $trans->violation?->violation_number ?? "#{$trans->violation_id}" }}</bdi></td>
+                                    <td>
+                                        @if($trans->link_type === 'unlinked' || (empty($trans->violation_id) && empty($trans->metadata['selected_violation_ids'])))
+                                            {{ __('violations.transactions.fields.link_types.unlinked') }}
+                                        @elseif($trans->link_type === 'multiple' || ! empty($trans->metadata['selected_violation_ids']))
+                                            {{ __('violations.transactions.fields.multiple_badge', ['count' => count($trans->metadata['selected_violation_ids'] ?? [])]) }}
+                                        @else
+                                            <bdi>{{ $trans->violation?->violation_number ?? "#{$trans->violation_id}" }}</bdi>
+                                        @endif
+                                    </td>
                                     <td class="numeric"><bdi>{{ $trans->transaction_date?->format('Y-m-d') ?? '—' }}</bdi></td>
                                     <td>{{ $trans->transaction_type?->getLabel() }}</td>
                                     <td class="numeric" style="color: #059669; font-weight: 700;"><bdi>{{ number_format((float) $trans->amount, 2) }}</bdi></td>

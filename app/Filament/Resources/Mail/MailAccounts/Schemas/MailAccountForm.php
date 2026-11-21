@@ -50,7 +50,12 @@ class MailAccountForm
                         ->live()
                         ->afterStateHydrated(function (Select $component, $record): void {
                             if ($record) {
-                                $component->state(MailAccountService::inferProvider($record->email, $record->host));
+                                $inferred = MailAccountService::inferProvider($record->email, $record->host);
+                                $component->state(
+                                    in_array($inferred, MailAccountService::providerOptions(), true)
+                                        ? $inferred
+                                        : MailAccountService::PROVIDER_CUSTOM
+                                );
                             }
                         })
                         ->afterStateUpdated(function (Set $set, Get $get, ?string $state): void {
@@ -65,9 +70,12 @@ class MailAccountForm
                         ->live(onBlur: true)
                         ->afterStateUpdated(function (Set $set, Get $get, ?string $state, $record): void {
                             $previousProvider = $get('provider');
+                            $inferred = MailAccountService::inferProvider($state);
                             $provider = ($record !== null || $get('provider_manually_selected'))
                                 ? (string) $previousProvider
-                                : MailAccountService::inferProvider($state);
+                                : (in_array($inferred, MailAccountService::providerOptions(), true)
+                                    ? $inferred
+                                    : MailAccountService::PROVIDER_CUSTOM);
                             $set('provider', $provider);
 
                             if ($provider === MailAccountService::PROVIDER_CUSTOM && $previousProvider === $provider) {
