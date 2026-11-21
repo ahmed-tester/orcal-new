@@ -43,15 +43,18 @@ return [
         'score_percentage' => 'Score Percentage (%)',
         'due_date' => 'Due Date',
         'completed_at' => 'Completed At',
+        'transferred_to_employee' => 'Transferred to Employee',
     ],
 
     'statuses' => [
-        'pending' => 'Pending / Not Done',
-        'in_progress' => 'In Progress / Partial',
+        'pending' => 'Not Completed',
+        'in_progress' => 'Partially Completed',
+        'completed' => 'Completed',
+        'transferred' => 'Transferred',
+        'escalated' => 'Escalated',
+        'postponed' => 'Postponed',
         'pending_review' => 'Pending Review',
         'returned_for_revision' => 'Returned for Revision',
-        'completed' => 'Completed',
-        'postponed' => 'Postponed / Deferred',
     ],
 
     'helpers' => [
@@ -73,6 +76,10 @@ return [
         'date_to' => 'Period to',
         'search_placeholder' => 'Search by employee name, employee number, national ID, or company...',
         'export' => 'Export CSV',
+        'print' => 'Print Summary',
+        'print_selected' => 'Print Selected (:count)',
+        'print_statement' => 'Print Employee Statement',
+        'select_all' => 'Select All',
         'empty' => 'No assignments match the period and filters.',
         'statement' => 'Employee Tasks Statement',
         'open_assignment' => 'Open Assignment',
@@ -116,6 +123,7 @@ return [
         'current' => 'Current Month',
         'next' => 'Next',
         'export' => 'Export CSV',
+        'print_statement' => 'Print Tasks Sheet',
         'completed_in_period' => 'Completed in Period',
         'completed_in_period_hint' => 'Items finished within the period',
         'due_in_period' => 'Due in Period',
@@ -249,6 +257,9 @@ return [
             'return' => 'Return for Revision',
             'extend_due_date' => 'Extend Due Date',
             'history' => 'Review History',
+            'escalate' => 'Escalate',
+            'confirm_escalate' => 'Confirm Escalation',
+            'escalate_heading' => 'Escalate Task to Management',
             'cancel' => 'Cancel',
         ],
         'fields' => [
@@ -264,6 +275,7 @@ return [
             'approved_at' => 'Approved At',
             'returned_count' => 'Returns',
             'latest_return_reason' => 'Latest Return Reason',
+            'escalation_reason' => 'Reason for Escalation / Notes',
         ],
         'return_categories' => [
             'execution_defect' => 'Execution Defect',
@@ -277,6 +289,10 @@ return [
             'attempt' => 'Attempt #:number',
             'no_history' => 'No submission attempts recorded yet.',
             'extended_from' => 'Extended from :date',
+            'escalate_description' => 'If you cannot complete this task, you can escalate it to management with reasons.',
+        ],
+        'placeholders' => [
+            'escalation_reason' => 'Enter the reason for escalation...',
         ],
         'errors' => [
             'cannot_submit' => 'You cannot submit this item for review.',
@@ -292,6 +308,8 @@ return [
             'extension_reason_required' => 'Extension reason is required.',
             'direct_mutation_blocked' => 'Status, score, and completion date on review-controlled items can only be changed through review actions.',
             'due_date_requires_extension' => 'Changing due date after assignment requires the documented extension action.',
+            'cannot_escalate' => 'You cannot escalate this task.',
+            'escalation_reason_required' => 'Escalation reason is required.',
         ],
         'notifications' => [
             'submitted_title' => 'Task Item Pending Review',
@@ -306,6 +324,7 @@ return [
             'saved_approved' => 'Item approved and score recorded.',
             'saved_returned' => 'Item returned for revision and employee notified.',
             'saved_extended' => 'Due date extended and original date preserved.',
+            'saved_escalated' => 'Task escalated to management successfully.',
         ],
     ],
 ];

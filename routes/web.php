@@ -88,6 +88,10 @@ Route::middleware('auth')->group(function () {
     // Asset Fund Statement PDF
     Route::get('/asset-fund-statement/pdf', [AssetFundStatementController::class, 'pdf'])->name('asset-fund.statement.pdf');
 
+    // Task Assignments Print Routes
+    Route::get('/task-assignments/summary/print', [\App\Http\Controllers\TaskAssignmentPrintController::class, 'summary'])->name('task-assignments.summary.print');
+    Route::get('/task-assignments/{employee}/statement/print', [\App\Http\Controllers\TaskAssignmentPrintController::class, 'statement'])->name('task-assignments.statement.print')->whereNumber('employee');
+
     // Companies Print & PDF Routes
     Route::get('/companies/statement/print', [CompanyPrintController::class, 'statement'])->name('companies.statement.print');
     Route::get('/exports/companies-statement', [CompanyPrintController::class, 'statement'])->name('exports.companies-statement');

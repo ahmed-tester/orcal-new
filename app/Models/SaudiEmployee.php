@@ -16,6 +16,7 @@ class SaudiEmployee extends Employee
         static::addGlobalScope('saudi', function (Builder $builder) {
             $builder->whereHas('user', fn ($query) => $query->whereIn('user_type', [
                 UserType::SAUDI_EMPLOYEE,
+                UserType::EMPLOYEE,
                 UserType::OWNER,
             ]));
         });

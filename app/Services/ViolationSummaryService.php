@@ -32,7 +32,10 @@ class ViolationSummaryService
     public static function transactions(): Builder
     {
         return CompanyAccessScopeService::apply(ViolationTransaction::query())
-            ->whereIn('violation_id', self::violations()->select('violations.id'));
+            ->where(function (Builder $q) {
+                $q->whereIn('violation_id', self::violations()->select('violations.id'))
+                    ->orWhereNull('violation_id');
+            });
     }
 
     public static function summaryQuery(array $filters): Builder

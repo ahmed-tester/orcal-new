@@ -151,6 +151,13 @@ class ExportPdfService
             if ($violation) {
                 $partyName = $violation->violator_name ?? ($violation->employee?->user?->name ?? 'مخالفة #'.$violation->violation_number);
                 $categoryName = $violation->type?->name ?? $violation->category?->name;
+            } elseif ($transaction->link_type === 'multiple' || ! empty($transaction->metadata['selected_violation_ids'])) {
+                $count = count($transaction->metadata['selected_violation_ids'] ?? []);
+                $partyName = "سداد مجموعة مخالفات ({$count} مخالفة)";
+                $categoryName = 'سداد مجمع لمخالفات المنشأة';
+            } elseif ($transaction->link_type === 'unlinked') {
+                $partyName = $isIncoming ? 'إيداع رصيد احتياطي' : 'صرف من الرصيد الاحتياطي';
+                $categoryName = 'رصيد احتياطي لصندوق المخالفات';
             }
         } elseif ($transaction instanceof TreasuryTransaction) {
             $isIncoming = ($transaction->transaction_type === 'incoming');

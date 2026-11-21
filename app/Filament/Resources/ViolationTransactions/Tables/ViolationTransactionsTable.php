@@ -35,11 +35,31 @@ class ViolationTransactionsTable
                     ->sortable()
                     ->weight('bold'),
 
-                TextColumn::make('violation.violation_number')
+                TextColumn::make('violation_link')
                     ->label(__('violations.transactions.fields.violation'))
-                    ->searchable()
+                    ->state(function ($record) {
+                        if ($record->link_type === 'unlinked' || (empty($record->violation_id) && empty($record->metadata['selected_violation_ids']))) {
+                            return __('violations.transactions.fields.link_types.unlinked');
+                        }
+                        if ($record->link_type === 'multiple' || (! empty($record->metadata['selected_violation_ids']))) {
+                            $count = count($record->metadata['selected_violation_ids'] ?? []);
+                            return "مجموعة مخالفات ({$count})";
+                        }
+                        return $record->violation?->violation_number ?? '—';
+                    })
                     ->badge()
-                    ->color('primary'),
+                    ->color(function ($record) {
+                        if ($record->link_type === 'unlinked' || (empty($record->violation_id) && empty($record->metadata['selected_violation_ids']))) {
+                            return 'success';
+                        }
+                        if ($record->link_type === 'multiple' || (! empty($record->metadata['selected_violation_ids']))) {
+                            return 'info';
+                        }
+                        return 'primary';
+                    })
+                    ->searchable(query: function ($query, string $search) {
+                        $query->whereHas('violation', fn ($q) => $q->where('violation_number', 'like', "%{$search}%"));
+                    }),
 
                 TextColumn::make('transaction_type')
                     ->label(__('violations.transactions.fields.transaction_type'))
@@ -86,6 +106,7 @@ class ViolationTransactionsTable
                 BulkActionGroup::make([
                     // Deletion prevented
                 ]),
-            ]);
+            ])
+            ->defaultSort('id', 'desc');
     }
 }

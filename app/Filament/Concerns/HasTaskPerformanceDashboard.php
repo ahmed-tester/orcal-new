@@ -62,6 +62,8 @@ trait HasTaskPerformanceDashboard
 
     public ?string $extensionReason = null;
 
+    public ?string $escalationReason = null;
+
     abstract protected function performanceEmployee(): ?Employee;
 
     /**
@@ -348,6 +350,13 @@ trait HasTaskPerformanceDashboard
         return $user !== null && TaskAssignmentItemReviewService::canSubmit($user, $item);
     }
 
+    public function canEscalateItem(TaskAssignmentItem $item): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && TaskAssignmentItemReviewService::canEscalate($user, $item);
+    }
+
     public function canReviewItem(TaskAssignmentItem $item): bool
     {
         $user = auth()->user();
@@ -527,6 +536,34 @@ trait HasTaskPerformanceDashboard
         $this->dispatch('open-modal', id: 'task-item-history-modal');
     }
 
+    public function openEscalateModal(int $itemId): void
+    {
+        $item = $this->resolveAuthorizedPerformanceItem($itemId);
+        $this->activeReviewItemId = $item->getKey();
+        $this->escalationReason = null;
+        $this->resetValidation();
+        $this->dispatch('open-modal', id: 'task-item-escalate-modal');
+    }
+
+    public function escalateItem(): void
+    {
+        $user = auth()->user();
+        abort_if($user === null, 403);
+        $item = $this->resolveAuthorizedPerformanceItem((int) $this->activeReviewItemId);
+
+        try {
+            TaskAssignmentItemReviewService::escalate($user, $item, (string) ($this->escalationReason ?? ''));
+        } catch (ValidationException $e) {
+            $this->setErrorBag($e->validator->errors());
+
+            return;
+        }
+
+        $this->resetReviewModalState();
+        $this->dispatch('close-modal', id: 'task-item-escalate-modal');
+        Notification::make()->title(__('tasks.review.notifications.saved_escalated'))->warning()->send();
+    }
+
     private function resolveAuthorizedPerformanceItem(int $itemId): TaskAssignmentItem
     {
         $employee = $this->performanceEmployee();
@@ -553,6 +590,7 @@ trait HasTaskPerformanceDashboard
         $this->returnReason = null;
         $this->extensionNewDueDate = null;
         $this->extensionReason = null;
+        $this->escalationReason = null;
         unset($this->performance, $this->performanceItems, $this->activeReviewItem);
     }
 }

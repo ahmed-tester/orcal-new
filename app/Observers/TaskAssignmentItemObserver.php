@@ -64,7 +64,29 @@ class TaskAssignmentItemObserver
             return;
         }
 
-        $guardedAttributes = ['status', 'score', 'completed_at'];
+        // An already completed item cannot have its status directly changed
+        if ($item->getOriginal('status') === TaskStatus::COMPLETED->value && $item->isDirty('status')) {
+            throw ValidationException::withMessages([
+                'status' => __('tasks.review.errors.direct_mutation_blocked'),
+            ]);
+        }
+
+        // Items cannot be directly transitioned into review-controlled states
+        if ($item->isDirty('status')) {
+            $disallowedTransitions = [
+                TaskStatus::PENDING_REVIEW,
+                TaskStatus::RETURNED_FOR_REVISION,
+                TaskStatus::COMPLETED,
+            ];
+
+            if (in_array($item->status, $disallowedTransitions, true)) {
+                throw ValidationException::withMessages([
+                    'status' => __('tasks.review.errors.direct_mutation_blocked'),
+                ]);
+            }
+        }
+
+        $guardedAttributes = ['score', 'completed_at'];
 
         foreach ($guardedAttributes as $attribute) {
             if ($item->isDirty($attribute)) {
