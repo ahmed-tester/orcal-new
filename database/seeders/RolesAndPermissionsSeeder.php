@@ -302,9 +302,25 @@ class RolesAndPermissionsSeeder extends Seeder
             );
         }
 
+        $mailInboxPermissions = [
+            'view_mail_inbox',
+            'reply_mail',
+            'manage_mail_rules',
+            'manage_mail_accounts',
+            'run_mail_sync',
+            'review_mail',
+            'delete_mail',
+        ];
+
+        foreach ($mailInboxPermissions as $permissionName) {
+            Permission::firstOrCreate(
+                ['name' => $permissionName, 'guard_name' => 'web']
+            );
+        }
+
         // 1. Super Admin & General Manager Roles
         $superAdminRole = Role::firstOrCreate(['name' => 'Super Admin', 'guard_name' => 'web']);
-        $superAdminRole->syncPermissions(array_merge($allPermissionNames, $performanceEscalationPermissions));
+        $superAdminRole->syncPermissions(array_merge($allPermissionNames, $performanceEscalationPermissions, $mailInboxPermissions));
 
         $generalManagerRole = Role::firstOrCreate(['name' => 'مدير عام', 'guard_name' => 'web']);
         $generalManagerRole->syncPermissions($allPermissionNames);

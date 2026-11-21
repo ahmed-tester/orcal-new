@@ -12,6 +12,7 @@ use App\Models\JobTitle;
 use App\Models\Service;
 use App\Models\User;
 use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
 
@@ -647,6 +648,91 @@ class CompanyFormService
             })
             ->getOptionLabelFromRecordUsing(fn ($record) => ($record->user?->name ?? __('employees.single')." #{$record->id}").($record->employee_number ? " ({$record->employee_number})" : '')
             )
+            ->searchable()
+            ->preload()
+            ->required($required);
+    }
+
+    /**
+     * Create a scoped, searchable multi-select Employee component for belongsToMany assignments.
+     */
+    public static function makeMultiEmployeeSelect(
+        string $name = 'employees',
+        ?string $label = null,
+        bool $required = true,
+        string $relationshipName = 'employees',
+        ?string $companyFieldName = 'company_id',
+        bool $ignoreCompanyScope = false,
+    ): Select {
+        return Select::make($name)
+            ->label($label ?? __('employees.plural'))
+            ->multiple()
+            ->relationship(
+                name: $relationshipName,
+                titleAttribute: 'id',
+                modifyQueryUsing: function (Builder $query, callable $get) use ($companyFieldName, $ignoreCompanyScope) {
+                    $user = auth()->user();
+                    $companyId = (! $ignoreCompanyScope && $companyFieldName) ? $get($companyFieldName) : null;
+
+                    $query->with('user')->where('employees.status', 'active');
+
+                    if (! $ignoreCompanyScope) {
+                        if ($user && method_exists($user, 'canAccessAllBranches') && ! $user->canAccessAllBranches() && $user->branch_id) {
+                            $query->where('employees.branch_id', $user->branch_id);
+                        }
+
+                        if ($companyId) {
+                            $query->where('employees.company_id', $companyId);
+                        } elseif ($user && ! $user->isSuperAdmin()) {
+                            $companyIds = static::getAuthorizedCompanyIds($user);
+                            $query->whereIn('employees.company_id', ! empty($companyIds) ? $companyIds : [0]);
+                        }
+                    }
+                },
+            )
+            ->getSearchResultsUsing(function (Select $component, ?string $search) use ($companyFieldName, $ignoreCompanyScope) {
+                $user = auth()->user();
+                $companyId = (! $ignoreCompanyScope && $companyFieldName) ? $component->evaluate(fn (callable $get) => $get($companyFieldName)) : null;
+
+                $query = Employee::query()
+                    ->where('status', 'active')
+                    ->when(! $ignoreCompanyScope && $user && method_exists($user, 'canAccessAllBranches') && ! $user->canAccessAllBranches() && $user->branch_id, function ($q) use ($user) {
+                        $q->where('branch_id', $user->branch_id);
+                    })
+                    ->when(! $ignoreCompanyScope && $companyId, function ($query, $cid) {
+                        $query->where('company_id', $cid);
+                    }, function ($query) use ($user, $ignoreCompanyScope) {
+                        if (! $ignoreCompanyScope && $user && ! $user->isSuperAdmin()) {
+                            $companyIds = static::getAuthorizedCompanyIds($user);
+                            $query->whereIn('company_id', ! empty($companyIds) ? $companyIds : [0]);
+                        }
+                    });
+
+                return static::employeeSearchResults($search, $query);
+            })
+            ->getOptionLabelFromRecordUsing(fn ($record) => ($record->user?->name ?? __('employees.single')." #{$record->id}").($record->employee_number ? " ({$record->employee_number})" : ''))
+            ->getOptionLabelsUsing(function (array $values, Get $get) use ($companyFieldName, $ignoreCompanyScope): array {
+                if ($values === []) {
+                    return [];
+                }
+
+                $query = Employee::query()->where('status', 'active');
+                if (! $ignoreCompanyScope) {
+                    $query = CompanyAccessScopeService::apply($query);
+                    if ($companyFieldName) {
+                        $query->where('company_id', $get($companyFieldName) ?: 0);
+                    }
+                }
+
+                return $query->with('user')
+                    ->whereIn('id', $values)
+                    ->get()
+                    ->mapWithKeys(fn ($record) => [
+                        $record->id => ($record->user?->name ?? __('employees.single')." #{$record->id}").($record->employee_number ? " ({$record->employee_number})" : ''),
+                    ])
+                    ->toArray();
+            })
+            ->disabled(fn (callable $get) => $companyFieldName ? empty($get($companyFieldName)) : false)
             ->searchable()
             ->preload()
             ->required($required);

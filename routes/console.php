@@ -17,4 +17,6 @@ Schedule::command('leaves:check-overdue')->dailyAt('09:30')->withoutOverlapping(
 Schedule::command('violations:check-deadlines')->dailyAt('09:45')->withoutOverlapping();
 Schedule::command('debts:check-due-dates')->dailyAt('10:00')->withoutOverlapping();
 Schedule::command('performance:check-escalations')->hourly()->withoutOverlapping();
+Schedule::command('mail:sync-emails')->everyMinute()->withoutOverlapping();
+Schedule::command('mail:check-escalation')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::job(new SyncDailyAttendanceToPayrollJob)->dailyAt('23:30');

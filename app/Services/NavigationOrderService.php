@@ -24,6 +24,9 @@ class NavigationOrderService
         'reports_group',
         'faq_group',
         'support_group',
+        'mail_messages_group',
+        'mail_rules_group',
+        'mail_accounts_group',
     ];
 
     /**

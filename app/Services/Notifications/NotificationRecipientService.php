@@ -12,6 +12,11 @@ use App\Models\Installment;
 use App\Models\InstallmentPayment;
 use App\Models\Invoice;
 use App\Models\Leave;
+use App\Models\Mail\MailAccount;
+use App\Models\Mail\MailAttachment;
+use App\Models\Mail\MailConversation;
+use App\Models\Mail\MailMessage;
+use App\Models\Mail\MailSyncLog;
 use App\Models\PerformanceEscalation;
 use App\Models\SaudiEmployee;
 use App\Models\ServiceTransaction;
@@ -22,6 +27,7 @@ use App\Models\User;
 use App\Models\Violation;
 use App\Services\CashHandoverService;
 use App\Services\CompanyFormService;
+use App\Services\Mail\MailAccessService;
 use App\Services\PerformanceEscalationService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
@@ -113,6 +119,22 @@ class NotificationRecipientService
             return static::isEligibleForPerformanceEscalation($user, $record, $companyId);
         }
 
+        if ($record instanceof MailMessage) {
+            return MailAccessService::canViewMessage($user, $record);
+        }
+
+        if ($record instanceof MailConversation) {
+            return MailAccessService::canViewConversation($user, $record);
+        }
+
+        if ($record instanceof MailAttachment) {
+            return MailAccessService::canViewAttachment($user, $record);
+        }
+
+        if ($record instanceof MailAccount || $record instanceof MailSyncLog) {
+            return MailAccessService::canAdministerAllMail($user);
+        }
+
         // 1. Super Admin: Global update rights across all companies
         if ($user->isSuperAdmin()) {
             return true;
@@ -178,6 +200,11 @@ class NotificationRecipientService
             $record instanceof Ticket => ['update_ticket'],
             $record instanceof ServiceTransaction => ['update_service_transaction'],
             $record instanceof PerformanceEscalation => ['view_any_performance_escalation'],
+            $record instanceof MailMessage,
+            $record instanceof MailConversation,
+            $record instanceof MailAttachment => [MailAccessService::PERM_VIEW_INBOX],
+            $record instanceof MailAccount,
+            $record instanceof MailSyncLog => [MailAccessService::PERM_MANAGE_ACCOUNTS],
             default => [],
         };
     }
