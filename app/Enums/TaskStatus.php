@@ -13,6 +13,8 @@ enum TaskStatus: string implements HasColor, HasIcon, HasLabel
     case PENDING_REVIEW = 'pending_review';
     case RETURNED_FOR_REVISION = 'returned_for_revision';
     case COMPLETED = 'completed';
+    case TRANSFERRED = 'transferred';
+    case ESCALATED = 'escalated';
     case POSTPONED = 'postponed';
 
     public function getLabel(): string
@@ -23,6 +25,8 @@ enum TaskStatus: string implements HasColor, HasIcon, HasLabel
             self::PENDING_REVIEW => __('tasks.statuses.pending_review'),
             self::RETURNED_FOR_REVISION => __('tasks.statuses.returned_for_revision'),
             self::COMPLETED => __('tasks.statuses.completed'),
+            self::TRANSFERRED => __('tasks.statuses.transferred'),
+            self::ESCALATED => __('tasks.statuses.escalated'),
             self::POSTPONED => __('tasks.statuses.postponed'),
         };
     }
@@ -35,6 +39,8 @@ enum TaskStatus: string implements HasColor, HasIcon, HasLabel
             self::PENDING_REVIEW => 'info',
             self::RETURNED_FOR_REVISION => 'warning',
             self::COMPLETED => 'success',
+            self::TRANSFERRED => 'info',
+            self::ESCALATED => 'danger',
             self::POSTPONED => 'gray',
         };
     }
@@ -47,6 +53,8 @@ enum TaskStatus: string implements HasColor, HasIcon, HasLabel
             self::PENDING_REVIEW => 'heroicon-m-eye',
             self::RETURNED_FOR_REVISION => 'heroicon-m-arrow-uturn-left',
             self::COMPLETED => 'heroicon-m-check-circle',
+            self::TRANSFERRED => 'heroicon-m-arrow-right-circle',
+            self::ESCALATED => 'heroicon-m-arrow-trending-up',
             self::POSTPONED => 'heroicon-m-pause-circle',
         };
     }

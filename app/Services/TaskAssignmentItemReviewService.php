@@ -78,6 +78,15 @@ class TaskAssignmentItemReviewService
         return self::isAssignedToUser($user, $item);
     }
 
+    public static function canEscalate(User $user, TaskAssignmentItem $item): bool
+    {
+        if (! $item->status?->isEmployeeOpen()) {
+            return false;
+        }
+
+        return self::isAssignedToUser($user, $item);
+    }
+
     public static function canReview(User $user, TaskAssignmentItem $item): bool
     {
         if (! $item->requires_review || $item->status !== TaskStatus::PENDING_REVIEW) {
@@ -421,6 +430,43 @@ class TaskAssignmentItemReviewService
             });
 
             return $locked->fresh();
+        });
+    }
+
+    public static function escalate(User $user, TaskAssignmentItem $item, string $reason): void
+    {
+        $cleanReason = trim($reason);
+
+        if ($cleanReason === '') {
+            throw ValidationException::withMessages([
+                'escalationReason' => __('tasks.review.errors.escalation_reason_required'),
+            ]);
+        }
+
+        DB::transaction(function () use ($user, $item, $cleanReason): void {
+            $locked = TaskAssignmentItem::query()
+                ->lockForUpdate()
+                ->findOrFail($item->getKey());
+
+            if (! self::canEscalate($user, $locked)) {
+                throw new AuthorizationException(__('tasks.review.errors.cannot_escalate'));
+            }
+
+            $meta = is_array($locked->metadata) ? $locked->metadata : [];
+            $meta['escalation_reason'] = $cleanReason;
+            $meta['escalated_at'] = now()->toDateTimeString();
+            $meta['escalated_by'] = $user->id;
+
+            $noteText = ' [تم التصعيد للإدارة: '.$cleanReason.']';
+            $newNotes = filled($locked->notes) ? $locked->notes.$noteText : 'تم التصعيد للإدارة: '.$cleanReason;
+
+            TaskAssignmentItem::withoutReviewGuard(function () use ($locked, $newNotes, $meta): void {
+                $locked->update([
+                    'status' => TaskStatus::ESCALATED,
+                    'notes' => $newNotes,
+                    'metadata' => $meta,
+                ]);
+            });
         });
     }
 

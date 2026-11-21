@@ -12,6 +12,7 @@ enum UserType: string implements HasLabel
     case SAUDI_EMPLOYEE = 'saudi_employee';
     case FOREIGN_EMPLOYEE = 'foreign_employee';
     case OWNER = 'owner';
+    case EMPLOYEE = 'employee';
 
     public function getLabel(): string
     {
@@ -22,12 +23,13 @@ enum UserType: string implements HasLabel
             self::SAUDI_EMPLOYEE => __('user_types.saudi_employee'),
             self::FOREIGN_EMPLOYEE => __('user_types.foreign_employee'),
             self::OWNER => __('user_types.owner'),
+            self::EMPLOYEE => __('user_types.employee') ?? 'موظف',
         };
     }
 
     public function isSaudiEmployee(): bool
     {
-        return $this === self::SAUDI_EMPLOYEE;
+        return $this === self::SAUDI_EMPLOYEE || $this === self::EMPLOYEE;
     }
 
     public function isForeignEmployee(): bool

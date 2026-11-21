@@ -8,6 +8,7 @@ use App\Models\TaskAssignmentItem;
 use App\Models\TaskAssignmentItemReview;
 use App\Services\CompanyFormService;
 use App\Services\TaskAssignmentItemReviewService;
+use App\Services\TaskAssignmentStatusResolver;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
@@ -95,32 +96,12 @@ class TaskAssignmentForm
 
                                 Select::make('status')
                                     ->label(__('tasks.fields.item_status'))
-                                    ->options(function (?TaskAssignmentItem $record): array {
-                                        if ($record !== null && ! $record->requires_review) {
-                                            return collect(TaskStatus::cases())
-                                                ->mapWithKeys(fn (TaskStatus $status) => [$status->value => $status->getLabel()])
-                                                ->all();
-                                        }
-
-                                        if ($record !== null) {
-                                            return collect(TaskStatus::cases())
-                                                ->mapWithKeys(fn (TaskStatus $status) => [$status->value => $status->getLabel()])
-                                                ->all();
-                                        }
-
-                                        return [
-                                            TaskStatus::PENDING->value => TaskStatus::PENDING->getLabel(),
-                                            TaskStatus::IN_PROGRESS->value => TaskStatus::IN_PROGRESS->getLabel(),
-                                            TaskStatus::POSTPONED->value => TaskStatus::POSTPONED->getLabel(),
-                                        ];
-                                    })
+                                    ->options(fn (?TaskAssignmentItem $record, Select $component): array => TaskAssignmentStatusResolver::getOptions($record, $component))
                                     ->default(TaskStatus::PENDING->value)
                                     ->required()
-                                    ->disabled(fn (?TaskAssignmentItem $record): bool => $record !== null && $record->requires_review)
-                                    ->dehydrated(fn (?TaskAssignmentItem $record): bool => $record === null || ! $record->requires_review)
                                     ->live()
                                     ->afterStateUpdated(function ($state, Set $set, ?TaskAssignmentItem $record) {
-                                        if (($record === null || ! $record->requires_review) && $state === TaskStatus::COMPLETED->value) {
+                                        if ($state === TaskStatus::COMPLETED->value) {
                                             $set('completed_at', now()->toDateString());
                                         }
                                     }),
@@ -180,10 +161,19 @@ class TaskAssignmentForm
                                     ->dehydrated(fn (?TaskAssignmentItem $record): bool => $record !== null && ! $record->requires_review)
                                     ->columnSpan(2),
 
+                                Select::make('metadata.transferred_to_employee_id')
+                                    ->label(__('tasks.fields.transferred_to_employee'))
+                                    ->options(fn () => \App\Models\Employee::query()->saudi()->with('user')->get()->pluck('user.name', 'id'))
+                                    ->searchable()
+                                    ->preload()
+                                    ->required(fn (Get $get) => $get('status') === TaskStatus::TRANSFERRED->value)
+                                    ->visible(fn (Get $get) => $get('status') === TaskStatus::TRANSFERRED->value)
+                                    ->columnSpan(2),
+
                                 TextInput::make('notes')
                                     ->label(__('tasks.fields.notes'))
                                     ->maxLength(255)
-                                    ->columnSpan(2),
+                                    ->columnSpan(fn (Get $get) => $get('status') === TaskStatus::TRANSFERRED->value ? 6 : 2),
 
                                 Placeholder::make('review_summary')
                                     ->label(__('tasks.review.actions.history'))

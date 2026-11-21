@@ -138,6 +138,7 @@ class Employee extends Model
         return $query->where(function (Builder $q) {
             $q->whereHas('user', fn ($sub) => $sub->whereIn('user_type', [
                 UserType::SAUDI_EMPLOYEE,
+                UserType::EMPLOYEE,
                 UserType::OWNER,
             ]))
                 ->orWhereHas('details', fn ($sub) => $sub->where('nationality', 'like', '%سعود%')
@@ -149,7 +150,7 @@ class Employee extends Model
     public function isSaudi(): bool
     {
         $userType = $this->user?->user_type;
-        if ($userType === UserType::SAUDI_EMPLOYEE || $userType === UserType::OWNER) {
+        if ($userType === UserType::SAUDI_EMPLOYEE || $userType === UserType::EMPLOYEE || $userType === UserType::OWNER) {
             return true;
         }
 
@@ -169,6 +170,7 @@ class Employee extends Model
                 ->orWhere(function (Builder $sub) {
                     $sub->whereDoesntHave('user', fn ($u) => $u->whereIn('user_type', [
                         UserType::SAUDI_EMPLOYEE,
+                        UserType::EMPLOYEE,
                         UserType::OWNER,
                     ]))
                         ->whereHas('details', fn ($d) => $d->where('nationality', 'not like', '%سعود%')
