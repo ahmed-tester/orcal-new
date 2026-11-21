@@ -243,6 +243,11 @@
             width: 100% !important;
         }
     }
+
+    /* Keep inline database notifications visible after Livewire polling morphs */
+    .fi-no-database .fi-no-notification.fi-inline {
+        visibility: visible !important;
+    }
 </style>
 
 <script>
@@ -265,17 +270,43 @@
         });
     }
 
+    // Fix RTL topbar user menu dropdown placement so it opens inward instead of clipping off the left edge
+    function fixRtlUserMenuDropdown() {
+        if (document.documentElement.dir !== 'rtl') {
+            return;
+        }
+
+        document.querySelectorAll('.fi-user-menu .fi-dropdown-panel').forEach(panel => {
+            for (const attr of Array.from(panel.attributes)) {
+                if (attr.name.startsWith('x-float') && attr.name.includes('.placement.bottom-end')) {
+                    let newName = attr.name.replace('.placement.bottom-end', '.placement.bottom-start');
+                    if (!newName.includes('.shift')) {
+                        newName = newName.replace('.teleport', '.shift.teleport');
+                    }
+                    const value = attr.value;
+                    panel.removeAttribute(attr.name);
+                    panel.setAttribute(newName, value);
+                }
+            }
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         disableBrowserValidation();
         hideEmptySidebarGroups();
     });
     document.addEventListener('livewire:navigated', () => {
+        fixRtlUserMenuDropdown();
         disableBrowserValidation();
         hideEmptySidebarGroups();
     });
     document.addEventListener('livewire:init', () => {
+        fixRtlUserMenuDropdown();
         disableBrowserValidation();
         hideEmptySidebarGroups();
+    });
+    document.addEventListener('alpine:init', () => {
+        fixRtlUserMenuDropdown();
     });
 
     // Watch for dynamically opened modals and Livewire components

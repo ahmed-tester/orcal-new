@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Enums\GeneralStatus;
 use App\Models\Employee;
 use App\Models\PayrollRecord;
 use App\Services\PayrollCalculationService;
@@ -41,7 +42,7 @@ class SyncDailyAttendanceToPayrollJob implements ShouldQueue
         $monthDate = Carbon::parse($this->targetMonth ?: now())->startOfMonth();
         $monthString = $monthDate->toDateString();
 
-        $query = Employee::query()->where('is_active', true);
+        $query = Employee::query()->where('status', GeneralStatus::ACTIVE);
         if ($this->employeeId) {
             $query->where('id', $this->employeeId);
         }

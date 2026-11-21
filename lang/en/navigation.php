@@ -14,6 +14,9 @@ return [
     'support_group' => 'Support & Helpdesk',
     'system_group' => 'Administration & Permissions',
     'faq_group' => 'FAQ & Support',
+    'mail_messages_group' => 'Mail & Messages',
+    'mail_rules_group' => 'Smart Filtering Rules',
+    'mail_accounts_group' => 'Accounts & Users',
     'tickets' => 'Support Tickets',
     'saudi_employees' => 'Saudi Employees',
     'foreign_employees' => 'Resident Employees (Non-Saudi)',
@@ -83,7 +86,7 @@ return [
     'company_department_performance' => 'Company & Department Performance',
 
     // Asset Funds
-    'asset_funds'          => 'Asset Funds',
-    'asset_fund_vouchers'  => 'Deposit & Withdrawal Vouchers',
+    'asset_funds' => 'Asset Funds',
+    'asset_fund_vouchers' => 'Deposit & Withdrawal Vouchers',
     'asset_fund_statement' => 'Fund Movement Statement',
 ];

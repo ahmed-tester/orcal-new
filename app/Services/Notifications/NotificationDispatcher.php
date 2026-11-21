@@ -2,6 +2,8 @@
 
 namespace App\Services\Notifications;
 
+use App\Filament\Resources\Mail\MailAccounts\MailAccountResource;
+use App\Filament\Resources\Mail\MailMessages\MailMessageResource;
 use App\Filament\Resources\TreasuryTransactions\TreasuryTransactionResource;
 use App\Models\CashHandover;
 use App\Models\Company;
@@ -9,6 +11,8 @@ use App\Models\Debt;
 use App\Models\Employee;
 use App\Models\Invoice;
 use App\Models\Leave;
+use App\Models\Mail\MailAccount;
+use App\Models\Mail\MailMessage;
 use App\Models\PerformanceEscalation;
 use App\Models\ServiceTransaction;
 use App\Models\Task;
@@ -67,6 +71,13 @@ class NotificationDispatcher
 
     public static function actionUrl(Model $record): ?string
     {
+        if ($record instanceof MailMessage) {
+            return MailMessageResource::getUrl('view', ['record' => $record]);
+        }
+        if ($record instanceof MailAccount) {
+            return MailAccountResource::getUrl('edit', ['record' => $record]);
+        }
+
         if ($record instanceof CashHandover) {
             try {
                 return TreasuryTransactionResource::getUrl('index');

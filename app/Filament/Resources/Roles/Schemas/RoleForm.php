@@ -366,6 +366,14 @@ class RoleForm
                 ],
             ],
 
+            'permissions_mail' => [
+                'label' => __('navigation.mail_messages_group'),
+                'permissions' => collect([
+                    'view_mail_inbox', 'reply_mail', 'manage_mail_rules', 'manage_mail_accounts',
+                    'run_mail_sync', 'review_mail', 'delete_mail',
+                ])->mapWithKeys(fn ($permission) => [$permission => __('mail_inbox.permissions.'.$permission)])->all(),
+            ],
+
             // 12. Frequently Asked Questions (FAQ)
             'permissions_faq' => [
                 'label' => __('navigation.faq_group'),
