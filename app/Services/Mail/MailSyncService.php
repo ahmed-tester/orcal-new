@@ -49,12 +49,8 @@ class MailSyncService
      */
     public function testConnection(MailAccount $account): array
     {
-        if ($account->isOAuth()) {
-            if (empty($account->oauth_access_token)) {
-                return ['success' => false, 'message' => __('mail_inbox.sync.oauth_incomplete')];
-            }
-
-            return ['success' => true, 'message' => __('mail_inbox.sync.oauth_ok')];
+        if ($account->isOAuth() && ! $account->hasOAuthTokens()) {
+            return ['success' => false, 'message' => __('mail_inbox.sync.oauth_incomplete')];
         }
 
         try {
@@ -62,7 +58,17 @@ class MailSyncService
             $client->connect();
             $client->disconnect();
 
-            return ['success' => true, 'message' => __('mail_inbox.sync.imap_ok')];
+            if ($account->status !== MailAccountStatus::CONNECTED || filled($account->error_message)) {
+                $account->update([
+                    'status' => MailAccountStatus::CONNECTED,
+                    'error_message' => null,
+                ]);
+            }
+
+            return [
+                'success' => true,
+                'message' => $account->isOAuth() ? __('mail_inbox.sync.oauth_ok') : __('mail_inbox.sync.imap_ok'),
+            ];
         } catch (\Throwable $e) {
             $msg = $this->formatImapError($e->getMessage());
 
@@ -88,6 +94,10 @@ class MailSyncService
      */
     public function syncAccount(MailAccount $account): array
     {
+        if ($account->isOAuth() && ! $account->hasOAuthTokens()) {
+            return ['imported' => 0, 'rejected' => 0, 'found' => 0];
+        }
+
         $lock = Cache::lock('mail_sync_account_'.$account->id, 180);
         if (! $lock->get()) {
             Log::info('Mail sync skipped: sync already in progress for account', [
@@ -124,8 +134,13 @@ class MailSyncService
             $errorMessage = $this->formatImapError($rawError);
 
             if (MailAccount::where('id', $account->id)->exists()) {
+                $freshStatus = MailAccount::where('id', $account->id)->value('status');
+                $targetStatus = $freshStatus === MailAccountStatus::REAUTH_REQUIRED->value
+                    ? MailAccountStatus::REAUTH_REQUIRED
+                    : MailAccountStatus::CONNECTION_ERROR;
+
                 $account->update([
-                    'status' => MailAccountStatus::CONNECTION_ERROR,
+                    'status' => $targetStatus,
                     'error_message' => $errorMessage,
                 ]);
 
@@ -670,6 +685,21 @@ class MailSyncService
      */
     public function buildImapConfig(MailAccount $account): array
     {
+        if ($account->isOutlookOAuth()) {
+            $accessToken = app(MicrosoftMailOAuthService::class)->ensureValidAccessToken($account);
+
+            return [
+                'host' => $account->host ?: 'outlook.office365.com',
+                'port' => $account->port ?: 993,
+                'encryption' => 'ssl',
+                'validate_cert' => true,
+                'username' => $account->email,
+                'password' => $accessToken,
+                'authentication' => 'oauth',
+                'protocol' => 'imap',
+            ];
+        }
+
         $encryption = in_array(strtolower((string) $account->encryption), ['ssl', 'tls'], true)
             ? strtolower((string) $account->encryption)
             : 'ssl';
@@ -850,6 +880,9 @@ class MailSyncService
     protected function isAuthenticationError(string $message): bool
     {
         return str_contains($message, 'AUTHENTICATIONFAILED')
+            || str_contains($message, 'AUTHENTICATE failed')
+            || str_contains($message, 'XOAUTH2')
+            || str_contains($message, 'invalid_grant')
             || str_contains($message, 'Application-specific password')
             || str_contains($message, 'Bad credentials')
             || str_contains($message, 'credentials')

@@ -5,6 +5,8 @@ namespace App\Filament\Resources\Mail\MailAccounts\Pages;
 use App\Filament\Resources\Mail\MailAccounts\MailAccountResource;
 use App\Jobs\Mail\SyncEmailAccountJob;
 use App\Services\Mail\MailAccountService;
+use App\Services\Mail\MicrosoftMailOAuthService;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
@@ -72,10 +74,72 @@ class CreateMailAccount extends CreateRecord
         return $record;
     }
 
+    protected function getFormActions(): array
+    {
+        return [
+            Action::make('connect_microsoft')
+                ->label(__('mail_inbox.actions.connect_microsoft'))
+                ->icon('heroicon-o-arrow-right-end-on-rectangle')
+                ->color('primary')
+                ->visible(fn (): bool => $this->isMicrosoftSelected())
+                ->disabled(fn (): bool => ! app(MicrosoftMailOAuthService::class)->isConfigured())
+                ->action('createAndConnectMicrosoft'),
+            $this->getCreateFormAction()
+                ->visible(fn (): bool => ! $this->isMicrosoftSelected()),
+            ...(static::canCreateAnother() ? [
+                $this->getCreateAnotherFormAction()
+                    ->visible(fn (): bool => ! $this->isMicrosoftSelected()),
+            ] : []),
+            $this->getCancelFormAction(),
+        ];
+    }
+
+    public function createAndConnectMicrosoft(): void
+    {
+        $oauthService = app(MicrosoftMailOAuthService::class);
+        if (! $oauthService->isConfigured()) {
+            Notification::make()
+                ->title(__('mail_inbox.oauth.site_not_configured'))
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $data = $this->form->getState();
+        $employeeIds = (array) ($this->data['employees'] ?? []);
+        $accountService = app(MailAccountService::class);
+
+        $existingPending = $accountService->findPendingMicrosoftAccount(
+            (int) ($data['company_id'] ?? 0),
+            (string) ($data['email'] ?? '')
+        );
+
+        $this->record = $accountService->saveAccount(
+            $existingPending,
+            $data,
+            $employeeIds,
+            auth()->user()
+        );
+
+        $auth = $oauthService->beginAuthorization(
+            $this->record,
+            auth()->user(),
+            MailAccountResource::getUrl('edit', ['record' => $this->record])
+        );
+
+        $this->redirect($auth['url']);
+    }
+
+    protected function isMicrosoftSelected(): bool
+    {
+        return ($this->data['provider'] ?? null) === MailAccountService::PROVIDER_OUTLOOK;
+    }
+
     protected function afterCreate(): void
     {
         $this->logCreationStage('form_relationships_saved');
-        if ($this->record->is_active) {
+        if ($this->record->isReadyForSync()) {
             $this->logCreationStage('sync_dispatch_started');
             SyncEmailAccountJob::dispatch($this->record)->afterCommit();
             $this->logCreationStage('sync_dispatch_returned');

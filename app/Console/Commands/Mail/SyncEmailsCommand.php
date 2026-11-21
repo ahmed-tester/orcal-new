@@ -40,6 +40,10 @@ class SyncEmailsCommand extends Command
         }
 
         foreach ($accounts as $account) {
+            if (! $account->isReadyForSync()) {
+                continue;
+            }
+
             $this->info((string) __('mail_inbox.sync.command_syncing', ['email' => $account->email]));
             $res = $syncService->syncAccount($account);
             $this->info((string) __('mail_inbox.sync.command_result', [

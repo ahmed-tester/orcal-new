@@ -10,6 +10,7 @@ enum MailAccountStatus: string implements HasColor, HasLabel
     case CONNECTED = 'connected';
     case CONNECTION_ERROR = 'connection_error';
     case REAUTH_REQUIRED = 'reauth_required';
+    case PENDING_AUTH = 'pending_auth';
 
     public function getLabel(): string
     {
@@ -22,6 +23,7 @@ enum MailAccountStatus: string implements HasColor, HasLabel
             self::CONNECTED => 'success',
             self::CONNECTION_ERROR => 'danger',
             self::REAUTH_REQUIRED => 'warning',
+            self::PENDING_AUTH => 'info',
         };
     }
 }

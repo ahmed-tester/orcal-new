@@ -417,8 +417,13 @@ class MailAccountUiTest extends TestCase
                 $form->fillForm(['provider' => $provider])
                     ->assertSee(__('mail_inbox.provider_setup.'.$provider.'.title'))
                     ->assertSee(__('mail_inbox.provider_setup.'.$provider.'.heading'))
-                    ->assertFormFieldVisible('password')
                     ->assertFormFieldVisible('sync_interval_minutes');
+
+                if ($provider === MailAccountService::PROVIDER_OUTLOOK) {
+                    $form->assertFormFieldHidden('password');
+                } else {
+                    $form->assertFormFieldVisible('password');
+                }
             }
         }
     }

@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\Mailer\Transport\Smtp\Auth\XOAuth2Authenticator;
+use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
 
 class EmailReplyService
 {
@@ -174,6 +176,13 @@ class EmailReplyService
         ]);
 
         Mail::purge('account_smtp');
+
+        if ($account->isOutlookOAuth()) {
+            $transport = Mail::mailer('account_smtp')->getSymfonyTransport();
+            if ($transport instanceof EsmtpTransport) {
+                $transport->setAuthenticators([new XOAuth2Authenticator]);
+            }
+        }
     }
 
     /**
@@ -183,8 +192,25 @@ class EmailReplyService
      */
     public function buildSmtpConfig(MailAccount $account): array
     {
-        $host = strtolower(trim((string) ($account->host ?? '')));
         $emailDomain = strtolower(substr(strrchr((string) $account->email, '@') ?: '', 1));
+
+        if ($account->isOutlookOAuth()) {
+            $accessToken = app(MicrosoftMailOAuthService::class)->ensureValidAccessToken($account);
+            $isPersonal = in_array($emailDomain, ['outlook.com', 'hotmail.com', 'live.com', 'msn.com'], true);
+
+            return [
+                'transport' => 'smtp',
+                'host' => $isPersonal ? 'smtp-mail.outlook.com' : 'smtp.office365.com',
+                'port' => 587,
+                'encryption' => 'tls',
+                'username' => $account->email,
+                'password' => $accessToken,
+                'timeout' => 25,
+                'verify_peer' => true,
+            ];
+        }
+
+        $host = strtolower(trim((string) ($account->host ?? '')));
         $isGmail = str_contains($host, 'gmail') || $emailDomain === 'gmail.com';
 
         $provider = MailAccountService::inferProvider($account->email, $account->host);
@@ -229,6 +255,10 @@ class EmailReplyService
                 ->to($email->sender_email, $email->sender_name)
                 ->send($mailable);
         } catch (\Throwable $e) {
+            if ($email->account?->isOutlookOAuth()) {
+                throw $e;
+            }
+
             $currentPort = config('mail.mailers.account_smtp.port');
 
             if ($currentPort == 465) {

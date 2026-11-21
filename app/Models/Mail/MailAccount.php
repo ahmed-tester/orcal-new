@@ -100,6 +100,33 @@ class MailAccount extends Model
         return in_array($this->type, ['gmail_oauth', 'outlook_oauth'], true);
     }
 
+    public function isOutlookOAuth(): bool
+    {
+        return $this->type === 'outlook_oauth';
+    }
+
+    public function hasOAuthTokens(): bool
+    {
+        return filled($this->oauth_access_token) && filled($this->oauth_refresh_token);
+    }
+
+    public function isReadyForSync(): bool
+    {
+        if (! $this->is_active) {
+            return false;
+        }
+
+        if (! $this->isOAuth()) {
+            return true;
+        }
+
+        return $this->hasOAuthTokens()
+            && ! in_array($this->status, [
+                MailAccountStatus::PENDING_AUTH,
+                MailAccountStatus::REAUTH_REQUIRED,
+            ], true);
+    }
+
     protected static function booted(): void
     {
         static::deleting(function (MailAccount $account): void {
