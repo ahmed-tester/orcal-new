@@ -3,7 +3,6 @@
 namespace App\Services\Mail;
 
 use App\Enums\Mail\MailAccountStatus;
-use App\Enums\Mail\MailMessageStatus;
 use App\Enums\Mail\MailPriority;
 use App\Models\Mail\MailAccount;
 use App\Models\Mail\MailMessage;
@@ -28,11 +27,18 @@ class MailStatsService
     public function forUser(?User $user): array
     {
         $active = fn (): Builder => $this->activeMessages($user);
+        $messageService = app(MailMessageService::class);
 
         $total = $active()->count();
         $unread = $active()->where('is_read', false)->count();
-        $important = $active()->where('is_important', true)->count();
-        $review = $active()->where('status', MailMessageStatus::UNDER_REVIEW->value)->count();
+        $important = $messageService->applyTabScope(
+            MailAccessService::scopeRecords(MailMessage::query(), $user, 'emails'),
+            MailMessageService::TAB_IMPORTANT
+        )->count();
+        $review = $messageService->applyTabScope(
+            MailAccessService::scopeRecords(MailMessage::query(), $user, 'emails'),
+            MailMessageService::TAB_UNDER_REVIEW
+        )->count();
         $today = $active()->whereDate('received_at', today())->count();
         $urgentUnanswered = $active()
             ->where('priority', MailPriority::HIGH->value)
@@ -72,7 +78,8 @@ class MailStatsService
 
     protected function activeMessages(?User $user): Builder
     {
-        return MailAccessService::scopeRecords(MailMessage::query(), $user, 'emails')
-            ->where('status', '!=', MailMessageStatus::REJECTED->value);
+        return app(MailMessageService::class)->applyNotExcludedScope(
+            MailAccessService::scopeRecords(MailMessage::query(), $user, 'emails')
+        );
     }
 }

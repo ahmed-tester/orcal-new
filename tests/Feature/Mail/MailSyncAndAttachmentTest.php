@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Mail;
 
-use App\Enums\Mail\MailCategory;
 use App\Enums\Mail\MailMessageStatus;
 use App\Enums\Mail\MailPriority;
 use App\Enums\Mail\MailSourceFolder;
@@ -215,7 +214,7 @@ class MailSyncAndAttachmentTest extends TestCase
         $this->assertCount(2, $messages);
         $this->assertSame($messages[0]->conversation_id, $messages[1]->conversation_id);
         $this->assertSame(MailMessageStatus::NEW, $messages[1]->status);
-        $this->assertSame(MailCategory::INQUIRY, $messages[1]->category);
+        $this->assertSame('inquiry', $messages[1]->category);
         $this->assertSame(MailPriority::MEDIUM, $messages[1]->priority);
         $this->assertTrue($messages[1]->is_important);
         $this->assertSame(MailSourceFolder::SPAM_JUNK, $messages[1]->source_folder);

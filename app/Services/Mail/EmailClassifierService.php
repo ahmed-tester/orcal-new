@@ -2,9 +2,9 @@
 
 namespace App\Services\Mail;
 
-use App\Enums\Mail\MailCategory;
 use App\Enums\Mail\MailMessageStatus;
 use App\Enums\Mail\MailPriority;
+use App\Models\Mail\MailCategory;
 use App\Models\Mail\MailExclusionKeyword;
 use App\Models\Mail\MailImportanceKeyword;
 use App\Models\Mail\MailTrustedDomain;
@@ -58,15 +58,18 @@ class EmailClassifierService
             'active_importance_keywords' => $this->scopeRuleQuery(MailImportanceKeyword::query(), $companyId)->where('is_active', true)->count(),
         ]);
 
+        $categoryService = app(MailCategoryService::class);
+
         $whitelistMatch = $this->checkWhitelist($senderEmail, $companyId);
         if ($whitelistMatch !== null) {
+            $categoryAvailable = $categoryService->isActive('official');
             $result = [
-                'is_important' => true,
-                'category' => MailCategory::OFFICIAL,
+                'is_important' => $categoryAvailable,
+                'category' => $categoryAvailable ? 'official' : MailCategory::SYSTEM_OTHER_SLUG,
                 'confidence' => 100,
                 'summary' => $this->generateFastSummary($subject, $body),
                 'priority' => MailPriority::HIGH,
-                'status' => MailMessageStatus::NEW,
+                'status' => $categoryAvailable ? MailMessageStatus::NEW : MailMessageStatus::UNDER_REVIEW,
                 'classification_reason' => $whitelistMatch,
             ];
             $this->logClassificationResult($traceId, $startedAt, 'whitelist', $result);
@@ -78,13 +81,14 @@ class EmailClassifierService
 
         $exclusionMatch = $this->checkExclusionKeywords($fullText, $companyId);
         if ($exclusionMatch !== null) {
+            $categoryAvailable = $categoryService->isActive('marketing');
             $result = [
                 'is_important' => false,
-                'category' => MailCategory::MARKETING,
+                'category' => $categoryAvailable ? 'marketing' : MailCategory::SYSTEM_OTHER_SLUG,
                 'confidence' => 90,
                 'summary' => $this->generateFastSummary($subject, $body),
                 'priority' => MailPriority::LOW,
-                'status' => MailMessageStatus::REJECTED,
+                'status' => $categoryAvailable ? MailMessageStatus::REJECTED : MailMessageStatus::UNDER_REVIEW,
                 'classification_reason' => __('mail_inbox.classifier.reasons.exclusion_keyword', ['keyword' => $exclusionMatch]),
             ];
             $this->logClassificationResult($traceId, $startedAt, 'exclusion_keyword', $result, [
@@ -96,13 +100,15 @@ class EmailClassifierService
 
         $importanceMatch = $this->checkImportanceKeywords($fullText, $companyId);
         if ($importanceMatch !== null) {
+            $detectedCategory = $this->detectCategoryFromKeyword($importanceMatch);
+            $categoryAvailable = $categoryService->isActive($detectedCategory);
             $result = [
-                'is_important' => true,
-                'category' => $this->detectCategoryFromKeyword($importanceMatch),
+                'is_important' => $categoryAvailable,
+                'category' => $categoryAvailable ? $detectedCategory : MailCategory::SYSTEM_OTHER_SLUG,
                 'confidence' => 85,
                 'summary' => $this->generateFastSummary($subject, $body),
                 'priority' => MailPriority::HIGH,
-                'status' => MailMessageStatus::NEW,
+                'status' => $categoryAvailable ? MailMessageStatus::NEW : MailMessageStatus::UNDER_REVIEW,
                 'classification_reason' => __('mail_inbox.classifier.reasons.importance_keyword', ['keyword' => $importanceMatch]),
             ];
             $this->logClassificationResult($traceId, $startedAt, 'importance_keyword', $result, [
@@ -227,15 +233,21 @@ class EmailClassifierService
             return $result;
         }
 
-        $cacheKey = 'mail_gemini_classification_'.md5($senderEmail.'_'.$subject.'_'.mb_substr($body, 0, 500));
+        $categoryService = app(MailCategoryService::class);
+        $cacheKey = 'mail_gemini_classification_v2_'.md5(
+            $model.'|'.$categoryService->geminiVersion().'|'.$senderEmail.'_'.$subject.'_'.mb_substr($body, 0, 500)
+        );
         if (Cache::has($cacheKey)) {
             $cachedResult = Cache::get($cacheKey);
-            $this->logClassificationResult($traceId, $startedAt, 'gemini_cache', $cachedResult, [
-                'model' => $model,
-                'cache_hit' => true,
-            ]);
+            $cachedCat = is_array($cachedResult) ? (string) ($cachedResult['category'] ?? '') : '';
+            if (is_array($cachedResult) && $cachedCat !== '' && $categoryService->isActive($cachedCat)) {
+                $this->logClassificationResult($traceId, $startedAt, 'gemini_cache', $cachedResult, [
+                    'model' => $model,
+                    'cache_hit' => true,
+                ]);
 
-            return $cachedResult;
+                return $cachedResult;
+            }
         }
 
         $dailyLimit = (int) (Setting::get('mail_gemini_daily_limit') ?? 1000);
@@ -262,6 +274,7 @@ class EmailClassifierService
             'sender' => $senderEmail,
             'subject' => $cleanSubject,
             'body' => $cleanBody,
+            'categories' => $categoryService->geminiPromptCategoriesText(),
         ], 'ar');
 
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}";
@@ -293,18 +306,27 @@ class EmailClassifierService
                 if (is_array($parsed) && isset($parsed['confidence'])) {
                     $isImportant = (bool) ($parsed['is_important'] ?? false);
                     $confidence = (int) ($parsed['confidence'] ?? 0);
-                    $category = MailCategory::fromLabel((string) ($parsed['category'] ?? ''));
+                    $rawCategory = trim((string) ($parsed['category'] ?? ''));
+                    $category = $categoryService->resolveActiveSlugFromLabel($rawCategory);
                     $summary = (string) ($parsed['summary'] ?? $this->generateFastSummary($subject, $body));
                     $priority = MailPriority::fromLabel((string) ($parsed['suggested_priority'] ?? ''));
 
-                    if ($confidence >= 70 && $isImportant) {
+                    $isInvalidCategoryOutput = $rawCategory === ''
+                        || ($category === MailCategory::SYSTEM_OTHER_SLUG
+                            && ! in_array(mb_strtolower($rawCategory), ['other', 'أخرى'], true));
+
+                    if ($isInvalidCategoryOutput) {
+                        $status = MailMessageStatus::UNDER_REVIEW;
+                        $isImportant = false;
+                        $reason = __('mail_inbox.classifier.reasons.gemini_low_confidence', ['confidence' => $confidence]);
+                    } elseif ($confidence >= 70 && $isImportant) {
                         $status = MailMessageStatus::NEW;
                         $reason = __('mail_inbox.classifier.reasons.gemini_important', ['confidence' => $confidence]);
                     } elseif ($confidence >= 70 && ! $isImportant) {
                         $status = MailMessageStatus::REJECTED;
                         $reason = __('mail_inbox.classifier.reasons.gemini_not_important', [
                             'confidence' => $confidence,
-                            'category' => $category->getLabel(),
+                            'category' => $categoryService->labelFor($category),
                         ]);
                     } else {
                         $status = MailMessageStatus::UNDER_REVIEW;
@@ -433,7 +455,7 @@ class EmailClassifierService
     {
         return [
             'is_important' => false,
-            'category' => MailCategory::INQUIRY,
+            'category' => $this->activeOrOther('inquiry'),
             'confidence' => 50,
             'summary' => $this->generateFastSummary($subject, $body),
             'priority' => MailPriority::MEDIUM,
@@ -457,20 +479,29 @@ class EmailClassifierService
         return __('mail_inbox.classifier.fast_summary.without_subject', ['snippet' => $snippet]);
     }
 
-    protected function detectCategoryFromKeyword(string $keyword): MailCategory
+    protected function detectCategoryFromKeyword(string $keyword): string
     {
         $kw = mb_strtolower($keyword);
         $hints = (array) __('mail_inbox.classifier.keyword_hints', [], 'ar');
 
-        foreach (['complaint' => MailCategory::COMPLAINT, 'request' => MailCategory::REQUEST, 'official' => MailCategory::OFFICIAL] as $key => $category) {
+        foreach (['complaint', 'request', 'official'] as $key) {
             foreach ((array) ($hints[$key] ?? []) as $hint) {
                 if (str_contains($kw, mb_strtolower((string) $hint))) {
-                    return $category;
+                    return $key;
                 }
             }
         }
 
-        return MailCategory::INQUIRY;
+        return 'inquiry';
+    }
+
+    protected function activeOrOther(string $preferredSlug): string
+    {
+        $service = app(MailCategoryService::class);
+
+        return $service->isActive($preferredSlug)
+            ? $preferredSlug
+            : MailCategory::SYSTEM_OTHER_SLUG;
     }
 
     /**

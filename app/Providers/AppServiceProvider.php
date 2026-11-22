@@ -28,6 +28,7 @@ use App\Models\LeaveType;
 use App\Models\LoanFundMemberPayment;
 use App\Models\Mail\MailAccount;
 use App\Models\Mail\MailAttachment;
+use App\Models\Mail\MailCategory;
 use App\Models\Mail\MailConversation;
 use App\Models\Mail\MailExclusionKeyword;
 use App\Models\Mail\MailImportanceKeyword;
@@ -76,6 +77,7 @@ use App\Policies\LeaveTypePolicy;
 use App\Policies\LoanFundMemberPaymentPolicy;
 use App\Policies\Mail\MailAccountPolicy;
 use App\Policies\Mail\MailAttachmentPolicy;
+use App\Policies\Mail\MailCategoryPolicy;
 use App\Policies\Mail\MailConversationPolicy;
 use App\Policies\Mail\MailMessagePolicy;
 use App\Policies\Mail\MailRulePolicy;
@@ -246,6 +248,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(MailTrustedDomain::class, MailRulePolicy::class);
         Gate::policy(MailImportanceKeyword::class, MailRulePolicy::class);
         Gate::policy(MailExclusionKeyword::class, MailRulePolicy::class);
+        Gate::policy(MailCategory::class, MailCategoryPolicy::class);
 
         // Global Select Searchable Configuration for all Filament Forms and Tables
         Select::configureUsing(function (Select $select): void {

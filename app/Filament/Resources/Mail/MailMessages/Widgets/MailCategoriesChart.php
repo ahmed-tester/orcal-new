@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources\Mail\MailMessages\Widgets;
 
-use App\Enums\Mail\MailCategory;
 use App\Models\Mail\MailMessage;
 use App\Services\Mail\MailAccessService;
+use App\Services\Mail\MailCategoryService;
 use Filament\Widgets\ChartWidget;
 
 class MailCategoriesChart extends ChartWidget
@@ -21,24 +21,39 @@ class MailCategoriesChart extends ChartWidget
             ->groupBy('category')
             ->pluck('total', 'category');
 
-        $colors = [
-            MailCategory::INQUIRY->value => '#6366f1',
-            MailCategory::REQUEST->value => '#0ea5e9',
-            MailCategory::COMPLAINT->value => '#ef4444',
-            MailCategory::OFFICIAL->value => '#10b981',
-            MailCategory::MARKETING->value => '#f59e0b',
-            MailCategory::SPAM->value => '#64748b',
-            MailCategory::OTHER->value => '#8b5cf6',
-        ];
+        $categoryService = app(MailCategoryService::class);
+        $categories = $categoryService->all();
 
         $labels = [];
         $data = [];
         $backgroundColors = [];
 
-        foreach (MailCategory::cases() as $category) {
-            $labels[] = $category->getLabel();
-            $data[] = (int) ($counts[$category->value] ?? 0);
-            $backgroundColors[] = $colors[$category->value];
+        if ($categories->isNotEmpty()) {
+            foreach ($categories as $category) {
+                $total = (int) ($counts[$category->slug] ?? 0);
+                if (! $category->is_active && $total === 0) {
+                    continue;
+                }
+
+                $labels[] = $category->localizedName();
+                $data[] = $total;
+                $backgroundColors[] = $categoryService->chartColorFor($category->slug);
+            }
+
+            foreach ($counts as $slug => $total) {
+                $slugStr = (string) $slug;
+                if ($slugStr !== '' && ! $categories->has($slugStr) && (int) $total > 0) {
+                    $labels[] = $categoryService->labelFor($slugStr);
+                    $data[] = (int) $total;
+                    $backgroundColors[] = $categoryService->chartColorFor($slugStr);
+                }
+            }
+        } else {
+            foreach ($categoryService->allFilterOptions() as $slug => $label) {
+                $labels[] = $label;
+                $data[] = (int) ($counts[$slug] ?? 0);
+                $backgroundColors[] = $categoryService->chartColorFor($slug);
+            }
         }
 
         return [

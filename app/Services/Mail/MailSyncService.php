@@ -3,7 +3,6 @@
 namespace App\Services\Mail;
 
 use App\Enums\Mail\MailAccountStatus;
-use App\Enums\Mail\MailCategory;
 use App\Enums\Mail\MailConversationStatus;
 use App\Enums\Mail\MailMessageStatus;
 use App\Enums\Mail\MailPriority;
@@ -450,12 +449,17 @@ class MailSyncService
 
                 // Reply inside an existing conversation or with In-Reply-To is never rejected
                 if ($existingThreadCount > 0 || $hasInReplyTo) {
+                    $categoryService = app(MailCategoryService::class);
+                    $rawCategory = $classification['category'] instanceof \BackedEnum
+                        ? (string) $classification['category']->value
+                        : (string) ($classification['category'] ?? '');
+
                     if (
                         $classification['status'] === MailMessageStatus::REJECTED
-                        || in_array($classification['category'], [MailCategory::SPAM, MailCategory::MARKETING], true)
+                        || $categoryService->isExcluded($rawCategory)
                     ) {
                         $classification['status'] = MailMessageStatus::NEW;
-                        $classification['category'] = MailCategory::INQUIRY;
+                        $classification['category'] = $categoryService->resolveActiveNonExcludedSlug('inquiry');
                         $classification['priority'] = MailPriority::MEDIUM;
                         $classification['is_important'] = true;
                         $classification['classification_reason'] = (string) __('mail_inbox.sync.reply_in_thread_reason');
@@ -498,7 +502,7 @@ class MailSyncService
                     'has_in_reply_to' => $hasInReplyTo,
                     'reply_override_applied' => $replyOverrideApplied,
                     'status' => $classification['status']->value,
-                    'category' => $classification['category']->value,
+                    'category' => $email->category,
                     'priority' => $classification['priority']->value,
                     'is_important' => $classification['is_important'],
                     'confidence' => $classification['confidence'],
