@@ -39,7 +39,9 @@ class DepartmentsTable
                 TextColumn::make('name')
                     ->label(__('organization.departments.fields.name'))
                     ->description(fn (Department $record) => $record->description)
-                    ->url(fn (Department $record) => DepartmentResource::getUrl('index', ['parent' => $record->getKey()]))
+                    ->url(fn (Department $record) => DepartmentHierarchyService::levelOf($record) < DepartmentHierarchyService::MAX_DEPTH
+                        ? DepartmentResource::getUrl('index', ['parent' => $record->getKey()])
+                        : null)
                     ->searchable()
                     ->sortable(),
 
@@ -50,6 +52,7 @@ class DepartmentsTable
 
                 TextColumn::make('visible_children_count')
                     ->label(__('organization.departments.hierarchy.columns.children_count'))
+                    ->visible(fn ($livewire): bool => $livewire->shouldShowChildrenCountColumn())
                     ->numeric()
                     ->badge()
                     ->color('info'),

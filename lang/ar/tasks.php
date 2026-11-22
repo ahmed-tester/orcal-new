@@ -41,6 +41,7 @@ return [
         'due_date' => 'تاريخ الاستحقاق',
         'completed_at' => 'تاريخ الإنجاز الفعلي',
         'transferred_to_employee' => 'الموظف المحول إليه',
+        'postponed_to_date' => 'تاريخ التأجيل الجديد',
     ],
     'statuses' => [
         'pending' => 'لم يتم الإنجاز',
@@ -408,6 +409,7 @@ return [
             'no_history' => 'لا توجد محاولات تسليم مسجلة بعد.',
             'extended_from' => 'مُدد من :date',
             'escalate_description' => 'في حال تعذر إنجاز هذه المهمة، يمكنك تصعيدها للإدارة مع توضيح الأسباب.',
+            'escalated_note' => 'تم التصعيد للإدارة: :reason',
         ],
         'placeholders' => [
             'escalation_reason' => 'اكتب سبب تعذر إنجاز المهمة والتصعيد للإدارة...',
@@ -428,6 +430,8 @@ return [
             'due_date_requires_extension' => 'تعديل موعد الاستحقاق بعد الإسناد يتم عبر إجراء التمديد الموثق فقط.',
             'cannot_escalate' => 'لا يمكنك تصعيد هذه المهمة.',
             'escalation_reason_required' => 'سبب التصعيد إلزامي.',
+            'transfer_target_required' => 'يجب تحديد الموظف المحول إليه.',
+            'transfer_same_employee' => 'لا يمكن تحويل المهمة لنفس الموظف.',
         ],
         'notifications' => [
             'submitted_title' => 'بند تكليف بانتظار المراجعة',

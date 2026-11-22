@@ -14,6 +14,8 @@ class DepartmentObserver
             $department->department_code = DepartmentHierarchyService::generateCode($department->parent_id);
         }
 
+        DepartmentHierarchyService::assertCodeAvailable($department);
+
         if (blank($department->sort_order)) {
             $department->sort_order = DepartmentHierarchyService::nextSortOrder($department->parent_id);
         }
@@ -37,7 +39,16 @@ class DepartmentObserver
         }
 
         if ($department->isDirty('parent_id')) {
+            DepartmentHierarchyService::assertCodeAvailable($department);
             DepartmentHierarchyService::assertParentAssignable($department, $department->parent_id);
+
+            $targetLevel = DepartmentHierarchyService::targetLevelForParent($department->parent_id);
+            if ($targetLevel > DepartmentHierarchyService::MAX_DEPTH
+                || ($department->exists && ($targetLevel + DepartmentHierarchyService::subtreeDepth((int) $department->id) - 1) > DepartmentHierarchyService::MAX_DEPTH)) {
+                throw ValidationException::withMessages([
+                    'parent_id' => __('organization.departments.hierarchy.errors.max_depth_exceeded'),
+                ]);
+            }
 
             if ($department->exists && ! $department->parent_id && (! $department->is_global
                 || ($department->pendingCompanyIds ?? $department->companies()->pluck('companies.id')->all()) !== [])) {
@@ -49,6 +60,25 @@ class DepartmentObserver
             if ($department->exists && ! $department->isDirty('sort_order')) {
                 $department->sort_order = DepartmentHierarchyService::nextSortOrder($department->parent_id);
             }
+        }
+
+        $targetLevel = DepartmentHierarchyService::targetLevelForParent($department->parent_id);
+        $companyIds = $department->pendingCompanyIds ?? ($department->is_global
+            ? ($department->exists ? $department->companies()->pluck('companies.id')->all() : [])
+            : array_filter([(int) $department->company_id]));
+
+        if ($targetLevel === 2 && ($department->isDirty(['parent_id', 'company_id', 'is_global']) || ! $department->exists || $department->pendingCompanyIds !== null)) {
+            if (! $department->is_global || $companyIds !== [] || $department->company_id !== null) {
+                throw ValidationException::withMessages([
+                    'company_id' => __('organization.departments.hierarchy.errors.general_level_forbids_companies'),
+                ]);
+            }
+        }
+
+        if ($targetLevel === 3 && $department->exists && $department->isDirty('parent_id') && $companyIds === []) {
+            throw ValidationException::withMessages([
+                'company_id' => __('organization.departments.hierarchy.errors.subdepartment_requires_companies'),
+            ]);
         }
 
         if ($department->exists && ($department->isDirty(['company_id', 'is_global']) || $department->pendingCompanyIds !== null)) {

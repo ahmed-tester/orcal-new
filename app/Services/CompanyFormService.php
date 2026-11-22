@@ -497,15 +497,21 @@ class CompanyFormService
                 $query = Department::query()->where('status', 'active');
 
                 $query->where(function ($q) use ($companyId, $user) {
-                    $q->where('is_global', true);
+                    $q->where(fn ($org) => $org->where('is_global', true)
+                        ->whereNull('company_id')
+                        ->whereDoesntHave('companies'));
 
                     if ($companyId) {
                         $q->orWhere('company_id', $companyId)
                             ->orWhereHas('companies', fn ($sub) => $sub->where('companies.id', $companyId));
                     } elseif ($user && ! $user->isSuperAdmin()) {
                         $companyIds = static::getAuthorizedCompanyIds($user);
-                        $q->orWhereIn('company_id', ! empty($companyIds) ? $companyIds : [0])
-                            ->orWhereHas('companies', fn ($sub) => $sub->whereIn('companies.id', ! empty($companyIds) ? $companyIds : [0]));
+                        if ($companyIds !== []) {
+                            $q->orWhereIn('company_id', $companyIds)
+                                ->orWhereHas('companies', fn ($sub) => $sub->whereIn('companies.id', $companyIds));
+                        }
+                    } else {
+                        $q->orWhereNotNull('id');
                     }
                 });
 

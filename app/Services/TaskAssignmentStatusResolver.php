@@ -77,6 +77,18 @@ class TaskAssignmentStatusResolver
      */
     public function isStatusAllowed(TaskStatus $status): bool
     {
+        if ($this->item !== null && $this->item->status === TaskStatus::TRANSFERRED) {
+            return $status === TaskStatus::TRANSFERRED;
+        }
+
+        if (
+            $this->item !== null
+            && $this->item->requires_review
+            && in_array($this->item->status, [TaskStatus::COMPLETED, TaskStatus::PENDING_REVIEW], true)
+        ) {
+            return $this->item->status === $status;
+        }
+
         // Preserve currently assigned status on existing records
         if ($this->item !== null && $this->item->status === $status) {
             return true;
@@ -84,8 +96,9 @@ class TaskAssignmentStatusResolver
 
         return match ($status) {
             TaskStatus::PENDING,
-            TaskStatus::IN_PROGRESS,
-            TaskStatus::COMPLETED => true,
+            TaskStatus::IN_PROGRESS => true,
+
+            TaskStatus::COMPLETED => $this->item !== null && ! $this->item->requires_review,
 
             TaskStatus::TRANSFERRED => $this->canTransfer(),
             TaskStatus::ESCALATED => $this->canEscalate(),

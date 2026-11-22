@@ -44,27 +44,36 @@ class DepartmentScopeService
         return [
             Radio::make('department_scope')
                 ->label(fn ($get, $livewire) => DepartmentForm::label('scope', DepartmentForm::contextParentId($get, $livewire)))
-                ->options(function ($get, ?Department $record) {
+                ->options(function ($get, $livewire) {
                     $options = DepartmentScope::toOptionsArray();
-                    if ($get('parent_id')) {
+                    $targetLevel = DepartmentHierarchyService::targetLevelForParent(DepartmentForm::contextParentId($get, $livewire));
+                    if ($targetLevel >= DepartmentHierarchyService::MAX_DEPTH) {
                         unset($options[DepartmentScope::FAWAZ_GROUP->value]);
-                    } elseif (! $record || $record->parent_id !== null) {
-                        $options = [DepartmentScope::FAWAZ_GROUP->value => $options[DepartmentScope::FAWAZ_GROUP->value]];
+
+                        return $options;
                     }
 
-                    return $options;
+                    return [DepartmentScope::FAWAZ_GROUP->value => $options[DepartmentScope::FAWAZ_GROUP->value]];
                 })
                 ->default(DepartmentScope::SINGLE->value)
                 ->inline()
                 ->live()
                 ->visible(fn ($get, $livewire, ?Department $record) => ! static::hasFixedRootScope($get, $record)
+                    && static::targetLevel($get, $livewire) >= DepartmentHierarchyService::MAX_DEPTH
                     && (! ($livewire instanceof CreateDepartment) || ! $livewire->hasFixedAffiliation()))
-                ->dehydratedWhenHidden(fn ($livewire) => ! ($livewire instanceof CreateDepartment))
+                ->dehydratedWhenHidden(true)
                 ->required()
-                ->afterStateHydrated(function ($component, $record) {
-                    $component->state($record
-                        ? static::resolveScope($record)->value
-                        : (request()->integer('parent') ? DepartmentScope::SINGLE->value : DepartmentScope::FAWAZ_GROUP->value));
+                ->afterStateHydrated(function ($component, $record, $get, $livewire) {
+                    if ($record) {
+                        $component->state(static::resolveScope($record)->value);
+
+                        return;
+                    }
+
+                    $targetLevel = static::targetLevel($get, $livewire);
+                    $component->state($targetLevel >= DepartmentHierarchyService::MAX_DEPTH
+                        ? DepartmentScope::SINGLE->value
+                        : DepartmentScope::FAWAZ_GROUP->value);
                 })
                 ->afterStateUpdated(function ($state, callable $set) {
                     if (DepartmentScope::isFawazGroup($state)) {
@@ -89,13 +98,16 @@ class DepartmentScopeService
             Placeholder::make('fawaz_group_info')
                 ->label(__('organization.departments.scope.fawaz_group_notice'))
                 ->hiddenLabel()
-                ->content(fn () => new HtmlString('
+                ->content(fn ($get, $livewire) => new HtmlString('
                     <div class="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 rounded-lg text-emerald-800 dark:text-emerald-200 text-sm flex items-center gap-2">
                         <span class="text-xl">🌐</span>
-                        <span><strong>'.e(__('organization.departments.scope.fawaz_group_badge')).':</strong> '.e(__('organization.departments.scope.fawaz_group_info')).'</span>
+                        <span><strong>'.e(static::targetLevel($get, $livewire) === 2
+                            ? __('organization.departments.scope.general_main')
+                            : __('organization.departments.scope.fawaz_group_badge')).':</strong> '.e(__('organization.departments.scope.fawaz_group_info')).'</span>
                     </div>
                 '))
-                ->visible(fn ($get, ?Department $record) => static::hasFixedRootScope($get, $record)
+                ->visible(fn ($get, $livewire, ?Department $record) => static::hasFixedRootScope($get, $record)
+                    || static::targetLevel($get, $livewire) <= 2
                     || DepartmentScope::isFawazGroup($get('department_scope')))
                 ->columnSpanFull(),
 
@@ -103,16 +115,17 @@ class DepartmentScopeService
                 ->label(fn ($get, $livewire) => DepartmentForm::label('company', DepartmentForm::contextParentId($get, $livewire)))
                 ->options(fn ($get, $livewire) => static::companyOptions($get, $livewire))
                 ->visible(fn ($get, $livewire, ?Department $record) => ! static::hasFixedRootScope($get, $record)
+                    && static::targetLevel($get, $livewire) >= DepartmentHierarchyService::MAX_DEPTH
                     && DepartmentScope::isSingle($get('department_scope'))
-                    && (! ($livewire instanceof CreateDepartment) || ! $livewire->inheritsCompany()))
-                ->required(fn ($get, $livewire) => DepartmentScope::isSingle($get('department_scope'))
-                    && (! ($livewire instanceof CreateDepartment) || ! $livewire->inheritsCompany())),
+                    && (! ($livewire instanceof CreateDepartment) || ! $livewire->hasFixedAffiliation()))
+                ->dehydratedWhenHidden(true)
+                ->required(fn ($get, $livewire) => static::targetLevel($get, $livewire) >= DepartmentHierarchyService::MAX_DEPTH
+                    && DepartmentScope::isSingle($get('department_scope'))
+                    && (! ($livewire instanceof CreateDepartment) || ! $livewire->hasFixedAffiliation())),
 
             Select::make('companies')
                 ->label(fn ($get, $livewire) => DepartmentForm::label('companies', DepartmentForm::contextParentId($get, $livewire)))
-                ->helperText(fn ($livewire) => $livewire instanceof CreateDepartment && $livewire->creationParent()
-                    ? __('organization.departments.hierarchy.form.parent_companies_helper')
-                    : __('organization.departments.fields.companies_helper'))
+                ->helperText(__('organization.departments.fields.companies_helper'))
                 ->options(fn ($get, $livewire) => static::companyOptions($get, $livewire))
                 ->afterStateHydrated(function ($component, ?Department $record) {
                     if ($record) {
@@ -123,12 +136,20 @@ class DepartmentScopeService
                 ->searchable()
                 ->preload()
                 ->visible(fn ($get, $livewire, ?Department $record) => ! static::hasFixedRootScope($get, $record)
+                    && static::targetLevel($get, $livewire) >= DepartmentHierarchyService::MAX_DEPTH
                     && DepartmentScope::isShared($get('department_scope'))
                     && (! ($livewire instanceof CreateDepartment) || ! $livewire->hasFixedAffiliation()))
-                ->required(fn ($get, $livewire) => DepartmentScope::isShared($get('department_scope'))
+                ->dehydratedWhenHidden(true)
+                ->required(fn ($get, $livewire) => static::targetLevel($get, $livewire) >= DepartmentHierarchyService::MAX_DEPTH
+                    && DepartmentScope::isShared($get('department_scope'))
                     && (! ($livewire instanceof CreateDepartment) || ! $livewire->hasFixedAffiliation()))
                 ->columnSpanFull(),
         ];
+    }
+
+    protected static function targetLevel($get, $livewire): int
+    {
+        return DepartmentHierarchyService::targetLevelForParent(DepartmentForm::contextParentId($get, $livewire));
     }
 
     protected static function hasFixedRootScope($get, ?Department $record): bool
@@ -208,7 +229,9 @@ class DepartmentScopeService
                 $scope = static::resolveScope($record);
 
                 return match ($scope) {
-                    DepartmentScope::FAWAZ_GROUP => $scope->getLabel(),
+                    DepartmentScope::FAWAZ_GROUP => DepartmentHierarchyService::levelOf($record) === 1
+                        ? __('organization.departments.scope.group_umbrella')
+                        : __('organization.departments.scope.general_main'),
                     DepartmentScope::SHARED => $record->companies->isNotEmpty()
                         ? $record->companies->pluck('trade_name')->all()
                         : __('organization.departments.fields.global_badge'),

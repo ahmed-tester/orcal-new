@@ -39,18 +39,18 @@ class ViolationTransactionsTable
                     ->label(__('violations.transactions.fields.violation'))
                     ->state(function ($record) {
                         if ($record->link_type === 'unlinked' || (empty($record->violation_id) && empty($record->metadata['selected_violation_ids']))) {
-                            return __('violations.transactions.fields.link_types.unlinked');
+                            return \App\Services\ViolationTransactionFormService::getUnlinkedLabel($record->transaction_type);
                         }
                         if ($record->link_type === 'multiple' || (! empty($record->metadata['selected_violation_ids']))) {
                             $count = count($record->metadata['selected_violation_ids'] ?? []);
-                            return "مجموعة مخالفات ({$count})";
+                            return __('violations.transactions.fields.multiple_badge', ['count' => $count]);
                         }
                         return $record->violation?->violation_number ?? '—';
                     })
                     ->badge()
                     ->color(function ($record) {
                         if ($record->link_type === 'unlinked' || (empty($record->violation_id) && empty($record->metadata['selected_violation_ids']))) {
-                            return 'success';
+                            return $record->transaction_type === ViolationTransactionType::OUTGOING ? 'warning' : 'success';
                         }
                         if ($record->link_type === 'multiple' || (! empty($record->metadata['selected_violation_ids']))) {
                             return 'info';
