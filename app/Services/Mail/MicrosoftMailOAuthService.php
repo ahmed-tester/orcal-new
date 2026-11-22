@@ -25,13 +25,26 @@ class MicrosoftMailOAuthService
 
     private const REFRESH_LOCK_PREFIX = 'mail_oauth_refresh:';
 
-    private const SCOPES = [
+    public const AUTH_SCOPES = [
         'openid',
         'profile',
         'email',
         'offline_access',
         'https://outlook.office.com/IMAP.AccessAsUser.All',
-        'https://outlook.office.com/SMTP.Send',
+        'https://graph.microsoft.com/Mail.Send',
+    ];
+
+    public const TOKEN_SCOPES = [
+        'openid',
+        'profile',
+        'email',
+        'offline_access',
+        'https://outlook.office.com/IMAP.AccessAsUser.All',
+    ];
+
+    public const GRAPH_SCOPES = [
+        'offline_access',
+        'https://graph.microsoft.com/Mail.Send',
     ];
 
     public function isConfigured(): bool
@@ -125,7 +138,7 @@ class MicrosoftMailOAuthService
             'response_type' => 'code',
             'redirect_uri' => $this->redirectUri(),
             'response_mode' => 'query',
-            'scope' => implode(' ', self::SCOPES),
+            'scope' => implode(' ', self::AUTH_SCOPES),
             'state' => $state,
             'code_challenge' => $codeChallenge,
             'code_challenge_method' => 'S256',
@@ -357,7 +370,7 @@ class MicrosoftMailOAuthService
                     'client_secret' => $this->clientSecret(),
                     'grant_type' => 'refresh_token',
                     'refresh_token' => $usedRefreshToken,
-                    'scope' => implode(' ', self::SCOPES),
+                    'scope' => implode(' ', self::TOKEN_SCOPES),
                 ]);
 
             if (! $response->successful()) {
@@ -402,6 +415,64 @@ class MicrosoftMailOAuthService
         }
     }
 
+    public function ensureValidGraphAccessToken(MailAccount $account): string
+    {
+        $cacheKey = 'microsoft_graph_token:' . $account->id;
+        $cached = Cache::get($cacheKey);
+        if (is_string($cached) && filled($cached)) {
+            return $cached;
+        }
+
+        $fresh = MailAccount::find($account->id);
+        if (! $fresh || ! $fresh->isOutlookOAuth() || empty($fresh->oauth_refresh_token)) {
+            throw new RuntimeException(__('mail_inbox.sync.oauth_incomplete'));
+        }
+
+        $usedRefreshToken = (string) $fresh->oauth_refresh_token;
+        $response = $this->httpClient()
+            ->asForm()
+            ->timeout(20)
+            ->post($this->tokenEndpoint(), [
+                'client_id' => $this->clientId(),
+                'client_secret' => $this->clientSecret(),
+                'grant_type' => 'refresh_token',
+                'refresh_token' => $usedRefreshToken,
+                'scope' => implode(' ', self::GRAPH_SCOPES),
+            ]);
+
+        if (! $response->successful()) {
+            $body = $response->json();
+            $errorCode = is_array($body) ? (string) ($body['error'] ?? '') : '';
+            $errorDesc = is_array($body) ? (string) ($body['error_description'] ?? '') : $response->body();
+
+            if (in_array($errorCode, ['invalid_grant', 'interaction_required', 'invalid_client', 'unauthorized_client'], true)) {
+                $this->markReauthRequired($fresh->id, $usedRefreshToken, __('mail_inbox.oauth.reauth_needed'));
+                throw new RuntimeException(__('mail_inbox.oauth.reauth_needed'));
+            }
+
+            Log::error('Microsoft Graph token refresh failed', ['error' => $errorCode, 'description' => $errorDesc]);
+            throw new RuntimeException("Failed to acquire Microsoft Graph token: {$errorDesc}");
+        }
+
+        $data = (array) $response->json();
+        $accessToken = (string) ($data['access_token'] ?? '');
+        $expiresIn = (int) ($data['expires_in'] ?? 3600);
+
+        if (blank($accessToken)) {
+            throw new RuntimeException(__('mail_inbox.oauth.token_exchange_failed'));
+        }
+
+        if (isset($data['refresh_token']) && filled($data['refresh_token'])) {
+            $fresh->update([
+                'oauth_refresh_token' => (string) $data['refresh_token'],
+            ]);
+        }
+
+        Cache::put($cacheKey, $accessToken, now()->addSeconds(max(60, $expiresIn - 300)));
+
+        return $accessToken;
+    }
+
     public function disconnect(MailAccount $account, User $actor): void
     {
         Gate::forUser($actor)->authorize('update', $account);
@@ -432,7 +503,7 @@ class MicrosoftMailOAuthService
                 'code' => $code,
                 'redirect_uri' => $this->redirectUri(),
                 'code_verifier' => $codeVerifier,
-                'scope' => implode(' ', self::SCOPES),
+                'scope' => implode(' ', self::TOKEN_SCOPES),
             ]);
 
         if (! $response->successful()) {
