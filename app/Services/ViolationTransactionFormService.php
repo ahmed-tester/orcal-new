@@ -19,16 +19,58 @@ class ViolationTransactionFormService
     public const LINK_UNLINKED = 'unlinked';
 
     /**
+     * Resolve whether a transaction type value represents an outgoing disbursement.
+     */
+    public static function isOutgoingType(ViolationTransactionType|string|null $transactionType): bool
+    {
+        if ($transactionType instanceof ViolationTransactionType) {
+            return $transactionType === ViolationTransactionType::OUTGOING;
+        }
+
+        return $transactionType === ViolationTransactionType::OUTGOING->value;
+    }
+
+    /**
+     * Get the dynamic label for unlinked transactions based on transaction type.
+     */
+    public static function getUnlinkedLabel(ViolationTransactionType|string|null $transactionType = null): string
+    {
+        return self::isOutgoingType($transactionType)
+            ? __('violations.transactions.fields.link_types.unlinked_outgoing')
+            : __('violations.transactions.fields.link_types.unlinked');
+    }
+
+    /**
+     * Build the dynamic notice banner for unlinked transactions based on transaction type.
+     */
+    public static function getUnlinkedNoticeHtml(ViolationTransactionType|string|null $transactionType = null): HtmlString
+    {
+        if (self::isOutgoingType($transactionType)) {
+            return new HtmlString(
+                '<div style="padding: 10px 14px; border-radius: 8px; background-color: #fffbeb; border: 1px solid #fde68a; color: #b45309; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;">' .
+                    '<span>💡</span> ' . e(__('violations.transactions.fields.unlinked_outgoing_note')) .
+                '</div>'
+            );
+        }
+
+        return new HtmlString(
+            '<div style="padding: 10px 14px; border-radius: 8px; background-color: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;">' .
+                '<span>💡</span> ' . e(__('violations.transactions.fields.unlinked_note')) .
+            '</div>'
+        );
+    }
+
+    /**
      * Get available link type options for toggle buttons.
      *
      * @return array<string, string>
      */
-    public static function getLinkTypeOptions(): array
+    public static function getLinkTypeOptions(ViolationTransactionType|string|null $transactionType = null): array
     {
         return [
             self::LINK_SINGLE   => __('violations.transactions.fields.link_types.single'),
             self::LINK_MULTIPLE => __('violations.transactions.fields.link_types.multiple'),
-            self::LINK_UNLINKED => __('violations.transactions.fields.link_types.unlinked'),
+            self::LINK_UNLINKED => self::getUnlinkedLabel($transactionType),
         ];
     }
 

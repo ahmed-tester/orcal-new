@@ -41,27 +41,27 @@ class ViolationTransactionForm
                             ->label(__('violations.transactions.fields.transaction_type'))
                             ->options(ViolationTransactionType::class)
                             ->default(ViolationTransactionType::INCOMING->value)
+                            ->live()
                             ->required(),
 
                         ToggleButtons::make('link_type')
                             ->label(__('violations.transactions.fields.link_type'))
-                            ->options(ViolationTransactionFormService::getLinkTypeOptions())
+                            ->options(fn (callable $get) => ViolationTransactionFormService::getLinkTypeOptions($get('transaction_type')))
                             ->icons([
-                                ViolationTransactionFormService::LINK_SINGLE   => 'heroicon-m-document-text',
+                                ViolationTransactionFormService::LINK_SINGLE => 'heroicon-m-document-text',
                                 ViolationTransactionFormService::LINK_MULTIPLE => 'heroicon-m-queue-list',
                                 ViolationTransactionFormService::LINK_UNLINKED => 'heroicon-m-banknotes',
                             ])
-                            ->colors([
-                                ViolationTransactionFormService::LINK_SINGLE   => 'primary',
+                            ->colors(fn (callable $get) => [
+                                ViolationTransactionFormService::LINK_SINGLE => 'primary',
                                 ViolationTransactionFormService::LINK_MULTIPLE => 'info',
-                                ViolationTransactionFormService::LINK_UNLINKED => 'success',
+                                ViolationTransactionFormService::LINK_UNLINKED => ViolationTransactionFormService::isOutgoingType($get('transaction_type')) ? 'warning' : 'success',
                             ])
                             ->default(ViolationTransactionFormService::LINK_SINGLE)
                             ->inline()
                             ->live()
                             ->columnSpanFull()
-                            ->afterStateUpdated(fn ($state, callable $set) =>
-                                ViolationTransactionFormService::handleLinkTypeChange($state, $set)
+                            ->afterStateUpdated(fn ($state, callable $set) => ViolationTransactionFormService::handleLinkTypeChange($state, $set)
                             ),
 
                         Select::make('violation_id')
@@ -73,16 +73,15 @@ class ViolationTransactionForm
                             ->visible(fn (callable $get) => ($get('link_type') ?? ViolationTransactionFormService::LINK_SINGLE) === ViolationTransactionFormService::LINK_SINGLE)
                             ->required(fn (callable $get) => ($get('link_type') ?? ViolationTransactionFormService::LINK_SINGLE) === ViolationTransactionFormService::LINK_SINGLE)
                             ->live()
-                            ->afterStateUpdated(fn ($state, callable $set) =>
-                                ViolationTransactionFormService::handleSingleViolationUpdated($state, $set)
+                            ->afterStateUpdated(fn ($state, callable $set) => ViolationTransactionFormService::handleSingleViolationUpdated($state, $set)
                             )
                             ->columnSpan(2),
 
                         Placeholder::make('select_company_notice')
                             ->hiddenLabel()
                             ->content(new HtmlString(
-                                '<div style="padding: 10px 14px; border-radius: 8px; background-color: #eff6ff; border: 1px solid #bfdbfe; color: #1e4ed8; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;">' .
-                                    '<span>ℹ️</span> ' . e(__('violations.transactions.fields.select_company_first')) .
+                                '<div style="padding: 10px 14px; border-radius: 8px; background-color: #eff6ff; border: 1px solid #bfdbfe; color: #1e4ed8; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;">'.
+                                    '<span>ℹ️</span> '.e(__('violations.transactions.fields.select_company_first')).
                                 '</div>'
                             ))
                             ->visible(fn (callable $get) => $get('link_type') === ViolationTransactionFormService::LINK_MULTIPLE && blank($get('company_id')))
@@ -101,17 +100,12 @@ class ViolationTransactionForm
                             ->visible(fn (callable $get) => $get('link_type') === ViolationTransactionFormService::LINK_MULTIPLE && filled($get('company_id')))
                             ->required(fn (callable $get) => $get('link_type') === ViolationTransactionFormService::LINK_MULTIPLE)
                             ->live()
-                            ->afterStateUpdated(fn ($state, callable $set, ?ViolationTransaction $record) =>
-                                ViolationTransactionFormService::handleMultipleViolationsUpdated($state, $set, $record)
+                            ->afterStateUpdated(fn ($state, callable $set, ?ViolationTransaction $record) => ViolationTransactionFormService::handleMultipleViolationsUpdated($state, $set, $record)
                             ),
 
                         Placeholder::make('unlinked_notice')
                             ->hiddenLabel()
-                            ->content(new HtmlString(
-                                '<div style="padding: 10px 14px; border-radius: 8px; background-color: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;">' .
-                                    '<span>💡</span> ' . e(__('violations.transactions.fields.unlinked_note')) .
-                                '</div>'
-                            ))
+                            ->content(fn (callable $get) => ViolationTransactionFormService::getUnlinkedNoticeHtml($get('transaction_type')))
                             ->visible(fn (callable $get) => $get('link_type') === ViolationTransactionFormService::LINK_UNLINKED)
                             ->columnSpanFull(),
 
@@ -138,4 +132,3 @@ class ViolationTransactionForm
             ]);
     }
 }
-

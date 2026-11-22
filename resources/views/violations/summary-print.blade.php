@@ -373,7 +373,7 @@
                                     <td><strong><bdi>{{ $trans->voucher_number }}</bdi></strong></td>
                                     <td>
                                         @if($trans->link_type === 'unlinked' || (empty($trans->violation_id) && empty($trans->metadata['selected_violation_ids'])))
-                                            {{ __('violations.transactions.fields.link_types.unlinked') }}
+                                            {{ \App\Services\ViolationTransactionFormService::getUnlinkedLabel($trans->transaction_type) }}
                                         @elseif($trans->link_type === 'multiple' || ! empty($trans->metadata['selected_violation_ids']))
                                             {{ __('violations.transactions.fields.multiple_badge', ['count' => count($trans->metadata['selected_violation_ids'] ?? [])]) }}
                                         @else
