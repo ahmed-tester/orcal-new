@@ -16,11 +16,11 @@ use Illuminate\Validation\ValidationException;
 
 class DepartmentHierarchyService
 {
-    public const PREFIX_ADMINISTRATION = 'ADM';
+    public const PREFIX_ADMINISTRATION = 'DEP1';
 
-    public const PREFIX_MAIN = 'SEC';
+    public const PREFIX_MAIN = 'DEP2';
 
-    public const PREFIX_SUB = 'SUB';
+    public const PREFIX_SUB = 'DEP3';
 
     public const MAX_DEPTH = 3;
 
@@ -128,7 +128,11 @@ class DepartmentHierarchyService
             $record ??= new Department;
             $record->pendingCompanyIds = $companyIds;
             try {
-                $record->fill($data)->save();
+                $record->fill($data);
+                if ($moving) {
+                    static::assertCodeAvailable($record, $errorKeyPrefix);
+                }
+                $record->save();
                 $record->companies()->sync($companyIds);
                 if ($reordering || ($position !== null && $position !== $record->sort_order && ! $moving)) {
                     static::placeAt($record, $position);
@@ -346,9 +350,31 @@ class DepartmentHierarchyService
             column: 'department_code',
             prefix: $prefix,
             padLength: 4,
-            scopeQuery: fn ($query) => $query->where('department_code', 'like', $prefix.'-%'),
+            scopeQuery: fn ($query) => $query->where('parent_id', $parentId)->where('department_code', 'like', $prefix.'-%'),
             ignoreCompany: true,
+            uniqueWithinScope: true,
+            sequenceFromMaximum: true,
         );
+    }
+
+    /** Keep codes stable on moves; reject a destination containing the same code. */
+    public static function assertCodeAvailable(Department $department, string $errorKeyPrefix = ''): void
+    {
+        if (blank($department->department_code)) {
+            return;
+        }
+
+        $query = Department::withoutGlobalScopes()
+            ->where('parent_id', $department->parent_id)
+            ->where('department_code', $department->department_code);
+
+        if ($department->exists) {
+            $query->whereKeyNot($department->getKey());
+        }
+
+        if ($query->exists()) {
+            static::fail($errorKeyPrefix.'parent_id', 'code_conflict');
+        }
     }
 
     /**

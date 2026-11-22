@@ -262,6 +262,7 @@ return [
                 'bulk_delete_blocked' => ':count department(s) could not be deleted because they have linked records.',
             ],
             'errors' => [
+                'code_conflict' => 'This parent already contains a department with the same code. Moving would duplicate a sibling code.',
                 'parent_missing' => 'The selected parent department does not exist.',
                 'cycle' => 'A department cannot be placed inside itself or one of its own sub-departments.',
                 'max_depth_exceeded' => 'Cannot add a fourth level or move a department beyond three layers.',

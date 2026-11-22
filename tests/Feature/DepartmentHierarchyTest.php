@@ -57,7 +57,7 @@ class DepartmentHierarchyTest extends TestCase
             $table->boolean('is_global')->default(false);
             $table->string('name');
             $table->text('description')->nullable();
-            $table->string('department_code')->nullable()->unique();
+            $table->string('department_code')->nullable();
             $table->string('status')->default('active');
             $table->unsignedInteger('sort_order')->default(0);
             $table->timestamps();
@@ -119,14 +119,14 @@ class DepartmentHierarchyTest extends TestCase
         $main = $this->group('Supervision', $administration->id);
         $sub = Department::create(['name' => 'Riyadh', 'parent_id' => $main->id, 'company_id' => $company->id]);
 
-        $this->assertSame('ADM-0001', $administration->department_code);
-        $this->assertSame('ADM-0002', $otherAdmin->department_code);
-        $this->assertSame('SEC-0001', $main->department_code);
-        $this->assertSame('SUB-0001', $sub->department_code);
+        $this->assertSame('DEP1-0001', $administration->department_code);
+        $this->assertSame('DEP1-0002', $otherAdmin->department_code);
+        $this->assertSame('DEP2-0001', $main->department_code);
+        $this->assertSame('DEP3-0001', $sub->department_code);
 
         DepartmentHierarchyService::move($main, $otherAdmin->id);
 
-        $this->assertSame('SEC-0001', $main->fresh()->department_code);
+        $this->assertSame('DEP2-0001', $main->fresh()->department_code);
         $this->assertSame(2, DepartmentHierarchyService::levelOf($main->fresh()));
         $this->assertSame(3, DepartmentHierarchyService::levelOf($sub->fresh()));
     }
@@ -139,8 +139,8 @@ class DepartmentHierarchyTest extends TestCase
         $first = Department::create(['name' => 'One', 'company_id' => $c1->id]);
         $second = Department::create(['name' => 'Two', 'company_id' => $c2->id]);
 
-        $this->assertSame('ADM-0001', $first->department_code);
-        $this->assertSame('ADM-0002', $second->department_code);
+        $this->assertSame('DEP1-0001', $first->department_code);
+        $this->assertSame('DEP1-0002', $second->department_code);
     }
 
     public function test_code_generator_default_behavior_is_unchanged(): void
@@ -279,7 +279,7 @@ class DepartmentHierarchyTest extends TestCase
         $company = Company::create(['trade_name' => 'A']);
         $x = $this->group('X');
         $y = $this->group('Y');
-        $existing = $this->group('Existing', $y->id);
+        $existing = Department::create(['name' => 'Existing', 'parent_id' => $y->id, 'is_global' => true, 'department_code' => 'DEP2-0009']);
         $moved = $this->group('Moved', $x->id);
         $child = Department::create(['name' => 'Child', 'parent_id' => $moved->id, 'company_id' => $company->id]);
 
@@ -604,7 +604,7 @@ class DepartmentHierarchyTest extends TestCase
         $company = Company::create(['trade_name' => 'A']);
         $first = $this->group('First');
         $second = $this->group('Second');
-        $existing = $this->group('Existing', $second->id);
+        $existing = Department::create(['name' => 'Existing', 'parent_id' => $second->id, 'is_global' => true, 'department_code' => 'DEP2-0009']);
         $main = $this->group('Main', $first->id);
         $leaf = Department::create(['name' => 'Leaf', 'company_id' => $company->id, 'parent_id' => $main->id]);
         $code = $main->department_code;
@@ -806,7 +806,7 @@ class DepartmentHierarchyTest extends TestCase
         $sub = Department::query()->where('name', 'Forged sub')->sole();
         $this->assertSame($main->id, $sub->parent_id);
         $this->assertSame([$a->id], $sub->getAssignedCompanyIds());
-        $this->assertStringStartsWith('SUB-', $sub->department_code);
+        $this->assertStringStartsWith('DEP3-', $sub->department_code);
     }
 
     public function test_create_another_keeps_the_locked_creation_context(): void
@@ -1007,6 +1007,100 @@ class DepartmentHierarchyTest extends TestCase
         $this->assertTrue($saved->is_global);
         $this->assertNull($saved->company_id);
         $this->assertSame([], $saved->getAssignedCompanyIds());
+    }
+
+    public function test_codes_restart_for_each_parent_and_continue_across_companies(): void
+    {
+        $company = Company::create(['trade_name' => 'A']);
+        $otherCompany = Company::create(['trade_name' => 'B']);
+        $admin1 = $this->group('Admin One');
+        $admin2 = $this->group('Admin Two');
+        $main1 = $this->group('Main One', $admin1->id);
+        $main2 = $this->group('Main Two', $admin1->id);
+        $main3 = $this->group('Main Three', $admin2->id);
+        $sub1 = Department::create(['name' => 'Sub One', 'parent_id' => $main1->id, 'company_id' => $company->id]);
+        $sub2 = Department::create(['name' => 'Sub Two', 'parent_id' => $main1->id, 'company_id' => $otherCompany->id]);
+        $sub3 = Department::create(['name' => 'Sub Three', 'parent_id' => $main3->id, 'company_id' => $company->id]);
+
+        $this->assertSame('DEP2-0001', $main1->department_code);
+        $this->assertSame('DEP2-0002', $main2->department_code);
+        $this->assertSame('DEP2-0001', $main3->department_code);
+        $this->assertSame('DEP3-0001', $sub1->department_code);
+        $this->assertSame('DEP3-0002', $sub2->department_code);
+        $this->assertSame('DEP3-0001', $sub3->department_code);
+    }
+
+    public function test_new_codes_append_after_maximum_and_ignore_display_order(): void
+    {
+        $admin = $this->group('Admin');
+        $first = $this->group('First', $admin->id);
+        $second = $this->group('Second', $admin->id);
+        DB::table('departments')->where('id', $second->id)->update(['department_code' => 'DEP2-0010']);
+
+        DepartmentHierarchyService::reorder($admin->id, [$second->id, $first->id]);
+        $third = $this->group('Third', $admin->id);
+
+        $this->assertTrue($first->id < $second->id);
+        $this->assertSame('DEP2-0001', $first->fresh()->department_code);
+        $this->assertSame('DEP2-0010', $second->fresh()->department_code);
+        $this->assertSame('DEP2-0011', $third->department_code);
+    }
+
+    public function test_move_rejects_duplicate_sibling_code_without_changing_the_record(): void
+    {
+        $admin1 = $this->group('Admin One');
+        $admin2 = $this->group('Admin Two');
+        $main1 = $this->group('Main One', $admin1->id);
+        $this->group('Main Two', $admin2->id);
+
+        try {
+            DepartmentHierarchyService::move($main1, $admin2->id);
+            $this->fail('Expected a duplicate sibling code to prevent the move.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('parent_id', $exception->errors());
+        }
+
+        $this->assertSame($admin1->id, $main1->fresh()->parent_id);
+        $this->assertSame('DEP2-0001', $main1->fresh()->department_code);
+    }
+
+    public function test_explicit_duplicate_sibling_codes_are_rejected(): void
+    {
+        $admin = $this->group('Admin');
+        $main = $this->group('Main', $admin->id);
+
+        $this->expectException(ValidationException::class);
+        Department::create(['name' => 'Duplicate', 'parent_id' => $admin->id, 'is_global' => true, 'department_code' => $main->department_code]);
+    }
+
+    public function test_filament_rejects_a_move_with_a_duplicate_code_without_changing_parent(): void
+    {
+        $first = $this->group('First');
+        $second = $this->group('Second');
+        $main = $this->group('Main', $first->id);
+        $this->group('Existing', $second->id);
+
+        Livewire::test(EditDepartment::class, ['record' => $main->id])
+            ->fillForm(['parent_id' => $second->id])->call('save')->assertHasFormErrors(['parent_id']);
+
+        $this->assertSame($first->id, $main->fresh()->parent_id);
+        $this->assertSame('DEP2-0001', $main->fresh()->department_code);
+    }
+
+    public function test_default_generator_still_checks_uniqueness_across_the_table(): void
+    {
+        $company = Company::create(['trade_name' => 'A']);
+        $admin = $this->group('Admin');
+        $main = $this->group('Main', $admin->id);
+        DB::table('departments')->where('id', $main->id)->update(['department_code' => 'TEST-0001']);
+
+        $code = CodeGeneratorService::generate(
+            Department::class, 'department_code', 'TEST', $company->id,
+            scopeQuery: fn ($query) => $query->whereKey($admin->id),
+            ignoreCompany: true,
+        );
+
+        $this->assertSame('TEST-0002', $code);
     }
 
     private function actAsStaff(int $companyId): void

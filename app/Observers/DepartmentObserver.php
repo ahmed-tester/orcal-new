@@ -14,6 +14,8 @@ class DepartmentObserver
             $department->department_code = DepartmentHierarchyService::generateCode($department->parent_id);
         }
 
+        DepartmentHierarchyService::assertCodeAvailable($department);
+
         if (blank($department->sort_order)) {
             $department->sort_order = DepartmentHierarchyService::nextSortOrder($department->parent_id);
         }
@@ -37,6 +39,7 @@ class DepartmentObserver
         }
 
         if ($department->isDirty('parent_id')) {
+            DepartmentHierarchyService::assertCodeAvailable($department);
             DepartmentHierarchyService::assertParentAssignable($department, $department->parent_id);
 
             $targetLevel = DepartmentHierarchyService::targetLevelForParent($department->parent_id);
