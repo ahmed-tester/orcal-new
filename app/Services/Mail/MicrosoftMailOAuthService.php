@@ -349,7 +349,8 @@ class MicrosoftMailOAuthService
             }
 
             $usedRefreshToken = (string) $fresh->oauth_refresh_token;
-            $response = Http::asForm()
+            $response = $this->httpClient()
+                ->asForm()
                 ->timeout(20)
                 ->post($this->tokenEndpoint(), [
                     'client_id' => $this->clientId(),
@@ -421,7 +422,8 @@ class MicrosoftMailOAuthService
      */
     protected function exchangeCodeForTokens(string $code, string $codeVerifier): array
     {
-        $response = Http::asForm()
+        $response = $this->httpClient()
+            ->asForm()
             ->timeout(20)
             ->post($this->tokenEndpoint(), [
                 'client_id' => $this->clientId(),
@@ -504,6 +506,13 @@ class MicrosoftMailOAuthService
         ));
 
         if ($candidateEmails !== [] && ! in_array($expectedLower, $candidateEmails, true)) {
+            Log::warning('OAuth email mismatch debug', [
+                'expected' => $expectedLower,
+                'candidateEmails' => $candidateEmails,
+                'email_claim' => $claims['email'] ?? null,
+                'preferred_username' => $claims['preferred_username'] ?? null,
+                'upn' => $claims['upn'] ?? null,
+            ]);
             throw new RuntimeException(__('mail_inbox.oauth.email_mismatch', [
                 'expected' => $expectedEmail,
             ]));
@@ -546,7 +555,7 @@ class MicrosoftMailOAuthService
             rawurlencode($this->tenant())
         );
 
-        $response = Http::timeout(15)->get($jwksUrl);
+        $response = $this->httpClient()->timeout(15)->get($jwksUrl);
         if (! $response->successful()) {
             throw new RuntimeException(__('mail_inbox.oauth.jwks_fetch_failed'));
         }
@@ -663,5 +672,12 @@ class MicrosoftMailOAuthService
         }
 
         return base64_decode(strtr($input, '-_', '+/')) ?: '';
+    }
+
+    protected function httpClient(): \Illuminate\Http\Client\PendingRequest
+    {
+        return app()->isLocal()
+            ? Http::withoutVerifying()
+            : Http::withOptions([]);
     }
 }

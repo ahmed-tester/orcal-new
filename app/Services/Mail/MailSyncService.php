@@ -205,6 +205,10 @@ class MailSyncService
             try {
                 $folder = $client->getFolder($folderName);
                 if (! $folder) {
+                    $folder = $client->getFolders(false, null, true)
+                        ->first(fn ($f) => strcasecmp((string) $f->name, $folderName) === 0 || strcasecmp((string) $f->path, $folderName) === 0);
+                }
+                if (! $folder) {
                     continue;
                 }
 
@@ -692,7 +696,7 @@ class MailSyncService
                 'host' => $account->host ?: 'outlook.office365.com',
                 'port' => $account->port ?: 993,
                 'encryption' => 'ssl',
-                'validate_cert' => true,
+                'validate_cert' => ! app()->isLocal(),
                 'username' => $account->email,
                 'password' => $accessToken,
                 'authentication' => 'oauth',
@@ -724,7 +728,7 @@ class MailSyncService
             'host' => $host,
             'port' => $account->port ?: 993,
             'encryption' => $encryption,
-            'validate_cert' => true,
+            'validate_cert' => ! app()->isLocal(),
             'username' => $username,
             'password' => $password,
             'protocol' => 'imap',
@@ -814,6 +818,9 @@ class MailSyncService
         $messageId = is_callable([$message, 'getMessageId']) ? (string) $message->getMessageId() : null;
         $rawSubject = is_callable([$message, 'getSubject']) ? $message->getSubject() : ($message->subject ?? null);
         $subject = is_object($rawSubject) && method_exists($rawSubject, 'toString') ? $rawSubject->toString() : (string) $rawSubject;
+        if (str_contains($subject, '=?')) {
+            $subject = mb_decode_mimeheader($subject);
+        }
         $subject = trim($subject) ?: $noSubject;
 
         $fromAttr = is_callable([$message, 'getFrom']) ? $message->getFrom() : null;

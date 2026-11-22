@@ -14,4 +14,6 @@ Route::middleware(['auth'])->group(function () {
         ->name('mail.microsoft.redirect');
     Route::get('/mail/microsoft/callback', [MicrosoftMailOAuthController::class, 'callback'])
         ->name('mail.microsoft.callback');
+    Route::get('/mail/oauth/microsoft/callback', [MicrosoftMailOAuthController::class, 'callback'])
+        ->name('mail.oauth.microsoft.callback');
 });
