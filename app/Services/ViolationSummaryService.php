@@ -70,24 +70,51 @@ class ViolationSummaryService
         }
 
         $showTransactions = Gate::allows('viewAny', ViolationTransaction::class);
+        $query->with(['category', 'type']);
+        $violations = $query->orderByDesc('violation_date')->orderByDesc('id')->get();
+
+        $companyTransactions = collect();
+        $unlinkedTransactions = collect();
+
         if ($showTransactions) {
-            $query->with([
-                'category',
-                'type',
-                'transactions' => fn ($relation) => $relation
-                    ->whereIn('violation_transactions.id', self::transactions()->select('violation_transactions.id'))
-                    ->orderByDesc('transaction_date')
-                    ->orderByDesc('id'),
-            ]);
-        } else {
-            $query->with(['category', 'type']);
+            $companyTransactions = self::transactions()
+                ->when(
+                    $representative->company_id !== null,
+                    fn (Builder $q) => $q->where('company_id', $representative->company_id),
+                    fn (Builder $q) => $q->where('violation_id', $representative->id)
+                )
+                ->with(['violation'])
+                ->orderByDesc('transaction_date')
+                ->orderByDesc('id')
+                ->get();
+
+            foreach ($violations as $violation) {
+                $matched = $companyTransactions->filter(function (ViolationTransaction $t) use ($violation) {
+                    if ((int) $t->violation_id === (int) $violation->id) {
+                        return true;
+                    }
+
+                    $selectedIds = array_map('intval', $t->metadata['selected_violation_ids'] ?? []);
+
+                    return in_array((int) $violation->id, $selectedIds, true);
+                })->values();
+
+                $violation->setRelation('transactions', $matched);
+            }
+
+            $unlinkedTransactions = $companyTransactions->filter(function (ViolationTransaction $t) {
+                return $t->link_type === 'unlinked'
+                    || (empty($t->violation_id) && empty($t->metadata['selected_violation_ids']));
+            })->values();
         }
 
         return [
             'representative' => $representative,
             'company' => $representative->company,
-            'violations' => $query->orderByDesc('violation_date')->orderByDesc('id')->get(),
+            'violations' => $violations,
             'showTransactions' => $showTransactions,
+            'companyTransactions' => $companyTransactions,
+            'unlinkedTransactions' => $unlinkedTransactions,
         ];
     }
 

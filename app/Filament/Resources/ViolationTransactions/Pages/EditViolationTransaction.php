@@ -3,7 +3,10 @@
 namespace App\Filament\Resources\ViolationTransactions\Pages;
 
 use App\Filament\Resources\ViolationTransactions\ViolationTransactionResource;
+use App\Services\ViolationTransactionFormService;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class EditViolationTransaction extends EditRecord
 {
@@ -16,20 +19,20 @@ class EditViolationTransaction extends EditRecord
         ];
     }
 
-    protected function mutateFormDataBeforeSave(array $data): array
+    protected function mutateFormDataBeforeFill(array $data): array
     {
-        $linkType = $data['link_type'] ?? 'single';
-        $data['metadata'] = array_merge($data['metadata'] ?? [], [
-            'link_type' => $linkType,
-        ]);
-
-        if ($linkType === 'unlinked') {
-            $data['violation_id'] = null;
-            unset($data['metadata']['selected_violation_ids']);
-        } elseif ($linkType === 'multiple') {
-            $data['violation_id'] = null;
-        }
+        $data['link_type'] = $this->record->link_type;
 
         return $data;
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        return ViolationTransactionFormService::normalizeLinkData($data);
+    }
+
+    protected function handleRecordUpdate(Model $record, array $data): Model
+    {
+        return DB::transaction(fn () => parent::handleRecordUpdate($record, $data));
     }
 }

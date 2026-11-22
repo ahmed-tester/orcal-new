@@ -81,13 +81,13 @@ class CompanyAccessScopeService
     {
         $ownedCompanyIds = $user->getOwnedCompanyIds();
 
+        if ($ownedCompanyIds === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
         if (static::modelHasColumn($tableName, 'company_id')) {
             if ($tableName === 'departments') {
-                return $query->where(function ($q) use ($tableName, $ownedCompanyIds) {
-                    $q->whereIn("{$tableName}.company_id", $ownedCompanyIds)
-                        ->orWhereHas('companies', fn ($sub) => $sub->whereIn('companies.id', $ownedCompanyIds))
-                        ->orWhere("{$tableName}.is_global", true);
-                });
+                return static::scopeDepartmentsForCompanies($query, $tableName, $ownedCompanyIds);
             }
 
             return $query->whereIn("{$tableName}.company_id", $ownedCompanyIds);
@@ -107,6 +107,10 @@ class CompanyAccessScopeService
     {
         if ($modelClass === Branch::class) {
             return $query->where("{$tableName}.id", $user->branch_id);
+        }
+
+        if ($tableName === 'departments') {
+            return static::scopeDepartmentsForCompanies($query, $tableName, CompanyFormService::getAuthorizedCompanyIds($user));
         }
 
         if (static::modelHasColumn($tableName, 'branch_id')) {
@@ -129,11 +133,7 @@ class CompanyAccessScopeService
 
         if (static::modelHasColumn($tableName, 'company_id')) {
             if ($tableName === 'departments') {
-                return $query->where(function ($q) use ($tableName, $allowedIds) {
-                    $q->whereIn("{$tableName}.company_id", $allowedIds)
-                        ->orWhereHas('companies', fn ($sub) => $sub->whereIn('companies.id', $allowedIds))
-                        ->orWhere("{$tableName}.is_global", true);
-                });
+                return static::scopeDepartmentsForCompanies($query, $tableName, $allowedIds);
             }
 
             return $query->whereIn("{$tableName}.company_id", $allowedIds);
@@ -144,6 +144,24 @@ class CompanyAccessScopeService
         }
 
         return $query;
+    }
+
+    /**
+     * @param  array<int, int|string>  $companyIds
+     */
+    protected static function scopeDepartmentsForCompanies(Builder $query, string $tableName, array $companyIds): Builder
+    {
+        if ($companyIds === []) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function ($q) use ($tableName, $companyIds) {
+            $q->whereIn("{$tableName}.company_id", $companyIds)
+                ->orWhereHas('companies', fn ($sub) => $sub->whereIn('companies.id', $companyIds))
+                ->orWhere(fn ($org) => $org->where("{$tableName}.is_global", true)
+                    ->whereNull("{$tableName}.company_id")
+                    ->whereDoesntHave('companies'));
+        });
     }
 
     /**

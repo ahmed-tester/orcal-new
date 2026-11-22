@@ -65,7 +65,10 @@ class CreateJobTitleTool implements GeminiToolInterface
                 $dept = CompanyAccessScopeService::apply(Department::query())
                     ->where('name', $deptName)
                     ->where(fn ($query) => $query->where('company_id', $companyId)
-                        ->orWhereHas('companies', fn ($companies) => $companies->where('companies.id', $companyId)))
+                        ->orWhereHas('companies', fn ($companies) => $companies->where('companies.id', $companyId))
+                        ->orWhere(fn ($org) => $org->where('is_global', true)
+                            ->whereNull('company_id')
+                            ->whereDoesntHave('companies')))
                     ->first();
                 if (! $dept) {
                     return ['success' => false, 'message' => __('organization.departments.ai.select_existing')];

@@ -23,7 +23,7 @@ enum UserType: string implements HasLabel
             self::SAUDI_EMPLOYEE => __('user_types.saudi_employee'),
             self::FOREIGN_EMPLOYEE => __('user_types.foreign_employee'),
             self::OWNER => __('user_types.owner'),
-            self::EMPLOYEE => __('user_types.employee') ?? 'موظف',
+            self::EMPLOYEE => __('user_types.employee'),
         };
     }
 

@@ -5,7 +5,10 @@ namespace App\Filament\Resources\ViolationTransactions\Pages;
 use App\Enums\ViolationTransactionType;
 use App\Filament\Resources\ViolationTransactions\ViolationTransactionResource;
 use App\Services\ViolationSummaryService;
+use App\Services\ViolationTransactionFormService;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class CreateViolationTransaction extends CreateRecord
 {
@@ -35,18 +38,11 @@ class CreateViolationTransaction extends CreateRecord
     {
         $data['executed_by'] = auth()->id();
 
-        $linkType = $data['link_type'] ?? 'single';
-        $data['metadata'] = array_merge($data['metadata'] ?? [], [
-            'link_type' => $linkType,
-        ]);
+        return ViolationTransactionFormService::normalizeLinkData($data);
+    }
 
-        if ($linkType === 'unlinked') {
-            $data['violation_id'] = null;
-            unset($data['metadata']['selected_violation_ids']);
-        } elseif ($linkType === 'multiple') {
-            $data['violation_id'] = null;
-        }
-
-        return $data;
+    protected function handleRecordCreation(array $data): Model
+    {
+        return DB::transaction(fn () => parent::handleRecordCreation($data));
     }
 }

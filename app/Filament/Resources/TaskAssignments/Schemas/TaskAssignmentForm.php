@@ -99,9 +99,15 @@ class TaskAssignmentForm
                                     ->options(fn (?TaskAssignmentItem $record, Select $component): array => TaskAssignmentStatusResolver::getOptions($record, $component))
                                     ->default(TaskStatus::PENDING->value)
                                     ->required()
+                                    ->disabled(fn (?TaskAssignmentItem $record): bool => $record !== null
+                                        && ($record->status === TaskStatus::TRANSFERRED
+                                            || ($record->requires_review && in_array($record->status, [TaskStatus::COMPLETED, TaskStatus::PENDING_REVIEW], true))))
+                                    ->dehydrated(fn (?TaskAssignmentItem $record): bool => $record === null
+                                        || ($record->status !== TaskStatus::TRANSFERRED
+                                            && (! $record->requires_review || ! in_array($record->status, [TaskStatus::COMPLETED, TaskStatus::PENDING_REVIEW], true))))
                                     ->live()
                                     ->afterStateUpdated(function ($state, Set $set, ?TaskAssignmentItem $record) {
-                                        if ($state === TaskStatus::COMPLETED->value) {
+                                        if ($state === TaskStatus::COMPLETED->value && ($record === null || ! $record->requires_review)) {
                                             $set('completed_at', now()->toDateString());
                                         }
                                     }),
@@ -163,17 +169,27 @@ class TaskAssignmentForm
 
                                 Select::make('metadata.transferred_to_employee_id')
                                     ->label(__('tasks.fields.transferred_to_employee'))
-                                    ->options(fn () => \App\Models\Employee::query()->saudi()->with('user')->get()->pluck('user.name', 'id'))
+                                    ->options(fn () => \App\Services\CompanyAccessScopeService::apply(
+                                        \App\Models\Employee::query()->nonTemporary()->saudi()->with('user')
+                                    )->get()->mapWithKeys(fn (\App\Models\Employee $employee): array => [
+                                        $employee->id => $employee->user?->name ?? $employee->employee_number ?? '#'.$employee->id,
+                                    ])->all())
                                     ->searchable()
                                     ->preload()
                                     ->required(fn (Get $get) => $get('status') === TaskStatus::TRANSFERRED->value)
                                     ->visible(fn (Get $get) => $get('status') === TaskStatus::TRANSFERRED->value)
                                     ->columnSpan(2),
 
+                                DatePicker::make('metadata.postponed_to_date')
+                                    ->label(__('tasks.fields.postponed_to_date'))
+                                    ->required(fn (Get $get) => $get('status') === TaskStatus::POSTPONED->value)
+                                    ->visible(fn (Get $get) => $get('status') === TaskStatus::POSTPONED->value)
+                                    ->columnSpan(2),
+
                                 TextInput::make('notes')
                                     ->label(__('tasks.fields.notes'))
                                     ->maxLength(255)
-                                    ->columnSpan(fn (Get $get) => $get('status') === TaskStatus::TRANSFERRED->value ? 6 : 2),
+                                    ->columnSpan(fn (Get $get) => in_array($get('status'), [TaskStatus::TRANSFERRED->value, TaskStatus::POSTPONED->value], true) ? 6 : 2),
 
                                 Placeholder::make('review_summary')
                                     ->label(__('tasks.review.actions.history'))

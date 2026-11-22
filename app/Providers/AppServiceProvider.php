@@ -169,6 +169,12 @@ class AppServiceProvider extends ServiceProvider
 
             $subject = $arguments[0] ?? null;
             $subjectClass = is_object($subject) ? $subject::class : $subject;
+            if ($subjectClass === Department::class) {
+                return null;
+            }
+            if ($subjectClass === \App\Models\Department::class) {
+                return null;
+            }
             if (is_string($subjectClass) && str_starts_with($subjectClass, 'App\\Models\\Mail\\')) {
                 return null;
             }

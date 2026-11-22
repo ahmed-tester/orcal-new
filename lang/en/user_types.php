@@ -7,4 +7,5 @@ return [
     'saudi_employee' => 'Saudi Employee',
     'foreign_employee' => 'Resident Employee (Non-Saudi)',
     'owner' => 'Owner',
+    'employee' => 'Employee',
 ];

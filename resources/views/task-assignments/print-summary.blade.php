@@ -157,6 +157,7 @@
                         <th class="col-num">متأخرة</th>
                         <th class="col-num">مكتملة/فترة</th>
                         <th class="col-num">مستهدفة/فترة</th>
+                        <th class="col-num">الدرجة الموزونة</th>
                         <th class="col-num">نسبة الإنجاز</th>
                         <th class="col-num">نسبة الالتزام</th>
                     </tr>
@@ -199,10 +200,17 @@
                                     <span style="color:#94a3b8;">—</span>
                                 @endif
                             </td>
+                            <td class="col-num pct">
+                                @if($onTimeRate !== null)
+                                    <bdi>{{ number_format($onTimeRate, 2) }}%</bdi>
+                                @else
+                                    <span style="color:#94a3b8;">—</span>
+                                @endif
+                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="15" class="empty-state">لا توجد بيانات للطباعة</td>
+                            <td colspan="16" class="empty-state">لا توجد بيانات للطباعة</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -218,7 +226,7 @@
                             <td class="col-num">{{ (int) ($stats->overdue_count ?? 0) }}</td>
                             <td class="col-num">{{ (int) ($stats->completed_in_period ?? 0) }}</td>
                             <td class="col-num">{{ (int) ($stats->due_in_period ?? 0) }}</td>
-                            <td colspan="2"></td>
+                            <td colspan="3"></td>
                         </tr>
                     </tfoot>
                 @endif

@@ -156,8 +156,12 @@ class ExportPdfService
                 $partyName = "سداد مجموعة مخالفات ({$count} مخالفة)";
                 $categoryName = 'سداد مجمع لمخالفات المنشأة';
             } elseif ($transaction->link_type === 'unlinked') {
-                $partyName = $isIncoming ? 'إيداع رصيد احتياطي' : 'صرف من الرصيد الاحتياطي';
-                $categoryName = 'رصيد احتياطي لصندوق المخالفات';
+                $partyName = $isIncoming
+                    ? __('violations.transactions.fields.reserve_deposit')
+                    : ViolationTransactionFormService::getUnlinkedLabel($transaction->transaction_type);
+                $categoryName = $isIncoming
+                    ? __('violations.transactions.fields.reserve_fund')
+                    : ViolationTransactionFormService::getUnlinkedLabel($transaction->transaction_type);
             }
         } elseif ($transaction instanceof TreasuryTransaction) {
             $isIncoming = ($transaction->transaction_type === 'incoming');

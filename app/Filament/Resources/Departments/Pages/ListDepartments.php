@@ -87,8 +87,24 @@ class ListDepartments extends ListRecords
 
             CreateAction::make()
                 ->label(fn () => $this->createLabel())
+                ->visible(fn () => $this->canCreateAtCurrentLevel())
                 ->url(fn () => DepartmentResource::getUrl('create', array_filter(['parent' => $this->resolveCurrentParent()?->getKey()]))),
         ];
+    }
+
+    protected function canCreateAtCurrentLevel(): bool
+    {
+        if (! DepartmentResource::canCreate()) {
+            return false;
+        }
+
+        $currentParent = $this->resolveCurrentParent();
+
+        if (! $currentParent || DepartmentHierarchyService::levelOf($currentParent) === 1) {
+            return auth()->user()?->isSuperAdmin() ?? false;
+        }
+
+        return DepartmentHierarchyService::levelOf($currentParent) < DepartmentHierarchyService::MAX_DEPTH;
     }
 
     protected function isFlatMode(): bool
@@ -107,7 +123,11 @@ class ListDepartments extends ListRecords
         }
 
         if ($this->resolvedParent?->getKey() !== $this->parent) {
-            $this->resolvedParent = DepartmentResource::getEloquentQuery()->whereKey($this->parent)->first() ?? abort(404);
+            $parent = DepartmentResource::getEloquentQuery()->whereKey($this->parent)->first() ?? abort(404);
+            if (DepartmentHierarchyService::levelOf($parent) >= DepartmentHierarchyService::MAX_DEPTH) {
+                abort(404);
+            }
+            $this->resolvedParent = $parent;
         }
 
         return $this->resolvedParent;
