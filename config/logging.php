@@ -71,8 +71,8 @@ return [
             'level' => 'debug',
             'days' => 7,
             'replace_placeholders' => true,
+            'permission' => 0664,
         ],
-
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

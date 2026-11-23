@@ -4,6 +4,7 @@ namespace App\Services\Notifications;
 
 use App\Filament\Resources\Mail\MailAccounts\MailAccountResource;
 use App\Filament\Resources\Mail\MailMessages\MailMessageResource;
+use App\Filament\Resources\ServiceTransactions\ServiceTransactionResource;
 use App\Filament\Resources\TreasuryTransactions\TreasuryTransactionResource;
 use App\Models\CashHandover;
 use App\Models\Company;
@@ -13,14 +14,17 @@ use App\Models\Invoice;
 use App\Models\Leave;
 use App\Models\Mail\MailAccount;
 use App\Models\Mail\MailMessage;
+use App\Models\PayrollRecord;
 use App\Models\PerformanceEscalation;
 use App\Models\ServiceTransaction;
 use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\Ticket;
+use App\Models\User;
 use App\Models\Violation;
 use App\Notifications\BaseSystemNotification;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Notification;
 
 class NotificationDispatcher
@@ -31,20 +35,51 @@ class NotificationDispatcher
         array $excludeUserIds = [],
         bool $synchronous = false,
     ): int {
-        $recipients = NotificationRecipientService::getQualifiedRecipients($record, excludeUserIds: $excludeUserIds);
+        $mergedExcluded = array_values(array_unique(array_filter(array_map(
+            'intval',
+            array_merge($excludeUserIds, (array) ($notification->context['exclude_user_ids'] ?? [])),
+        ))));
+
+        if ($mergedExcluded !== [] || isset($notification->context['exclude_user_ids'])) {
+            $notification->context['exclude_user_ids'] = $mergedExcluded;
+        }
+
+        OperationsNotificationDiagnostics::write('dispatch_started', $record::class, $record->getKey(), [
+            'event_key' => $notification->eventKey,
+            'queue_connection' => config('queue.default'),
+            'synchronous' => $synchronous,
+        ]);
+        $recipients = NotificationRecipientService::getQualifiedRecipients(
+            $record,
+            excludeUserIds: $mergedExcluded,
+            context: $notification->context,
+        );
         $notification->recordType = $record::class;
         $notification->recordId = $record->getKey();
         $notification->actionUrl ??= static::actionUrl($record);
 
         if ($recipients->isEmpty()) {
+            OperationsNotificationDiagnostics::notification('no_recipients', $notification);
+
             return 0;
         }
 
-        if ($synchronous) {
-            Notification::sendNow($recipients, $notification);
-        } else {
-            Notification::send($recipients, $notification);
+        try {
+            if ($synchronous) {
+                Notification::sendNow($recipients, $notification);
+            } else {
+                Notification::send($recipients, $notification);
+            }
+        } catch (\Throwable $exception) {
+            OperationsNotificationDiagnostics::notification('dispatch_failed', $notification, [
+                'exception_class' => $exception::class,
+            ]);
+            throw $exception;
         }
+
+        OperationsNotificationDiagnostics::notification('dispatch_submitted', $notification, [
+            'recipient_count' => $recipients->count(),
+        ]);
 
         return $recipients->count();
     }
@@ -59,6 +94,7 @@ class NotificationDispatcher
         string $color = 'primary',
         array $excludeUserIds = [],
         bool $synchronous = false,
+        array $context = [],
     ): int {
         return static::send($record, new BaseSystemNotification(
             eventKey: $eventKey,
@@ -66,7 +102,123 @@ class NotificationDispatcher
             customMessage: __($bodyKey, $parameters),
             icon: $icon,
             color: $color,
+            context: $context,
         ), $excludeUserIds, $synchronous);
+    }
+
+    public static function resolveActionUrlForRecipient(BaseSystemNotification $notification, mixed $notifiable): ?string
+    {
+        if (($notification->context['routing_mode'] ?? null) !== 'operations_targeted') {
+            return $notification->actionUrl;
+        }
+
+        if (! $notifiable instanceof User) {
+            return $notification->actionUrl;
+        }
+
+        if ($notification->recordType === CashHandover::class) {
+            if ($notification->eventKey === 'ServiceFinancialHandoverRequested') {
+                if ($notifiable->isSuperAdmin()
+                    || $notifiable->isOwner()
+                    || $notifiable->hasAnyPermission(['confirm_cash_handover', 'view_any_treasury_transaction'])) {
+                    try {
+                        return TreasuryTransactionResource::getUrl('index');
+                    } catch (\Throwable) {
+                        return null;
+                    }
+                }
+
+                return null;
+            }
+
+            $transactionId = $notification->context['transaction_id'] ?? null;
+            if ($transactionId) {
+                $transaction = ServiceTransaction::find($transactionId);
+                if ($transaction) {
+                    return static::serviceTransactionUrlForUser($transaction, $notifiable);
+                }
+            }
+
+            return null;
+        }
+
+        if ($notification->recordType === ServiceTransaction::class && $notification->recordId) {
+            $transaction = ServiceTransaction::find($notification->recordId);
+            if ($transaction) {
+                return static::serviceTransactionUrlForUser($transaction, $notifiable);
+            }
+
+            return null;
+        }
+
+        if ($notification->recordType === Invoice::class && $notification->recordId) {
+            $invoice = Invoice::find($notification->recordId);
+
+            return $invoice ? static::invoiceUrlForUser($invoice, $notifiable) : null;
+        }
+
+        if ($notification->recordType === PayrollRecord::class && $notification->recordId) {
+            $payroll = PayrollRecord::find($notification->recordId);
+
+            return $payroll ? static::payrollRecordUrlForUser($payroll, $notifiable) : null;
+        }
+
+        return $notification->actionUrl;
+    }
+
+    public static function invoiceUrlForUser(Invoice $invoice, User $user): ?string
+    {
+        try {
+            $gate = Gate::forUser($user);
+
+            if ($gate->allows('update', $invoice)) {
+                return \App\Filament\Resources\Invoices\InvoiceResource::getUrl('edit', ['record' => $invoice]);
+            }
+
+            if ($gate->allows('viewAny', Invoice::class)) {
+                return \App\Filament\Resources\Invoices\InvoiceResource::getUrl('index');
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return null;
+    }
+
+    public static function payrollRecordUrlForUser(PayrollRecord $payroll, User $user): ?string
+    {
+        try {
+            $gate = Gate::forUser($user);
+
+            if ($gate->allows('update', $payroll)) {
+                return \App\Filament\Resources\PayrollRecords\PayrollRecordResource::getUrl('edit', ['record' => $payroll]);
+            }
+
+            if ($gate->allows('viewAny', PayrollRecord::class)) {
+                return \App\Filament\Resources\PayrollRecords\PayrollRecordResource::getUrl('index');
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return null;
+    }
+
+    public static function serviceTransactionUrlForUser(ServiceTransaction $transaction, User $user): ?string
+    {
+        try {
+            if ($user->isSuperAdmin() || $user->isOwner() || $user->hasAnyPermission(['update_service_transaction'])) {
+                return ServiceTransactionResource::getUrl('edit', ['record' => $transaction]);
+            }
+
+            if ($user->hasAnyPermission(['view_any_service_transaction'])) {
+                return ServiceTransactionResource::getUrl('view', ['record' => $transaction]);
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return null;
     }
 
     public static function actionUrl(Model $record): ?string
@@ -96,6 +248,7 @@ class NotificationDispatcher
             $record instanceof Task => 'Tasks\\Task',
             $record instanceof TaskAssignment => 'TaskAssignments\\TaskAssignment',
             $record instanceof Invoice => 'Invoices\\Invoice',
+            $record instanceof PayrollRecord => 'PayrollRecords\\PayrollRecord',
             $record instanceof Ticket => 'Tickets\\Ticket',
             $record instanceof ServiceTransaction => 'ServiceTransactions\\ServiceTransaction',
             $record instanceof PerformanceEscalation => 'PerformanceEscalations\\PerformanceEscalation',

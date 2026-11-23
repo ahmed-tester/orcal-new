@@ -61,16 +61,22 @@ class FinancialSummaryService
 
         $receiptIds = $confirmedReceipts->pluck('id')->all();
 
-        $treasuryReceived = $confirmedHandover ?? ($receiptIds === [] ? 0.0 : (float) CashHandoverItem::query()
+        $cashHandoverTreasury = $confirmedHandover ?? ($receiptIds === [] ? 0.0 : (float) CashHandoverItem::query()
             ->whereIn('financial_receipt_id', $receiptIds)
             ->whereHas('handover', fn ($query) => $query->where('status', FinancialHandoverStatus::CONFIRMED->value))
             ->sum('confirmed_amount'));
 
-        $treasuryReceived += (float) $confirmedReceipts
+        $cashAllocatedTreasury = (float) $confirmedReceipts
             ->filter(fn (FinancialReceipt $receipt) => $receipt->isAllocatedTreasuryCash())
             ->sum('amount');
 
-        $custody = max(0.0, $cashReceived - $treasuryReceived);
+        $nonCashTreasury = (float) $confirmedReceipts
+            ->filter(fn (FinancialReceipt $receipt) => ! $receipt->isCash() && ! empty($receipt->metadata['treasury_transaction_id']))
+            ->sum('amount');
+
+        $treasuryReceived = $cashHandoverTreasury + $cashAllocatedTreasury + $nonCashTreasury;
+
+        $custody = max(0.0, $cashReceived - ($cashHandoverTreasury + $cashAllocatedTreasury));
 
         $disbursements ??= FinancialDisbursement::forSource(self::SOURCE_TYPE, $sourceId)->with('payments')->get();
         $disbursements = $disbursements->reject(fn (FinancialDisbursement $disbursement) => $disbursement->isReversed());
@@ -140,6 +146,68 @@ class FinancialSummaryService
             'treasury_paid' => $treasuryPaid,
             'reimbursed' => round($reimbursedPaid, 2),
             'net_cash' => $netCash,
+            'pending_receipts' => round((float) $pendingReceipts->sum(fn (FinancialReceipt $receipt) => (float) $receipt->amount), 2),
+            'pending_receipts_count' => $pendingReceipts->count(),
+        ];
+    }
+
+    /**
+     * Receipt/custody/handover summary for any receipt-backed source
+     * (e.g. standalone invoice or payroll collection).
+     *
+     * @return array<string, float|int>
+     */
+    public static function forReceipts(
+        string $sourceType,
+        int $sourceId,
+        float $totalDue,
+        ?Collection $receipts = null,
+    ): array {
+        $totalDue = round(max(0.0, $totalDue), 2);
+        $receipts ??= FinancialReceipt::forSource($sourceType, $sourceId)->get();
+
+        $confirmedReceipts = $receipts->filter(
+            fn (FinancialReceipt $receipt) => $receipt->status === FinancialReceiptStatus::CONFIRMED
+        );
+
+        $pendingReceipts = $receipts->filter(
+            fn (FinancialReceipt $receipt) => $receipt->status === FinancialReceiptStatus::PENDING_CONFIRMATION
+        );
+
+        $received = round((float) $confirmedReceipts->sum(fn (FinancialReceipt $receipt) => (float) $receipt->amount), 2);
+        $cashReceived = round((float) $confirmedReceipts
+            ->filter(fn (FinancialReceipt $receipt) => $receipt->isCash())
+            ->sum(fn (FinancialReceipt $receipt) => (float) $receipt->amount), 2);
+        $nonCashReceived = round(max(0.0, $received - $cashReceived), 2);
+
+        $receiptIds = $confirmedReceipts->pluck('id')->all();
+
+        $cashTreasuryReceived = $receiptIds === [] ? 0.0 : round((float) CashHandoverItem::query()
+            ->whereIn('financial_receipt_id', $receiptIds)
+            ->whereHas('handover', fn ($query) => $query->where('status', FinancialHandoverStatus::CONFIRMED->value))
+            ->sum('confirmed_amount'), 2);
+
+        $nonCashTreasuryReceived = round((float) $confirmedReceipts
+            ->filter(fn (FinancialReceipt $receipt) => ! $receipt->isCash() && ! empty($receipt->metadata['treasury_transaction_id']))
+            ->sum(fn (FinancialReceipt $receipt) => (float) $receipt->amount), 2);
+
+        $treasuryReceived = round($cashTreasuryReceived + $nonCashTreasuryReceived, 2);
+        $custody = round(max(0.0, $cashReceived - $cashTreasuryReceived), 2);
+        $refunded = round((float) $confirmedReceipts->sum(fn (FinancialReceipt $receipt) => $receipt->refundedAmount()), 2);
+        $netReceived = round(max(0.0, $received - $refunded), 2);
+        $remaining = round(max(0.0, $totalDue - $netReceived), 2);
+
+        return [
+            'due' => $totalDue,
+            'received' => $received,
+            'refunded' => $refunded,
+            'net_received' => $netReceived,
+            'applied' => round(min($netReceived, $totalDue), 2),
+            'remaining' => $remaining,
+            'cash_received' => $cashReceived,
+            'non_cash_received' => $nonCashReceived,
+            'custody' => $custody,
+            'treasury_received' => $treasuryReceived,
             'pending_receipts' => round((float) $pendingReceipts->sum(fn (FinancialReceipt $receipt) => (float) $receipt->amount), 2),
             'pending_receipts_count' => $pendingReceipts->count(),
         ];

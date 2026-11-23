@@ -13,6 +13,7 @@ use App\Models\UnifiedBatchDeposit;
 use App\Models\UnifiedBatchDepositItem;
 use App\Models\UnifiedSuspenseAmount;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -188,6 +189,13 @@ class OperationsSettlementService
 
             OperationsReconciliationService::reconcile($tx);
 
+            if ($isSelfPaid) {
+                $actorId = auth()->id();
+                DB::afterCommit(function () use ($tx, $amount, $actorId): void {
+                    OperationsNotificationService::notifyLegacySelfPaidRecorded($tx, $amount, $actorId);
+                });
+            }
+
             return $tx;
         });
     }
@@ -216,10 +224,14 @@ class OperationsSettlementService
             $oldStatus = $tx->workflow_status;
 
             $meta = $tx->metadata ?? [];
+            $wasAlreadyApproved = ($meta['self_paid_status'] ?? null) === 'approved';
+            $approvedAmount = (float) ($meta['self_paid_amount'] ?? 0);
+            $actorId = $approvedBy ?? auth()->id();
+
             $meta['self_paid_status'] = 'approved';
             $meta['self_paid_approved'] = true;
             $meta['self_paid_approved_at'] = now()->toDateTimeString();
-            $meta['self_paid_approved_by'] = $approvedBy ?? auth()->id();
+            $meta['self_paid_approved_by'] = $actorId;
             $meta['self_paid_approval_note'] = $approvalNote;
 
             unset($meta['approval_requested_at']);
@@ -234,13 +246,19 @@ class OperationsSettlementService
                 oldStatus: $oldStatus,
                 newStatus: $tx->workflow_status,
                 payload: [
-                    'approved_amount' => (float) ($meta['self_paid_amount'] ?? 0),
+                    'approved_amount' => $approvedAmount,
                     'approval_note' => $approvalNote,
                 ],
-                userId: $approvedBy ?? auth()->id(),
+                userId: $actorId,
             );
 
             OperationsReconciliationService::reconcile($tx);
+
+            if (! $wasAlreadyApproved) {
+                DB::afterCommit(function () use ($tx, $approvedAmount, $actorId): void {
+                    OperationsNotificationService::notifyLegacySelfPaidApproved($tx, $approvedAmount, $actorId);
+                });
+            }
 
             return $tx;
         });
@@ -390,7 +408,7 @@ class OperationsSettlementService
                     'destination_reference' => $handover?->handover_number ?? $suspenseRecord->bank_name ?? $suspenseRecord->suspense_number,
                     'confirmed_by' => $operatorId,
                     'confirmed_at' => now(),
-                    'received_at' => $suspenseRecord->received_date ? \Carbon\Carbon::parse($suspenseRecord->received_date) : now(),
+                    'received_at' => $suspenseRecord->received_date ? Carbon::parse($suspenseRecord->received_date) : now(),
                     'notes' => __('financial.descriptions.extra_cash_note', ['number' => $suspenseRecord->reference_number ?? (string) $suspenseRecord->id]),
                     'created_by' => $operatorId,
                     'metadata' => [
@@ -500,7 +518,7 @@ class OperationsSettlementService
                 userId: $operatorId,
             );
 
-            OperationsNotificationService::notifyEscalated($tx, $data);
+            OperationsNotificationService::notifyEscalated($tx, $data, $operatorId);
 
             return $tx;
         });
@@ -542,7 +560,8 @@ class OperationsSettlementService
                 userId: $operatorId,
             );
 
-            OperationsNotificationService::notifyEscalationResolved($tx, $resolutionNotes);
+            $escalatedBy = isset($meta['escalated_by']) ? (int) $meta['escalated_by'] : null;
+            OperationsNotificationService::notifyEscalationResolved($tx, $resolutionNotes, $operatorId, $escalatedBy);
 
             OperationsReconciliationService::reconcile($tx);
 

@@ -16,6 +16,7 @@ Schedule::command('company:check-license-expiry')->dailyAt('09:15')->withoutOver
 Schedule::command('leaves:check-overdue')->dailyAt('09:30')->withoutOverlapping();
 Schedule::command('violations:check-deadlines')->dailyAt('09:45')->withoutOverlapping();
 Schedule::command('debts:check-due-dates')->dailyAt('10:00')->withoutOverlapping();
+Schedule::command('service-transactions:check-overdue')->dailyAt('10:15')->withoutOverlapping();
 Schedule::command('performance:check-escalations')->hourly()->withoutOverlapping();
 Schedule::command('mail:sync-emails')->everyMinute()->withoutOverlapping();
 Schedule::command('mail:check-escalation')->everyFifteenMinutes()->withoutOverlapping();

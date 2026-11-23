@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Mail;
 
+use App\Enums\Mail\MailAccountStatus;
 use App\Models\Mail\MailAccount;
 use App\Services\Mail\MailSyncService;
 use App\Services\Mail\MicrosoftMailOAuthService;
@@ -16,10 +17,14 @@ class SyncEmailAccountJob implements ShouldQueue
 
     public int $timeout = 180;
 
+    public bool $verifyOnly = false;
+
     public function __construct(
         public MailAccount $account,
-        public bool $verifyOnly = false,
-    ) {}
+        bool $verifyOnly = false,
+    ) {
+        $this->verifyOnly = $verifyOnly;
+    }
 
     public function handle(MailSyncService $syncService): void
     {
@@ -34,7 +39,7 @@ class SyncEmailAccountJob implements ShouldQueue
                     $result = $syncService->testConnection($account);
                     if (! $result['success']) {
                         $account->update([
-                            'status' => \App\Enums\Mail\MailAccountStatus::CONNECTION_ERROR,
+                            'status' => MailAccountStatus::CONNECTION_ERROR,
                             'error_message' => $result['message'],
                         ]);
                     }

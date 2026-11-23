@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Mail;
 
+use App\Enums\Mail\MailAccountStatus;
 use App\Enums\Mail\MailMessageStatus;
 use App\Enums\Mail\MailPriority;
 use App\Enums\Mail\MailSourceFolder;
@@ -16,6 +17,7 @@ use App\Models\Mail\MailTrustedEmail;
 use App\Models\User;
 use App\Services\Mail\EmailClassifierService;
 use App\Services\Mail\MailAccessService;
+use App\Services\Mail\MailNotificationService;
 use App\Services\Mail\MailSyncService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -148,6 +150,117 @@ class MailSyncAndAttachmentTest extends TestCase
         Storage::fake('public');
 
         $this->service = app(MailSyncService::class);
+    }
+
+    public function test_sync_error_notifies_once_per_outage_and_again_after_recovery(): void
+    {
+        $companyId = DB::table('companies')->insertGetId(['trade_name' => 'Orcal']);
+        $account = MailAccount::create([
+            'company_id' => $companyId,
+            'name' => 'Support',
+            'email' => 'support@orcal.test',
+            'host' => 'imap.orcal.test',
+            'status' => MailAccountStatus::CONNECTED,
+            'is_active' => true,
+        ]);
+        $staleAccount = $account->fresh();
+
+        $notifications = \Mockery::mock(MailNotificationService::class);
+        $notifications->shouldReceive('notifySyncError')->times(3)->andReturn(1);
+        $this->app->instance(MailNotificationService::class, $notifications);
+
+        $client = new class
+        {
+            public ?string $error = 'AUTHENTICATIONFAILED';
+
+            public function connect(): void
+            {
+                if ($this->error !== null) {
+                    throw new \RuntimeException($this->error);
+                }
+            }
+
+            public function disconnect(): void {}
+
+            public function getFolder(string $name): ?object
+            {
+                return null;
+            }
+        };
+
+        $service = new class(app(EmailClassifierService::class), $client) extends MailSyncService
+        {
+            public function __construct(EmailClassifierService $classifier, private object $client)
+            {
+                parent::__construct($classifier);
+            }
+
+            public function createImapClient(MailAccount $account): object
+            {
+                return $this->client;
+            }
+        };
+
+        $service->syncAccount($account);
+        $notifications->shouldHaveReceived('notifySyncError')->once();
+        $this->assertSame(MailAccountStatus::CONNECTION_ERROR, $account->fresh()->status);
+
+        // A stale queued model and a changed error must not create a second alert.
+        $client->error = 'AUTHENTICATIONFAILED changed details';
+        $service->syncAccount($staleAccount);
+        $notifications->shouldHaveReceived('notifySyncError')->once();
+        $this->assertSame(2, MailSyncLog::where('email_account_id', $account->id)->count());
+        $this->assertNotNull($account->fresh()->error_message);
+
+        // Each account has its own outage, independent of other accounts.
+        $other = $account->replicate();
+        $other->email = 'other@orcal.test';
+        $other->status = MailAccountStatus::CONNECTED;
+        $other->error_message = null;
+        $other->save();
+        $service->syncAccount($other);
+        $notifications->shouldHaveReceived('notifySyncError')->twice();
+
+        $client->error = null;
+        $service->syncAccount($account->fresh());
+        $this->assertSame(MailAccountStatus::CONNECTED, $account->fresh()->status);
+        $this->assertNull($account->fresh()->error_message);
+        $notifications->shouldHaveReceived('notifySyncError')->twice();
+
+        $client->error = 'AUTHENTICATIONFAILED';
+        $service->syncAccount($account->fresh());
+        $this->assertSame(MailAccountStatus::CONNECTION_ERROR, $account->fresh()->status);
+    }
+
+    public function test_existing_sync_error_does_not_notify_again(): void
+    {
+        $companyId = DB::table('companies')->insertGetId(['trade_name' => 'Orcal']);
+        $this->app->instance(MailNotificationService::class, \Mockery::mock(MailNotificationService::class)
+            ->shouldNotReceive('notifySyncError')->getMock());
+
+        $service = new class(app(EmailClassifierService::class)) extends MailSyncService
+        {
+            public function createImapClient(MailAccount $account): object
+            {
+                throw new \RuntimeException('AUTHENTICATIONFAILED');
+            }
+        };
+
+        foreach ([MailAccountStatus::CONNECTION_ERROR, MailAccountStatus::REAUTH_REQUIRED] as $status) {
+            $account = MailAccount::create([
+                'company_id' => $companyId,
+                'name' => 'Support',
+                'email' => $status->value.'@orcal.test',
+                'host' => 'imap.orcal.test',
+                'status' => $status,
+                'is_active' => true,
+            ]);
+
+            $service->syncAccount($account);
+            $this->assertSame(MailAccountStatus::CONNECTION_ERROR, $account->fresh()->status);
+            $this->assertNotNull($account->fresh()->error_message);
+            $this->assertSame(1, MailSyncLog::where('email_account_id', $account->id)->count());
+        }
     }
 
     public function test_import_deduplicates_threads_and_protects_reply_in_conversation(): void

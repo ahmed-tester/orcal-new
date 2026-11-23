@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\FinancialCashDirection;
 use App\Enums\FinancialHandoverStatus;
 use App\Enums\FinancialReceiptStatus;
+use App\Enums\PaymentItemCategory;
 use App\Models\CashHandover;
 use App\Models\CashHandoverItem;
 use App\Models\FinancialReceipt;
@@ -12,6 +13,8 @@ use App\Models\ServiceTransaction;
 use App\Models\TreasuryTransaction;
 use App\Models\UnifiedSuspenseAmount;
 use App\Models\User;
+use App\Services\Financial\FinancialReceiptConnectorRegistry;
+use App\Services\Notifications\OperationsNotificationDiagnostics;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -97,6 +100,7 @@ class CashHandoverService
             $companyId = (int) $receipts->first()->company_id;
             $collectorId = (int) $receipts->first()->collector_employee_id;
             $branchId = $receipts->first()->branch_id;
+            $sourceType = (string) $receipts->first()->source_type;
 
             if ($user) {
                 ServiceFinancialWorkflowService::authorizeCompany($user, $companyId, 'request_cash_handover');
@@ -111,6 +115,12 @@ class CashHandoverService
 
             foreach ($receipts as $receipt) {
                 $amount = round((float) ($receiptAmounts[$receipt->id] ?? 0), 2);
+
+                if ((string) $receipt->source_type !== $sourceType) {
+                    throw ValidationException::withMessages([
+                        'items' => __('financial.errors.handover_mixed_sources'),
+                    ]);
+                }
 
                 if ((int) $receipt->company_id !== $companyId
                     || (int) $receipt->collector_employee_id !== $collectorId
@@ -152,6 +162,7 @@ class CashHandoverService
                 'notes' => $options['notes'] ?? null,
                 'metadata' => [
                     'request_fingerprint' => $fingerprint,
+                    'source_type' => $sourceType,
                     'submitted_by' => $user?->id,
                     'submitted_at' => now()->toDateTimeString(),
                 ],
@@ -171,8 +182,10 @@ class CashHandoverService
         });
 
         if ($handover->wasRecentlyCreated) {
-            DB::afterCommit(function () use ($handover) {
-                OperationsNotificationService::notifyCashHandoverRequested($handover);
+            OperationsNotificationDiagnostics::write('handover_notification_scheduled', CashHandover::class, $handover->id);
+            $actorId = $user?->id ?? auth()->id();
+            DB::afterCommit(function () use ($handover, $actorId) {
+                OperationsNotificationService::notifyCashHandoverRequested($handover, $actorId);
             });
         }
 
@@ -204,7 +217,10 @@ class CashHandoverService
             ]);
         }
 
-        $handover = DB::transaction(function () use ($handover, $data, $user, $confirmationKey) {
+        $transitioned = false;
+
+        $handover = DB::transaction(function () use ($handover, $data, $user, $confirmationKey, &$transitioned) {
+            DB::table('companies')->where('id', $handover->company_id)->lockForUpdate()->first();
             $locked = CashHandover::whereKey($handover->id)->lockForUpdate()->firstOrFail();
 
             $normalizedItems = collect($data['confirmed_amounts'] ?? [])
@@ -324,6 +340,7 @@ class CashHandoverService
                 ],
                 executedByEmployeeId: $locked->delivered_by_employee_id,
                 counterparty: $locked->collector?->user?->name,
+                category: static::resolveCategory($locked, $receipts->first()?->source_type),
             );
 
             $meta = $locked->metadata ?? [];
@@ -365,12 +382,16 @@ class CashHandoverService
                 }
             }
 
+            $transitioned = true;
+
             return $locked;
         });
 
-        static::syncAffectedTransactions($handover);
-        OperationsNotificationService::notifyCashHandoverConfirmed($handover);
-        static::audit($handover, 'financial_cash_handover_confirmed');
+        if ($transitioned) {
+            static::syncAffectedTransactions($handover);
+            OperationsNotificationService::notifyCashHandoverConfirmed($handover, $user?->id ?? auth()->id());
+            static::audit($handover, 'financial_cash_handover_confirmed');
+        }
 
         return $handover->refresh();
     }
@@ -385,7 +406,10 @@ class CashHandoverService
             ]);
         }
 
-        $handover = DB::transaction(function () use ($handover, $reason, $user) {
+        $transitioned = false;
+
+        $handover = DB::transaction(function () use ($handover, $reason, $user, &$transitioned) {
+            DB::table('companies')->where('id', $handover->company_id)->lockForUpdate()->first();
             $locked = CashHandover::whereKey($handover->id)->lockForUpdate()->firstOrFail();
 
             if ($locked->status === FinancialHandoverStatus::REJECTED) {
@@ -408,11 +432,15 @@ class CashHandoverService
                 'metadata' => $meta,
             ]);
 
+            $transitioned = true;
+
             return $locked;
         });
 
-        OperationsNotificationService::notifyCashHandoverRejected($handover, $reason);
-        static::audit($handover, 'financial_cash_handover_rejected');
+        if ($transitioned) {
+            OperationsNotificationService::notifyCashHandoverRejected($handover, $reason, $user?->id ?? auth()->id());
+            static::audit($handover, 'financial_cash_handover_rejected');
+        }
 
         return $handover->refresh();
     }
@@ -468,7 +496,10 @@ class CashHandoverService
             ]);
         }
 
-        $handover = DB::transaction(function () use ($handover, $reason, $user) {
+        $transitioned = false;
+
+        $handover = DB::transaction(function () use ($handover, $reason, $user, &$transitioned) {
+            DB::table('companies')->where('id', $handover->company_id)->lockForUpdate()->first();
             $locked = CashHandover::whereKey($handover->id)->lockForUpdate()->firstOrFail();
 
             if (! empty($locked->metadata['reversed_at'])) {
@@ -521,6 +552,7 @@ class CashHandoverService
                     'reversal_of_treasury_transaction_id' => $locked->treasury_transaction_id,
                 ],
                 executedByEmployeeId: $locked->delivered_by_employee_id,
+                category: static::resolveCategory($locked, $receipts->first()?->source_type),
             );
 
             $meta = $locked->metadata ?? [];
@@ -534,11 +566,16 @@ class CashHandoverService
                 'metadata' => $meta,
             ]);
 
+            $transitioned = true;
+
             return $locked;
         });
 
-        static::syncAffectedTransactions($handover);
-        static::audit($handover, 'financial_cash_handover_reversed');
+        if ($transitioned) {
+            static::syncAffectedTransactions($handover);
+            OperationsNotificationService::notifyCashHandoverReversed($handover, $reason, $user?->id ?? auth()->id());
+            static::audit($handover, 'financial_cash_handover_reversed');
+        }
 
         return $handover->refresh();
     }
@@ -677,44 +714,72 @@ class CashHandoverService
         return 'hnd-confirm:'.Str::uuid()->toString();
     }
 
+    private static function resolveCategory(CashHandover $handover, ?string $sourceType = null): PaymentItemCategory
+    {
+        $sourceType ??= $handover->metadata['source_type'] ?? null;
+
+        if ($sourceType && FinancialReceiptConnectorRegistry::has((string) $sourceType)) {
+            return FinancialReceiptConnectorRegistry::for((string) $sourceType)->handoverCategory();
+        }
+
+        return PaymentItemCategory::SERVICES;
+    }
+
     private static function audit(CashHandover $handover, string $actionType): void
     {
-        $transactionIds = CashHandoverItem::where('cash_handover_id', $handover->id)
+        $sources = CashHandoverItem::where('cash_handover_id', $handover->id)
             ->with('receipt')
             ->get()
-            ->map(fn (CashHandoverItem $item) => $item->receipt?->source_id)
-            ->filter()
-            ->unique();
+            ->map(fn (CashHandoverItem $item) => $item->receipt)
+            ->filter(fn (?FinancialReceipt $receipt) => $receipt && $receipt->source_type && $receipt->source_id)
+            ->unique(fn (FinancialReceipt $receipt) => $receipt->source_type.':'.$receipt->source_id);
 
-        foreach ($transactionIds as $transactionId) {
-            OperationsAuditService::record(
-                companyId: (int) $handover->company_id,
-                transactionId: (int) $transactionId,
-                actionType: $actionType,
-                payload: [
-                    'handover_number' => $handover->handover_number,
-                    'requested_amount' => (float) $handover->total_requested_amount,
-                    'confirmed_amount' => (float) $handover->total_confirmed_amount,
-                    'difference_amount' => (float) $handover->difference_amount,
-                ],
-            );
+        $payload = [
+            'handover_number' => $handover->handover_number,
+            'requested_amount' => (float) $handover->total_requested_amount,
+            'confirmed_amount' => (float) $handover->total_confirmed_amount,
+            'difference_amount' => (float) $handover->difference_amount,
+        ];
+
+        foreach ($sources as $receipt) {
+            if ($receipt->source_type === FinancialReceipt::SOURCE_SERVICE_TRANSACTION) {
+                OperationsAuditService::record(
+                    companyId: (int) $handover->company_id,
+                    transactionId: (int) $receipt->source_id,
+                    actionType: $actionType,
+                    payload: $payload,
+                );
+
+                continue;
+            }
+
+            if (FinancialReceiptConnectorRegistry::has((string) $receipt->source_type)) {
+                $source = FinancialReceiptConnectorRegistry::for((string) $receipt->source_type)->find((int) $receipt->source_id);
+                OperationsAuditService::recordFor(
+                    model: $source,
+                    actionType: $actionType,
+                    payload: $payload,
+                    companyId: (int) $handover->company_id,
+                );
+            }
         }
     }
 
     private static function syncAffectedTransactions(CashHandover $handover): void
     {
-        $transactions = FinancialReceipt::whereIn('id', $handover->items()->pluck('financial_receipt_id'))
+        $sources = FinancialReceipt::whereIn('id', $handover->items()->pluck('financial_receipt_id'))
             ->get()
-            ->map(fn (FinancialReceipt $receipt) => $receipt->source_id)
-            ->unique();
+            ->filter(fn (FinancialReceipt $receipt) => $receipt->source_type && $receipt->source_id)
+            ->unique(fn (FinancialReceipt $receipt) => $receipt->source_type.':'.$receipt->source_id);
 
-        foreach ($transactions as $id) {
-            $transaction = ServiceTransaction::find($id);
-
-            if ($transaction) {
-                ServiceFinancialWorkflowService::sync($transaction);
-                OperationsReconciliationService::reconcile($transaction);
+        foreach ($sources as $receipt) {
+            if (! FinancialReceiptConnectorRegistry::has((string) $receipt->source_type)) {
+                continue;
             }
+
+            $connector = FinancialReceiptConnectorRegistry::for((string) $receipt->source_type);
+            $source = $connector->find((int) $receipt->source_id);
+            $connector->onHandoverChanged($source);
         }
     }
 }

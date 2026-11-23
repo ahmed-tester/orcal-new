@@ -3,7 +3,9 @@
 namespace App\Notifications;
 
 use App\Models\User;
+use App\Services\Notifications\NotificationDispatcher;
 use App\Services\Notifications\NotificationRecipientService;
+use App\Services\Notifications\OperationsNotificationDiagnostics;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
@@ -28,17 +30,48 @@ class BaseSystemNotification extends Notification implements ShouldQueue
      */
     public int $backoff = 10;
 
+    public string $eventKey;
+
+    public array $placeholders = [];
+
+    public ?string $customMessage = null;
+
+    public ?string $customTitle = null;
+
+    public ?string $actionUrl = null;
+
+    public ?string $recordType = null;
+
+    public int|string|null $recordId = null;
+
+    public ?string $icon = 'heroicon-o-bell';
+
+    public ?string $color = 'primary';
+
+    public array $context = [];
+
     public function __construct(
-        public string $eventKey,
-        public array $placeholders = [],
-        public ?string $customMessage = null,
-        public ?string $customTitle = null,
-        public ?string $actionUrl = null,
-        public ?string $recordType = null,
-        public int|string|null $recordId = null,
-        public ?string $icon = 'heroicon-o-bell',
-        public ?string $color = 'primary',
+        string $eventKey,
+        array $placeholders = [],
+        ?string $customMessage = null,
+        ?string $customTitle = null,
+        ?string $actionUrl = null,
+        ?string $recordType = null,
+        int|string|null $recordId = null,
+        ?string $icon = 'heroicon-o-bell',
+        ?string $color = 'primary',
+        array $context = [],
     ) {
+        $this->eventKey = $eventKey;
+        $this->placeholders = $placeholders;
+        $this->customMessage = $customMessage;
+        $this->customTitle = $customTitle;
+        $this->actionUrl = $actionUrl;
+        $this->recordType = $recordType;
+        $this->recordId = $recordId;
+        $this->icon = $icon;
+        $this->color = $color;
+        $this->context = $context;
         $this->afterCommit = true;
     }
 
@@ -50,25 +83,52 @@ class BaseSystemNotification extends Notification implements ShouldQueue
      */
     public function via(mixed $notifiable): array
     {
+        OperationsNotificationDiagnostics::notification('delivery_channels_resolved', $this, [
+            'recipient_id' => $notifiable instanceof User ? $notifiable->id : null,
+            'active' => $notifiable instanceof User && $notifiable->status === 'active',
+        ]);
+
         return $notifiable instanceof User && $notifiable->status === 'active' ? ['database'] : [];
     }
 
     public function shouldSend(mixed $notifiable, string $channel): bool
     {
+        OperationsNotificationDiagnostics::notification('delivery_started', $this, [
+            'recipient_id' => $notifiable instanceof User ? $notifiable->id : null,
+            'channel' => $channel,
+        ]);
         if ($channel !== 'database' || ! $notifiable instanceof User || $notifiable->status !== 'active'
             || ! $this->recordType || ! is_subclass_of($this->recordType, Model::class)) {
+            OperationsNotificationDiagnostics::notification('delivery_denied', $this, ['reason' => 'invalid_channel_recipient_or_record_type']);
+
             return false;
         }
 
         $record = $this->recordType::query()->find($this->recordId);
 
-        return $record !== null && NotificationRecipientService::isUserEligibleToReceive(
+        $reason = $record === null ? 'record_missing' : null;
+        $allowed = $record !== null && NotificationRecipientService::isUserEligibleToReceive(
             $notifiable,
             $record,
             NotificationRecipientService::resolveDefaultUpdatePermissions($record),
             NotificationRecipientService::resolveCompanyId($record),
             NotificationRecipientService::resolveBranchId($record),
+            $reason,
+            $this->context,
         );
+        OperationsNotificationDiagnostics::notification($allowed ? 'delivery_allowed' : 'delivery_denied', $this, [
+            'recipient_id' => $notifiable->id,
+            'reason' => $reason,
+        ]);
+
+        return $allowed;
+    }
+
+    public function failed(\Throwable $exception): void
+    {
+        OperationsNotificationDiagnostics::notification('delivery_failed', $this, [
+            'exception_class' => $exception::class,
+        ]);
     }
 
     /**
@@ -84,12 +144,14 @@ class BaseSystemNotification extends Notification implements ShouldQueue
         $title = $this->customTitle ?? $this->renderString($titleTemplate, $this->placeholders);
         $body = $this->renderString($bodyTemplate, $this->placeholders);
 
+        $resolvedUrl = NotificationDispatcher::resolveActionUrlForRecipient($this, $notifiable);
+
         $actions = [];
-        if ($this->actionUrl) {
+        if ($resolvedUrl) {
             $actions[] = [
                 'name' => 'view',
                 'label' => __('notifications.general.view_details'),
-                'url' => $this->actionUrl,
+                'url' => $resolvedUrl,
                 'shouldOpenInNewTab' => false,
                 'shouldMarkAsRead' => true,
             ];
@@ -107,7 +169,7 @@ class BaseSystemNotification extends Notification implements ShouldQueue
             'event_key' => $this->eventKey,
             'record_type' => $this->recordType,
             'record_id' => $this->recordId,
-            'action_url' => $this->actionUrl,
+            'action_url' => $resolvedUrl,
             'placeholders' => $this->placeholders,
             'created_at' => now()->toIso8601String(),
         ];

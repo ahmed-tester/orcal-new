@@ -63,6 +63,25 @@
         </div>
         @endif
 
+        @if($operationType === 'collection' && (auth()->user()?->isSuperAdminOrOwner() ?? false))
+        <div style="display: flex; align-items: center; gap: 0.45rem; background: #f8fafc; border: 1px solid #cbd5e1; padding: 0.35rem 0.65rem; border-radius: 0.6rem;" class="dark:bg-slate-800 dark:border-slate-700">
+            <label for="collection-collector-select" style="font-size: 0.75rem; font-weight: 700; color: #334155; white-space: nowrap;" class="dark:text-slate-300">
+                {{ __('financial.fields.collector') }}:
+            </label>
+            <select
+                id="collection-collector-select"
+                wire:model="collectionCollectorEmployeeId"
+                style="min-width: 170px; padding: 0.35rem 0.5rem; font-size: 0.775rem; font-weight: 600; border: 1px solid #cbd5e1; border-radius: 0.5rem; background: #ffffff;"
+                class="dark:bg-slate-900 dark:border-slate-600 dark:text-white"
+            >
+                <option value="">—</option>
+                @foreach($this->collectionCollectorOptions as $empId => $empName)
+                    <option value="{{ $empId }}">{{ $empName }}</option>
+                @endforeach
+            </select>
+        </div>
+        @endif
+
         <button
             type="button"
             wire:click="savePayrollSheet"

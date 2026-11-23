@@ -47,6 +47,8 @@ class TaskAssignmentObserver
      */
     protected function notifyAssignedEmployee(TaskAssignment $assignment): void
     {
+        $assignment->unsetRelation('employee');
+
         NotificationDispatcher::translated(
             record: $assignment,
             eventKey: 'TaskAssigned',
@@ -58,6 +60,10 @@ class TaskAssignmentObserver
             ],
             icon: 'heroicon-o-clipboard-document-check',
             color: 'success',
+            context: [
+                'routing_mode' => 'task_assignment_targeted',
+                'expected_employee_id' => (int) $assignment->employee_id,
+            ],
         );
     }
 

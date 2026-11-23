@@ -209,6 +209,7 @@ return [
     'view_operational_dashboard' => 'View the Operational Dashboard',
     'record_service_receipt' => 'Record Service Receipts',
     'confirm_service_receipt' => 'Confirm and Reverse Service Receipts',
+    'disburse_payroll_salary' => 'Disburse and Confirm Payroll Salaries',
     'request_cash_handover' => 'Request a Cash Handover',
     'confirm_cash_handover' => 'Receive and Confirm Cash Handovers',
     'record_service_disbursement' => 'Record Service Fee Payments',

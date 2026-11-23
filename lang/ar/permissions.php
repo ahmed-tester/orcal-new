@@ -169,6 +169,7 @@ return [
     'view_operational_dashboard' => 'استعراض لوحة المسار والرقابة التشغيلية',
     'record_service_receipt' => 'تسجيل سندات قبض الخدمات',
     'confirm_service_receipt' => 'تأكيد وعكس سندات قبض الخدمات',
+    'disburse_payroll_salary' => 'صرف واعتماد رواتب المسيرات',
     'request_cash_handover' => 'طلب توريد نقد للخزنة',
     'confirm_cash_handover' => 'استلام وتأكيد توريد النقد في الخزنة',
     'record_service_disbursement' => 'تسجيل سداد رسوم الخدمات',

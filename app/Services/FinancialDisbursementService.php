@@ -189,8 +189,9 @@ class FinancialDisbursementService
                 userId: $user?->id,
             );
 
-            DB::afterCommit(function () use ($transaction, $disbursement) {
-                OperationsNotificationService::notifyFinancialDisbursementRecorded($transaction, $disbursement);
+            $actorId = $user?->id ?? auth()->id();
+            DB::afterCommit(function () use ($transaction, $disbursement, $actorId) {
+                OperationsNotificationService::notifyFinancialDisbursementRecorded($transaction, $disbursement, $actorId);
             });
         }
 
@@ -203,7 +204,9 @@ class FinancialDisbursementService
         $user = $user ?? auth()->user();
         ServiceFinancialWorkflowService::authorize($transaction, 'approve_self_paid_disbursement', $user);
 
-        $disbursement = DB::transaction(function () use ($disbursement, $user, $note) {
+        $transitioned = false;
+
+        $disbursement = DB::transaction(function () use ($disbursement, $user, $note, &$transitioned) {
             $locked = FinancialDisbursement::whereKey($disbursement->id)->lockForUpdate()->firstOrFail();
 
             if ($locked->status !== FinancialDisbursementStatus::PENDING_APPROVAL) {
@@ -240,26 +243,31 @@ class FinancialDisbursementService
                 'metadata' => $meta,
             ]);
 
+            $transitioned = true;
+
             return $locked;
         });
 
-        ServiceFinancialWorkflowService::sync($transaction);
-        OperationsReconciliationService::reconcile($transaction);
+        if ($transitioned) {
+            ServiceFinancialWorkflowService::sync($transaction);
+            OperationsReconciliationService::reconcile($transaction);
 
-        OperationsAuditService::record(
-            companyId: (int) $transaction->company_id,
-            transactionId: $transaction->id,
-            actionType: 'financial_claim_approved',
-            payload: [
-                'disbursement_number' => $disbursement->disbursement_number,
-                'amount' => (float) $disbursement->amount,
-            ],
-            userId: $user?->id,
-        );
+            OperationsAuditService::record(
+                companyId: (int) $transaction->company_id,
+                transactionId: $transaction->id,
+                actionType: 'financial_claim_approved',
+                payload: [
+                    'disbursement_number' => $disbursement->disbursement_number,
+                    'amount' => (float) $disbursement->amount,
+                ],
+                userId: $user?->id,
+            );
 
-        DB::afterCommit(function () use ($transaction, $disbursement) {
-            OperationsNotificationService::notifyFinancialClaimApproved($transaction, $disbursement);
-        });
+            $actorId = $user?->id ?? auth()->id();
+            DB::afterCommit(function () use ($transaction, $disbursement, $actorId) {
+                OperationsNotificationService::notifyFinancialClaimApproved($transaction, $disbursement, $actorId);
+            });
+        }
 
         return $disbursement->refresh();
     }
@@ -369,24 +377,27 @@ class FinancialDisbursementService
             return $payment;
         });
 
-        ServiceFinancialWorkflowService::sync($transaction);
-        OperationsReconciliationService::reconcile($transaction);
+        if ($payment->wasRecentlyCreated) {
+            ServiceFinancialWorkflowService::sync($transaction);
+            OperationsReconciliationService::reconcile($transaction);
 
-        OperationsAuditService::record(
-            companyId: (int) $transaction->company_id,
-            transactionId: $transaction->id,
-            actionType: 'financial_reimbursement_paid',
-            payload: [
-                'disbursement_number' => $disbursement->disbursement_number,
-                'payment_number' => $payment->payment_number,
-                'amount' => $amount,
-            ],
-            userId: $user?->id,
-        );
+            OperationsAuditService::record(
+                companyId: (int) $transaction->company_id,
+                transactionId: $transaction->id,
+                actionType: 'financial_reimbursement_paid',
+                payload: [
+                    'disbursement_number' => $disbursement->disbursement_number,
+                    'payment_number' => $payment->payment_number,
+                    'amount' => $amount,
+                ],
+                userId: $user?->id,
+            );
 
-        DB::afterCommit(function () use ($transaction, $disbursement, $payment) {
-            OperationsNotificationService::notifyFinancialReimbursementPaid($transaction, $disbursement, $payment);
-        });
+            $actorId = $user?->id ?? auth()->id();
+            DB::afterCommit(function () use ($transaction, $disbursement, $payment, $actorId) {
+                OperationsNotificationService::notifyFinancialReimbursementPaid($transaction, $disbursement, $payment, $actorId);
+            });
+        }
 
         return $payment->refresh();
     }
@@ -404,7 +415,9 @@ class FinancialDisbursementService
             ]);
         }
 
-        DB::transaction(function () use ($payment, $reason, $user) {
+        $reversed = false;
+
+        DB::transaction(function () use ($payment, $reason, $user, &$reversed) {
             $locked = FinancialDisbursementPayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
 
             if ($locked->isReversed()) {
@@ -440,24 +453,40 @@ class FinancialDisbursementService
                     : FinancialDisbursementStatus::APPROVED);
 
             $claim->update(['status' => $status->value]);
+            $reversed = true;
         });
 
-        ServiceFinancialWorkflowService::sync($transaction);
-        OperationsReconciliationService::reconcile($transaction);
+        $refreshedPayment = $payment->refresh();
 
-        OperationsAuditService::record(
-            companyId: (int) $transaction->company_id,
-            transactionId: $transaction->id,
-            actionType: 'financial_reimbursement_reversed',
-            payload: [
-                'payment_number' => $payment->payment_number,
-                'amount' => (float) $payment->amount,
-                'reason' => $reason,
-            ],
-            userId: $user?->id,
-        );
+        if ($reversed) {
+            ServiceFinancialWorkflowService::sync($transaction);
+            OperationsReconciliationService::reconcile($transaction);
 
-        return $payment->refresh();
+            OperationsAuditService::record(
+                companyId: (int) $transaction->company_id,
+                transactionId: $transaction->id,
+                actionType: 'financial_reimbursement_reversed',
+                payload: [
+                    'payment_number' => $payment->payment_number,
+                    'amount' => (float) $payment->amount,
+                    'reason' => $reason,
+                ],
+                userId: $user?->id,
+            );
+
+            $actorId = $user?->id ?? auth()->id();
+            DB::afterCommit(function () use ($transaction, $disbursement, $refreshedPayment, $reason, $actorId): void {
+                OperationsNotificationService::notifyFinancialReimbursementReversed(
+                    $transaction,
+                    $disbursement,
+                    $refreshedPayment,
+                    $reason,
+                    $actorId,
+                );
+            });
+        }
+
+        return $refreshedPayment;
     }
 
     public static function reverseDirect(FinancialDisbursement $disbursement, string $reason, ?User $user = null): FinancialDisbursement
@@ -472,7 +501,9 @@ class FinancialDisbursementService
             ]);
         }
 
-        DB::transaction(function () use ($disbursement, $reason, $user) {
+        $reversed = false;
+
+        DB::transaction(function () use ($disbursement, $reason, $user, &$reversed) {
             $locked = FinancialDisbursement::whereKey($disbursement->id)->lockForUpdate()->firstOrFail();
 
             if ($locked->isReversed()) {
@@ -503,12 +534,27 @@ class FinancialDisbursementService
             $meta['reversal_reason'] = $reason;
 
             $locked->update(['metadata' => $meta]);
+            $reversed = true;
         });
 
-        ServiceFinancialWorkflowService::sync($transaction);
-        OperationsReconciliationService::reconcile($transaction);
+        $refreshedDisbursement = $disbursement->refresh();
 
-        return $disbursement->refresh();
+        if ($reversed) {
+            ServiceFinancialWorkflowService::sync($transaction);
+            OperationsReconciliationService::reconcile($transaction);
+
+            $actorId = $user?->id ?? auth()->id();
+            DB::afterCommit(function () use ($transaction, $refreshedDisbursement, $reason, $actorId): void {
+                OperationsNotificationService::notifyFinancialDirectDisbursementReversed(
+                    $transaction,
+                    $refreshedDisbursement,
+                    $reason,
+                    $actorId,
+                );
+            });
+        }
+
+        return $refreshedDisbursement;
     }
 
     /**

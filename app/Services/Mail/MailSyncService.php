@@ -107,6 +107,11 @@ class MailSyncService
         }
 
         try {
+            $wasInError = in_array($account->fresh()?->status, [
+                MailAccountStatus::CONNECTION_ERROR,
+                MailAccountStatus::REAUTH_REQUIRED,
+            ], true);
+
             $maxRetries = 3;
             $attempt = 0;
             $lastException = null;
@@ -153,7 +158,9 @@ class MailSyncService
                     'completed_at' => now(),
                 ]);
 
-                $this->notifySyncErrorIfAvailable($account, $errorMessage);
+                if (! $wasInError) {
+                    $this->notifySyncErrorIfAvailable($account, $errorMessage);
+                }
             }
 
             return ['imported' => 0, 'rejected' => 0, 'found' => 0];

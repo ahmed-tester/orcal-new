@@ -4,6 +4,7 @@ namespace App\Filament\Resources\PayrollRecords\Schemas;
 
 use App\Enums\PaymentStatus;
 use App\Filament\Components\OrgSelect;
+use App\Models\PayrollRecord;
 use App\Services\PayrollCalculationService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -50,7 +51,8 @@ class PayrollRecordForm
                                     $set('rewards_amount', 0);
                                     $set('advance_deduction', 0);
                                     $set('absence_deduction', 0);
-                                    static::recalculateCollection($set, $get);
+                                    $set('net_amount', 0);
+                                    static::recalculateCollection($set, $get, 0);
                                 } else {
                                     static::syncFinancials($set, $get, (int) $get('employee_id'), $get('payroll_month'));
                                 }
@@ -161,35 +163,36 @@ class PayrollRecordForm
                     ->columns(3)
                     ->schema([
                         TextInput::make('net_amount')
-                            ->label(__('finance.payroll_records.fields.net_amount'))
-                            ->numeric()->prefix('SAR')->disabled()->dehydrated()->default(0)
+                            ->label(fn (callable $get) => $get('operation_type') === 'collection'
+                                ? __('finance.payroll_records.fields.collection_amount')
+                                : __('finance.payroll_records.fields.net_amount'))
+                            ->numeric()
+                            ->prefix('SAR')
+                            ->default(0)
+                            ->required(fn (callable $get) => $get('operation_type') === 'collection')
+                            ->disabled(fn (callable $get, ?PayrollRecord $record) => $get('operation_type') !== 'collection'
+                                || ($record !== null && $record->hasFinancialImpact()))
+                            ->dehydrated()
                             ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
-                            ->extraAttributes(['class' => 'font-extrabold text-xl text-primary-600'])
-                            ->hidden(fn (callable $get) => $get('operation_type') === 'collection'),
-
-                        TextInput::make('net_amount')
-                            ->label(__('finance.payroll_records.fields.collection_amount'))
-                            ->numeric()->prefix('SAR')->default(0)->required()
-                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
-                            ->extraAttributes(['class' => 'font-extrabold text-xl text-purple-600'])
-                            ->visible(fn (callable $get) => $get('operation_type') === 'collection')
-                            ->reactive()
-                            ->afterStateUpdated(fn ($state, callable $set, callable $get) => static::recalculateCollection($set, $get, (float) $state)),
+                            ->extraAttributes(fn (callable $get) => [
+                                'class' => $get('operation_type') === 'collection'
+                                    ? 'font-extrabold text-xl text-purple-600'
+                                    : 'font-extrabold text-xl text-primary-600',
+                            ])
+                            ->live(debounce: 350)
+                            ->afterStateUpdated(function ($state, callable $set, callable $get): void {
+                                if ($get('operation_type') === 'collection') {
+                                    static::recalculateCollection($set, $get, (float) $state);
+                                }
+                            }),
 
                         TextInput::make('paid_amount')
                             ->label(fn (callable $get) => $get('operation_type') === 'collection'
                                 ? __('finance.payroll_records.fields.collected_amount')
                                 : __('finance.payroll_records.fields.paid_amount'))
                             ->numeric()->prefix('SAR')->default(0)
-                            ->dehydrateStateUsing(fn ($state) => (float) ($state ?? 0))
-                            ->reactive()
-                            ->afterStateUpdated(function ($state, callable $set, callable $get) {
-                                if ($get('operation_type') === 'collection') {
-                                    static::recalculateCollection($set, $get);
-                                } else {
-                                    static::recalculate($set, $get);
-                                }
-                            }),
+                            ->disabled()
+                            ->dehydrated(false),
 
                         TextInput::make('remaining_amount')
                             ->label(fn (callable $get) => $get('operation_type') === 'collection'

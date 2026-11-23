@@ -12,4 +12,6 @@ return [
     'created_at' => 'Creation Date',
     'edit' => 'Edit',
     'delete' => 'Delete',
+    'services_and_transactions_group' => 'Services & Service Transactions',
+    'services_financial_workflow_group' => 'Services Financial Workflow & Operational Control',
 ];

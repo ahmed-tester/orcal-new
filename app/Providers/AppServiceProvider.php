@@ -53,6 +53,7 @@ use App\Models\TemporaryEmployee;
 use App\Models\TreasuryTransaction;
 use App\Models\User;
 use App\Models\WeeklyNote;
+use App\Notifications\BaseSystemNotification;
 use App\Policies\AttendanceDevicePolicy;
 use App\Policies\AttendancePolicy;
 use App\Policies\BranchPolicy;
@@ -101,11 +102,14 @@ use App\Policies\TreasuryTransactionPolicy;
 use App\Policies\UserPolicy;
 use App\Policies\WeeklyNotePolicy;
 use App\Services\HijriDateService;
+use App\Services\Notifications\OperationsNotificationDiagnostics;
 use App\Services\Notifications\SmsService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Navigation\NavigationManager;
 use Filament\Tables\Filters\SelectFilter;
+use Illuminate\Notifications\Events\NotificationSent;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Opcodes\LogViewer\Facades\LogViewer;
@@ -145,6 +149,16 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Event::listen(
+            NotificationSent::class,
+            function (NotificationSent $event): void {
+                if ($event->notification instanceof BaseSystemNotification && $event->channel === 'database') {
+                    OperationsNotificationDiagnostics::notification('database_saved', $event->notification, [
+                        'recipient_id' => $event->notifiable->getKey(),
+                    ]);
+                }
+            },
+        );
 
         // if (request()->is('*upload-file*')) {
         //     $file = request()->file('files.0') ?? request()->file('uploaded_file');

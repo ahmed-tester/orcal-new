@@ -110,9 +110,6 @@ class CreatePayrollRecordTool implements GeminiToolInterface
                 $existing->rewards_amount = $rewards;
                 $existing->advance_deduction = $advance;
                 $existing->absence_deduction = $absence;
-                if ($paid > 0) {
-                    $existing->paid_amount = $paid;
-                }
                 if (! empty($notes)) {
                     $existing->notes = $notes;
                 }
@@ -141,9 +138,11 @@ class CreatePayrollRecordTool implements GeminiToolInterface
                 'rewards_amount' => $rewards,
                 'advance_deduction' => $advance,
                 'absence_deduction' => $absence,
-                'paid_amount' => $paid,
+                'paid_amount' => 0,
                 'notes' => $notes ?: 'استيراد ذكي — مسير رواتب',
             ]);
+
+            \App\Services\PayrollRecordFinancialService::activate($record, auth()->user());
 
             return [
                 'success' => true,

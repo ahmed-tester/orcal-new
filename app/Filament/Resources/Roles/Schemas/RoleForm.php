@@ -188,18 +188,6 @@ class RoleForm
                     'delete_debt_collection' => __('permissions.delete_debt_collection'),
                     'approve_debt_collection' => __('permissions.approve_debt_collection'),
 
-                    'view_any_service_transaction' => __('permissions.view_any_service_transaction'),
-                    'create_service_transaction' => __('permissions.create_service_transaction'),
-                    'update_service_transaction' => __('permissions.update_service_transaction'),
-                    'delete_service_transaction' => __('permissions.delete_service_transaction'),
-                    'approve_service_transaction' => __('permissions.approve_service_transaction'),
-                    ...OperationsPermissionService::getPermissions(),
-
-                    'view_any_service' => __('permissions.view_any_service'),
-                    'create_service' => __('permissions.create_service'),
-                    'update_service' => __('permissions.update_service'),
-                    'delete_service' => __('permissions.delete_service'),
-
                     'view_any_asset_fund' => __('permissions.view_any_asset_fund'),
                     'create_asset_fund' => __('permissions.create_asset_fund'),
                     'update_asset_fund' => __('permissions.update_asset_fund'),
@@ -212,6 +200,29 @@ class RoleForm
 
                     'view_asset_fund_statement' => __('permissions.view_asset_fund_statement'),
                 ],
+            ],
+
+            // 5b. Services & Service Transactions
+            'permissions_services_tracking' => [
+                'label' => __('roles.services_and_transactions_group'),
+                'permissions' => [
+                    'view_any_service_transaction' => __('permissions.view_any_service_transaction'),
+                    'create_service_transaction' => __('permissions.create_service_transaction'),
+                    'update_service_transaction' => __('permissions.update_service_transaction'),
+                    'delete_service_transaction' => __('permissions.delete_service_transaction'),
+                    'approve_service_transaction' => __('permissions.approve_service_transaction'),
+
+                    'view_any_service' => __('permissions.view_any_service'),
+                    'create_service' => __('permissions.create_service'),
+                    'update_service' => __('permissions.update_service'),
+                    'delete_service' => __('permissions.delete_service'),
+                ],
+            ],
+
+            // 5c. Services Financial Workflow & Operational Control
+            'permissions_services_financial_workflow' => [
+                'label' => __('roles.services_financial_workflow_group'),
+                'permissions' => OperationsPermissionService::getPermissions(),
             ],
 
             // 6. Task Management
@@ -400,7 +411,7 @@ class RoleForm
                         ->options($group['permissions'])
                         ->bulkToggleable()
                         ->dehydrated(false)
-                        ->columns(['default' => 2, 'sm' => 2, 'lg' => 4]),
+                        ->columns(['default' => 1, 'sm' => 2, 'lg' => 3]),
                 ]);
         }
 

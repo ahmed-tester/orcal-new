@@ -35,11 +35,6 @@ return [
         ],
     ],
 
-    'microsoft_mail' => [
-        'client_id' => env('MICROSOFT_MAIL_CLIENT_ID'),
-        'client_secret' => env('MICROSOFT_MAIL_CLIENT_SECRET'),
-        'redirect_uri' => env('MICROSOFT_MAIL_REDIRECT_URI'),
-        'tenant' => env('MICROSOFT_MAIL_TENANT', 'common'),
-    ],
+   
 
 ];

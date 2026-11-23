@@ -12,4 +12,6 @@ return [
     'created_at' => 'تاريخ الإنشاء',
     'edit' => 'تعديل',
     'delete' => 'حذف',
+    'services_and_transactions_group' => 'الخدمات ومعاملات الخدمات',
+    'services_financial_workflow_group' => 'الدورة المالية للخدمات والرقابة التشغيلية',
 ];
