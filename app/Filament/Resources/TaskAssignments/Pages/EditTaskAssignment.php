@@ -7,9 +7,12 @@ use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Repeater;
 use Filament\Resources\Pages\EditRecord;
 use Livewire\Attributes\Locked;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class EditTaskAssignment extends EditRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = TaskAssignmentResource::class;
 
     #[Locked]

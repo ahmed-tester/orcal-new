@@ -14,9 +14,12 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class CreateMailAccount extends CreateRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = MailAccountResource::class;
 
     public function create(bool $another = false): void

@@ -6,9 +6,12 @@ use App\Filament\Resources\JobTitles\JobTitleResource;
 use App\Services\JobTitleService;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class EditJobTitle extends EditRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = JobTitleResource::class;
 
     protected function getHeaderActions(): array

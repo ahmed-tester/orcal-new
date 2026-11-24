@@ -6,9 +6,12 @@ use App\Filament\Resources\SupervisionShifts\SupervisionShiftResource;
 use App\Models\Employee;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class EditSupervisionShift extends EditRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = SupervisionShiftResource::class;
 
     protected function getHeaderActions(): array

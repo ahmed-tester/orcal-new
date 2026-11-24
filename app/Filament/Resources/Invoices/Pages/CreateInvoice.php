@@ -11,9 +11,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Throwable;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class CreateInvoice extends CreateRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = InvoiceResource::class;
 
     protected ?bool $hasDatabaseTransactions = true;

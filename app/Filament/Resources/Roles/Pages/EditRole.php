@@ -7,9 +7,12 @@ use App\Filament\Resources\Roles\Schemas\RoleForm;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Spatie\Permission\Models\Permission;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class EditRole extends EditRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = RoleResource::class;
 
     protected function getHeaderActions(): array

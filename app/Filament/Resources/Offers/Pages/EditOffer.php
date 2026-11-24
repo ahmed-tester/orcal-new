@@ -6,9 +6,12 @@ use App\Filament\Resources\Offers\OfferResource;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class EditOffer extends EditRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = OfferResource::class;
 
     protected function getHeaderActions(): array

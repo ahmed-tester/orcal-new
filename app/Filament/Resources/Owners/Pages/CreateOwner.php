@@ -6,9 +6,12 @@ use App\Filament\Resources\Owners\OwnerResource;
 use App\Services\OwnerFormService;
 use App\Services\PersonCapacityService;
 use Filament\Resources\Pages\CreateRecord;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class CreateOwner extends CreateRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = OwnerResource::class;
 
     protected function mutateFormDataBeforeCreate(array $data): array

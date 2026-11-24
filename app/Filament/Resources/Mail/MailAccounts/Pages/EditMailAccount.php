@@ -12,9 +12,12 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class EditMailAccount extends EditRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = MailAccountResource::class;
 
     protected function handleRecordUpdate(Model $record, array $data): Model

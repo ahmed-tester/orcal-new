@@ -11,9 +11,12 @@ use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Contracts\Support\Htmlable;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class EditDepartment extends EditRecord
 {
+    use RedirectsToIndex;
+
     use HandlesDepartmentScope;
 
     protected static string $resource = DepartmentResource::class;

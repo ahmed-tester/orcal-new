@@ -5,9 +5,12 @@ namespace App\Filament\Resources\JobTitles\Pages;
 use App\Filament\Resources\JobTitles\JobTitleResource;
 use App\Services\JobTitleService;
 use Filament\Resources\Pages\CreateRecord;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class CreateJobTitle extends CreateRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = JobTitleResource::class;
 
     protected function mutateFormDataBeforeCreate(array $data): array

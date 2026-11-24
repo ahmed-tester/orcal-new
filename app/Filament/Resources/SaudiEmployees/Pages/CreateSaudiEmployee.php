@@ -15,9 +15,12 @@ use App\Services\PhoneService;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class CreateSaudiEmployee extends CreateRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = SaudiEmployeeResource::class;
 
     protected function mutateFormDataBeforeCreate(array $data): array

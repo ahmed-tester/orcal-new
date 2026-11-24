@@ -5,9 +5,12 @@ namespace App\Filament\Resources\WeeklyNotes\Pages;
 use App\Filament\Resources\WeeklyNotes\WeeklyNoteResource;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class CreateWeeklyNote extends CreateRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = WeeklyNoteResource::class;
 
     protected function mutateFormDataBeforeCreate(array $data): array

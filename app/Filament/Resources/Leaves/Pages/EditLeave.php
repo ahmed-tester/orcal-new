@@ -6,9 +6,12 @@ use App\Filament\Resources\Leaves\LeaveResource;
 use App\Models\LeaveType;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class EditLeave extends EditRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = LeaveResource::class;
 
     protected function getHeaderActions(): array

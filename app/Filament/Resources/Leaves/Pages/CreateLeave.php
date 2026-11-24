@@ -4,9 +4,12 @@ namespace App\Filament\Resources\Leaves\Pages;
 
 use App\Filament\Resources\Leaves\LeaveResource;
 use Filament\Resources\Pages\CreateRecord;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class CreateLeave extends CreateRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = LeaveResource::class;
 
     public function mount(): void

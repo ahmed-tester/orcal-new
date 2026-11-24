@@ -6,9 +6,12 @@ use App\Filament\Resources\ContractVouchers\ContractVoucherResource;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class EditContractVoucher extends EditRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = ContractVoucherResource::class;
 
     protected function getHeaderActions(): array

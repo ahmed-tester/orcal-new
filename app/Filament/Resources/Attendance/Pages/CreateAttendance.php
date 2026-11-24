@@ -4,9 +4,12 @@ namespace App\Filament\Resources\Attendance\Pages;
 
 use App\Filament\Resources\Attendance\AttendanceResource;
 use Filament\Resources\Pages\CreateRecord;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class CreateAttendance extends CreateRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = AttendanceResource::class;
 
     public function mount(): void

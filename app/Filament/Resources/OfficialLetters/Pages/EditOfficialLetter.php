@@ -6,9 +6,12 @@ use App\Filament\Resources\OfficialLetters\OfficialLetterResource;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class EditOfficialLetter extends EditRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = OfficialLetterResource::class;
 
     protected function getHeaderActions(): array
@@ -22,7 +25,7 @@ class EditOfficialLetter extends EditRecord
                 ->openUrlInNewTab(),
 
             Action::make('download_pdf')
-                ->label(__('offers.actions.download_pdf') ?: 'تحميل PDF')
+                ->label(__('offers.actions.download_pdf') ?: 'طھط­ظ…ظٹظ„ PDF')
                 ->icon('heroicon-m-arrow-down-tray')
                 ->color('primary')
                 ->url(fn () => route('official_letters.pdf', $this->record))

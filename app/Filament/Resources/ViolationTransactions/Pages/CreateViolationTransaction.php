@@ -9,9 +9,12 @@ use App\Services\ViolationTransactionFormService;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class CreateViolationTransaction extends CreateRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = ViolationTransactionResource::class;
 
     public function mount(): void

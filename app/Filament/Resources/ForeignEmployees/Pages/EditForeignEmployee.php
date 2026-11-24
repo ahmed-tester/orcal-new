@@ -13,9 +13,12 @@ use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class EditForeignEmployee extends EditRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = ForeignEmployeeResource::class;
 
     protected function getHeaderActions(): array

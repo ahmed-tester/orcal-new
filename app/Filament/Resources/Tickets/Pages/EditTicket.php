@@ -7,9 +7,12 @@ use App\Services\TicketNotificationService;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class EditTicket extends EditRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = TicketResource::class;
 
     protected function getHeaderActions(): array

@@ -7,9 +7,12 @@ use App\Services\ViolationTransactionFormService;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class EditViolationTransaction extends EditRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = ViolationTransactionResource::class;
 
     protected function getHeaderActions(): array

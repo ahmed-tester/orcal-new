@@ -5,9 +5,12 @@ namespace App\Filament\Resources\SupervisionShifts\Pages;
 use App\Filament\Resources\SupervisionShifts\SupervisionShiftResource;
 use App\Models\Employee;
 use Filament\Resources\Pages\CreateRecord;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class CreateSupervisionShift extends CreateRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = SupervisionShiftResource::class;
 
     protected function mutateFormDataBeforeCreate(array $data): array

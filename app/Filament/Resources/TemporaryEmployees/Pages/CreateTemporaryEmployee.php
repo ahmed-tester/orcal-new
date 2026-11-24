@@ -16,9 +16,12 @@ use App\Services\PhoneService;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class CreateTemporaryEmployee extends CreateRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = TemporaryEmployeeResource::class;
 
     protected function mutateFormDataBeforeCreate(array $data): array
@@ -71,7 +74,7 @@ class CreateTemporaryEmployee extends CreateRecord
             $emp = Employee::with('user')->find($selectedSaudiEmployeeId);
             if (! $emp || ! $emp->user) {
                 throw ValidationException::withMessages([
-                    'selected_saudi_employee_id' => 'بيانات الموظف السعودي المحدد غير متوفرة أو حسابه غير موجود.',
+                    'selected_saudi_employee_id' => 'ط¨ظٹط§ظ†ط§طھ ط§ظ„ظ…ظˆط¸ظپ ط§ظ„ط³ط¹ظˆط¯ظٹ ط§ظ„ظ…ط­ط¯ط¯ ط؛ظٹط± ظ…طھظˆظپط±ط© ط£ظˆ ط­ط³ط§ط¨ظ‡ ط؛ظٹط± ظ…ظˆط¬ظˆط¯.',
                 ]);
             }
             EmployeeIdentityService::ensureAvailable('national_id', $nationalId, sharedUserId: $emp->user->id);

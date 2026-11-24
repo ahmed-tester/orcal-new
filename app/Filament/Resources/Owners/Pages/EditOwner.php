@@ -12,9 +12,12 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use App\Filament\Concerns\RedirectsToIndex;
 
 class EditOwner extends EditRecord
 {
+    use RedirectsToIndex;
+
     protected static string $resource = OwnerResource::class;
 
     protected string $view = 'filament.resources.owners.pages.edit-owner';
