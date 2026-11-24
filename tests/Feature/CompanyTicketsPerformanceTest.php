@@ -114,13 +114,13 @@ class CompanyTicketsPerformanceTest extends TestCase
         $this->assertSame(1, $stats['totals']['urgent_high']);
         $this->assertCount(2, $stats['categories']);
 
-        $openKashf = CompanyTicketsPerformanceService::getKashfQuery([
+        $openStatement = CompanyTicketsPerformanceService::getStatementQuery([
             'date_from' => '2026-11-01',
             'date_to' => '2026-11-30',
         ], 'open')->get();
 
-        $this->assertCount(1, $openKashf);
-        $this->assertSame($companyA->id, $openKashf->first()->company_id);
+        $this->assertCount(1, $openStatement);
+        $this->assertSame($companyA->id, $openStatement->first()->company_id);
     }
 
     public function test_performance_page_switches_to_tickets_tab_and_opens_kashf(): void
@@ -148,12 +148,12 @@ class CompanyTicketsPerformanceTest extends TestCase
         $this->assertSame(1, $overview['totals']['in_progress']);
         $this->assertSame(1, $overview['totals']['urgent_high']);
 
-        $page->openKashf('tickets', 'in_progress');
-        $this->assertTrue($page->showKashfModal);
-        $this->assertSame('tickets', $page->kashfDomain);
-        $this->assertSame('in_progress', $page->kashfType);
+        $page->openStatement('tickets', 'in_progress');
+        $this->assertTrue($page->showStatementModal);
+        $this->assertSame('tickets', $page->statementDomain);
+        $this->assertSame('in_progress', $page->statementType);
 
-        $records = $page->kashfRecords();
+        $records = $page->statementRecords();
         $this->assertNotNull($records);
         $this->assertSame(1, $records->total());
     }

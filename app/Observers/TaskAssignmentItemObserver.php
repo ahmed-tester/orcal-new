@@ -3,8 +3,11 @@
 namespace App\Observers;
 
 use App\Enums\TaskStatus;
+use App\Models\Employee;
 use App\Models\TaskAssignmentItem;
+use App\Services\EmployeePerformanceAccessService;
 use App\Services\TaskAssignmentTransferService;
+use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
 
 class TaskAssignmentItemObserver
@@ -154,7 +157,7 @@ class TaskAssignmentItemObserver
             || $originalStatus === TaskStatus::POSTPONED->value;
         $originalMeta = $item->getOriginal('metadata');
         $originalPostponedDate = is_array($originalMeta) ? ($originalMeta['postponed_to_date'] ?? null) : null;
-        $targetDateString = \Carbon\Carbon::parse((string) $postponedToDate)->toDateString();
+        $targetDateString = Carbon::parse((string) $postponedToDate)->toDateString();
         $currentDueDateString = $item->due_date?->toDateString();
 
         if ($wasPostponed && (string) $originalPostponedDate === (string) $postponedToDate && $currentDueDateString === $targetDateString) {
@@ -189,6 +192,13 @@ class TaskAssignmentItemObserver
         if ($sourceEmployeeId > 0 && $targetEmployeeId === $sourceEmployeeId) {
             throw ValidationException::withMessages([
                 'metadata.transferred_to_employee_id' => __('tasks.review.errors.transfer_same_employee'),
+            ]);
+        }
+
+        $targetEmployee = Employee::with('user')->find($targetEmployeeId);
+        if (! EmployeePerformanceAccessService::isEligibleSaudiTaskEmployee($targetEmployee)) {
+            throw ValidationException::withMessages([
+                'metadata.transferred_to_employee_id' => __('tasks.validation.saudi_only'),
             ]);
         }
     }

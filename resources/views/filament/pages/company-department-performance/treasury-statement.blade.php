@@ -3,12 +3,12 @@
         <table class="perf-table">
             <thead>
                 <tr>
-                    <th>{{ __('performance.kashf.company') }}</th>
-                    <th>{{ __('performance.financial.kashf_last_transaction_number') }}</th>
-                    <th>{{ __('performance.financial.kashf_voucher_number') }}</th>
-                    <th>{{ __('performance.financial.kashf_last_date') }}</th>
-                    <th>{{ __('performance.financial.kashf_executor') }}</th>
-                    <th style="text-align: end;">{{ __('performance.financial.kashf_current_balance_column') }}</th>
+                    <th>{{ __('performance.statement.company') }}</th>
+                    <th>{{ __('performance.financial.statement_last_transaction_number') }}</th>
+                    <th>{{ __('performance.financial.statement_voucher_number') }}</th>
+                    <th>{{ __('performance.financial.statement_last_date') }}</th>
+                    <th>{{ __('performance.financial.statement_executor') }}</th>
+                    <th style="text-align: end;">{{ __('performance.financial.statement_current_balance_column') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -30,7 +30,7 @@
                                 <div class="perf-empty-icon">
                                     <x-heroicon-o-document-magnifying-glass style="width: 28px; height: 28px;" />
                                 </div>
-                                <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
+                                <div class="perf-empty-title">{{ __('performance.statement.empty') }}</div>
                             </div>
                         </td>
                     </tr>
@@ -43,15 +43,15 @@
         <table class="perf-table">
             <thead>
                 <tr>
-                    <th>{{ __('performance.financial.kashf_transaction_number') }}</th>
-                    <th>{{ __('performance.financial.kashf_voucher_number') }}</th>
-                    <th>{{ __('performance.kashf.company') }}</th>
-                    <th>{{ __('performance.financial.kashf_date') }}</th>
-                    <th>{{ __('performance.financial.kashf_beneficiary') }}</th>
-                    <th>{{ __('performance.financial.kashf_description') }}</th>
-                    <th style="text-align: center;">{{ __('performance.financial.kashf_type') }}</th>
-                    <th style="text-align: end;">{{ __('performance.financial.kashf_amount') }}</th>
-                    <th style="text-align: end;">{{ __('performance.financial.kashf_balance_after') }}</th>
+                    <th>{{ __('performance.financial.statement_transaction_number') }}</th>
+                    <th>{{ __('performance.financial.statement_voucher_number') }}</th>
+                    <th>{{ __('performance.statement.company') }}</th>
+                    <th>{{ __('performance.financial.statement_date') }}</th>
+                    <th>{{ __('performance.financial.statement_beneficiary') }}</th>
+                    <th>{{ __('performance.financial.statement_description') }}</th>
+                    <th style="text-align: center;">{{ __('performance.financial.statement_type') }}</th>
+                    <th style="text-align: end;">{{ __('performance.financial.statement_amount') }}</th>
+                    <th style="text-align: end;">{{ __('performance.financial.statement_balance_after') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -89,7 +89,7 @@
                                 <div class="perf-empty-icon">
                                     <x-heroicon-o-document-magnifying-glass style="width: 28px; height: 28px;" />
                                 </div>
-                                <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
+                                <div class="perf-empty-title">{{ __('performance.statement.empty') }}</div>
                             </div>
                         </td>
                     </tr>

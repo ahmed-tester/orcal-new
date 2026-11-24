@@ -100,6 +100,13 @@ class LeaveSummaryService
         self::applyAccessScope($query);
         self::applyFilters($query, $filters);
 
+        match ($filters['quick_filter'] ?? null) {
+            'on_leave_today' => $query->whereNotNull('alv.active_leave_id'),
+            'pending_requests' => $query->whereRaw('COALESCE(lv.pending_leaves_count, 0) > 0'),
+            'total_used_days' => $query->whereRaw('COALESCE(lv.total_approved_days, 0) > 0'),
+            default => null,
+        };
+
         return $query;
     }
 
@@ -232,7 +239,7 @@ class LeaveSummaryService
      */
     public static function getStats(array $filters = []): array
     {
-        $rows = self::summaryQuery($filters)->get();
+        $rows = self::summaryQuery(array_merge($filters, ['quick_filter' => null]))->get();
 
         $totalAvailableAnnualDays = 0;
         foreach ($rows as $employee) {

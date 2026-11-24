@@ -25,7 +25,7 @@
             :rate-label="__('performance.violations.registered_share')"
             :hint="number_format($vio['stages']['objection']['amount'], 2) . ' ' . $currency"
             accent="#ea580c"
-            action="openKashf('violations', 'objection')"
+            action="openStatement('violations', 'objection')"
         />
         <x-performance.metric-card
             :title="__('performance.violations.execution')"
@@ -34,7 +34,7 @@
             :rate-label="__('performance.violations.registered_share')"
             :hint="number_format($vio['stages']['execution']['amount'], 2) . ' ' . $currency"
             accent="#e11d48"
-            action="openKashf('violations', 'execution')"
+            action="openStatement('violations', 'execution')"
         />
         <x-performance.metric-card
             :title="__('performance.violations.grace')"
@@ -43,7 +43,7 @@
             :rate-label="__('performance.violations.registered_share')"
             :hint="number_format($vio['stages']['grace']['amount'], 2) . ' ' . $currency"
             accent="#0284c7"
-            action="openKashf('violations', 'grace')"
+            action="openStatement('violations', 'grace')"
         />
         <x-performance.metric-card
             :title="__('performance.violations.paid')"
@@ -52,7 +52,7 @@
             :rate-label="__('performance.violations.registered_share')"
             :hint="__('performance.columns.view_statement')"
             accent="#059669"
-            action="openKashf('violations', 'paid')"
+            action="openStatement('violations', 'paid')"
         />
     </div>
 
@@ -62,7 +62,7 @@
             :value="number_format($totals['count'])"
             :hint="__('performance.columns.view_statement')"
             accent="#5b5bf0"
-            action="openKashf('violations', 'all')"
+            action="openStatement('violations', 'all')"
         >
             <div class="perf-violation-total-amount">
                 <span>{{ __('performance.violations.total_amount') }}</span>
@@ -77,7 +77,7 @@
             :rate-label="__('performance.violations.amount_share')"
             :hint="__('performance.violations.payment_count', ['count' => number_format($totals['payment_count'])])"
             accent="#059669"
-            action="openKashf('violations', 'payments')"
+            action="openStatement('violations', 'payments')"
         />
         <x-performance.metric-card
             :title="__('performance.violations.total_remaining')"
@@ -87,7 +87,7 @@
             :rate-label="__('performance.violations.amount_share')"
             :hint="__('performance.columns.view_statement')"
             accent="#e11d48"
-            action="openKashf('violations', 'unpaid')"
+            action="openStatement('violations', 'unpaid')"
         />
     </div>
 </section>
@@ -126,7 +126,7 @@
         </div>
     @else
         <div class="perf-empty-state-card" style="padding: 1.5rem; text-align: center;">
-            <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
+            <div class="perf-empty-title">{{ __('performance.statement.empty') }}</div>
         </div>
     @endif
 </section>

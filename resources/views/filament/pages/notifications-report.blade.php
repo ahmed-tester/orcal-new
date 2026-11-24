@@ -22,6 +22,10 @@
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
+            width: 100%;
+            text-align: start;
+            font: inherit;
+            cursor: pointer;
         }
         .dark .fi-stat-card {
             background-color: #111827;
@@ -34,6 +38,16 @@
         }
         .dark .fi-stat-card:hover {
             border-color: rgba(255, 255, 255, 0.18);
+        }
+        .fi-stat-card.is-active {
+            border-width: 2px;
+            border-color: var(--stat-accent, #2563eb);
+            background-color: var(--stat-bg, #eff6ff);
+            box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.08);
+        }
+        .dark .fi-stat-card.is-active {
+            border-color: var(--stat-accent, #60a5fa);
+            background-color: rgba(255, 255, 255, 0.06);
         }
         .fi-stat-icon {
             width: 38px;
@@ -720,7 +734,13 @@
         <!-- 1. Stats KPI Row -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem;">
             <!-- Overdue -->
-            <div class="fi-stat-card">
+            <button
+                type="button"
+                wire:click="applyQuickFilter('overdue')"
+                aria-pressed="{{ $this->isQuickFilterActive('overdue') ? 'true' : 'false' }}"
+                style="--stat-accent: #dc2626; --stat-bg: #fef2f2;"
+                class="fi-stat-card {{ $this->isQuickFilterActive('overdue') ? 'is-active' : '' }}"
+            >
                 <div>
                     <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;" class="dark:text-gray-400">{{ __('notifications.ui.overdue') }}</div>
                     <div style="font-size: 1.45rem; font-weight: 800; color: #dc2626; margin-top: 0.15rem; font-variant-numeric: tabular-nums;">
@@ -730,10 +750,16 @@
                 <div class="fi-stat-icon" style="background-color: #fef2f2; color: #dc2626;" class="dark:bg-red-900/20">
                     🚨
                 </div>
-            </div>
+            </button>
 
             <!-- Urgent -->
-            <div class="fi-stat-card">
+            <button
+                type="button"
+                wire:click="applyQuickFilter('urgent')"
+                aria-pressed="{{ $this->isQuickFilterActive('urgent') ? 'true' : 'false' }}"
+                style="--stat-accent: #d97706; --stat-bg: #fffbeb;"
+                class="fi-stat-card {{ $this->isQuickFilterActive('urgent') ? 'is-active' : '' }}"
+            >
                 <div>
                     <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;" class="dark:text-gray-400">{{ __('notifications.ui.urgent') }}</div>
                     <div style="font-size: 1.45rem; font-weight: 800; color: #d97706; margin-top: 0.15rem; font-variant-numeric: tabular-nums;">
@@ -743,10 +769,16 @@
                 <div class="fi-stat-icon" style="background-color: #fffbeb; color: #d97706;" class="dark:bg-amber-900/20">
                     ⚠️
                 </div>
-            </div>
+            </button>
 
             <!-- Documents -->
-            <div class="fi-stat-card">
+            <button
+                type="button"
+                wire:click="applyQuickFilter('documents')"
+                aria-pressed="{{ $this->isQuickFilterActive('documents') ? 'true' : 'false' }}"
+                style="--stat-accent: #2563eb; --stat-bg: #eff6ff;"
+                class="fi-stat-card {{ $this->isQuickFilterActive('documents') ? 'is-active' : '' }}"
+            >
                 <div>
                     <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;" class="dark:text-gray-400">{{ __('notifications.ui.documents') }}</div>
                     <div style="font-size: 1.45rem; font-weight: 800; color: #2563eb; margin-top: 0.15rem; font-variant-numeric: tabular-nums;">
@@ -756,10 +788,16 @@
                 <div class="fi-stat-icon" style="background-color: #eff6ff; color: #2563eb;" class="dark:bg-blue-900/20">
                     📄
                 </div>
-            </div>
+            </button>
 
             <!-- Violations -->
-            <div class="fi-stat-card">
+            <button
+                type="button"
+                wire:click="applyQuickFilter('violations')"
+                aria-pressed="{{ $this->isQuickFilterActive('violations') ? 'true' : 'false' }}"
+                style="--stat-accent: #ea580c; --stat-bg: #fff7ed;"
+                class="fi-stat-card {{ $this->isQuickFilterActive('violations') ? 'is-active' : '' }}"
+            >
                 <div>
                     <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;" class="dark:text-gray-400">{{ __('notifications.ui.violations') }}</div>
                     <div style="font-size: 1.45rem; font-weight: 800; color: #ea580c; margin-top: 0.15rem; font-variant-numeric: tabular-nums;">
@@ -769,10 +807,16 @@
                 <div class="fi-stat-icon" style="background-color: #fff7ed; color: #ea580c;" class="dark:bg-orange-900/20">
                     ⚖️
                 </div>
-            </div>
+            </button>
 
             <!-- Tasks & Invoices -->
-            <div class="fi-stat-card">
+            <button
+                type="button"
+                wire:click="applyQuickFilter('tasks_invoices')"
+                aria-pressed="{{ $this->isQuickFilterActive('tasks_invoices') ? 'true' : 'false' }}"
+                style="--stat-accent: #059669; --stat-bg: #ecfdf5;"
+                class="fi-stat-card {{ $this->isQuickFilterActive('tasks_invoices') ? 'is-active' : '' }}"
+            >
                 <div>
                     <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;" class="dark:text-gray-400">{{ __('notifications.ui.tasks_invoices') }}</div>
                     <div style="font-size: 1.45rem; font-weight: 800; color: #059669; margin-top: 0.15rem; font-variant-numeric: tabular-nums;">
@@ -782,7 +826,7 @@
                 <div class="fi-stat-icon" style="background-color: #ecfdf5; color: #059669;" class="dark:bg-emerald-900/20">
                     📋
                 </div>
-            </div>
+            </button>
         </div>
 
         <!-- 2. Centralized Filter Bar -->

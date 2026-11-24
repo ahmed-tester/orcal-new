@@ -14,7 +14,7 @@
             'hint' => __('performance.cards.active_services_hint'),
             'icon' => 'heroicon-o-play-circle',
             'accent' => '#2563eb',
-            'action' => "openKashf('services', 'active', null, null)",
+            'action' => "openStatement('services', 'active', null, null)",
             'unit' => null,
         ],
         [
@@ -23,7 +23,7 @@
             'hint' => __('performance.cards.completed_services_hint'),
             'icon' => 'heroicon-o-check-circle',
             'accent' => '#059669',
-            'action' => "openKashf('services', 'completed', null, null)",
+            'action' => "openStatement('services', 'completed', null, null)",
             'unit' => null,
         ],
         [
@@ -32,7 +32,7 @@
             'hint' => __('performance.cards.overdue_services_hint'),
             'icon' => 'heroicon-o-exclamation-triangle',
             'accent' => '#e11d48',
-            'action' => "openKashf('services', 'overdue', null, null)",
+            'action' => "openStatement('services', 'overdue', null, null)",
             'unit' => null,
         ],
         [
@@ -41,7 +41,7 @@
             'hint' => __('performance.cards.open_deficiencies_hint'),
             'icon' => 'heroicon-o-exclamation-circle',
             'accent' => '#ea580c',
-            'action' => "openKashf('deficiencies', 'all', null, null)",
+            'action' => "openStatement('deficiencies', 'all', null, null)",
             'unit' => null,
         ],
         [
@@ -50,7 +50,7 @@
             'hint' => __('performance.columns.view_statement'),
             'icon' => 'heroicon-o-calendar-days',
             'accent' => '#7c3aed',
-            'action' => "openKashf('tasks', 'due')",
+            'action' => "openStatement('tasks', 'due')",
             'unit' => null,
         ],
         [
@@ -59,7 +59,7 @@
             'hint' => __('performance.columns.view_statement'),
             'icon' => 'heroicon-o-check-circle',
             'accent' => '#059669',
-            'action' => "openKashf('tasks', 'completed')",
+            'action' => "openStatement('tasks', 'completed')",
             'unit' => null,
         ],
     ];
@@ -93,8 +93,8 @@
         class="perf-card perf-operations-rate-card"
         :on-time="$stats->on_time_rate"
         :task-completion="$stats->task_completion_rate"
-        on-time-action="openKashf('services', 'on_time', null, null)"
-        task-completion-action="openKashf('tasks', 'all', null, null)"
+        on-time-action="openStatement('services', 'on_time', null, null)"
+        task-completion-action="openStatement('tasks', 'all', null, null)"
         :show-hints="true"
         :precision="1"
     />

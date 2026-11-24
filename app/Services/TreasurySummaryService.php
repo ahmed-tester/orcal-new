@@ -116,6 +116,17 @@ class TreasurySummaryService
         self::applyAccessScope($query);
         self::applyFilters($query, $filters);
 
+        $havingSql = match ($filters['quick_filter'] ?? null) {
+            'total_outgoing' => "COALESCE(SUM(CASE WHEN transaction_type = 'outgoing' THEN amount ELSE 0 END), 0) > 0",
+            'total_incoming' => "COALESCE(SUM(CASE WHEN transaction_type = 'incoming' THEN amount ELSE 0 END), 0) > 0",
+            'total_count' => 'COUNT(*) > 0',
+            default => null,
+        };
+
+        if ($havingSql !== null) {
+            $query->havingRaw($havingSql);
+        }
+
         return $query;
     }
 
@@ -250,7 +261,7 @@ class TreasurySummaryService
         ];
     }
 
-    public static function getPerformanceKashfQuery(array $filters, string $type, array $authorizedCompanyIds): Builder
+    public static function getPerformanceStatementQuery(array $filters, string $type, array $authorizedCompanyIds): Builder
     {
         $companyIds = self::performanceCompanyIds($filters, $authorizedCompanyIds);
         if ($type === 'current_balance') {

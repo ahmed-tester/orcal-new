@@ -28,9 +28,9 @@ class CompanyCompliancePerformanceService
         return Gate::allows('viewAny', Employee::class) || Gate::allows('viewAny', Company::class);
     }
 
-    public static function getStats(array $filters): array
+    public static function getStats(array $filters, ?int $companyId = null, int|string|null $departmentId = null): array
     {
-        $companyIds = self::companyIds($filters);
+        $companyIds = self::companyIds($filters, $companyId);
         $stats = [
             'has_data' => $companyIds !== [] && self::canView(),
             'iqama' => null,
@@ -40,8 +40,14 @@ class CompanyCompliancePerformanceService
             'subscriptions' => null,
         ];
 
+        if ($companyIds === []) {
+            return $stats;
+        }
+
         if (Gate::allows('viewAny', Employee::class)) {
-            $counts = self::countBuckets(self::employeeQuery($filters, $companyIds), self::documentBuckets());
+            $employeeQuery = self::employeeQuery($filters, $companyIds);
+            self::applyDepartmentFilter($employeeQuery, $departmentId);
+            $counts = self::countBuckets($employeeQuery, self::documentBuckets());
             $stats['iqama'] = [
                 'expired' => $counts['iqama_expired'],
                 'within_3m' => $counts['iqama_within_3m'],
@@ -62,7 +68,7 @@ class CompanyCompliancePerformanceService
             ];
         }
 
-        if (Gate::allows('viewAny', Company::class)) {
+        if ($departmentId === null && ! CompanyDepartmentPerformanceService::isSupervisorViewer() && Gate::allows('viewAny', Company::class)) {
             $companies = self::companyQuery($companyIds);
             $counts = self::countBuckets($companies, self::licenseBuckets());
             foreach (array_keys(self::LICENSE_FIELDS) as $license) {
@@ -102,7 +108,7 @@ class CompanyCompliancePerformanceService
         return __('performance.compliance.'.$type);
     }
 
-    public static function getKashfQuery(
+    public static function getStatementQuery(
         array $filters,
         string $type = 'iqama_expired',
         ?int $companyId = null,
@@ -133,20 +139,30 @@ class CompanyCompliancePerformanceService
             ->selectRaw("{$field} as compliance_expiry")
             ->whereRaw("{$field} {$condition}", $bindings);
 
-        if ($departmentId !== null) {
-            $departmentId === 'unassigned' || $departmentId === 0
-                ? $query->whereNull('employees.department_id')
-                : $query->where('employees.department_id', (int) $departmentId);
-        }
+        self::applyDepartmentFilter($query, $departmentId);
 
         return $query->orderBy($field)->orderBy('employees.id');
     }
 
-    private static function companyIds(array $filters): array
+    private static function applyDepartmentFilter(Builder $query, int|string|null $departmentId): void
+    {
+        if ($departmentId === null) {
+            return;
+        }
+
+        $departmentId === 'unassigned' || $departmentId === 0
+            ? $query->whereNull('employees.department_id')
+            : $query->where('employees.department_id', (int) $departmentId);
+    }
+
+    private static function companyIds(array $filters, ?int $companyId = null): array
     {
         $ids = CompanyDepartmentPerformanceService::getAuthorizedCompanyIds();
+        if (filled($filters['company_id'] ?? null)) {
+            $ids = array_intersect($ids, (array) $filters['company_id']);
+        }
 
-        return filled($filters['company_id'] ?? null) ? array_intersect($ids, (array) $filters['company_id']) : $ids;
+        return array_values($companyId !== null ? array_intersect($ids, [$companyId]) : $ids);
     }
 
     private static function companyQuery(array $companyIds): Builder

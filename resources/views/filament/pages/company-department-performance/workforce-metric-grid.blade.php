@@ -30,7 +30,7 @@
             @endif
         </div>
         @if($records->isNotEmpty())
-            <x-filament::button color="gray" size="sm" wire:click="openKashf('{{ $group }}', '{{ $selectedType }}')">
+            <x-filament::button color="gray" size="sm" wire:click="openStatement('{{ $group }}', '{{ $selectedType }}')">
                 {{ __('performance.workforce.full_statement') }}
             </x-filament::button>
         @endif

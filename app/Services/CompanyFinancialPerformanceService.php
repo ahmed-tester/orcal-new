@@ -66,19 +66,30 @@ class CompanyFinancialPerformanceService
         abort_unless($allowed, 403);
     }
 
-    public static function overview(array $filters, array $authorizedCompanies): array
-    {
-        $treasury = self::canViewTreasury() ? TreasurySummaryService::getPerformanceStats($filters, $authorizedCompanies) : null;
-        [$filters, $companyIds] = self::scope($filters, $authorizedCompanies);
+    public static function overview(
+        array $filters,
+        array $authorizedCompanies,
+        ?int $companyId = null,
+        int|string|null $departmentId = null,
+        bool $includeCompanyWorkflowAndTreasury = true
+    ): array {
+        $isSupervisor = CompanyDepartmentPerformanceService::isSupervisorViewer();
+        $isDepartmentScoped = $departmentId !== null || $isSupervisor;
+        $treasury = ($includeCompanyWorkflowAndTreasury && ! $isDepartmentScoped && self::canViewTreasury())
+            ? TreasurySummaryService::getPerformanceStats($filters, $authorizedCompanies)
+            : null;
+        [$filters, $companyIds] = self::scope($filters, $authorizedCompanies, $companyId);
         $groups = [];
 
-        if (self::canViewWorkflow()) {
+        if ($includeCompanyWorkflowAndTreasury && ! $isDepartmentScoped && self::canViewWorkflow()) {
             $groups['receipts_and_custody'] = self::workflowTotals(ServiceFinancialPerformanceService::TRANSFER_METRICS, $filters, $companyIds);
             $groups['settlements'] = self::workflowTotals(ServiceFinancialPerformanceService::SETTLEMENT_METRICS, $filters, $companyIds);
         }
 
         if (Gate::allows('viewAny', PayrollRecord::class)) {
-            $rows = PayrollSheetService::selectSavedAmounts(PayrollSheetService::savedRecordsInPeriod($filters, $companyIds))
+            $payrollQuery = PayrollSheetService::savedRecordsInPeriod($filters, $companyIds);
+            self::applyPayrollEmployeeScope($payrollQuery, $filters, $departmentId);
+            $rows = PayrollSheetService::selectSavedAmounts($payrollQuery)
                 ->addSelect('operation_type')->groupBy('operation_type')->get()->keyBy('operation_type');
 
             foreach (['payroll', 'collection'] as $operation) {
@@ -91,17 +102,29 @@ class CompanyFinancialPerformanceService
             }
         }
 
-        if (Gate::allows('viewAny', Debt::class)) {
-            $debt = $companyIds === [] ? null : DebtSummaryService::stats($filters);
-            $groups['debts'] = [
-                'debt_total' => (float) ($debt?->total_sum ?? 0),
-                'debt_paid' => (float) ($debt?->paid_sum ?? 0),
-                'debt_remaining' => (float) ($debt?->remaining_sum ?? 0),
-                'debt_overdue' => (float) ($debt?->overdue_sum ?? 0),
-            ];
+        if (! $isDepartmentScoped && Gate::allows('viewAny', Debt::class)) {
+            $groups['debts'] = self::debtsOverview($filters, $authorizedCompanies, $companyId);
         }
 
         return ['treasury' => $treasury, 'groups' => $groups];
+    }
+
+    /**
+     * Compute debt totals for the given company scope without querying unrelated financial groups.
+     *
+     * @return array<string, float>
+     */
+    public static function debtsOverview(array $filters, array $authorizedCompanies, ?int $companyId = null): array
+    {
+        [$scopedFilters, $companyIds] = self::scope($filters, $authorizedCompanies, $companyId);
+        $debt = $companyIds === [] ? null : DebtSummaryService::stats($scopedFilters);
+
+        return [
+            'debt_total' => (float) ($debt?->total_sum ?? 0),
+            'debt_paid' => (float) ($debt?->paid_sum ?? 0),
+            'debt_remaining' => (float) ($debt?->remaining_sum ?? 0),
+            'debt_overdue' => (float) ($debt?->overdue_sum ?? 0),
+        ];
     }
 
     /**
@@ -126,9 +149,9 @@ class CompanyFinancialPerformanceService
         );
     }
 
-    public static function statement(string $type, array $filters, array $authorizedCompanies): LengthAwarePaginator
+    public static function statement(string $type, array $filters, array $authorizedCompanies, ?int $companyId = null, int|string|null $departmentId = null): LengthAwarePaginator
     {
-        return self::statementQuery($type, $filters, $authorizedCompanies)->paginate(15, ['*'], 'kashfPage');
+        return self::statementQuery($type, $filters, $authorizedCompanies, $companyId, $departmentId)->paginate(15, ['*'], 'statementPage');
     }
 
     public static function preview(string $type, array $filters, array $authorizedCompanies): Collection
@@ -136,14 +159,14 @@ class CompanyFinancialPerformanceService
         return self::statementQuery($type, $filters, $authorizedCompanies)->limit(5)->get();
     }
 
-    private static function statementQuery(string $type, array $filters, array $authorizedCompanies): Builder
+    private static function statementQuery(string $type, array $filters, array $authorizedCompanies, ?int $companyId = null, int|string|null $departmentId = null): Builder
     {
         self::authorizeStatement($type, $filters);
         if (self::isTreasuryMetric($type)) {
-            return TreasurySummaryService::getPerformanceKashfQuery($filters, $type, $authorizedCompanies);
+            return TreasurySummaryService::getPerformanceStatementQuery($filters, $type, $authorizedCompanies);
         }
 
-        [$filters, $companyIds] = self::scope($filters, $authorizedCompanies);
+        [$filters, $companyIds] = self::scope($filters, $authorizedCompanies, $companyId);
         if (self::isWorkflowMetric($type)) {
             $query = ServiceFinancialPerformanceService::query($type, $filters, $companyIds);
 
@@ -158,10 +181,12 @@ class CompanyFinancialPerformanceService
         }
 
         if (isset(self::PAYROLL_METRICS[$type])) {
-            return PayrollSheetService::savedRecordsInPeriod($filters, $companyIds)
+            $query = PayrollSheetService::savedRecordsInPeriod($filters, $companyIds)
                 ->where('operation_type', str_starts_with($type, 'payroll_') ? 'payroll' : 'collection')
-                ->with(['company', 'employee.user'])
-                ->orderByDesc('payroll_month')->orderByDesc('id');
+                ->with(['company', 'employee.user']);
+            self::applyPayrollEmployeeScope($query, $filters, $departmentId);
+
+            return $query->orderByDesc('payroll_month')->orderByDesc('id');
         }
 
         if ($type === 'debt_overdue') {
@@ -171,10 +196,13 @@ class CompanyFinancialPerformanceService
         return DebtSummaryService::statementQuery($filters)->whereIn('debts.company_id', $companyIds);
     }
 
-    private static function scope(array $filters, array $authorizedCompanies): array
+    private static function scope(array $filters, array $authorizedCompanies, ?int $companyId = null): array
     {
         $selected = FilterBarService::values($filters['company_id'] ?? null);
         $companyIds = array_values($selected === [] ? $authorizedCompanies : array_intersect($authorizedCompanies, $selected));
+        if ($companyId !== null) {
+            $companyIds = array_values(array_intersect($companyIds, [$companyId]));
+        }
         $scope = [
             'company_id' => $companyIds,
             'branch_id' => CompanyDepartmentPerformanceService::resolveBranchId($filters),
@@ -183,6 +211,22 @@ class CompanyFinancialPerformanceService
         ];
 
         return [$scope, $companyIds];
+    }
+
+    private static function applyPayrollEmployeeScope(Builder $query, array $filters, int|string|null $departmentId): void
+    {
+        $user = auth()->user();
+        if (CompanyDepartmentPerformanceService::isSupervisorViewer($user)) {
+            [$startDate, $endDate] = CompanyDepartmentPerformanceService::resolveDateRange($filters);
+            $teamIds = CompanyDepartmentPerformanceService::supervisorTeamIds($user, $startDate, $endDate);
+            $query->whereIn('payroll_records.employee_id', $teamIds);
+        }
+
+        if ($departmentId === 'unassigned' || $departmentId === 0) {
+            $query->whereHas('employee', fn (Builder $q) => $q->whereNull('employees.department_id'));
+        } elseif ($departmentId !== null) {
+            $query->whereHas('employee', fn (Builder $q) => $q->where('employees.department_id', (int) $departmentId));
+        }
     }
 
     private static function isWorkflowMetric(string $type): bool

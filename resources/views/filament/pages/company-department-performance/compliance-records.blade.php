@@ -10,13 +10,13 @@
     <table class="perf-table">
         <thead>
             <tr>
-                <th>{{ __('performance.kashf.company') }}</th>
+                <th>{{ __('performance.statement.company') }}</th>
                 @if($isEmployeeRecords)
-                    <th>{{ __('performance.kashf.employee_name') }}</th>
+                    <th>{{ __('performance.statement.employee_name') }}</th>
                     <th>{{ __('performance.filters.branch') }}</th>
                 @endif
-                <th>{{ __('performance.kashf.expiry_date') }}</th>
-                <th style="text-align: end;">{{ __('performance.kashf.days_remaining') }}</th>
+                <th>{{ __('performance.statement.expiry_date') }}</th>
+                <th style="text-align: end;">{{ __('performance.statement.days_remaining') }}</th>
             </tr>
         </thead>
         <tbody>
@@ -55,7 +55,7 @@
                             <div class="perf-empty-icon">
                                 <x-heroicon-o-document-magnifying-glass style="width: 28px; height: 28px;" />
                             </div>
-                            <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
+                            <div class="perf-empty-title">{{ __('performance.statement.empty') }}</div>
                         </div>
                     </td>
                 </tr>

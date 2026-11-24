@@ -42,6 +42,18 @@ class InstallmentSummaryService
         self::applyAccessScope($query);
         self::applyFilters($query, $filters);
 
+        $havingSql = match ($filters['quick_filter'] ?? null) {
+            'total' => 'COALESCE(SUM(total_amount), 0) > 0',
+            'paid' => 'COALESCE(SUM(paid_amount), 0) > 0',
+            'remaining' => 'GREATEST(0, SUM(COALESCE(total_amount, 0)) - SUM(COALESCE(paid_amount, 0)) - SUM(COALESCE(down_payment, 0))) > 0',
+            'installments' => 'COUNT(*) > 0',
+            default => null,
+        };
+
+        if ($havingSql !== null) {
+            $query->havingRaw($havingSql);
+        }
+
         return $query;
     }
 
@@ -50,7 +62,7 @@ class InstallmentSummaryService
      */
     public static function getStats(array $filters = []): array
     {
-        $rows = self::summaryQuery($filters)->get();
+        $rows = self::summaryQuery(array_merge($filters, ['quick_filter' => null]))->get();
 
         return [
             'total' => round((float) $rows->sum('total_sum'), 2),

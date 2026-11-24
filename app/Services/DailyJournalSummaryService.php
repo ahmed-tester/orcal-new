@@ -26,12 +26,22 @@ class DailyJournalSummaryService
 
     public static function summaryQuery(array $filters): Builder
     {
-        return DailyJournal::query()
+        $query = DailyJournal::query()
             ->joinSub(self::grouped($filters), 'summary', 'daily_journals.id', '=', 'summary.row_id')
             ->select('daily_journals.*', 'summary.entries_count', ...array_map(fn ($key) => "summary.{$key}", self::TOTALS))
             ->with(['company', 'branch'])
             ->orderByDesc('summary.net_sum')
             ->orderBy('daily_journals.id');
+
+        match ($filters['quick_filter'] ?? null) {
+            'branches' => $query->whereRaw('COALESCE(summary.entries_count, 0) > 0'),
+            'sales_sum' => $query->whereRaw('COALESCE(summary.sales_sum, 0) > 0'),
+            'purchases_sum' => $query->whereRaw('COALESCE(summary.purchases_sum, 0) > 0'),
+            'net_sum' => $query->whereRaw('COALESCE(summary.net_sum, 0) != 0'),
+            default => null,
+        };
+
+        return $query;
     }
 
     public static function stats(array $filters): object

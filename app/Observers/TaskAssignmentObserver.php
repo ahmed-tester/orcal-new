@@ -3,10 +3,13 @@
 namespace App\Observers;
 
 use App\Models\Company;
+use App\Models\Employee;
 use App\Models\TaskAssignment;
 use App\Models\User;
+use App\Services\EmployeePerformanceAccessService;
 use App\Services\Notifications\NotificationDispatcher;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class TaskAssignmentObserver
 {
@@ -15,12 +18,35 @@ class TaskAssignmentObserver
      */
     public function creating(TaskAssignment $assignment): void
     {
+        $this->ensureEligibleSaudiEmployee($assignment);
+
         if (empty($assignment->transaction_number)) {
             $assignment->transaction_number = $this->generateTransactionNumber();
         }
 
         if (empty($assignment->created_by)) {
             $assignment->created_by = Auth::id();
+        }
+    }
+
+    /**
+     * Handle the TaskAssignment "updating" event.
+     */
+    public function updating(TaskAssignment $assignment): void
+    {
+        if ($assignment->isDirty('employee_id')) {
+            $this->ensureEligibleSaudiEmployee($assignment);
+        }
+    }
+
+    private function ensureEligibleSaudiEmployee(TaskAssignment $assignment): void
+    {
+        $employee = $assignment->employee_id ? Employee::with('user')->find($assignment->employee_id) : null;
+
+        if (! EmployeePerformanceAccessService::isEligibleSaudiTaskEmployee($employee)) {
+            throw ValidationException::withMessages([
+                'employee_id' => __('tasks.validation.saudi_only'),
+            ]);
         }
     }
 

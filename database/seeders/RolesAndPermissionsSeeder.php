@@ -123,6 +123,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'delete_task_assignment' => 'حذف تكليف مهمة',
                 'review_task_assignment' => 'مراجعة واعتماد بنود التكليف',
                 'extend_task_assignment_due_date' => 'تمديد موعد استحقاق بنود التكليف',
+                'supervise_task_team' => 'الإشراف على فريق المهام',
                 'view_any_weekly_note' => 'استعراض الملاحظات الأسبوعية',
                 'create_weekly_note' => 'إضافة ملاحظة أسبوعية',
                 'update_weekly_note' => 'تعديل ملاحظة أسبوعية',

@@ -100,6 +100,7 @@
             $currency = __('finance.treasury_transactions.summary.stats.currency');
             $cards = [
                 [
+                    'key' => null,
                     'title' => __('finance.treasury_transactions.summary.stats.current_balance'),
                     'value' => number_format($stats['current_balance'] ?? 0, 2),
                     'subtitle' => $currency,
@@ -109,6 +110,7 @@
                     'border' => '#bfdbfe',
                 ],
                 [
+                    'key' => 'total_outgoing',
                     'title' => __('finance.treasury_transactions.summary.stats.total_outgoing'),
                     'value' => number_format($stats['total_outgoing'] ?? 0, 2),
                     'subtitle' => $currency,
@@ -118,6 +120,7 @@
                     'border' => '#fecaca',
                 ],
                 [
+                    'key' => 'total_incoming',
                     'title' => __('finance.treasury_transactions.summary.stats.total_incoming'),
                     'value' => number_format($stats['total_incoming'] ?? 0, 2),
                     'subtitle' => $currency,
@@ -127,6 +130,7 @@
                     'border' => '#a7f3d0',
                 ],
                 [
+                    'key' => null,
                     'title' => __('finance.treasury_transactions.summary.stats.beneficiaries'),
                     'value' => number_format($stats['beneficiaries_count'] ?? 0),
                     'icon' => 'heroicon-o-users',
@@ -135,6 +139,7 @@
                     'border' => '#fecdd3',
                 ],
                 [
+                    'key' => 'total_count',
                     'title' => __('finance.treasury_transactions.summary.stats.total_count'),
                     'value' => number_format($stats['total_count'] ?? 0),
                     'icon' => 'heroicon-o-document-text',
@@ -144,26 +149,7 @@
                 ],
             ];
         @endphp
-        <div class="report-stats-grid">
-            @foreach($cards as $card)
-                <div class="report-stat-card">
-                    <div class="report-stat-top">
-                        <span class="report-stat-title">{{ $card['title'] }}</span>
-                        <div class="report-stat-icon-wrapper" style="background-color: {{ $card['bg'] }}; color: {{ $card['text'] }}; border: 1px solid {{ $card['border'] }};">
-                            <x-dynamic-component :component="$card['icon']" class="report-icon-md" />
-                        </div>
-                    </div>
-                    <div>
-                        <div class="report-stat-value">{{ $card['value'] }}</div>
-                        @if(isset($card['subtitle']))
-                            <div class="report-stat-subtitle" style="color: {{ $card['text'] }};">
-                                <span>{{ $card['subtitle'] }}</span>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-            @endforeach
-        </div>
+        <x-summary-stat-cards :cards="$cards" :active="$this->quickFilter" />
 
         {{-- Unified Reusable Filter Bar --}}
         <x-filter-bar

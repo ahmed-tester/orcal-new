@@ -8,7 +8,6 @@ enum UserType: string implements HasLabel
 {
     case SUPER_ADMIN = 'super_admin';
     case ADMIN = 'admin';
-    case SUPERVISOR = 'supervisor';
     case SAUDI_EMPLOYEE = 'saudi_employee';
     case FOREIGN_EMPLOYEE = 'foreign_employee';
     case OWNER = 'owner';
@@ -19,7 +18,6 @@ enum UserType: string implements HasLabel
         return match ($this) {
             self::SUPER_ADMIN => __('user_types.super_admin'),
             self::ADMIN => __('user_types.admin'),
-            self::SUPERVISOR => __('user_types.supervisor'),
             self::SAUDI_EMPLOYEE => __('user_types.saudi_employee'),
             self::FOREIGN_EMPLOYEE => __('user_types.foreign_employee'),
             self::OWNER => __('user_types.owner'),

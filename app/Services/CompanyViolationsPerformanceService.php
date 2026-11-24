@@ -108,7 +108,7 @@ class CompanyViolationsPerformanceService
      *
      * @param  array<string, mixed>  $filters
      */
-    public static function getKashfQuery(
+    public static function getStatementQuery(
         array $filters,
         string $type = 'all',
         ?int $companyId = null

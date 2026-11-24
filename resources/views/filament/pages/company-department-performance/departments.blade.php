@@ -31,8 +31,8 @@
     $cid = (int) $this->selectedCompanyId;
 
     $statementActions = [
-        'overdue_tasks' => "openKashf('tasks', 'score_overdue', {$cid}, null)",
-        'overdue_deficiencies' => "openKashf('deficiencies', 'score_overdue', {$cid}, null)",
+        'overdue_tasks' => "openStatement('tasks', 'score_overdue', {$cid}, null)",
+        'overdue_deficiencies' => "openStatement('deficiencies', 'score_overdue', {$cid}, null)",
     ];
 
     $deductionLabels = [
@@ -335,7 +335,7 @@
                     <button
                         type="button"
                         class="dept-btn secondary"
-                        wire:click="openKashf('services', 'all', {{ (int) $this->selectedCompanyId }}, '{{ $row->department_id }}')"
+                        wire:click="openStatement('services', 'all', {{ (int) $this->selectedCompanyId }}, '{{ $row->department_id }}')"
                     >
                         <x-heroicon-o-document-text aria-hidden="true" />
                         <span>{{ __('performance.supervisors.view_details') }}</span>

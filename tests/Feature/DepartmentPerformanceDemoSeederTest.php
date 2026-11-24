@@ -54,8 +54,8 @@ class DepartmentPerformanceDemoSeederTest extends TestCase
         $filtered = CompanyDepartmentPerformanceService::getDepartmentsOverview($filters)->keyBy('department_id');
         $this->assertSame(96, $filtered[$sharedId]->score->score);
         $this->assertSame(100, $filtered[$groupId]->score->score);
-        $this->assertSame(1, CompanyDepartmentPerformanceService::getKashfTasksQuery([], 'score_overdue', $companyA, $sharedId)->count());
-        $this->assertSame(2, CompanyDepartmentPerformanceService::getKashfDeficienciesQuery($filters, 'score_overdue', $companyB, $sharedId)->count());
+        $this->assertSame(1, CompanyDepartmentPerformanceService::getTasksStatementQuery([], 'score_overdue', $companyA, $sharedId)->count());
+        $this->assertSame(2, CompanyDepartmentPerformanceService::getDeficienciesStatementQuery($filters, 'score_overdue', $companyB, $sharedId)->count());
 
         $tables = ['companies', 'departments', 'company_department', 'users', 'employees', 'task_assignments', 'task_assignment_items', 'service_transactions', 'unified_deficiency_tasks'];
         $counts = collect($tables)->mapWithKeys(fn (string $table) => [$table => DB::table($table)->count()]);

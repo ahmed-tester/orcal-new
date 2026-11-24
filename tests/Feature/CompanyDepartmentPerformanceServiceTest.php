@@ -18,6 +18,7 @@ use App\Models\UnifiedDeficiencyTask;
 use App\Models\User;
 use App\Services\AttendanceSummaryService;
 use App\Services\CompanyDepartmentPerformanceService;
+use App\Services\EmployeePerformanceAccessService;
 use App\Services\PerformanceScoreService;
 use Carbon\Carbon;
 use Filament\Facades\Filament;
@@ -671,20 +672,20 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
             ->call('openDepartmentDetails', $department->id)
             ->assertDispatched('open-modal', id: 'performance-department-details-modal')
             ->assertSee('Linked Company · Linked Company B · Linked Company C')
-            ->call('openDepartmentScoreKashf', 'tasks', $linked->id, $department->id)
-            ->assertDispatched('open-modal', id: 'performance-kashf-modal');
+            ->call('openDepartmentScoreStatement', 'tasks', $linked->id, $department->id)
+            ->assertDispatched('open-modal', id: 'performance-statement-modal');
 
-        $this->assertSame(2, $page->instance()->kashfRecords()->total());
+        $this->assertSame(2, $page->instance()->statementRecords()->total());
 
         $page->set('branchId', (string) $branch);
         $this->assertSame(1, $page->instance()->departmentsOverview()->first()->overdue_tasks);
 
-        $page->call('openDepartmentScoreKashf', 'tasks', $linked->id, $department->id);
-        $this->assertSame(1, $page->instance()->kashfRecords()->total());
+        $page->call('openDepartmentScoreStatement', 'tasks', $linked->id, $department->id);
+        $this->assertSame(1, $page->instance()->statementRecords()->total());
 
         $page->set('branchId', null)
             ->set('companyId', null)
-            ->call('openKashf', 'tasks', 'score_overdue', $unlinked->id, $department->id)
+            ->call('openStatement', 'tasks', 'score_overdue', $unlinked->id, $department->id)
             ->assertStatus(404);
     }
 
@@ -748,10 +749,10 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
             ->assertSee(__('performance.violations.authorities_title'))
             ->assertDontSeeHtml('id="perf-vehicles-heading"')
             ->assertSee('companyId%5B0%5D='.$company->id)
-            ->assertSeeHtml('wire:click="openKashf(&#039;violations&#039;, &#039;payments&#039;)"')
-            ->call('openKashf', 'violations', 'payments')
-            ->assertDispatched('open-modal', id: 'performance-kashf-modal')
-            ->assertSee(__('performance.kashf.violations_title', ['type' => __('performance.violations.total_paid')]));
+            ->assertSeeHtml('wire:click="openStatement(&#039;violations&#039;, &#039;payments&#039;)"')
+            ->call('openStatement', 'violations', 'payments')
+            ->assertDispatched('open-modal', id: 'performance-statement-modal')
+            ->assertSee(__('performance.statement.violations_title', ['type' => __('performance.violations.total_paid')]));
     }
 
     public function test_compliance_tab_opens_employee_and_company_statements(): void
@@ -780,20 +781,20 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
             ->assertSeeHtml('style="--col: #e11d48; --p: 100;"')
             ->assertSeeHtml('<span class="ring-null">—</span>')
             ->assertSeeHtml('wire:click="selectCompliancePreview(&#039;iqama&#039;, &#039;iqama_expired&#039;)"')
-            ->assertSeeHtml('wire:click="openKashf(\'compliance\', \'iqama_expired\')"')
-            ->assertSeeHtml('wire:click="openKashf(\'compliance\', \'municipality_valid\')"')
-            ->assertDontSeeHtml('wire:click="openKashf(\'compliance\', \'municipality_expired\')"')
+            ->assertSeeHtml('wire:click="openStatement(\'compliance\', \'iqama_expired\')"')
+            ->assertSeeHtml('wire:click="openStatement(\'compliance\', \'municipality_valid\')"')
+            ->assertDontSeeHtml('wire:click="openStatement(\'compliance\', \'municipality_expired\')"')
             ->call('selectCompliancePreview', 'iqama', 'iqama_expired')
             ->assertSet('compliancePreviewTypes.iqama', 'iqama_expired')
-            ->call('openKashf', 'compliance', 'iqama_expired')
-            ->assertDispatched('open-modal', id: 'performance-kashf-modal');
+            ->call('openStatement', 'compliance', 'iqama_expired')
+            ->assertDispatched('open-modal', id: 'performance-statement-modal');
 
-        $employeeRecords = $page->instance()->kashfRecords()->getCollection();
+        $employeeRecords = $page->instance()->statementRecords()->getCollection();
         $this->assertInstanceOf(Employee::class, $employeeRecords->sole());
         $this->assertSame($employee->id, $employeeRecords->sole()->id);
 
-        $page->call('openKashf', 'compliance', 'municipality_valid')
-            ->assertSee(__('performance.kashf.compliance_title', [
+        $page->call('openStatement', 'compliance', 'municipality_valid')
+            ->assertSee(__('performance.statement.compliance_title', [
                 'type' => __('performance.compliance.license_status', [
                     'license' => __('performance.compliance.municipality'),
                     'status' => __('performance.compliance.valid'),
@@ -801,7 +802,7 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
             ]))
             ->assertSeeHtml('<span style="color: #059669;">');
 
-        $companyRecords = $page->instance()->kashfRecords()->getCollection();
+        $companyRecords = $page->instance()->statementRecords()->getCollection();
         $this->assertInstanceOf(Company::class, $companyRecords->sole());
         $this->assertSame($company->id, $companyRecords->sole()->id);
     }
@@ -886,12 +887,14 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
     {
         $company = $this->createCompany('Supervision Company');
 
+        Permission::findOrCreate(EmployeePerformanceAccessService::SUPERVISE_PERMISSION, 'web');
         $supervisorUser = User::create([
             'name' => 'Supervisor',
             'email' => 'sup@test.local',
             'password' => bcrypt('password'),
-            'user_type' => UserType::SUPERVISOR->value,
+            'user_type' => UserType::SAUDI_EMPLOYEE->value,
         ]);
+        $supervisorUser->givePermissionTo(EmployeePerformanceAccessService::SUPERVISE_PERMISSION);
         $supervisorEmp = Employee::create([
             'user_id' => $supervisorUser->id,
             'company_id' => $company->id,
@@ -981,7 +984,7 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
             ]);
         }
 
-        $query = CompanyDepartmentPerformanceService::getKashfServicesQuery([], 'active', $company->id);
+        $query = CompanyDepartmentPerformanceService::getServicesStatementQuery([], 'active', $company->id);
         $paginator = $query->paginate(2);
 
         $this->assertEquals(5, $paginator->total());
@@ -996,8 +999,8 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
         ]);
         $filters = ['company_id' => [$company->id]];
 
-        $this->assertSame(5, CompanyDepartmentPerformanceService::getKashfServicesQuery($filters, 'active')->count());
-        $this->assertSame(0, CompanyDepartmentPerformanceService::getKashfServicesQuery($filters, 'active', $otherCompany->id)->count());
+        $this->assertSame(5, CompanyDepartmentPerformanceService::getServicesStatementQuery($filters, 'active')->count());
+        $this->assertSame(0, CompanyDepartmentPerformanceService::getServicesStatementQuery($filters, 'active', $otherCompany->id)->count());
     }
 
     public function test_workforce_overview_requires_a_summary_permission(): void
@@ -1024,7 +1027,7 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
         $this->assertTrue($page->canViewWorkforceOverview());
         $this->expectException(HttpException::class);
         try {
-            $page->openKashf('attendance', 'present_days');
+            $page->openStatement('attendance', 'present_days');
         } catch (HttpException $exception) {
             $this->assertSame(403, $exception->getStatusCode());
 
@@ -1042,7 +1045,7 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
         $page = new CompanyDepartmentPerformance;
         $this->assertTrue($page->canViewWorkforceOverview());
         $this->expectException(HttpException::class);
-        $page->openKashf('leaves', 'on_leave_today_count');
+        $page->openStatement('leaves', 'on_leave_today_count');
     }
 
     public function test_leave_cards_and_statements_match_the_year_today_and_supervisor_scope(): void
@@ -1052,7 +1055,9 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
 
         $company = $this->createCompany('Leave Company');
         $branch = DB::table('branches')->insertGetId(['company_id' => $company->id, 'name' => 'Leave Branch']);
-        $supervisor = $this->createEmployee($company->id, null, null, UserType::SUPERVISOR->value);
+        Permission::findOrCreate(EmployeePerformanceAccessService::SUPERVISE_PERMISSION, 'web');
+        $supervisor = $this->createEmployee($company->id, null, null, UserType::SAUDI_EMPLOYEE->value);
+        $supervisor->user->givePermissionTo(EmployeePerformanceAccessService::SUPERVISE_PERMISSION);
         $member = $this->createEmployee($company->id, branchId: $branch, name: 'Scoped Leave Employee');
         $outsider = $this->createEmployee($company->id, branchId: $branch);
         SupervisionShift::create([
@@ -1092,14 +1097,14 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
             ->set('companyId', (string) $company->id)
             ->set('branchId', (string) $branch)
             ->call('showWorkforceOverview')
-            ->assertSeeHtml('wire:click="openKashf(&#039;leaves&#039;, &#039;on_leave_today_count&#039;)"');
+            ->assertSeeHtml('wire:click="openStatement(&#039;leaves&#039;, &#039;on_leave_today_count&#039;)"');
 
         $stats = $page->instance()->workforceOverview()['leaves'];
         foreach (['on_leave_today_count' => 'is_on_leave_today', 'pending_requests_count' => 'pending_leaves_count', 'total_approved_days' => 'total_approved_days'] as $metric => $column) {
-            $page->call('openKashf', 'leaves', $metric)
-                ->assertDispatched('open-modal', id: 'performance-kashf-modal')
+            $page->call('openStatement', 'leaves', $metric)
+                ->assertDispatched('open-modal', id: 'performance-statement-modal')
                 ->assertSee($member->name);
-            $records = $page->instance()->kashfRecords();
+            $records = $page->instance()->statementRecords();
             $this->assertSame([$member->id], $records->pluck('id')->all());
             $this->assertEquals($stats[$metric], $records->sum($column));
         }
@@ -1123,7 +1128,9 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
         $otherCompany = $this->createCompany('Other Attendance Company');
         $branch = DB::table('branches')->insertGetId(['company_id' => $company->id, 'name' => 'Attendance Branch']);
         $otherBranch = DB::table('branches')->insertGetId(['company_id' => $company->id, 'name' => 'Other Attendance Branch']);
-        $supervisor = $this->createEmployee($company->id, null, null, UserType::SUPERVISOR->value);
+        Permission::findOrCreate(EmployeePerformanceAccessService::SUPERVISE_PERMISSION, 'web');
+        $supervisor = $this->createEmployee($company->id, null, null, UserType::SAUDI_EMPLOYEE->value);
+        $supervisor->user->givePermissionTo(EmployeePerformanceAccessService::SUPERVISE_PERMISSION);
         $member = $this->createEmployee($company->id, null, $branch);
         $noRecords = $this->createEmployee($company->id, null, $branch);
         $outsideTeam = $this->createEmployee($company->id, null, $branch);
@@ -1168,12 +1175,12 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
         $this->assertSame(2, $overview['attendance']['employees_count']);
 
         foreach (['present_days' => 2, 'late_days' => 1, 'absent_days' => 1] as $type => $count) {
-            $page->call('openKashf', 'attendance', $type)
-                ->assertDispatched('open-modal', id: 'performance-kashf-modal')
-                ->assertSee(__('performance.kashf.attendance_title', ['type' => __('performance.overview.'.$type), 'month' => '2026-11']))
+            $page->call('openStatement', 'attendance', $type)
+                ->assertDispatched('open-modal', id: 'performance-statement-modal')
+                ->assertSee(__('performance.statement.attendance_title', ['type' => __('performance.overview.'.$type), 'month' => '2026-11']))
                 ->assertSee($member->name);
 
-            $records = $page->instance()->kashfRecords();
+            $records = $page->instance()->statementRecords();
             $this->assertSame([$member->id], $records->pluck('id')->all());
             $this->assertSame($count, $overview['attendance'][$type]);
             $this->assertEquals($count, $records->sum($type));
@@ -1194,7 +1201,9 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
 
         $company = $this->createCompany('Workforce Preview Company');
         $branch = DB::table('branches')->insertGetId(['company_id' => $company->id, 'name' => 'Main Branch']);
-        $supervisor = $this->createEmployee($company->id, null, $branch, UserType::SUPERVISOR->value);
+        Permission::findOrCreate(EmployeePerformanceAccessService::SUPERVISE_PERMISSION, 'web');
+        $supervisor = $this->createEmployee($company->id, null, $branch, UserType::SAUDI_EMPLOYEE->value);
+        $supervisor->user->givePermissionTo(EmployeePerformanceAccessService::SUPERVISE_PERMISSION);
         $member = $this->createEmployee($company->id, null, $branch);
 
         SupervisionShift::create([
@@ -1418,12 +1427,14 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
     {
         $company = $this->createCompany('Ranking Supervision Company');
 
+        Permission::findOrCreate(EmployeePerformanceAccessService::SUPERVISE_PERMISSION, 'web');
         $supervisorUser = User::create([
             'name' => 'Ranking Supervisor',
             'email' => 'ranking-sup@test.local',
             'password' => bcrypt('password'),
-            'user_type' => UserType::SUPERVISOR->value,
+            'user_type' => UserType::SAUDI_EMPLOYEE->value,
         ]);
+        $supervisorUser->givePermissionTo(EmployeePerformanceAccessService::SUPERVISE_PERMISSION);
         $supervisor = Employee::create([
             'user_id' => $supervisorUser->id,
             'company_id' => $company->id,
@@ -1509,17 +1520,17 @@ class CompanyDepartmentPerformanceServiceTest extends TestCase
 
         Livewire::test(CompanyDepartmentPerformance::class)
             ->assertSeeHtml('<div class="perf-operational-rates perf-card perf-operations-rate-card">')
-            ->assertSeeHtml('wire:click="'.e("openKashf('services', 'on_time', null, null)").'"')
+            ->assertSeeHtml('wire:click="'.e("openStatement('services', 'on_time', null, null)").'"')
             ->assertSeeHtml('<span>0%</span>')
             ->assertSee(__('performance.cards.no_data'))
             ->call('selectCompany', $company->id)
             ->assertSeeHtml('<div class="perf-operational-rates">')
             ->assertSee(__('performance.supervisors.completed_services_share'))
             ->call('selectDepartment', $department->id)
-            ->assertSeeHtml('type="button" wire:click="'.e("openKashf('tasks', 'all', {$company->id}, '{$department->id}', {$employee->id})").'"')
-            ->call('openKashf', 'tasks', 'all', $company->id, $department->id, $employee->id)
-            ->assertSet('showKashfModal', true)
-            ->assertSet('kashfEmployeeId', $employee->id);
+            ->assertSeeHtml('type="button" wire:click="'.e("openStatement('tasks', 'all', {$company->id}, '{$department->id}', {$employee->id})").'"')
+            ->call('openStatement', 'tasks', 'all', $company->id, $department->id, $employee->id)
+            ->assertSet('showStatementModal', true)
+            ->assertSet('statementEmployeeId', $employee->id);
     }
 
     public function test_company_hero_explains_the_score_calculation(): void

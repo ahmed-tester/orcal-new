@@ -99,8 +99,7 @@ class SupervisorPerformanceDemoSeeder extends Seeder
         return Employee::query()
             ->where('company_id', $company->id)
             ->whereHas('user', fn ($users) => $users
-                ->where('email', strtolower($company->company_number).'-0@example.test')
-                ->where('user_type', UserType::SUPERVISOR))
+                ->where('email', strtolower($company->company_number).'-0@example.test'))
             ->with('user')
             ->first();
     }

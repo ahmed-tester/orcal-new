@@ -26,6 +26,8 @@ trait HasFilterBarState
 
     public mixed $status = null;
 
+    public ?string $quickFilter = null;
+
     /**
      * Livewire merges this trait query string into the page's own one automatically.
      */
@@ -38,6 +40,7 @@ trait HasFilterBarState
             'dateFrom' => ['except' => null],
             'dateTo' => ['except' => null],
             'status' => ['except' => null],
+            'quickFilter' => ['except' => null],
         ];
     }
 
@@ -53,6 +56,7 @@ trait HasFilterBarState
             'date_from' => $this->dateFrom,
             'date_to' => $this->dateTo,
             'status' => $this->status,
+            'quick_filter' => $this->quickFilter,
         ], $additional);
     }
 
@@ -81,6 +85,10 @@ trait HasFilterBarState
             return true;
         }
 
+        if (filled($this->quickFilter)) {
+            return true;
+        }
+
         foreach ($this->filterBarExtraProperties() as $property) {
             if (property_exists($this, $property) && ! empty($this->{$property})) {
                 return true;
@@ -101,6 +109,7 @@ trait HasFilterBarState
         $this->dateFrom = null;
         $this->dateTo = null;
         $this->status = is_array($this->status) ? [] : null;
+        $this->quickFilter = null;
 
         foreach ($this->filterBarExtraProperties() as $property) {
             if (property_exists($this, $property)) {
@@ -149,12 +158,33 @@ trait HasFilterBarState
             'dateFrom',
             'dateTo',
             'status',
+            'quickFilter',
             'perPage',
         ], $this->filterBarExtraProperties());
 
         if (in_array($property, $properties, true)) {
             $this->handleFilterBarUpdate();
         }
+    }
+
+    /**
+     * Toggle a summary card quick filter and refresh the table/page state.
+     */
+    public function applyQuickFilter(?string $preset): void
+    {
+        $this->quickFilter = ($preset === null || $preset === '' || $this->quickFilter === $preset)
+            ? null
+            : $preset;
+
+        $this->handleFilterBarUpdate();
+    }
+
+    /**
+     * Determine whether the given quick filter preset is currently active.
+     */
+    public function isQuickFilterActive(string $preset): bool
+    {
+        return $this->quickFilter === $preset;
     }
 
     /**

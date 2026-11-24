@@ -113,7 +113,7 @@ class OperationsDemoSeeder extends Seeder
                     'name' => 'نايف بن خالد الدوسري',
                     'email' => 'ops.supervisor@orcal.test',
                     'role' => 'مشرف عمليات',
-                    'type' => UserType::SUPERVISOR,
+                    'type' => UserType::SAUDI_EMPLOYEE,
                     'dept' => $opsDept,
                     'job' => $titleSupervisor,
                     'is_saudi' => true,
@@ -225,6 +225,14 @@ class OperationsDemoSeeder extends Seeder
             $supervisorEmp = $createdEmployees['ops_supervisor'] ?? null;
             $operatorEmp = $createdEmployees['operator'] ?? null;
             if ($supervisorEmp && $operatorEmp) {
+                if ($supervisorEmp->user) {
+                    \Spatie\Permission\Models\Permission::firstOrCreate([
+                        'name' => \App\Services\EmployeePerformanceAccessService::SUPERVISE_PERMISSION,
+                        'guard_name' => 'web',
+                    ]);
+                    $supervisorEmp->user->givePermissionTo(\App\Services\EmployeePerformanceAccessService::SUPERVISE_PERMISSION);
+                }
+
                 \App\Models\SupervisionShift::updateOrCreate(
                     [
                         'company_id' => $company->id,

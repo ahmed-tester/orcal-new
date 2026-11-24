@@ -116,7 +116,7 @@ class CompanyComplianceAndViolationsPerformanceTest extends TestCase
         $this->assertSame(1, $stats['licenses']['commercial_reg']['valid']);
 
         // Kashf query test
-        $kashfQuery = CompanyCompliancePerformanceService::getKashfQuery(
+        $kashfQuery = CompanyCompliancePerformanceService::getStatementQuery(
             ['company_id' => [$company->id]],
             'iqama_expired'
         );
@@ -124,13 +124,13 @@ class CompanyComplianceAndViolationsPerformanceTest extends TestCase
         $this->assertSame($emp1->id, $kashfQuery->first()->id);
 
         $filters = ['company_id' => [$company->id]];
-        $licenseQuery = CompanyCompliancePerformanceService::getKashfQuery($filters, 'municipality_expiring_soon');
+        $licenseQuery = CompanyCompliancePerformanceService::getStatementQuery($filters, 'municipality_expiring_soon');
         $this->assertSame([$company->id], $licenseQuery->pluck('id')->all());
         $this->assertSame(1, $stats['work_permits']['expiring_soon']);
         $this->assertSame(1, $stats['insurance']['valid']);
-        $this->assertSame([$emp2->id], CompanyCompliancePerformanceService::getKashfQuery($filters, 'work_permit_expiring_soon')->pluck('id')->all());
-        $this->assertSame([$emp2->id], CompanyCompliancePerformanceService::getKashfQuery($filters, 'insurance_valid')->pluck('id')->all());
-        $this->assertSame(0, CompanyCompliancePerformanceService::getKashfQuery($filters, 'municipality_expiring_soon', $this->createCompany()->id)->count());
+        $this->assertSame([$emp2->id], CompanyCompliancePerformanceService::getStatementQuery($filters, 'work_permit_expiring_soon')->pluck('id')->all());
+        $this->assertSame([$emp2->id], CompanyCompliancePerformanceService::getStatementQuery($filters, 'insurance_valid')->pluck('id')->all());
+        $this->assertSame(0, CompanyCompliancePerformanceService::getStatementQuery($filters, 'municipality_expiring_soon', $this->createCompany()->id)->count());
     }
 
     public function test_company_and_employee_document_permissions_apply_to_cards_and_statements(): void
@@ -146,7 +146,7 @@ class CompanyComplianceAndViolationsPerformanceTest extends TestCase
         $this->assertSame(1, $stats['licenses']['municipality']['unspecified']);
 
         try {
-            (new CompanyDepartmentPerformance)->openKashf('compliance', 'iqama_expired');
+            (new CompanyDepartmentPerformance)->openStatement('compliance', 'iqama_expired');
             $this->fail('Expected access to be denied.');
         } catch (AuthorizationException $exception) {
             $this->assertFalse($exception->response()->allowed());
@@ -162,9 +162,9 @@ class CompanyComplianceAndViolationsPerformanceTest extends TestCase
         $stats = CompanyCompliancePerformanceService::getStats($filters);
         $this->assertNull($stats['licenses']);
         $this->assertSame(1, $stats['iqama']['expired']);
-        $this->assertSame([$viewer->employee->id], CompanyCompliancePerformanceService::getKashfQuery($filters)->pluck('id')->all());
+        $this->assertSame([$viewer->employee->id], CompanyCompliancePerformanceService::getStatementQuery($filters)->pluck('id')->all());
         $this->expectException(AuthorizationException::class);
-        CompanyCompliancePerformanceService::getKashfQuery($filters, 'municipality_unspecified');
+        CompanyCompliancePerformanceService::getStatementQuery($filters, 'municipality_unspecified');
     }
 
     public function test_compliance_preview_groups_and_selection(): void
@@ -281,7 +281,7 @@ class CompanyComplianceAndViolationsPerformanceTest extends TestCase
         $this->assertCount(2, $stats['authorities']);
 
         // Kashf query test
-        $objectionKashf = CompanyViolationsPerformanceService::getKashfQuery(
+        $objectionKashf = CompanyViolationsPerformanceService::getStatementQuery(
             ['company_id' => [$company->id]],
             'objection'
         );
@@ -295,7 +295,7 @@ class CompanyComplianceAndViolationsPerformanceTest extends TestCase
         $register = ViolationSummaryService::filtered($filters);
         $dashboardFilters = $filters + ['search' => 'hidden operations search', 'branch_id' => 999];
         $filtered = CompanyViolationsPerformanceService::getStats($dashboardFilters);
-        $payments = CompanyViolationsPerformanceService::getKashfQuery($dashboardFilters, 'payments');
+        $payments = CompanyViolationsPerformanceService::getStatementQuery($dashboardFilters, 'payments');
 
         $this->assertSame(1, $filtered['totals']['count']);
         $this->assertSame(1, $filtered['stages']['execution']['count']);
@@ -305,8 +305,8 @@ class CompanyComplianceAndViolationsPerformanceTest extends TestCase
         $this->assertEquals($register->sum('remaining_amount'), $filtered['totals']['remaining']);
         $this->assertSame($filtered['totals']['payment_count'], $payments->count());
         $this->assertEquals($filtered['totals']['paid'], $payments->sum('paid_amount'));
-        $this->assertSame(0, CompanyViolationsPerformanceService::getKashfQuery($dashboardFilters, 'paid')->count());
-        $this->assertSame(0, CompanyViolationsPerformanceService::getKashfQuery($filters, 'all', $this->createCompany()->id)->count());
+        $this->assertSame(0, CompanyViolationsPerformanceService::getStatementQuery($dashboardFilters, 'paid')->count());
+        $this->assertSame(0, CompanyViolationsPerformanceService::getStatementQuery($filters, 'all', $this->createCompany()->id)->count());
     }
 
     public function test_violation_permissions_and_company_scope_are_enforced(): void
@@ -320,7 +320,7 @@ class CompanyComplianceAndViolationsPerformanceTest extends TestCase
         $this->assertFalse($page->canViewViolationsOverview());
         foreach ([
             fn () => $page->showViolationsOverview(),
-            fn () => $page->openKashf('violations'),
+            fn () => $page->openStatement('violations'),
         ] as $open) {
             try {
                 $open();
@@ -332,7 +332,7 @@ class CompanyComplianceAndViolationsPerformanceTest extends TestCase
 
         foreach ([
             fn () => CompanyViolationsPerformanceService::getStats([]),
-            fn () => CompanyViolationsPerformanceService::getKashfQuery([]),
+            fn () => CompanyViolationsPerformanceService::getStatementQuery([]),
         ] as $read) {
             try {
                 $read();
@@ -358,8 +358,8 @@ class CompanyComplianceAndViolationsPerformanceTest extends TestCase
         }
 
         $this->assertSame(1, CompanyViolationsPerformanceService::getStats([])['totals']['count']);
-        $this->assertSame([$company->id], CompanyViolationsPerformanceService::getKashfQuery([])->pluck('company_id')->all());
-        $this->assertSame(0, CompanyViolationsPerformanceService::getKashfQuery([], 'all', $otherCompany->id)->count());
+        $this->assertSame([$company->id], CompanyViolationsPerformanceService::getStatementQuery([])->pluck('company_id')->all());
+        $this->assertSame(0, CompanyViolationsPerformanceService::getStatementQuery([], 'all', $otherCompany->id)->count());
         $this->assertSame(0, CompanyViolationsPerformanceService::getStats(['company_id' => [$otherCompany->id]])['totals']['count']);
     }
 

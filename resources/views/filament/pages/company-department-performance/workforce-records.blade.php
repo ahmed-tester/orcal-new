@@ -49,7 +49,7 @@
                                 <div class="perf-empty-icon">
                                     <x-heroicon-o-document-magnifying-glass style="width: 28px; height: 28px;" />
                                 </div>
-                                <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
+                                <div class="perf-empty-title">{{ __('performance.statement.empty') }}</div>
                             </div>
                         </td>
                     </tr>
@@ -120,7 +120,7 @@
                                 <div class="perf-empty-icon">
                                     <x-heroicon-o-document-magnifying-glass style="width: 28px; height: 28px;" />
                                 </div>
-                                <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
+                                <div class="perf-empty-title">{{ __('performance.statement.empty') }}</div>
                             </div>
                         </td>
                     </tr>

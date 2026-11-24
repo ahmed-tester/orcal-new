@@ -140,7 +140,7 @@
                                                 'status' => __('performance.compliance.'.$status),
                                                 'count' => number_format($counts[$status]),
                                             ]) }}"
-                                            wire:click="openKashf('compliance', '{{ $license }}_{{ $status }}')"
+                                            wire:click="openStatement('compliance', '{{ $license }}_{{ $status }}')"
                                         >
                                             <span class="dot" aria-hidden="true"></span>
                                             <bdi>{{ number_format($counts[$status]) }}</bdi>

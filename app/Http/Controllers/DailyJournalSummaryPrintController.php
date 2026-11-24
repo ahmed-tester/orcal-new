@@ -21,6 +21,7 @@ class DailyJournalSummaryPrintController extends Controller
             'date_to' => ['nullable', 'date_format:Y-m-d'],
             'search' => ['nullable', 'string', 'max:255'],
             'is_detailed' => ['nullable'],
+            'quick_filter' => ['nullable', 'string', 'max:50'],
         ]);
 
         return view('daily-journals.summary-print', [

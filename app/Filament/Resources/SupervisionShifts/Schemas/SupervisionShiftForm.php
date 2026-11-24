@@ -3,7 +3,10 @@
 namespace App\Filament\Resources\SupervisionShifts\Schemas;
 
 use App\Filament\Components\OrgSelect;
+use App\Models\Employee;
 use App\Models\SaudiEmployee;
+use App\Models\Task;
+use App\Services\EmployeePerformanceAccessService;
 use App\Services\PhoneService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Radio;
@@ -16,6 +19,15 @@ use Filament\Schemas\Schema;
 
 class SupervisionShiftForm
 {
+    private static function formatSupervisorLabel(Employee $emp): string
+    {
+        $name = $emp->user?->name ?? (__('employees.single')." #{$emp->id}");
+        $job = $emp->jobTitle?->name ? " [{$emp->jobTitle->name}]" : '';
+        $code = $emp->employee_number ? " ({$emp->employee_number})" : '';
+
+        return "{$name}{$job}{$code}";
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
@@ -40,12 +52,23 @@ class SupervisionShiftForm
                         Select::make('supervisor_id')
                             ->label(fn (callable $get) => $get('type') === 'shift' ? __('tasks.supervision_shifts.form.supervisor_shift_label') : __('tasks.supervision_shifts.form.supervisor_supervision_label'))
                             ->placeholder(__('tasks.supervision_shifts.placeholders.supervisor_select'))
-                            ->options(fn () => SaudiEmployee::with(['user', 'jobTitle'])->get()->mapWithKeys(function ($emp) {
-                                $name = $emp->user?->name ?? (__('employees.single') . " #{$emp->id}");
-                                $job = $emp->jobTitle?->name ? " [{$emp->jobTitle->name}]" : '';
-                                $code = $emp->employee_number ? " ({$emp->employee_number})" : '';
-                                return [$emp->id => "{$name}{$job}{$code}"];
-                            })->toArray())
+                            ->options(fn () => SaudiEmployee::query()
+                                ->nonTemporary()
+                                ->where('status', 'active')
+                                ->whereHas('user', fn ($u) => $u->permission(EmployeePerformanceAccessService::SUPERVISE_PERMISSION))
+                                ->with(['user', 'jobTitle'])
+                                ->get()
+                                ->mapWithKeys(fn (Employee $emp) => [$emp->id => self::formatSupervisorLabel($emp)])
+                                ->toArray())
+                            ->getOptionLabelUsing(function ($value): ?string {
+                                if (blank($value)) {
+                                    return null;
+                                }
+
+                                $emp = Employee::with(['user', 'jobTitle'])->find($value);
+
+                                return $emp ? self::formatSupervisorLabel($emp) : null;
+                            })
                             ->searchable()
                             ->preload()
                             ->required(fn (callable $get) => $get('type') === 'supervision')
@@ -56,10 +79,11 @@ class SupervisionShiftForm
                                     $set('supervisor_job_title', null);
                                     $set('supervisor_department', null);
                                     $set('supervisor_phone', null);
+
                                     return;
                                 }
 
-                                $emp = SaudiEmployee::with(['user', 'department', 'jobTitle', 'details'])->find($state);
+                                $emp = Employee::with(['user', 'department', 'jobTitle', 'details'])->find($state);
                                 if ($emp) {
                                     if ($emp->company_id) {
                                         $set('company_id', $emp->company_id);
@@ -71,8 +95,8 @@ class SupervisionShiftForm
                                 }
                             })
                             ->afterStateHydrated(function ($state, callable $set) {
-                                if (!empty($state)) {
-                                    $emp = SaudiEmployee::with(['user', 'department', 'jobTitle', 'details'])->find($state);
+                                if (! empty($state)) {
+                                    $emp = Employee::with(['user', 'department', 'jobTitle', 'details'])->find($state);
                                     if ($emp) {
                                         $set('supervisor_national_id', $emp->details?->national_id ?? '—');
                                         $set('supervisor_job_title', $emp->jobTitle?->name ?? '—');
@@ -117,9 +141,10 @@ class SupervisionShiftForm
                             ->label(fn (callable $get) => $get('type') === 'shift' ? __('tasks.supervision_shifts.form.assigned_shift_label') : __('tasks.supervision_shifts.form.assigned_supervision_label'))
                             ->placeholder(__('tasks.supervision_shifts.placeholders.assigned_select'))
                             ->options(fn () => SaudiEmployee::with(['user', 'jobTitle'])->get()->mapWithKeys(function ($emp) {
-                                $name = $emp->user?->name ?? (__('employees.single') . " #{$emp->id}");
+                                $name = $emp->user?->name ?? (__('employees.single')." #{$emp->id}");
                                 $job = $emp->jobTitle?->name ? " [{$emp->jobTitle->name}]" : '';
                                 $code = $emp->employee_number ? " ({$emp->employee_number})" : '';
+
                                 return [$emp->id => "{$name}{$job}{$code}"];
                             })->toArray())
                             ->multiple()
@@ -134,17 +159,18 @@ class SupervisionShiftForm
                         Select::make('task_id')
                             ->label(__('tasks.supervision_shifts.form.task_bank_select'))
                             ->placeholder(__('tasks.supervision_shifts.form.task_bank_placeholder'))
-                            ->options(fn () => \App\Models\Task::orderBy('name')->get()->mapWithKeys(function ($t) {
+                            ->options(fn () => Task::orderBy('name')->get()->mapWithKeys(function ($t) {
                                 $code = $t->task_code ? " ({$t->task_code})" : '';
+
                                 return [$t->id => "{$t->name}{$code}"];
                             })->toArray())
                             ->searchable()
                             ->preload()
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set) {
-                                if (!empty($state) && $task = \App\Models\Task::find($state)) {
+                                if (! empty($state) && $task = Task::find($state)) {
                                     $set('title', $task->name);
-                                    if (!empty($task->description)) {
+                                    if (! empty($task->description)) {
                                         $set('tasks', $task->description);
                                     }
                                 }

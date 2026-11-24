@@ -65,6 +65,8 @@ class TaskAssignmentSummaryService
                     });
                 }
             });
+        } elseif ($user && EmployeePerformanceAccessService::isFormerOrRevokedSupervisor($user)) {
+            $query->where('task_assignments.employee_id', $user->employee?->id ?? 0);
         }
 
         return $query;
@@ -105,6 +107,8 @@ class TaskAssignmentSummaryService
                         ->whereIn('employees.id', $window['employees']));
                 }
             });
+        } elseif ($user && EmployeePerformanceAccessService::isFormerOrRevokedSupervisor($user)) {
+            $query->whereKey($user->employee?->id ?? 0);
         }
 
         return $query;
@@ -131,7 +135,7 @@ class TaskAssignmentSummaryService
      */
     public static function summaryQuery(array $filters = []): Builder
     {
-        return self::employeesQuery($filters)
+        $query = self::employeesQuery($filters)
             ->leftJoinSub(self::grouped($filters), 'task_summary', fn ($join) => $join->on('task_summary.employee_id', '=', 'employees.id'))
             ->select('employees.*')
             ->selectRaw('
@@ -157,6 +161,22 @@ class TaskAssignmentSummaryService
                     ELSE 0 END as weighted_percentage
             ')
             ->with(['user', 'company', 'branch', 'department', 'jobTitle']);
+
+        $quickColumn = match ($filters['quick_filter'] ?? null) {
+            'total_items' => 'task_summary.total_items',
+            'completed_in_period' => 'task_summary.completed_in_period',
+            'overdue_now' => 'task_summary.overdue_count',
+            'postponed' => 'task_summary.postponed_count',
+            default => null,
+        };
+
+        if ($quickColumn !== null) {
+            $query->whereRaw("COALESCE({$quickColumn}, 0) > 0");
+        } elseif (! empty($filters['only_with_items'])) {
+            $query->whereRaw('COALESCE(task_summary.total_items, 0) > 0');
+        }
+
+        return $query;
     }
 
     /**
@@ -166,13 +186,16 @@ class TaskAssignmentSummaryService
     {
         $row = DB::query()
             ->fromSub(self::grouped($filters), 'summary')
+            ->selectRaw('COUNT(*) AS active_employees_count')
             ->selectRaw(implode(', ', array_map(
                 fn (string $key) => "COALESCE(SUM({$key}), 0) AS {$key}",
                 self::TOTALS
             )))
             ->first();
 
-        $row->employees_count = self::employeesQuery($filters)->count();
+        $row->employees_count = ! empty($filters['only_with_items'])
+            ? (int) ($row->active_employees_count ?? 0)
+            : self::employeesQuery($filters)->count();
 
         return $row;
     }

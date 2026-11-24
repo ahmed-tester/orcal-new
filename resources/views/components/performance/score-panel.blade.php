@@ -18,8 +18,8 @@
     $did = $arg($departmentId);
 
     $statementActions = [
-        'overdue_tasks' => "openKashf('tasks', 'score_overdue', {$cid}, {$did})",
-        'overdue_deficiencies' => "openKashf('deficiencies', 'score_overdue', {$cid}, {$did})",
+        'overdue_tasks' => "openStatement('tasks', 'score_overdue', {$cid}, {$did})",
+        'overdue_deficiencies' => "openStatement('deficiencies', 'score_overdue', {$cid}, {$did})",
     ];
 
     $deductionLabels = [

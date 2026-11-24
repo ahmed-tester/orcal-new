@@ -128,33 +128,14 @@
             $stats = $this->stats;
             $currency = __('finance.installments.summary.stats.currency');
             $cards = [
-                ['title' => __('finance.installments.summary.stats.total'), 'value' => number_format($stats['total'] ?? 0, 2), 'subtitle' => $currency, 'icon' => 'heroicon-o-banknotes', 'bg' => '#fef3c7', 'text' => '#d97706', 'border' => '#fde68a'],
-                ['title' => __('finance.installments.summary.stats.paid'), 'value' => number_format($stats['paid'], 2), 'subtitle' => $currency, 'icon' => 'heroicon-o-check-badge', 'bg' => '#ecfdf5', 'text' => '#059669', 'border' => '#a7f3d0'],
-                ['title' => __('finance.installments.summary.stats.remaining'), 'value' => number_format($stats['remaining'], 2), 'subtitle' => $currency, 'icon' => 'heroicon-o-currency-dollar', 'bg' => '#fffbeb', 'text' => '#b45309', 'border' => '#fcd34d'],
-                ['title' => __('finance.installments.summary.stats.installments'), 'value' => number_format($stats['installments']), 'icon' => 'heroicon-o-credit-card', 'bg' => '#eef2ff', 'text' => '#4f46e5', 'border' => '#c7d2fe'],
-                ['title' => __('finance.installments.summary.stats.beneficiaries'), 'value' => number_format($stats['beneficiaries']), 'icon' => 'heroicon-o-users', 'bg' => '#fff1f2', 'text' => '#e11d48', 'border' => '#fecdd3'],
+                ['key' => 'total', 'title' => __('finance.installments.summary.stats.total'), 'value' => number_format($stats['total'] ?? 0, 2), 'subtitle' => $currency, 'icon' => 'heroicon-o-banknotes', 'bg' => '#fef3c7', 'text' => '#d97706', 'border' => '#fde68a'],
+                ['key' => 'paid', 'title' => __('finance.installments.summary.stats.paid'), 'value' => number_format($stats['paid'], 2), 'subtitle' => $currency, 'icon' => 'heroicon-o-check-badge', 'bg' => '#ecfdf5', 'text' => '#059669', 'border' => '#a7f3d0'],
+                ['key' => 'remaining', 'title' => __('finance.installments.summary.stats.remaining'), 'value' => number_format($stats['remaining'], 2), 'subtitle' => $currency, 'icon' => 'heroicon-o-currency-dollar', 'bg' => '#fffbeb', 'text' => '#b45309', 'border' => '#fcd34d'],
+                ['key' => 'installments', 'title' => __('finance.installments.summary.stats.installments'), 'value' => number_format($stats['installments']), 'icon' => 'heroicon-o-credit-card', 'bg' => '#eef2ff', 'text' => '#4f46e5', 'border' => '#c7d2fe'],
+                ['key' => null, 'clickable' => true, 'title' => __('finance.installments.summary.stats.beneficiaries'), 'value' => number_format($stats['beneficiaries']), 'icon' => 'heroicon-o-users', 'bg' => '#fff1f2', 'text' => '#e11d48', 'border' => '#fecdd3'],
             ];
         @endphp
-        <div class="report-stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-            @foreach($cards as $card)
-                <div class="report-stat-card">
-                    <div class="report-stat-top">
-                        <span class="report-stat-title">{{ $card['title'] }}</span>
-                        <div class="report-stat-icon-wrapper" style="background-color: {{ $card['bg'] }}; color: {{ $card['text'] }}; border: 1px solid {{ $card['border'] }};">
-                            <x-dynamic-component :component="$card['icon']" class="report-icon-md" />
-                        </div>
-                    </div>
-                    <div>
-                        <div class="report-stat-value">{{ $card['value'] }}</div>
-                        @if(isset($card['subtitle']))
-                            <div class="report-stat-subtitle" style="color: {{ $card['text'] }};">
-                                <span>{{ $card['subtitle'] }}</span>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-            @endforeach
-        </div>
+        <x-summary-stat-cards :cards="$cards" :active="$this->quickFilter" />
 
         {{-- Unified Reusable Filter Bar --}}
         <x-filter-bar

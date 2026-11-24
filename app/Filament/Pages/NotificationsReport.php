@@ -181,6 +181,71 @@ class NotificationsReport extends Page
         $this->resetPage();
     }
 
+    public function applyQuickFilter(string $preset): void
+    {
+        if ($this->isQuickFilterActive($preset)) {
+            $this->category = 'all';
+            $this->status = [];
+            $this->documentType = [];
+            $this->resetPage();
+
+            return;
+        }
+
+        $this->viewMode = 'list';
+        $this->documentType = [];
+
+        match ($preset) {
+            'overdue' => [
+                $this->category = 'all',
+                $this->status = ['overdue'],
+            ],
+            'urgent' => [
+                $this->category = 'all',
+                $this->status = ['overdue', 'urgent'],
+            ],
+            'documents' => [
+                $this->category = 'documents',
+                $this->status = [],
+            ],
+            'violations' => [
+                $this->category = 'violations',
+                $this->status = [],
+            ],
+            'tasks_invoices' => [
+                $this->category = 'tasks_invoices',
+                $this->status = [],
+            ],
+            default => null,
+        };
+
+        $this->resetPage();
+    }
+
+    public function isQuickFilterActive(string $preset): bool
+    {
+        if ($this->viewMode !== 'list') {
+            return false;
+        }
+
+        $statuses = FilterBarService::values($this->status, ['all']);
+        sort($statuses);
+        $docTypes = FilterBarService::values($this->documentType, ['all']);
+
+        if ($docTypes !== []) {
+            return false;
+        }
+
+        return match ($preset) {
+            'overdue' => $this->category === 'all' && $statuses === ['overdue'],
+            'urgent' => $this->category === 'all' && $statuses === ['overdue', 'urgent'],
+            'documents' => $this->category === 'documents' && $statuses === [],
+            'violations' => $this->category === 'violations' && $statuses === [],
+            'tasks_invoices' => $this->category === 'tasks_invoices' && $statuses === [],
+            default => false,
+        };
+    }
+
     public function setTargetType(?string $target)
     {
         $this->targetType = (filled($target) && $target !== 'all') ? $target : null;
@@ -359,6 +424,7 @@ class NotificationsReport extends Page
                 'violations' => __('notifications.ui.violations_option'),
                 'tasks' => __('notifications.ui.tasks'),
                 'invoices' => __('notifications.ui.invoices'),
+                'tasks_invoices' => __('notifications.ui.tasks_invoices'),
             ];
             $tags[] = [
                 'label' => __('notifications.ui.category'),

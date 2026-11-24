@@ -24,23 +24,23 @@ class CreateUserTool implements GeminiToolInterface
                 'properties' => [
                     'name' => [
                         'type' => 'STRING',
-                        'description' => 'اسم المستخدم الكامل'
+                        'description' => 'اسم المستخدم الكامل',
                     ],
                     'email' => [
                         'type' => 'STRING',
-                        'description' => 'البريد الإلكتروني'
+                        'description' => 'البريد الإلكتروني',
                     ],
                     'phone' => [
                         'type' => 'STRING',
-                        'description' => 'رقم الجوال'
+                        'description' => 'رقم الجوال',
                     ],
                     'user_type' => [
                         'type' => 'STRING',
-                        'description' => 'نوع المستخدم: admin, supervisor, owner (الافتراضي supervisor)'
-                    ]
+                        'description' => 'نوع المستخدم: admin, saudi_employee, foreign_employee, owner',
+                    ],
                 ],
-                'required' => ['name']
-            ]
+                'required' => ['name', 'user_type'],
+            ],
         ];
     }
 
@@ -52,8 +52,8 @@ class CreateUserTool implements GeminiToolInterface
                 return ['success' => false, 'message' => 'اسم المستخدم مطلوب.'];
             }
 
-            $email = !empty($arguments['email']) ? trim($arguments['email']) : null;
-            $phone = !empty($arguments['phone']) ? trim($arguments['phone']) : null;
+            $email = ! empty($arguments['email']) ? trim($arguments['email']) : null;
+            $phone = ! empty($arguments['phone']) ? trim($arguments['phone']) : null;
 
             if ($email) {
                 $duplicate = User::where('email', $email)->first();
@@ -75,30 +75,44 @@ class CreateUserTool implements GeminiToolInterface
                 }
             }
 
-            $typeInput = strtolower(trim($arguments['user_type'] ?? 'supervisor'));
-            $userType = UserType::tryFrom($typeInput) ?? UserType::SUPERVISOR;
+            $typeInput = strtolower(trim($arguments['user_type'] ?? ''));
+            $allowedTypes = [
+                UserType::ADMIN->value,
+                UserType::SAUDI_EMPLOYEE->value,
+                UserType::FOREIGN_EMPLOYEE->value,
+                UserType::OWNER->value,
+            ];
 
-            $generatedEmail = $email ?: 'user_' . time() . '_' . rand(100, 999) . '@system.local';
+            if (! in_array($typeInput, $allowedTypes, true)) {
+                return [
+                    'success' => false,
+                    'message' => 'نوع المستخدم غير صالح أو ملغى. الأنواع المسموحة: admin, saudi_employee, foreign_employee, owner.',
+                ];
+            }
+
+            $userType = UserType::from($typeInput);
+
+            $generatedEmail = $email ?: 'user_'.time().'_'.rand(100, 999).'@system.local';
 
             $user = User::create([
-                'name'      => $name,
-                'email'     => $generatedEmail,
-                'phone'     => $phone,
-                'password'  => Hash::make('password123'),
+                'name' => $name,
+                'email' => $generatedEmail,
+                'phone' => $phone,
+                'password' => Hash::make('password123'),
                 'user_type' => $userType,
-                'status'    => 'active',
+                'status' => 'active',
             ]);
 
             return [
                 'success' => true,
                 'message' => "تم إنشاء حساب المستخدم ({$name}) بنجاح (كلمة المرور الافتراضية: password123).",
                 'user_id' => $user->id,
-                'name'    => $name,
+                'name' => $name,
             ];
         } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'message' => 'تعذر حفظ المستخدم: ' . $e->getMessage(),
+                'message' => 'تعذر حفظ المستخدم: '.$e->getMessage(),
             ];
         }
     }

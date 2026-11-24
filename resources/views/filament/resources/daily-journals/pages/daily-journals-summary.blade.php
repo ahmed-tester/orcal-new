@@ -71,6 +71,8 @@
                 : ($net < 0 ? __('finance.daily_journals.net_status.loss') : __('finance.daily_journals.net_status.even'));
             $cards = [
                 [
+                    'key' => null,
+                    'clickable' => true,
                     'title' => __('finance.daily_journals.summary.entries'),
                     'value' => number_format((float) ($stats->entries_count ?? 0)),
                     'subtitle' => __('finance.daily_journals.summary.entries_unit'),
@@ -81,6 +83,7 @@
                     'icon_bg' => '#dbeafe',
                 ],
                 [
+                    'key' => 'branches',
                     'title' => __('finance.daily_journals.summary.branches'),
                     'value' => number_format((float) ($stats->branches ?? 0)),
                     'subtitle' => __('finance.daily_journals.summary.branches_unit'),
@@ -91,6 +94,7 @@
                     'icon_bg' => '#dcfce7',
                 ],
                 [
+                    'key' => 'sales_sum',
                     'title' => __('finance.daily_journals.summary.sales_sum'),
                     'value' => number_format((float) ($stats->sales_sum ?? 0), 2),
                     'subtitle' => $sar,
@@ -101,6 +105,7 @@
                     'icon_bg' => '#f3e8ff',
                 ],
                 [
+                    'key' => 'purchases_sum',
                     'title' => __('finance.daily_journals.summary.purchases_sum'),
                     'value' => number_format((float) ($stats->purchases_sum ?? 0), 2),
                     'subtitle' => $sar,
@@ -111,6 +116,7 @@
                     'icon_bg' => '#fef3c7',
                 ],
                 [
+                    'key' => 'net_sum',
                     'title' => __('finance.daily_journals.summary.net_sum'),
                     'value' => number_format($net, 2),
                     'subtitle' => $netStatus,
@@ -123,26 +129,7 @@
             ];
         @endphp
 
-        <div class="report-stats-grid">
-            @foreach($cards as $card)
-                <div class="report-stat-card" style="background-color: {{ $card['bg'] }}; border-color: {{ $card['border'] }};">
-                    <div class="report-stat-top">
-                        <span class="report-stat-title" style="color: {{ $card['text'] }};">{{ $card['title'] }}</span>
-                        <div class="report-stat-icon-wrapper" style="background-color: {{ $card['icon_bg'] }}; color: {{ $card['text'] }};">
-                            <x-dynamic-component :component="$card['icon']" class="report-icon-md" />
-                        </div>
-                    </div>
-                    <div class="report-stat-metric">
-                        <div class="report-stat-value" style="color: {{ $card['text'] }};">{{ $card['value'] }}</div>
-                        @if(isset($card['subtitle']))
-                            <div class="report-stat-subtitle" style="color: {{ $card['text'] }};">
-                                <span>{{ $card['subtitle'] }}</span>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-            @endforeach
-        </div>
+        <x-summary-stat-cards :cards="$cards" :active="$this->quickFilter" />
 
         <x-filter-bar
             :title="__('finance.daily_journals.summary.filter_title')"

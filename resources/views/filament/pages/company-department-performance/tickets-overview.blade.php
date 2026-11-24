@@ -21,7 +21,7 @@
             :value="number_format($totals['all'])"
             :hint="__('performance.columns.view_statement')"
             accent="#5b5bf0"
-            action="openKashf('tickets', 'all')"
+            action="openStatement('tickets', 'all')"
         />
         <x-performance.metric-card
             :title="__('performance.tickets.open')"
@@ -30,7 +30,7 @@
             :rate-label="__('performance.tickets.registered_share')"
             :hint="__('performance.columns.view_statement')"
             accent="#0284c7"
-            action="openKashf('tickets', 'open')"
+            action="openStatement('tickets', 'open')"
         />
         <x-performance.metric-card
             :title="__('performance.tickets.in_progress')"
@@ -39,7 +39,7 @@
             :rate-label="__('performance.tickets.registered_share')"
             :hint="__('performance.columns.view_statement')"
             accent="#d97706"
-            action="openKashf('tickets', 'in_progress')"
+            action="openStatement('tickets', 'in_progress')"
         />
         <x-performance.metric-card
             :title="__('performance.tickets.waiting_user_reply')"
@@ -48,7 +48,7 @@
             :rate-label="__('performance.tickets.registered_share')"
             :hint="__('performance.columns.view_statement')"
             accent="#7c3aed"
-            action="openKashf('tickets', 'waiting_user_reply')"
+            action="openStatement('tickets', 'waiting_user_reply')"
         />
         <x-performance.metric-card
             :title="__('performance.tickets.resolved_closed')"
@@ -57,7 +57,7 @@
             :rate-label="__('performance.tickets.registered_share')"
             :hint="__('performance.columns.view_statement')"
             accent="#059669"
-            action="openKashf('tickets', 'resolved_closed')"
+            action="openStatement('tickets', 'resolved_closed')"
         />
         <x-performance.metric-card
             :title="__('performance.tickets.urgent_high')"
@@ -66,7 +66,7 @@
             :rate-label="__('performance.tickets.registered_share')"
             :hint="__('performance.columns.view_statement')"
             accent="#e11d48"
-            action="openKashf('tickets', 'urgent_high')"
+            action="openStatement('tickets', 'urgent_high')"
         />
     </div>
 </section>
@@ -110,7 +110,7 @@
             <div class="perf-empty-icon">
                 <x-heroicon-o-ticket style="width: 28px; height: 28px;" />
             </div>
-            <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
+            <div class="perf-empty-title">{{ __('performance.statement.empty') }}</div>
             <div class="perf-empty-subtitle">{{ __('performance.empty.hint') }}</div>
         </div>
     @endif

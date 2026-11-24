@@ -27,7 +27,7 @@
 
                 <div
                     class="inst-kpi-banner {{ $row->active_services > 0 ? 'has-active' : '' }}"
-                    wire:click="openKashf('services', 'active', {{ $row->company_id }})"
+                    wire:click="openStatement('services', 'active', {{ $row->company_id }})"
                     role="button"
                     tabindex="0"
                     title="{{ __('performance.cards.active_services_hint') }}"
@@ -50,7 +50,7 @@
                     </span>
                     <span
                         class="mini-clickable"
-                        wire:click="openKashf('services', 'completed', {{ $row->company_id }})"
+                        wire:click="openStatement('services', 'completed', {{ $row->company_id }})"
                         role="button"
                         tabindex="0"
                     >
@@ -59,7 +59,7 @@
                     </span>
                     <span
                         class="mini-clickable"
-                        wire:click="openKashf('services', 'overdue', {{ $row->company_id }})"
+                        wire:click="openStatement('services', 'overdue', {{ $row->company_id }})"
                         role="button"
                         tabindex="0"
                     >
@@ -68,7 +68,7 @@
                     </span>
                     <span
                         class="mini-clickable"
-                        wire:click="openKashf('deficiencies', 'all', {{ $row->company_id }})"
+                        wire:click="openStatement('deficiencies', 'all', {{ $row->company_id }})"
                         role="button"
                         tabindex="0"
                     >
@@ -77,7 +77,7 @@
                     </span>
                     <span
                         class="mini-clickable"
-                        wire:click="openKashf('tasks', 'completed', {{ $row->company_id }})"
+                        wire:click="openStatement('tasks', 'completed', {{ $row->company_id }})"
                         role="button"
                         tabindex="0"
                     >
@@ -89,8 +89,8 @@
                 <x-performance.operational-rates
                     :on-time="$row->on_time_rate"
                     :task-completion="$row->task_completion_rate"
-                    :on-time-action="'openKashf(\'services\', \'on_time\', ' . $row->company_id . ')'"
-                    :task-completion-action="'openKashf(\'tasks\', \'all\', ' . $row->company_id . ')'"
+                    :on-time-action="'openStatement(\'services\', \'on_time\', ' . $row->company_id . ')'"
+                    :task-completion-action="'openStatement(\'tasks\', \'all\', ' . $row->company_id . ')'"
                 />
 
                 <div class="inst-footer" wire:click="selectCompany({{ $row->company_id }})" role="button" tabindex="0">
@@ -103,7 +103,7 @@
                 <div class="perf-empty-icon">
                     <x-heroicon-o-building-office-2 style="width: 32px; height: 32px;" />
                 </div>
-                <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
+                <div class="perf-empty-title">{{ __('performance.statement.empty') }}</div>
                 <div class="perf-empty-sub">{{ __('performance.empty.hint') }}</div>
             </div>
         @endforelse

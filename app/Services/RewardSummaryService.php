@@ -71,6 +71,18 @@ class RewardSummaryService
         self::applyAccessScope($query);
         self::applyFilters($query, $filters);
 
+        $quickColumn = match ($filters['quick_filter'] ?? null) {
+            'total_rewards' => 'rw.total_rewards',
+            'total_amount' => 'rw.total_amount',
+            'paid_amount' => 'rw.paid_amount',
+            'pending_count' => 'rw.pending_count',
+            default => null,
+        };
+
+        if ($quickColumn !== null) {
+            $query->whereRaw("COALESCE({$quickColumn}, 0) > 0");
+        }
+
         return $query;
     }
 
@@ -79,7 +91,7 @@ class RewardSummaryService
      */
     public static function getStats(array $filters = []): array
     {
-        $rows = self::summaryQuery($filters)->get();
+        $rows = self::summaryQuery(array_merge($filters, ['quick_filter' => null]))->get();
 
         return [
             'employees_count' => $rows->count(),

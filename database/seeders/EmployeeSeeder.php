@@ -275,7 +275,7 @@ class EmployeeSeeder extends Seeder
                     'name' => 'خالد الدوسري (مسؤول حضور فرع الرياض)',
                     'phone' => '0504445566',
                     'password' => Hash::make('password'),
-                    'user_type' => \App\Enums\UserType::SUPERVISOR,
+                    'user_type' => \App\Enums\UserType::SAUDI_EMPLOYEE,
                     'status' => 'active',
                     'email_verified_at' => now(),
                 ]
@@ -321,7 +321,7 @@ class EmployeeSeeder extends Seeder
                     'name' => 'ماجد الحربي (مسؤول حضور فرع جدة)',
                     'phone' => '0505556677',
                     'password' => Hash::make('password'),
-                    'user_type' => \App\Enums\UserType::SUPERVISOR,
+                    'user_type' => \App\Enums\UserType::SAUDI_EMPLOYEE,
                     'status' => 'active',
                     'email_verified_at' => now(),
                 ]

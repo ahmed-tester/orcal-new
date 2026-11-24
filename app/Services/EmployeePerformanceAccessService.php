@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\EmploymentType;
 use App\Enums\UserType;
 use App\Models\Employee;
 use App\Models\ServiceTransaction;
@@ -11,6 +12,7 @@ use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Server-side access decisions for the employee performance page.
@@ -22,6 +24,8 @@ use Illuminate\Support\Facades\Gate;
  */
 class EmployeePerformanceAccessService
 {
+    public const SUPERVISE_PERMISSION = 'supervise_task_team';
+
     public static function viewer(): ?User
     {
         return auth()->user();
@@ -35,9 +39,108 @@ class EmployeePerformanceAccessService
             && (int) $viewerEmployeeId === (int) $employee->id;
     }
 
+    public static function isEligibleSaudiTaskEmployee(?Employee $employee): bool
+    {
+        if (! $employee || $employee->is_temporary || $employee->employment_type === EmploymentType::TEMPORARY) {
+            return false;
+        }
+
+        $status = $employee->status instanceof \BackedEnum ? $employee->status->value : $employee->status;
+        if ($status !== 'active') {
+            return false;
+        }
+
+        if ($employee->user?->user_type === UserType::FOREIGN_EMPLOYEE) {
+            return false;
+        }
+
+        return Employee::query()
+            ->nonTemporary()
+            ->saudi()
+            ->whereKey($employee->getKey())
+            ->exists();
+    }
+
+    public static function isEligibleSupervisorCandidate(?Employee $employee): bool
+    {
+        if (! self::isEligibleSaudiTaskEmployee($employee)) {
+            return false;
+        }
+
+        return $employee?->user?->can(self::SUPERVISE_PERMISSION) ?? false;
+    }
+
     public static function isSupervisor(User $user): bool
     {
-        return $user->user_type === UserType::SUPERVISOR;
+        if ($user->isSuperAdminOrOwner()) {
+            return false;
+        }
+
+        return $user->can(self::SUPERVISE_PERMISSION)
+            && self::isEligibleSaudiTaskEmployee($user->employee);
+    }
+
+    public static function isFormerOrRevokedSupervisor(User $user): bool
+    {
+        if ($user->isSuperAdminOrOwner() || $user->user_type === UserType::ADMIN || self::isSupervisor($user)) {
+            return false;
+        }
+
+        $employee = $user->employee;
+        if (! $employee) {
+            return false;
+        }
+
+        if ((bool) data_get($employee->metadata, 'was_task_supervisor', false)) {
+            return true;
+        }
+
+        return SupervisionShift::query()
+            ->where('supervisor_id', $employee->id)
+            ->exists();
+    }
+
+    /**
+     * Explicitly end supervision responsibility when no active shifts remain.
+     * Revokes direct permission and single-purpose supervision roles without
+     * mutating shared multi-purpose roles.
+     *
+     * @return array{revoked: bool, reason: string}
+     */
+    public static function revokeSupervisionPermission(User $user): array
+    {
+        $employee = $user->employee;
+
+        if ($employee && SupervisionShift::query()->where('supervisor_id', $employee->id)->where('status', 'active')->exists()) {
+            return ['revoked' => false, 'reason' => 'active_shift_exists'];
+        }
+
+        if ($employee) {
+            $meta = is_array($employee->metadata) ? $employee->metadata : [];
+            if (empty($meta['was_task_supervisor'])) {
+                $meta['was_task_supervisor'] = true;
+                $employee->forceFill(['metadata' => $meta])->saveQuietly();
+            }
+        }
+
+        if ($user->hasDirectPermission(self::SUPERVISE_PERMISSION)) {
+            $user->revokePermissionTo(self::SUPERVISE_PERMISSION);
+        }
+
+        foreach ($user->roles()->with('permissions')->get() as $role) {
+            $permNames = $role->permissions->pluck('name')->all();
+            if ($permNames === [self::SUPERVISE_PERMISSION]) {
+                $user->removeRole($role);
+            }
+        }
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        if ($user->fresh()?->can(self::SUPERVISE_PERMISSION)) {
+            return ['revoked' => false, 'reason' => 'inherited_from_shared_role'];
+        }
+
+        return ['revoked' => true, 'reason' => 'revoked'];
     }
 
     /**
@@ -115,7 +218,15 @@ class EmployeePerformanceAccessService
         ?CarbonInterface $periodStart = null,
         ?CarbonInterface $periodEnd = null,
     ): bool {
-        if (! self::isSupervisor($user) || self::isSelf($user, $employee)) {
+        if (self::isSelf($user, $employee)) {
+            return true;
+        }
+
+        if (self::isFormerOrRevokedSupervisor($user)) {
+            return false;
+        }
+
+        if (! self::isSupervisor($user)) {
             return true;
         }
 
@@ -157,6 +268,7 @@ class EmployeePerformanceAccessService
         User $user,
         ?CarbonInterface $periodStart = null,
         ?CarbonInterface $periodEnd = null,
+        bool $currentOnly = false,
     ): array {
         $supervisor = $user->employee;
 
@@ -164,12 +276,23 @@ class EmployeePerformanceAccessService
             return [];
         }
 
+        $today = today()->toDateString();
+        $effectiveEnd = $periodEnd ? min($periodEnd->toDateString(), $today) : $today;
+
         $shifts = SupervisionShift::query()
             ->where('supervisor_id', $supervisor->id)
-            ->whereIn('status', ['active', 'completed'])
+            ->when(
+                $currentOnly,
+                fn (Builder $query) => $query
+                    ->where('status', 'active')
+                    ->where('start_date', '<=', $today)
+                    ->where('end_date', '>=', $today),
+                fn (Builder $query) => $query
+                    ->whereIn('status', ['active', 'completed'])
+                    ->where('start_date', '<=', $effectiveEnd)
+            )
             ->whereNotNull(['company_id', 'start_date', 'end_date'])
             ->when($periodStart, fn (Builder $query) => $query->where('end_date', '>=', $periodStart->toDateString()))
-            ->when($periodEnd, fn (Builder $query) => $query->where('start_date', '<=', $periodEnd->toDateString()))
             ->get();
 
         $windows = [];

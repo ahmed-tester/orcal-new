@@ -22,6 +22,7 @@ class DebtSummaryPrintController extends Controller
             'search' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable'],
             'debtor_type' => ['nullable'],
+            'quick_filter' => ['nullable', 'string', 'max:50'],
         ]);
 
         return view('debts.summary-print', [

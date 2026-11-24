@@ -128,7 +128,7 @@ class CompanyTicketsPerformanceService
      *
      * @param  array<string, mixed>  $filters
      */
-    public static function getKashfQuery(array $filters, string $type = 'all'): Builder
+    public static function getStatementQuery(array $filters, string $type = 'all'): Builder
     {
         abort_unless(self::canView(), 403);
         abort_unless(in_array($type, self::STATEMENT_TYPES, true), 404);

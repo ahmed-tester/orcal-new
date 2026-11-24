@@ -40,12 +40,26 @@ class ViolationSummaryService
 
     public static function summaryQuery(array $filters): Builder
     {
-        return Violation::query()
+        $query = Violation::query()
             ->joinSub(self::grouped($filters), 'summary', 'violations.id', '=', 'summary.row_id')
             ->select('violations.*', 'summary.violation_count', ...array_map(fn ($key) => "summary.{$key}", self::TOTALS))
             ->with(['company'])
             ->orderByDesc('summary.remaining_sum')
             ->orderBy('violations.id');
+
+        $quickColumn = match ($filters['quick_filter'] ?? null) {
+            'violation_count' => 'summary.violation_count',
+            'total_sum' => 'summary.total_sum',
+            'paid_sum' => 'summary.paid_sum',
+            'remaining_sum' => 'summary.remaining_sum',
+            default => null,
+        };
+
+        if ($quickColumn !== null) {
+            $query->whereRaw("COALESCE({$quickColumn}, 0) > 0");
+        }
+
+        return $query;
     }
 
     public static function stats(array $filters): object
