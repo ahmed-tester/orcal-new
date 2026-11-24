@@ -76,9 +76,27 @@ class ServiceFinancialActions
 
                 Select::make('collector_employee_id')
                     ->label(__('financial.fields.collector'))
-                    ->options(fn (?ServiceTransaction $record) => static::employees($record))
-                    ->default(fn (?ServiceTransaction $record) => $record?->executed_by)
-                    ->searchable(),
+                    ->options(function (?ServiceTransaction $record): array {
+                        $user = auth()->user();
+                        if ($user && ! $user->isSuperAdminOrOwner() && $user->employee) {
+                            return [
+                                $user->employee->id => $user->name ?? $user->employee->name ?? ('#'.$user->employee->id),
+                            ];
+                        }
+
+                        return static::employees($record);
+                    })
+                    ->default(function (?ServiceTransaction $record): ?int {
+                        $user = auth()->user();
+                        if ($user && ! $user->isSuperAdminOrOwner() && $user->employee) {
+                            return $user->employee->id;
+                        }
+
+                        return $record?->executed_by;
+                    })
+                    ->disabled(fn (): bool => ! (auth()->user()?->isSuperAdminOrOwner() ?? false))
+                    ->dehydrated()
+                    ->searchable(fn (): bool => auth()->user()?->isSuperAdminOrOwner() ?? false),
 
                 TextInput::make('payer_name')
                     ->label(__('financial.fields.payer_name'))

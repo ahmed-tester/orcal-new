@@ -5,6 +5,7 @@ namespace App\Models;
 
 use App\Traits\HasHijriDates;
 use App\Enums\PaymentStatus;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,13 +15,19 @@ class Invoice extends Model
 {
     use HasFactory, HasHijriDates;
 
+    public const FLOW_KEY = 'financial_workflow_version';
+
+    public const WORKFLOW_VERSION = 1;
+
+    public const FLOW_MANAGED = 'managed';
+
     public function getHijriDateFieldNames(): array
     {
         return [
             'issue_date',
+            'due_date',
         ];
     }
-
 
     protected $fillable = [
         'invoice_number',
@@ -30,6 +37,7 @@ class Invoice extends Model
         'customer_id',
         'employee_id',
         'issue_date',
+        'due_date',
         'total_amount',
         'paid_amount',
         'remaining_amount',
@@ -51,6 +59,41 @@ class Invoice extends Model
             'is_paid_by_applicant' => 'boolean',
             'metadata' => 'array',
         ];
+    }
+
+    public function getDueDateAttribute(): ?Carbon
+    {
+        $value = $this->metadata['due_date'] ?? null;
+
+        return filled($value) ? Carbon::parse($value) : null;
+    }
+
+    public function setDueDateAttribute(mixed $value): void
+    {
+        $meta = $this->metadata ?? [];
+        if (! is_array($meta)) {
+            $meta = [];
+        }
+
+        if (filled($value)) {
+            $meta['due_date'] = Carbon::parse($value)->toDateString();
+        } else {
+            unset($meta['due_date']);
+        }
+
+        $this->metadata = $meta;
+    }
+
+    public function attributesToArray(): array
+    {
+        $attributes = parent::attributesToArray();
+        $dueDate = $this->metadata['due_date'] ?? null;
+
+        if (filled($dueDate)) {
+            $attributes['due_date'] = $dueDate;
+        }
+
+        return $attributes;
     }
 
     protected static function booted(): void
@@ -115,5 +158,66 @@ class Invoice extends Model
     public function items(): HasMany
     {
         return $this->hasMany(InvoiceItem::class);
+    }
+
+    public function financialReceipts(): HasMany
+    {
+        return $this->hasMany(FinancialReceipt::class, 'source_id')
+            ->where('source_type', FinancialReceipt::SOURCE_INVOICE);
+    }
+
+    public function financialSourceType(): string
+    {
+        return FinancialReceipt::SOURCE_INVOICE;
+    }
+
+    public function isManaged(): bool
+    {
+        return (int) ($this->metadata[self::FLOW_KEY] ?? 0) === self::WORKFLOW_VERSION;
+    }
+
+    public function isServiceMirror(): bool
+    {
+        if (! empty($this->metadata['service_transaction_id'])
+            || ($this->metadata['financial_flow'] ?? null) === 'service_mirror'
+            || ($this->metadata['source'] ?? null) === FinancialReceipt::SOURCE_SERVICE_TRANSACTION) {
+            return true;
+        }
+
+        if (! $this->exists) {
+            return false;
+        }
+
+        return ServiceTransaction::where('metadata->auto_invoice_id', $this->id)->exists();
+    }
+
+    public function linkedServiceTransaction(): ?ServiceTransaction
+    {
+        $id = $this->metadata['service_transaction_id'] ?? null;
+
+        if ($id) {
+            return ServiceTransaction::find($id);
+        }
+
+        if (! $this->exists) {
+            return null;
+        }
+
+        return ServiceTransaction::where('metadata->auto_invoice_id', $this->id)->first();
+    }
+
+    public function hasFinancialImpact(): bool
+    {
+        if ((float) $this->paid_amount > 0) {
+            return true;
+        }
+
+        if ($this->exists && FinancialReceipt::forSource(FinancialReceipt::SOURCE_INVOICE, (int) $this->id)->exists()) {
+            return true;
+        }
+
+        $meta = $this->metadata ?? [];
+
+        return ! empty($meta['reversed_at']) || ! empty($meta['handover_id']) || ! empty($meta['treasury_transaction_id']);
     }
 }

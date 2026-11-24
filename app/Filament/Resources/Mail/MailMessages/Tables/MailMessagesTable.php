@@ -2,16 +2,17 @@
 
 namespace App\Filament\Resources\Mail\MailMessages\Tables;
 
-use App\Enums\Mail\MailCategory;
 use App\Enums\Mail\MailMessageStatus;
 use App\Enums\Mail\MailPriority;
 use App\Enums\Mail\MailSourceFolder;
+use App\Filament\Resources\Mail\MailMessages\MailMessageResource;
 use App\Filament\Resources\Mail\MailMessages\Pages\ViewMailMessage;
 use App\Filament\Resources\Mail\MailMessages\Schemas\MailReplyForm;
+use App\Filament\Resources\Mail\MailMessages\Schemas\MailReviewForm;
 use App\Models\Mail\MailAccount;
 use App\Models\Mail\MailMessage;
-use App\Models\User;
 use App\Services\Mail\MailAccessService;
+use App\Services\Mail\MailCategoryService;
 use App\Services\Mail\MailMessageService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -24,7 +25,6 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -134,7 +134,8 @@ class MailMessagesTable
                 TextColumn::make('category')
                     ->label(__('mail_inbox.fields.category'))
                     ->badge()
-                    ->color('gray'),
+                    ->formatStateUsing(fn (?string $state, MailMessage $record): string => $record->categoryLabel())
+                    ->color(fn (MailMessage $record): string => $record->categoryColor()),
 
                 TextColumn::make('confidence')
                     ->label(__('mail_inbox.fields.confidence'))
@@ -258,7 +259,7 @@ class MailMessagesTable
 
                 SelectFilter::make('category')
                     ->label(__('mail_inbox.fields.category_filter'))
-                    ->options(MailCategory::class),
+                    ->options(fn (): array => app(MailCategoryService::class)->allFilterOptions()),
 
                 SelectFilter::make('source_folder')
                     ->label(__('mail_inbox.fields.source_folder_filter'))
@@ -325,66 +326,22 @@ class MailMessagesTable
                         ->modalCancelActionLabel(__('mail_inbox.actions.close'))
                         ->modalWidth('4xl'),
 
-                    Action::make('update_review')
-                        ->label(__('mail_inbox.actions.update_review'))
-                        ->icon('heroicon-m-adjustments-horizontal')
-                        ->color('warning')
-                        ->visible(fn (MailMessage $record): bool => Gate::allows('review', $record))
-                        ->fillForm(fn (MailMessage $record): array => [
-                            'status' => $record->status?->value,
-                            'priority' => $record->priority?->value,
-                            'category' => $record->category?->value,
-                            'is_important' => (bool) $record->is_important,
-                            'assigned_to' => $record->assigned_to,
-                        ])
-                        ->schema([
-                            Select::make('status')
-                                ->label(__('mail_inbox.fields.status'))
-                                ->options(MailMessageStatus::class)
-                                ->required(),
-                            Select::make('priority')
-                                ->label(__('mail_inbox.fields.priority'))
-                                ->options(MailPriority::class)
-                                ->required(),
-                            Select::make('category')
-                                ->label(__('mail_inbox.fields.category'))
-                                ->options(MailCategory::class)
-                                ->required(),
-                            Toggle::make('is_important')
-                                ->label(__('mail_inbox.fields.is_important')),
-                            Select::make('assigned_to')
-                                ->label(__('mail_inbox.fields.assignee'))
-                                ->options(function (MailMessage $record): array {
-                                    $employeeUserIds = $record->account?->employees()
-                                        ->where('employees.status', 'active')
-                                        ->pluck('employees.user_id') ?? collect();
+                    MailReviewForm::configure(
+                        Action::make('update_review')
+                            ->label(__('mail_inbox.actions.update_review'))
+                            ->color('warning')
+                    )->after(fn ($livewire) => $livewire->redirect(request()->header('Referer') ?: MailMessageResource::getUrl('index'))),
 
-                                    return User::whereIn('id', $employeeUserIds)
-                                        ->where('status', 'active')
-                                        ->get()
-                                        ->filter(fn (User $user): bool => MailAccessService::canViewMessage($user, $record))
-                                        ->pluck('name', 'id')
-                                        ->all();
-                                })
-                                ->searchable(),
-                        ])
-                        ->action(function (MailMessage $record, array $data): void {
-                            app(MailMessageService::class)->updateReview($record, $data, auth()->user());
-                            Notification::make()->title(__('mail_inbox.messages.review_updated'))->success()->send();
-                        }),
+                    MailReviewForm::configureMoveAction(
+                        Action::make('move_to')
+                            ->label(__('mail_inbox.actions.move_to'))
+                            ->color('info')
+                    )->after(fn ($livewire) => $livewire->redirect(request()->header('Referer') ?: MailMessageResource::getUrl('index'))),
 
-                    Action::make('approve_review')
-                        ->label(__('mail_inbox.actions.approve_important'))
-                        ->icon('heroicon-m-check-badge')
-                        ->color('success')
-                        ->requiresConfirmation()
-                        ->modalHeading(__('mail_inbox.modal.approve_heading'))
-                        ->modalDescription(__('mail_inbox.modal.approve_description'))
-                        ->visible(fn (MailMessage $record): bool => $record->status === MailMessageStatus::UNDER_REVIEW && Gate::allows('review', $record))
-                        ->action(function (MailMessage $record): void {
-                            app(MailMessageService::class)->approveReview($record, auth()->user());
-                            Notification::make()->title(__('mail_inbox.messages.marked_important'))->success()->send();
-                        }),
+                    MailReviewForm::configureApproveAction(
+                        Action::make('approve_review')
+                            ->icon('heroicon-m-check-badge')
+                    )->after(fn ($livewire) => $livewire->redirect(request()->header('Referer') ?: MailMessageResource::getUrl('index'))),
 
                     Action::make('reject_review')
                         ->label(__('mail_inbox.actions.mark_rejected'))
@@ -397,7 +354,8 @@ class MailMessagesTable
                         ->action(function (MailMessage $record): void {
                             app(MailMessageService::class)->rejectReview($record, auth()->user());
                             Notification::make()->title(__('mail_inbox.messages.marked_rejected'))->warning()->send();
-                        }),
+                        })
+                        ->after(fn ($livewire) => $livewire->redirect(request()->header('Referer') ?: MailMessageResource::getUrl('index'))),
 
                     Action::make('addNote')
                         ->label(__('mail_inbox.actions.add_note'))
@@ -436,6 +394,36 @@ class MailMessagesTable
                         ->icon('heroicon-m-check')
                         ->action(fn ($records) => $records->each(fn (MailMessage $record) => $record->update(['is_read' => true]))),
 
+                    BulkAction::make('moveToImportant')
+                        ->label(__('mail_inbox.actions.move_to_important'))
+                        ->icon('heroicon-m-star')
+                        ->color('warning')
+                        ->visible(function (): bool {
+                            $user = auth()->user();
+
+                            return $user !== null && (MailAccessService::canAdministerAllMail($user) || $user->can(MailAccessService::PERM_REVIEW));
+                        })
+                        ->schema([
+                            Select::make('category')
+                                ->label(__('mail_inbox.fields.replacement_category_if_excluded'))
+                                ->options(fn (): array => app(MailCategoryService::class)->nonExcludedActiveOptions())
+                                ->helperText(__('mail_inbox.helpers.bulk_replacement_category')),
+                        ])
+                        ->action(function ($records, array $data): void {
+                            $count = app(MailMessageService::class)->moveMessagesBulk(
+                                $records,
+                                MailMessageService::TAB_IMPORTANT,
+                                auth()->user(),
+                                $data['category'] ?? null
+                            );
+
+                            Notification::make()
+                                ->title(__('mail_inbox.messages.bulk_moved', ['count' => $count]))
+                                ->success()
+                                ->send();
+                        })
+                        ->after(fn ($livewire) => $livewire->redirect(request()->header('Referer') ?: MailMessageResource::getUrl('index'))),
+
                     BulkAction::make('markAsUnderReview')
                         ->label(__('mail_inbox.actions.mark_as_under_review'))
                         ->icon('heroicon-m-question-mark-circle')
@@ -444,7 +432,113 @@ class MailMessagesTable
 
                             return $user !== null && (MailAccessService::canAdministerAllMail($user) || $user->can(MailAccessService::PERM_REVIEW));
                         })
-                        ->action(fn ($records) => $records->each(fn (MailMessage $record) => $record->update(['status' => MailMessageStatus::UNDER_REVIEW->value]))),
+                        ->schema([
+                            Select::make('category')
+                                ->label(__('mail_inbox.fields.replacement_category_if_excluded'))
+                                ->options(fn (): array => app(MailCategoryService::class)->nonExcludedActiveOptions())
+                                ->helperText(__('mail_inbox.helpers.bulk_replacement_category')),
+                        ])
+                        ->action(function ($records, array $data): void {
+                            $count = app(MailMessageService::class)->moveMessagesBulk(
+                                $records,
+                                MailMessageService::TAB_UNDER_REVIEW,
+                                auth()->user(),
+                                $data['category'] ?? null
+                            );
+
+                            Notification::make()
+                                ->title(__('mail_inbox.messages.bulk_moved', ['count' => $count]))
+                                ->success()
+                                ->send();
+                        })
+                        ->after(fn ($livewire) => $livewire->redirect(request()->header('Referer') ?: MailMessageResource::getUrl('index'))),
+
+                    BulkAction::make('moveToExcluded')
+                        ->label(__('mail_inbox.actions.move_to_excluded'))
+                        ->icon('heroicon-m-no-symbol')
+                        ->color('danger')
+                        ->visible(function (): bool {
+                            $user = auth()->user();
+
+                            return $user !== null && (MailAccessService::canAdministerAllMail($user) || $user->can(MailAccessService::PERM_REVIEW));
+                        })
+                        ->schema([
+                            Select::make('category')
+                                ->label(__('mail_inbox.fields.excluded_category_optional'))
+                                ->options(fn (): array => app(MailCategoryService::class)->excludedActiveOptions()),
+                        ])
+                        ->action(function ($records, array $data): void {
+                            $count = app(MailMessageService::class)->moveMessagesBulk(
+                                $records,
+                                MailMessageService::TAB_SPAM_EXCLUDED,
+                                auth()->user(),
+                                $data['category'] ?? null
+                            );
+
+                            Notification::make()
+                                ->title(__('mail_inbox.messages.bulk_moved', ['count' => $count]))
+                                ->warning()
+                                ->send();
+                        })
+                        ->after(fn ($livewire) => $livewire->redirect(request()->header('Referer') ?: MailMessageResource::getUrl('index'))),
+
+                    BulkAction::make('moveToNormal')
+                        ->label(__('mail_inbox.actions.move_to_normal'))
+                        ->icon('heroicon-m-inbox')
+                        ->visible(function (): bool {
+                            $user = auth()->user();
+
+                            return $user !== null && (MailAccessService::canAdministerAllMail($user) || $user->can(MailAccessService::PERM_REVIEW));
+                        })
+                        ->schema([
+                            Select::make('category')
+                                ->label(__('mail_inbox.fields.replacement_category_if_excluded'))
+                                ->options(fn (): array => app(MailCategoryService::class)->nonExcludedActiveOptions())
+                                ->helperText(__('mail_inbox.helpers.bulk_replacement_category')),
+                        ])
+                        ->action(function ($records, array $data): void {
+                            $count = app(MailMessageService::class)->moveMessagesBulk(
+                                $records,
+                                MailMessageService::TAB_NORMAL,
+                                auth()->user(),
+                                $data['category'] ?? null
+                            );
+
+                            Notification::make()
+                                ->title(__('mail_inbox.messages.bulk_moved', ['count' => $count]))
+                                ->success()
+                                ->send();
+                        })
+                        ->after(fn ($livewire) => $livewire->redirect(request()->header('Referer') ?: MailMessageResource::getUrl('index'))),
+
+                    BulkAction::make('changeCategory')
+                        ->label(__('mail_inbox.actions.change_category'))
+                        ->icon('heroicon-m-tag')
+                        ->visible(function (): bool {
+                            $user = auth()->user();
+
+                            return $user !== null && (MailAccessService::canAdministerAllMail($user) || $user->can(MailAccessService::PERM_REVIEW));
+                        })
+                        ->schema([
+                            Select::make('category')
+                                ->label(__('mail_inbox.fields.category'))
+                                ->options(fn (): array => app(MailCategoryService::class)->activeOptions())
+                                ->required(),
+                        ])
+                        ->action(function ($records, array $data): void {
+                            $count = app(MailMessageService::class)->moveMessagesBulk(
+                                $records,
+                                MailMessageService::ACTION_CHANGE_CATEGORY,
+                                auth()->user(),
+                                (string) $data['category']
+                            );
+
+                            Notification::make()
+                                ->title(__('mail_inbox.messages.bulk_moved', ['count' => $count]))
+                                ->success()
+                                ->send();
+                        })
+                        ->after(fn ($livewire) => $livewire->redirect(request()->header('Referer') ?: MailMessageResource::getUrl('index'))),
 
                     DeleteBulkAction::make()
                         ->visible(fn (): bool => Gate::allows('deleteAny', MailMessage::class)),

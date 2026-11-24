@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\Mail\MailMessages\Widgets;
 
-use App\Enums\Mail\MailMessageStatus;
 use App\Filament\Resources\Mail\MailMessages\MailMessageResource;
+use App\Services\Mail\MailMessageService;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -14,8 +14,9 @@ class LatestImportantMail extends TableWidget
     {
         return $table->heading(__('mail_inbox.stats.latest_mail'))
             ->query(
-                MailMessageResource::getEloquentQuery()
-                    ->where('status', '!=', MailMessageStatus::REJECTED->value)
+                app(MailMessageService::class)->applyNotExcludedScope(
+                    MailMessageResource::getEloquentQuery()
+                )
                     ->latest('received_at')
                     ->limit(6)
             )

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Mail;
 
-use App\Enums\Mail\MailCategory;
 use App\Enums\Mail\MailMessageStatus;
 use App\Enums\Mail\MailPriority;
 use App\Models\Mail\MailExclusionKeyword;
@@ -80,7 +79,7 @@ class EmailClassifierTest extends TestCase
         $emailResult = $this->service->classify('MINISTER@gov.sa', 'Subject', 'Body');
         $this->assertTrue($emailResult['is_important']);
         $this->assertSame(100, $emailResult['confidence']);
-        $this->assertSame(MailCategory::OFFICIAL, $emailResult['category']);
+        $this->assertSame('official', $emailResult['category']);
         $this->assertSame(MailPriority::HIGH, $emailResult['priority']);
         $this->assertSame(MailMessageStatus::NEW, $emailResult['status']);
 
@@ -109,7 +108,7 @@ class EmailClassifierTest extends TestCase
 
         $this->assertFalse($result['is_important']);
         $this->assertSame(90, $result['confidence']);
-        $this->assertSame(MailCategory::MARKETING, $result['category']);
+        $this->assertSame('marketing', $result['category']);
         $this->assertSame(MailPriority::LOW, $result['priority']);
         $this->assertSame(MailMessageStatus::REJECTED, $result['status']);
     }
@@ -126,7 +125,7 @@ class EmailClassifierTest extends TestCase
 
         $this->assertTrue($result['is_important']);
         $this->assertSame(85, $result['confidence']);
-        $this->assertSame(MailCategory::COMPLAINT, $result['category']);
+        $this->assertSame('complaint', $result['category']);
         $this->assertSame(MailPriority::HIGH, $result['priority']);
         $this->assertSame(MailMessageStatus::NEW, $result['status']);
     }
@@ -173,7 +172,7 @@ class EmailClassifierTest extends TestCase
         $important = $this->service->classify('vip@corp.test', 'Upgrade', 'Need 20 seats');
         $this->assertTrue($important['is_important']);
         $this->assertSame(MailMessageStatus::NEW, $important['status']);
-        $this->assertSame(MailCategory::REQUEST, $important['category']);
+        $this->assertSame('request', $important['category']);
         $this->assertSame(MailPriority::HIGH, $important['priority']);
 
         // Second identical call should hit cache without consuming the next HTTP fake response
@@ -184,7 +183,7 @@ class EmailClassifierTest extends TestCase
         $rejected = $this->service->classify('ads@shop.test', 'Sale', 'Big discount');
         $this->assertFalse($rejected['is_important']);
         $this->assertSame(MailMessageStatus::REJECTED, $rejected['status']);
-        $this->assertSame(MailCategory::MARKETING, $rejected['category']);
+        $this->assertSame('marketing', $rejected['category']);
 
         $underReview = $this->service->classify('maybe@unknown.test', 'Hello', 'Can we talk?');
         $this->assertSame(MailMessageStatus::UNDER_REVIEW, $underReview['status']);
@@ -250,7 +249,7 @@ class EmailClassifierTest extends TestCase
         $result = $this->service->classify('client@random.test', 'استفسار عاجل غير مفعل', 'تفاصيل');
         $this->assertTrue($result['is_important']);
         $this->assertSame(85, $result['confidence']);
-        $this->assertSame(MailCategory::INQUIRY, $result['category']);
+        $this->assertSame('inquiry', $result['category']);
         $this->assertStringContainsString('عاجل', $result['classification_reason']);
 
         // Equal weights break ties deterministically by lowest id

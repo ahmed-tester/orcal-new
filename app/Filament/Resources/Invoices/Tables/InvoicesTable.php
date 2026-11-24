@@ -2,13 +2,16 @@
 
 namespace App\Filament\Resources\Invoices\Tables;
 
-use App\Enums\PaymentStatus;
+use App\Filament\Components\InvoiceFinancialActions;
+use App\Models\Invoice;
+use App\Services\InvoiceFinancialService;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class InvoicesTable
@@ -25,7 +28,7 @@ class InvoicesTable
                     ->badge()
                     ->color('primary')
                     ->icon('heroicon-m-document-text')
-                    ->url(fn (\App\Models\Invoice $record) => route('invoices.print', $record))
+                    ->url(fn (Invoice $record) => route('invoices.print', $record))
                     ->openUrlInNewTab()
                     ->tooltip(__('invoices.actions.print_tooltip')),
 
@@ -38,7 +41,7 @@ class InvoicesTable
 
                 TextColumn::make('customer.name')
                     ->label(__('invoices.fields.customer'))
-                    ->placeholder(fn ($record) => $record->employee ? __('invoices.placeholders.employee_prefix', ['name' => $record->employee->user->name ?? '#' . $record->employee->id]) : '—')
+                    ->placeholder(fn ($record) => $record->employee ? __('invoices.placeholders.employee_prefix', ['name' => $record->employee->user->name ?? '#'.$record->employee->id]) : '—')
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
@@ -85,17 +88,31 @@ class InvoicesTable
                 // Handled by top Filter Bar
             ])
             ->recordActions([
-                \Filament\Actions\Action::make('print')
+                ActionGroup::make([
+                    InvoiceFinancialActions::recordReceipt(),
+                    InvoiceFinancialActions::confirmReceipt(),
+                    InvoiceFinancialActions::requestHandover(),
+                    InvoiceFinancialActions::handoverQr(),
+                    InvoiceFinancialActions::reverseReceipt(),
+                    InvoiceFinancialActions::financialSummary(),
+                ]),
+                Action::make('print')
                     ->label(__('invoices.actions.print'))
                     ->icon('heroicon-o-printer')
                     ->color('info')
-                    ->url(fn (\App\Models\Invoice $record) => route('invoices.print', $record))
+                    ->url(fn (Invoice $record) => route('invoices.print', $record))
                     ->openUrlInNewTab(),
                 EditAction::make()->label(__('employees.actions.edit')),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make()->label(__('employees.actions.delete_selected')),
+                    DeleteBulkAction::make()
+                        ->label(__('employees.actions.delete_selected'))
+                        ->before(function ($records): void {
+                            foreach ($records as $record) {
+                                InvoiceFinancialService::assertDeletable($record);
+                            }
+                        }),
                 ]),
             ]);
     }

@@ -97,12 +97,13 @@ class PayrollCalculationService
         $absenceAmount = round($lateAmount + $absencePenaltyAmount, 2);
         $rewardsAmount = round($rewards, 2);
 
-        // 4. Deduct prior collections recorded for the same month
+        // 4. Deduct only legacy collections automatically; managed collections use explicit settlement allocations
         $collections = PayrollRecord::where('employee_id', $employee->id)
             ->where('operation_type', 'collection')
             ->whereYear('payroll_month', $month->year)
             ->whereMonth('payroll_month', $month->month)
-            ->get();
+            ->get()
+            ->reject(fn (PayrollRecord $c) => $c->isManaged());
 
         $collectedDeduction = (float) $collections->sum(fn ($c) => (float) ($c->paid_amount > 0 ? $c->paid_amount : $c->net_amount));
         $currency = __('dashboard.stats.currency');
@@ -246,6 +247,24 @@ class PayrollCalculationService
                 ];
             }
 
+            if ($existing->isManaged()) {
+                $summary = PayrollRecordFinancialService::payrollSummary($existing);
+
+                return [
+                    'basic_salary' => $basic,
+                    'additional_amount' => $additional,
+                    'deduction_amount' => round($deductions + $summary['deduction_confirmed'], 2),
+                    'collected_deduction' => $summary['deduction_confirmed'],
+                    'collection_notes' => $existing->metadata['collection_notes'] ?? '',
+                    'net_amount' => $summary['effective_net'],
+                    'paid_amount' => $summary['paid'],
+                    'remaining_amount' => $summary['remaining'],
+                    'payment_status' => $existing->payment_status,
+                    'record_number' => $recordNumber,
+                    'notes' => $notes,
+                ];
+            }
+
             $collectedDeduction = (float) ($existing->metadata['collected_deduction'] ?? 0);
             $collectionNotes = $existing->metadata['collection_notes'] ?? '';
             $totals = static::computeTotals($basic, $additional, $deductions, $paid);
@@ -332,6 +351,31 @@ class PayrollCalculationService
         string $paymentMethod = 'cash',
         ?string $notes = null
     ): PayrollPayment {
+        if ($record->isCollection()) {
+            if ($record->isManaged() || ! $record->hasFinancialImpact()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'operation_type' => __('financial.errors.collection_uses_receipt_workflow'),
+                ]);
+            }
+        } elseif ($record->isManaged()) {
+            $res = PayrollDisbursementService::disburse($record, [
+                'request_key' => PayrollDisbursementService::newRequestKey(),
+                'amount' => $amount,
+                'payment_date' => $paymentDate,
+                'payment_method' => $paymentMethod,
+                'notes' => $notes,
+                'confirm' => true,
+            ]);
+
+            if (! $res['payment']) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'payment_method' => __('financial.errors.non_cash_destination_required'),
+                ]);
+            }
+
+            return $res['payment'];
+        }
+
         return DB::transaction(function () use ($record, $amount, $paymentDate, $paymentMethod, $notes) {
             $paymentDate = $paymentDate ?: now()->toDateString();
             $companyId = $record->company_id ?? auth()->user()?->company_id ?? $record->employee?->company_id;

@@ -2,12 +2,14 @@
 
 namespace App\Observers;
 
+use App\Enums\OperationWorkflowStatus;
 use App\Enums\PaymentStatus;
 use App\Models\Debt;
 use App\Models\Invoice;
 use App\Models\ServiceTransaction;
 use App\Services\CompanyFormService;
 use App\Services\OperationsAuditService;
+use App\Services\OperationsNotificationService;
 use App\Services\OperationsReconciliationService;
 use App\Services\ServiceFinancialWorkflowService;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +27,9 @@ class ServiceTransactionObserver
         ServiceFinancialWorkflowService::activate($transaction);
 
         $meta = $transaction->metadata ?? [];
+        if (empty($meta['created_by']) && auth()->id()) {
+            $meta['created_by'] = auth()->id();
+        }
 
         DB::transaction(function () use (&$meta, $transaction) {
             $invoiceId = $this->createAutoInvoice($transaction);
@@ -55,6 +60,35 @@ class ServiceTransactionObserver
                 'scope_type' => $transaction->scope_type,
             ],
         );
+
+        $actorId = auth()->id();
+        if (! empty($transaction->executed_by)) {
+            DB::afterCommit(function () use ($transaction, $actorId): void {
+                OperationsNotificationService::notifyAssigned($transaction, $actorId);
+            });
+        }
+    }
+
+    public function updated(ServiceTransaction $transaction): void
+    {
+        $actorId = auth()->id();
+
+        if ($transaction->wasChanged('executed_by') && ! empty($transaction->executed_by)) {
+            DB::afterCommit(function () use ($transaction, $actorId): void {
+                OperationsNotificationService::notifyAssigned($transaction, $actorId);
+            });
+        }
+
+        $wasCompleted = $transaction->getOriginal('service_status') === 'completed'
+            || $transaction->getOriginal('workflow_status') === OperationWorkflowStatus::COMPLETED->value;
+        $isCompleted = $transaction->service_status === 'completed'
+            || $transaction->workflow_status === OperationWorkflowStatus::COMPLETED->value;
+
+        if (! $wasCompleted && $isCompleted) {
+            DB::afterCommit(function () use ($transaction, $actorId): void {
+                OperationsNotificationService::notifyCompleted($transaction, $actorId);
+            });
+        }
     }
 
     public function updating(ServiceTransaction $transaction): void
@@ -151,6 +185,11 @@ class ServiceTransactionObserver
             'notes' => __('services_tracking.observer.auto_invoice_notes', [
                 'number' => $transaction->transaction_number,
             ]),
+            'metadata' => [
+                'source' => 'service_transaction',
+                'service_transaction_id' => $transaction->id,
+                'financial_flow' => 'service_mirror',
+            ],
         ]);
 
         return $invoice->id;

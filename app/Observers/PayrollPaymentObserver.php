@@ -5,6 +5,8 @@ namespace App\Observers;
 use App\Models\PayrollPayment;
 use App\Services\CodeGeneratorService;
 use App\Services\PayrollCalculationService;
+use App\Services\PayrollRecordFinancialService;
+use Illuminate\Validation\ValidationException;
 
 class PayrollPaymentObserver
 {
@@ -46,6 +48,12 @@ class PayrollPaymentObserver
      */
     public function deleting(PayrollPayment $payment): void
     {
+        if ($payment->payrollRecord?->isManaged()) {
+            throw ValidationException::withMessages([
+                'payment' => __('financial.errors.cannot_delete_with_financial_records'),
+            ]);
+        }
+
         if (! ($payment->payrollRecord?->isDeletingRecord ?? false)) {
             PayrollCalculationService::reverseDisbursementPayment($payment, 'إلغاء وحذف دفعة مسير');
         }
@@ -65,10 +73,22 @@ class PayrollPaymentObserver
     protected function syncRecordPaidAmount(PayrollPayment $payment): void
     {
         $record = $payment->payrollRecord;
-        if ($record) {
-            $totalPaid = (float) $record->payments()->sum('amount');
-            $record->paid_amount = $totalPaid;
-            $record->save();
+        if (! $record) {
+            return;
         }
+
+        if ($record->isManaged()) {
+            if ($record->isPayroll()) {
+                PayrollRecordFinancialService::syncPayroll($record);
+            } else {
+                PayrollRecordFinancialService::syncCollection($record);
+            }
+
+            return;
+        }
+
+        $totalPaid = (float) $record->payments()->sum('amount');
+        $record->paid_amount = $totalPaid;
+        $record->save();
     }
 }

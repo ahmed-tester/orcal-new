@@ -85,18 +85,20 @@ class DisburseSalaryTool implements GeminiToolInterface
                 ];
             }
 
-            // تحديد مسير الراتب المستهدف
+            // تحديد مسير الراتب المستهدف (payroll فقط وليس collection)
             $record = null;
             if ($monthStr) {
                 $monthDate = Carbon::parse($monthStr)->startOfMonth()->toDateString();
                 $record = PayrollRecord::where('company_id', $companyId)
                     ->where('employee_id', $employee->id)
+                    ->where('operation_type', 'payroll')
                     ->whereDate('payroll_month', $monthDate)
                     ->first();
             } else {
-                // البحث عن أحدث مسير به رصيد متبقي لم يُصرف بالكامل
+                // البحث عن أحدث مسير راتب به رصيد متبقي لم يُصرف بالكامل
                 $record = PayrollRecord::where('company_id', $companyId)
                     ->where('employee_id', $employee->id)
+                    ->where('operation_type', 'payroll')
                     ->where('payment_status', '!=', PaymentStatus::PAID)
                     ->orderByDesc('payroll_month')
                     ->first();
@@ -131,18 +133,27 @@ class DisburseSalaryTool implements GeminiToolInterface
                 ];
             }
 
-            // تنفيذ الصرف الفعلي وإصدار حركة الخزينة وتحديث المسير
-            $payment = PayrollCalculationService::disburseSalary(
-                record: $record,
-                amount: $amount,
-                paymentDate: $paymentDate,
-                paymentMethod: $paymentMethod,
-                notes: $notes ?: 'استيراد ذكي — صرف رواتب'
-            );
-
+            // تنفيذ الصرف الفعلي عبر الخدمة الموحّدة
+            $res = \App\Services\PayrollDisbursementService::disburse($record, [
+                'request_key' => 'ai:'.$record->id.':'.$paymentDate.':'.$amount.':'.$paymentMethod,
+                'amount' => $amount,
+                'payment_date' => $paymentDate,
+                'payment_method' => $paymentMethod,
+                'notes' => $notes ?: 'استيراد ذكي — صرف رواتب',
+                'confirm' => $paymentMethod === 'cash',
+            ]);
+            $payment = $res['payment'];
             $freshRecord = $record->fresh();
             $employeeName = $employee->user?->name ?? "موظف #{$employee->id}";
             $monthDisplay = Carbon::parse($freshRecord->payroll_month)->format('Y-m');
+
+            if (! $payment) {
+                return [
+                    'success' => true,
+                    'message' => 'تم تسجيل طلب صرف راتب غير نقدي بمبلغ ('.number_format($amount, 2)." ر.س) للموظف ({$employeeName}) عن شهر ({$monthDisplay}) وبانتظار التأكيد والمرجع البنكي.",
+                    'record_name' => "طلب صرف راتب: {$employeeName}",
+                ];
+            }
 
             $methodName = match ($paymentMethod) {
                 'bank_transfer' => 'تحويل بنكي',

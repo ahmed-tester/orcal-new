@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Mail\MailAccounts\Schemas;
 
 use App\Services\CompanyFormService;
 use App\Services\Mail\MailAccountService;
+use App\Services\Mail\MicrosoftMailOAuthService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -109,7 +110,13 @@ class MailAccountForm
                 ->schema([
                     Placeholder::make('provider_instructions')
                         ->label(fn (Get $get): string => __('mail_inbox.provider_setup.'.static::provider($get).'.instructions'))
-                        ->content(fn (Get $get) => view('filament.mail.account-provider-instructions', ['provider' => static::provider($get)]))
+                        ->content(fn (Get $get, $record) => view('filament.mail.account-provider-instructions', [
+                            'provider' => static::provider($get),
+                            'record' => $record,
+                            'microsoftConfigured' => app(MicrosoftMailOAuthService::class)->isConfigured(),
+                            'isVerifying' => $record ? MicrosoftMailOAuthService::isVerifying((int) $record->id) : false,
+                            'canConfigure' => auth()->user()?->isSuperAdmin() ?? false,
+                        ]))
                         ->columnSpanFull(),
                     TextInput::make('host')
                         ->label(__('mail_inbox.fields.host'))
@@ -146,8 +153,9 @@ class MailAccountForm
                         ->label(fn (Get $get): string => __('mail_inbox.provider_setup.'.static::provider($get).'.password_label'))
                         ->password()
                         ->revealable()
-                        ->required(fn (string $operation): bool => $operation === 'create')
-                        ->dehydrated(fn (?string $state): bool => filled($state))
+                        ->visible(fn (Get $get): bool => static::provider($get) !== MailAccountService::PROVIDER_OUTLOOK)
+                        ->required(fn (string $operation, Get $get): bool => $operation === 'create' && static::provider($get) !== MailAccountService::PROVIDER_OUTLOOK)
+                        ->dehydrated(fn (?string $state, Get $get): bool => static::provider($get) !== MailAccountService::PROVIDER_OUTLOOK && filled($state))
                         ->suffixAction(
                             Action::make('open_google_app_passwords')
                                 ->icon('heroicon-m-arrow-top-right-on-square')

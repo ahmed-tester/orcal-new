@@ -3,11 +3,14 @@
 namespace App\Filament\Resources\Mail\MailMessages\Pages;
 
 use App\Enums\Mail\MailMessageStatus;
+use App\Enums\Mail\MailPriority;
 use App\Filament\Resources\Mail\MailMessages\MailMessageResource;
 use App\Filament\Resources\Mail\MailMessages\Schemas\MailReplyForm;
+use App\Filament\Resources\Mail\MailMessages\Schemas\MailReviewForm;
 use App\Models\Mail\MailInternalNote;
 use App\Models\Mail\MailMessage;
 use App\Models\Mail\MailReply;
+use App\Services\Mail\MailCategoryService;
 use App\Services\Mail\MailMessageService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -17,12 +20,27 @@ use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 class ViewMailMessage extends ViewRecord
 {
     protected static string $resource = MailMessageResource::class;
 
     public string $newInternalNote = '';
+
+    public bool $isEditingStatus = false;
+
+    public ?string $reviewStatus = null;
+
+    public ?string $reviewPriority = null;
+
+    public ?string $reviewCategory = null;
+
+    public bool $reviewIsImportant = false;
+
+    public int|string|null $reviewAssignedTo = null;
+
+    public ?string $reviewLoadedVersion = null;
 
     public ?int $lastRepliesCount = null;
 
@@ -38,6 +56,7 @@ class ViewMailMessage extends ViewRecord
             $this->record->update(['is_read' => true]);
         }
 
+        $this->syncReviewFields();
         $this->loadCounters();
     }
 
@@ -82,6 +101,74 @@ class ViewMailMessage extends ViewRecord
         $this->lastThreadMessagesCount = max($previousThread ?? 0, $currentThread);
         $this->lastRepliesCount = max($previousReplies ?? 0, $currentReplies);
         $this->lastNotesCount = max($previousNotes ?? 0, $currentNotes);
+
+        if (! $this->isEditingStatus) {
+            $this->syncReviewFields();
+        }
+    }
+
+    public function toggleEditStatus(): void
+    {
+        abort_unless(Gate::allows('review', $this->record), 403);
+
+        $this->isEditingStatus = ! $this->isEditingStatus;
+
+        if ($this->isEditingStatus) {
+            $this->syncReviewFields();
+        }
+    }
+
+    public function cancelStatusReview(): void
+    {
+        $this->isEditingStatus = false;
+        $this->syncReviewFields();
+    }
+
+    public function saveStatusReview(): void
+    {
+        $this->resetErrorBag();
+
+        try {
+            app(MailMessageService::class)->updateReview(
+                $this->record,
+                [
+                    'status' => $this->reviewStatus,
+                    'priority' => $this->reviewPriority,
+                    'category' => $this->reviewCategory,
+                    'is_important' => $this->reviewIsImportant,
+                    'assigned_to' => filled($this->reviewAssignedTo) ? (int) $this->reviewAssignedTo : null,
+                ],
+                auth()->user(),
+                $this->reviewLoadedVersion
+            );
+        } catch (ValidationException $e) {
+            $map = [
+                'status' => 'reviewStatus',
+                'priority' => 'reviewPriority',
+                'category' => 'reviewCategory',
+                'is_important' => 'reviewIsImportant',
+                'assigned_to' => 'reviewAssignedTo',
+            ];
+
+            foreach ($e->errors() as $field => $messages) {
+                $target = $map[$field] ?? $field;
+                foreach ($messages as $message) {
+                    $this->addError($target, $message);
+                }
+            }
+
+            return;
+        }
+
+        $this->isEditingStatus = false;
+        $this->refreshRecord();
+
+        Notification::make()
+            ->title(__('mail_inbox.messages.review_updated'))
+            ->success()
+            ->send();
+
+        $this->redirect(MailMessageResource::getUrl('view', ['record' => $this->record]));
     }
 
     public function saveInternalNote(): void
@@ -122,6 +209,12 @@ class ViewMailMessage extends ViewRecord
                 ->columnSpanFull()
                 ->viewData(fn (): array => [
                     'record' => $this->record,
+                    'isEditingStatus' => $this->isEditingStatus,
+                    'canReview' => Gate::allows('review', $this->record),
+                    'statusOptions' => collect(MailMessageStatus::cases())->mapWithKeys(fn (MailMessageStatus $case): array => [$case->value => $case->getLabel()])->all(),
+                    'priorityOptions' => collect(MailPriority::cases())->mapWithKeys(fn (MailPriority $case): array => [$case->value => $case->getLabel()])->all(),
+                    'categoryOptions' => app(MailCategoryService::class)->activeOptions($this->record->category),
+                    'assigneeOptions' => MailReviewForm::assigneeOptions($this->record),
                     'thread' => $this->threadMessagesQuery()
                         ->with(['replies.user', 'replies.attachments', 'internalNotes.user', 'regularAttachments'])
                         ->orderBy('received_at')
@@ -178,23 +271,29 @@ class ViewMailMessage extends ViewRecord
                         ->send();
                 }),
 
-            Action::make('approve_important')
-                ->label(__('mail_inbox.actions.approve_important'))
-                ->icon('heroicon-o-check-badge')
-                ->color('success')
-                ->requiresConfirmation()
-                ->modalHeading(__('mail_inbox.modal.approve_heading'))
-                ->modalDescription(__('mail_inbox.modal.approve_description'))
-                ->visible(fn (): bool => $this->record->status === MailMessageStatus::UNDER_REVIEW && Gate::allows('review', $this->record))
-                ->action(function (): void {
-                    app(MailMessageService::class)->approveReview($this->record, auth()->user());
-                    $this->refreshRecord();
+            Action::make('update_review')
+                ->label(fn (): string => $this->isEditingStatus
+                    ? __('mail_inbox.actions.cancel_edit_status')
+                    : __('mail_inbox.actions.edit_status'))
+                ->icon(fn (): string => $this->isEditingStatus
+                    ? 'heroicon-m-x-mark'
+                    : 'heroicon-m-adjustments-horizontal')
+                ->color(fn (): string => $this->isEditingStatus ? 'gray' : 'info')
+                ->visible(fn (): bool => Gate::allows('review', $this->record))
+                ->action(fn () => $this->toggleEditStatus()),
 
-                    Notification::make()
-                        ->title(__('mail_inbox.messages.marked_important'))
-                        ->success()
-                        ->send();
-                }),
+            MailReviewForm::configureMoveAction(
+                Action::make('move_to')
+                    ->label(__('mail_inbox.actions.move_to'))
+                    ->color('gray')
+                    ->record($this->record)
+            )->after(fn () => $this->redirect(MailMessageResource::getUrl('view', ['record' => $this->record]))),
+
+            MailReviewForm::configureApproveAction(
+                Action::make('approve_important')
+                    ->icon('heroicon-o-check-badge')
+                    ->record($this->record)
+            )->after(fn () => $this->redirect(MailMessageResource::getUrl('view', ['record' => $this->record]))),
 
             Action::make('mark_rejected')
                 ->label(__('mail_inbox.actions.mark_rejected'))
@@ -206,12 +305,13 @@ class ViewMailMessage extends ViewRecord
                 ->visible(fn (): bool => $this->record->status === MailMessageStatus::UNDER_REVIEW && Gate::allows('review', $this->record))
                 ->action(function (): void {
                     app(MailMessageService::class)->rejectReview($this->record, auth()->user());
-                    $this->refreshRecord();
 
                     Notification::make()
                         ->title(__('mail_inbox.messages.marked_rejected'))
                         ->warning()
                         ->send();
+
+                    $this->redirect(MailMessageResource::getUrl('view', ['record' => $this->record]));
                 }),
         ];
     }
@@ -250,6 +350,7 @@ class ViewMailMessage extends ViewRecord
     {
         $this->record->refresh();
         $this->record->load(['replies.user', 'replies.attachments', 'internalNotes.user', 'regularAttachments', 'account']);
+        $this->syncReviewFields();
         $this->loadCounters();
     }
 
@@ -258,5 +359,19 @@ class ViewMailMessage extends ViewRecord
         $this->lastThreadMessagesCount = $this->threadMessagesCount();
         $this->lastRepliesCount = $this->repliesCount();
         $this->lastNotesCount = $this->record->internalNotes()->count();
+    }
+
+    protected function syncReviewFields(): void
+    {
+        if (! $this->record instanceof MailMessage) {
+            return;
+        }
+
+        $this->reviewStatus = $this->record->status?->value;
+        $this->reviewPriority = $this->record->priority?->value;
+        $this->reviewCategory = $this->record->category;
+        $this->reviewIsImportant = (bool) $this->record->is_important;
+        $this->reviewAssignedTo = $this->record->assigned_to;
+        $this->reviewLoadedVersion = MailMessageService::concurrencyToken($this->record);
     }
 }

@@ -21,6 +21,7 @@ use App\Http\Controllers\ViolationSummaryPrintController;
 use Illuminate\Support\Facades\Route;
 
 // ─── System Documentation & User Guide ───────────────────────────────────
+Route::get('/login-redirect', fn () => redirect()->route('filament.admin.auth.login'))->name('login');
 Route::get('/docs', [DocumentationController::class, 'index'])->name('documentation.index');
 Route::get('/documentation', [DocumentationController::class, 'index']);
 

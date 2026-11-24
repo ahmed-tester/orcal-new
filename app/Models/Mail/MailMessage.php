@@ -2,12 +2,13 @@
 
 namespace App\Models\Mail;
 
-use App\Enums\Mail\MailCategory;
+use App\Enums\Mail\MailCategory as LegacyMailCategory;
 use App\Enums\Mail\MailMessageStatus;
 use App\Enums\Mail\MailPriority;
 use App\Enums\Mail\MailSourceFolder;
 use App\Models\Company;
 use App\Models\User;
+use App\Services\Mail\MailCategoryService;
 use App\Services\Mail\MailNotificationService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -62,13 +63,44 @@ class MailMessage extends Model
             'escalated_at' => 'datetime',
             'source_folder' => MailSourceFolder::class,
             'is_important' => 'boolean',
-            'category' => MailCategory::class,
             'confidence' => 'integer',
             'priority' => MailPriority::class,
             'status' => MailMessageStatus::class,
             'is_read' => 'boolean',
             'assigned_to' => 'integer',
         ];
+    }
+
+    public function setCategoryAttribute(mixed $value): void
+    {
+        if ($value instanceof LegacyMailCategory) {
+            $this->attributes['category'] = $value->value;
+
+            return;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+        $this->attributes['category'] = $normalized !== '' ? $normalized : MailCategory::SYSTEM_OTHER_SLUG;
+    }
+
+    public function categoryDefinition(): BelongsTo
+    {
+        return $this->belongsTo(MailCategory::class, 'category', 'slug');
+    }
+
+    public function categoryLabel(?string $locale = null): string
+    {
+        return app(MailCategoryService::class)->labelFor($this->category, $locale);
+    }
+
+    public function categoryColor(): string
+    {
+        return app(MailCategoryService::class)->colorFor($this->category);
+    }
+
+    public function isExcludedCategory(): bool
+    {
+        return app(MailCategoryService::class)->isExcluded($this->category);
     }
 
     public function company(): BelongsTo
@@ -125,6 +157,10 @@ class MailMessage extends Model
         if ($html !== '') {
             $config = (new HtmlSanitizerConfig)
                 ->allowSafeElements()
+                // Email documents are embedded fragments, not additional page bodies.
+                ->blockElement('html')
+                ->blockElement('body')
+                ->dropElement('head')
                 ->allowRelativeLinks()
                 ->allowRelativeMedias()
                 ->allowMediaSchemes(['http', 'https', 'cid', 'data'])

@@ -189,7 +189,7 @@ class MailInboxSchemaTest extends TestCase
         MailExclusionKeyword::create(['keyword' => 'unsubscribe', 'is_active' => true]);
 
         $this->assertSame(MailMessageStatus::NEW, $message->fresh()->status);
-        $this->assertSame(MailCategory::OFFICIAL, $message->fresh()->category);
+        $this->assertSame('official', $message->fresh()->category);
         $this->assertSame(MailPriority::HIGH, $message->fresh()->priority);
         $this->assertSame($attachment->id, $message->regularAttachments()->first()->id);
         $this->assertSame($reply->id, $message->replies()->first()->id);

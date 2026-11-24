@@ -28,7 +28,9 @@
         "psr-4": {
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
-            "Database\\Seeders\\": "database/seeders/"
+            "Database\\Seeders\\": "database/seeders/",
+            "Webklex\\IMAP\\": "vendor/webklex/laravel-imap/src/",
+            "Webklex\\PHPIMAP\\": "vendor/webklex/php-imap/src/"
         }
     },
     "autoload-dev": {

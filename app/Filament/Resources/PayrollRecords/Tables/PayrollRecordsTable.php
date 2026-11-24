@@ -4,15 +4,34 @@ namespace App\Filament\Resources\PayrollRecords\Tables;
 
 use App\Enums\PaymentStatus;
 use App\Filament\Components\OrgSelect;
+use App\Filament\Components\PayrollFinancialActions;
+use App\Filament\Resources\PayrollRecords\PayrollRecordResource;
+use App\Models\FinancialReceipt;
+use App\Models\Guarantor;
+use App\Models\PayrollRecord;
+use App\Services\CompanyFormService;
+use App\Services\FinancialReceiptService;
+use App\Services\PayrollDisbursementService;
+use App\Services\PayrollRecordFinancialService;
+use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
 
 class PayrollRecordsTable
 {
@@ -25,7 +44,7 @@ class PayrollRecordsTable
                 'company',
             ]))
             ->heading(fn () => __('finance.payroll_records.table_heading', [
-                'count' => \App\Filament\Resources\PayrollRecords\PayrollRecordResource::getEloquentQuery()->count(),
+                'count' => PayrollRecordResource::getEloquentQuery()->count(),
             ]))
             ->columns([
                 TextColumn::make('record_number')
@@ -51,7 +70,7 @@ class PayrollRecordsTable
                     ->searchable()
                     ->sortable()
                     ->weight('bold')
-                    ->description(fn ($record) => $record->employee?->employee_number ? '🆔 ' . $record->employee->employee_number : null),
+                    ->description(fn ($record) => $record->employee?->employee_number ? '🆔 '.$record->employee->employee_number : null),
 
                 TextColumn::make('employee.details.guarantor.name')
                     ->label(__('guarantors.single'))
@@ -105,7 +124,7 @@ class PayrollRecordsTable
                 SelectFilter::make('operation_type')
                     ->label(__('finance.payroll_records.fields.operation_type'))
                     ->options([
-                        'payroll'    => __('finance.payroll_records.fields.operation_types.payroll'),
+                        'payroll' => __('finance.payroll_records.fields.operation_types.payroll'),
                         'collection' => __('finance.payroll_records.fields.operation_types.collection'),
                     ]),
                 SelectFilter::make('payment_status')
@@ -114,15 +133,16 @@ class PayrollRecordsTable
                 SelectFilter::make('guarantor_id')
                     ->label(__('guarantors.filters.filter_by_guarantor'))
                     ->options(function () {
-                        $companyIds = \App\Services\CompanyFormService::getAuthorizedCompanyIds();
-                        $query = \App\Models\Guarantor::query()->where('status', 'active');
-                        if (!empty($companyIds)) {
+                        $companyIds = CompanyFormService::getAuthorizedCompanyIds();
+                        $query = Guarantor::query()->where('status', 'active');
+                        if (! empty($companyIds)) {
                             $query->whereIn('company_id', $companyIds);
                         }
+
                         return $query->pluck('name', 'id');
                     })
                     ->query(function ($query, array $data) {
-                        if (!empty($data['value'])) {
+                        if (! empty($data['value'])) {
                             $query->whereHas('employee.details', function ($q) use ($data) {
                                 $q->where('guarantor_id', $data['value']);
                             });
@@ -130,36 +150,45 @@ class PayrollRecordsTable
                     })
                     ->searchable()
                     ->preload(),
-                \Filament\Tables\Filters\Filter::make('payroll_month')
+                Filter::make('payroll_month')
                     ->label(__('finance.payroll_records.actions.filter_month'))
                     ->form([
-                        \Filament\Forms\Components\TextInput::make('month')
+                        TextInput::make('month')
                             ->label(__('finance.payroll_records.actions.filter_month_format'))
                             ->placeholder(now()->format('Y-m')),
                     ])
                     ->query(function ($query, array $data) {
-                        if (!empty($data['month'])) {
+                        if (! empty($data['month'])) {
                             try {
-                                $c = \Carbon\Carbon::parse($data['month']);
+                                $c = Carbon::parse($data['month']);
                                 $query->whereYear('payroll_month', $c->year)
-                                      ->whereMonth('payroll_month', $c->month);
-                            } catch (\Exception) {}
+                                    ->whereMonth('payroll_month', $c->month);
+                            } catch (\Exception) {
+                            }
                         }
                     }),
             ])
             ->recordActions([
                 static::getPaySalaryAction(),
                 ActionGroup::make([
-                    \Filament\Actions\Action::make('print')
+                    PayrollFinancialActions::confirmCollectionReceipt(),
+                    PayrollFinancialActions::requestCollectionHandover(),
+                    PayrollFinancialActions::handoverQr(),
+                    PayrollFinancialActions::reverseCollectionReceipt(),
+                    PayrollFinancialActions::deductCollectionFromSalary(),
+                    PayrollFinancialActions::confirmPendingPayrollTransfer(),
+                    PayrollFinancialActions::reversePayrollPayment(),
+                    PayrollFinancialActions::financialSummary(),
+                    Action::make('print')
                         ->label(__('finance.payroll_records.actions.print_record'))
                         ->icon('heroicon-o-printer')
                         ->color('info')
-                        ->url(fn (\App\Models\PayrollRecord $record) => route('payroll-records.print', $record))
+                        ->url(fn (PayrollRecord $record) => route('payroll-records.print', $record))
                         ->openUrlInNewTab(),
                     EditAction::make(),
                     DeleteAction::make(),
                 ])
-                ->icon('heroicon-m-ellipsis-vertical'),
+                    ->icon('heroicon-m-ellipsis-vertical'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
@@ -169,40 +198,57 @@ class PayrollRecordsTable
                         ->color('success')
                         ->requiresConfirmation()
                         ->form([
-                            \Filament\Forms\Components\DatePicker::make('payment_date')
+                            DatePicker::make('payment_date')
                                 ->label(__('finance.payroll_records.actions.payment_date'))
                                 ->default(now())
                                 ->required(),
-                            \Filament\Forms\Components\Select::make('payment_method')
+                            Select::make('payment_method')
                                 ->label(__('finance.payroll_records.actions.payment_method'))
                                 ->options([
-                                    'cash'          => __('finance.payroll_records.actions.payment_methods.cash'),
+                                    'cash' => __('finance.payroll_records.actions.payment_methods.cash'),
                                     'bank_transfer' => __('finance.payroll_records.actions.payment_methods.bank_transfer'),
-                                    'cheque'        => __('finance.payroll_records.actions.payment_methods.cheque'),
                                 ])
                                 ->default('cash')
                                 ->required(),
-                            \Filament\Forms\Components\Textarea::make('notes')
+                            Hidden::make('request_key')
+                                ->default(fn () => PayrollDisbursementService::newRequestKey()),
+                            Textarea::make('notes')
                                 ->label(__('finance.payroll_records.actions.payment_notes'))
                                 ->rows(2),
                         ])
-                        ->action(function (\Illuminate\Support\Collection $records, array $data) {
+                        ->action(function (Collection $records, array $data) {
                             $count = 0;
+                            $attemptKey = (string) ($data['request_key'] ?? PayrollDisbursementService::newRequestKey());
                             foreach ($records as $record) {
                                 if ((float) $record->remaining_amount > 0 && $record->payment_status !== PaymentStatus::PAID) {
                                     try {
-                                        \App\Services\PayrollCalculationService::disburseSalary(
-                                            record: $record,
-                                            amount: (float) $record->remaining_amount,
-                                            paymentDate: $data['payment_date'],
-                                            paymentMethod: $data['payment_method'],
-                                            notes: $data['notes'] ?? null
-                                        );
+                                        $rowKey = $attemptKey.':'.$record->operation_type.':'.$record->id;
+                                        if ($record->isCollection()) {
+                                            FinancialReceiptService::recordFor(
+                                                FinancialReceipt::SOURCE_PAYROLL_COLLECTION,
+                                                (int) $record->id,
+                                                [
+                                                    'request_key' => $rowKey,
+                                                    'amount' => (float) $record->remaining_amount,
+                                                    'payment_method' => $data['payment_method'],
+                                                    'notes' => $data['notes'] ?? null,
+                                                ],
+                                            );
+                                        } else {
+                                            PayrollDisbursementService::disburse($record, [
+                                                'request_key' => $rowKey,
+                                                'amount' => (float) $record->remaining_amount,
+                                                'payment_date' => $data['payment_date'],
+                                                'payment_method' => $data['payment_method'],
+                                                'notes' => $data['notes'] ?? null,
+                                            ]);
+                                        }
                                         $count++;
-                                    } catch (\Throwable $e) {}
+                                    } catch (\Throwable $e) {
+                                    }
                                 }
                             }
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->title(__('finance.payroll_records.actions.bulk_disburse_success', ['count' => $count]))
                                 ->success()
                                 ->send();
@@ -214,75 +260,106 @@ class PayrollRecordsTable
             ->defaultSort('id', 'desc');
     }
 
-    protected static function getPaySalaryAction(): \Filament\Actions\Action
+    protected static function getPaySalaryAction(): Action
     {
-        return \Filament\Actions\Action::make('paySalary')
-            ->label(fn (\App\Models\PayrollRecord $record) => $record->operation_type === 'collection' ? __('finance.payroll_records.actions.collect_amount') : __('finance.payroll_records.actions.pay_salary'))
-            ->icon(fn (\App\Models\PayrollRecord $record) => $record->operation_type === 'collection' ? 'heroicon-o-arrow-down-tray' : 'heroicon-o-banknotes')
-            ->color(fn (\App\Models\PayrollRecord $record) => $record->operation_type === 'collection' ? 'purple' : 'success')
-            ->visible(fn (\App\Models\PayrollRecord $record) => (float) $record->remaining_amount > 0 && $record->payment_status !== PaymentStatus::PAID)
-            ->modalHeading(fn (\App\Models\PayrollRecord $record) => $record->operation_type === 'collection'
+        return Action::make('paySalary')
+            ->label(fn (PayrollRecord $record) => $record->operation_type === 'collection' ? __('finance.payroll_records.actions.collect_amount') : __('finance.payroll_records.actions.pay_salary'))
+            ->icon(fn (PayrollRecord $record) => $record->operation_type === 'collection' ? 'heroicon-o-arrow-down-tray' : 'heroicon-o-banknotes')
+            ->color(fn (PayrollRecord $record) => $record->operation_type === 'collection' ? 'purple' : 'success')
+            ->visible(fn (PayrollRecord $record) => static::availableActionAmount($record) > 0 && $record->payment_status !== PaymentStatus::PAID)
+            ->modalHeading(fn (PayrollRecord $record) => $record->operation_type === 'collection'
                 ? __('finance.payroll_records.actions.collect_heading', ['employee' => $record->employee?->user?->name ?? "#{$record->employee_id}"])
                 : __('finance.payroll_records.actions.pay_salary_heading', [
                     'employee' => $record->employee?->user?->name ?? "#{$record->employee_id}",
                 ])
             )
-            ->modalDescription(fn (\App\Models\PayrollRecord $record) => __('finance.payroll_records.actions.pay_salary_description', [
-                'month'     => \Carbon\Carbon::parse($record->payroll_month)->format('Y-m'),
-                'net'       => number_format((float) $record->net_amount, 2),
-                'remaining' => number_format((float) $record->remaining_amount, 2),
+            ->modalDescription(fn (PayrollRecord $record) => __('finance.payroll_records.actions.pay_salary_description', [
+                'month' => Carbon::parse($record->payroll_month)->format('Y-m'),
+                'net' => number_format((float) $record->net_amount, 2),
+                'remaining' => number_format(static::availableActionAmount($record), 2),
             ]))
             ->form([
-                \Filament\Forms\Components\TextInput::make('amount')
+                Hidden::make('request_key')
+                    ->default(fn (PayrollRecord $record) => $record->isCollection()
+                        ? FinancialReceiptService::newRequestKey()
+                        : PayrollDisbursementService::newRequestKey()),
+
+                TextInput::make('amount')
                     ->label(__('finance.payroll_records.actions.amount_to_pay'))
                     ->numeric()
                     ->prefix('SAR')
-                    ->default(fn (\App\Models\PayrollRecord $record) => (float) $record->remaining_amount)
+                    ->default(fn (PayrollRecord $record) => static::availableActionAmount($record))
                     ->minValue(0.01)
-                    ->maxValue(fn (\App\Models\PayrollRecord $record) => (float) $record->remaining_amount)
+                    ->maxValue(fn (PayrollRecord $record) => static::availableActionAmount($record))
                     ->required(),
 
-                \Filament\Forms\Components\DatePicker::make('payment_date')
+                DatePicker::make('payment_date')
                     ->label(__('finance.payroll_records.actions.payment_date'))
                     ->default(now())
                     ->required(),
 
-                \Filament\Forms\Components\Select::make('payment_method')
+                Select::make('payment_method')
                     ->label(__('finance.payroll_records.actions.payment_method'))
                     ->options([
-                        'cash'          => __('finance.payroll_records.actions.payment_methods.cash'),
+                        'cash' => __('finance.payroll_records.actions.payment_methods.cash'),
                         'bank_transfer' => __('finance.payroll_records.actions.payment_methods.bank_transfer'),
-                        'cheque'        => __('finance.payroll_records.actions.payment_methods.cheque'),
                     ])
                     ->default('cash')
                     ->required(),
 
-                \Filament\Forms\Components\Textarea::make('notes')
+                Textarea::make('notes')
                     ->label(__('finance.payroll_records.actions.payment_notes'))
                     ->rows(2),
             ])
-            ->action(function (\App\Models\PayrollRecord $record, array $data) {
+            ->action(function (PayrollRecord $record, array $data) {
                 try {
-                    \App\Services\PayrollCalculationService::disburseSalary(
-                        record: $record,
-                        amount: (float) $data['amount'],
-                        paymentDate: $data['payment_date'] ?? null,
-                        paymentMethod: $data['payment_method'] ?? 'cash',
-                        notes: $data['notes'] ?? null
-                    );
+                    if ($record->isCollection()) {
+                        FinancialReceiptService::recordFor(
+                            FinancialReceipt::SOURCE_PAYROLL_COLLECTION,
+                            (int) $record->id,
+                            [
+                                'request_key' => $data['request_key'] ?? FinancialReceiptService::newRequestKey(),
+                                'amount' => (float) $data['amount'],
+                                'payment_method' => $data['payment_method'] ?? 'cash',
+                                'notes' => $data['notes'] ?? null,
+                            ],
+                        );
+                    } else {
+                        PayrollDisbursementService::disburse($record, [
+                            'request_key' => $data['request_key'] ?? PayrollDisbursementService::newRequestKey(),
+                            'amount' => (float) $data['amount'],
+                            'payment_date' => $data['payment_date'] ?? null,
+                            'payment_method' => $data['payment_method'] ?? 'cash',
+                            'notes' => $data['notes'] ?? null,
+                            'confirm_reserved_deductions' => true,
+                        ]);
+                    }
 
-                    \Filament\Notifications\Notification::make()
+                    Notification::make()
                         ->title(__('finance.payroll_records.notifications.disbursement_success_title'))
                         ->body(__('finance.payroll_records.notifications.disbursement_success_body'))
                         ->success()
                         ->send();
                 } catch (\Throwable $e) {
-                    \Filament\Notifications\Notification::make()
+                    Notification::make()
                         ->title(__('finance.payroll_records.notifications.disbursement_failed_title'))
                         ->body($e->getMessage())
                         ->danger()
                         ->send();
                 }
             });
+    }
+
+    protected static function availableActionAmount(PayrollRecord $record): float
+    {
+        if ($record->isCollection()) {
+            return $record->isManaged()
+                ? (float) PayrollRecordFinancialService::collectionSummary($record)['available_to_settle']
+                : (float) $record->remaining_amount;
+        }
+
+        return $record->isManaged()
+            ? (float) PayrollRecordFinancialService::payrollSummary($record)['available_for_disbursement']
+            : (float) $record->remaining_amount;
     }
 }

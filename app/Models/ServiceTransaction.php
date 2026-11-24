@@ -148,10 +148,13 @@ class ServiceTransaction extends Model
             }
 
             $meta = $transaction->metadata ?? [];
+            if (empty($meta['created_by']) && auth()->id()) {
+                $meta['created_by'] = auth()->id();
+            }
             if (empty($meta['employee_signature_code'])) {
                 $meta['employee_signature_code'] = (string) rand(1000, 9999);
-                $transaction->metadata = $meta;
             }
+            $transaction->metadata = $meta;
         });
 
         static::saving(function (ServiceTransaction $transaction) {

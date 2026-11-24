@@ -6,6 +6,7 @@ use App\Models\PayrollRecord;
 use App\Services\CodeGeneratorService;
 use App\Services\PayrollCalculationService;
 use Carbon\Carbon;
+use Illuminate\Validation\ValidationException;
 
 class PayrollRecordObserver
 {
@@ -54,7 +55,16 @@ class PayrollRecordObserver
         $record->absence_deduction = (float) ($record->absence_deduction ?? 0);
         $record->paid_amount = (float) ($record->paid_amount ?? 0);
 
-        PayrollCalculationService::syncTotalsForRecord($record);
+        if (! $record->isManaged()) {
+            PayrollCalculationService::syncTotalsForRecord($record);
+        } elseif (! $record->hasFinancialImpact()) {
+            PayrollCalculationService::syncTotalsForRecord($record);
+            $meta = $record->metadata ?? [];
+            $meta['net_amount_snapshot'] = round((float) $record->net_amount, 2);
+            $record->metadata = $meta;
+        } elseif ($record->exists && $record->isDirty('net_amount')) {
+            $record->net_amount = $record->getOriginal('net_amount');
+        }
     }
 
     /**
@@ -62,6 +72,12 @@ class PayrollRecordObserver
      */
     public function deleting(PayrollRecord $record): void
     {
+        if ($record->isManaged() && $record->hasFinancialImpact()) {
+            throw ValidationException::withMessages([
+                'payroll_record' => __('financial.errors.cannot_delete_with_financial_records'),
+            ]);
+        }
+
         $record->isDeletingRecord = true;
         PayrollCalculationService::reverseDisbursementsForRecord($record, 'إلغاء وحذف مسير');
         $record->payments()->delete();

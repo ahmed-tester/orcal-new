@@ -13,12 +13,16 @@ use App\Models\Mail\MailReply;
 use App\Models\UnifiedAuditLog;
 use App\Models\User;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\Mailer\Transport\Smtp\Auth\XOAuth2Authenticator;
+use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
+use Symfony\Component\Mailer\Transport\Smtp\Stream\SocketStream;
 
 class EmailReplyService
 {
@@ -62,20 +66,24 @@ class EmailReplyService
         $sentMessageId = Str::uuid().'@'.substr(strrchr((string) $account->email, '@') ?: '', 1);
 
         try {
-            $this->configureAccountMailer($account);
+            if ($account->isOutlookOAuth()) {
+                $this->sendViaMicrosoftGraph($account, $email, $replySubject, $body, $attachmentPaths);
+            } else {
+                $this->configureAccountMailer($account);
 
-            $mailable = new AccountReplyMail(
-                fromEmail: (string) $account->email,
-                fromName: (string) $account->name,
-                replySubject: $replySubject,
-                replyBody: $body,
-                sentMessageId: $sentMessageId,
-                inReplyTo: $email->message_id,
-                references: trim(($email->references ?? '').' '.$email->message_id),
-                attachmentPaths: $attachmentPaths,
-            );
+                $mailable = new AccountReplyMail(
+                    fromEmail: (string) $account->email,
+                    fromName: (string) $account->name,
+                    replySubject: $replySubject,
+                    replyBody: $body,
+                    sentMessageId: $sentMessageId,
+                    inReplyTo: $email->message_id,
+                    references: trim(($email->references ?? '').' '.$email->message_id),
+                    attachmentPaths: $attachmentPaths,
+                );
 
-            $this->deliverMail($mailable, $email);
+                $this->deliverMail($mailable, $email);
+            }
 
             $reply = MailReply::create([
                 'company_id' => $account->company_id,
@@ -174,6 +182,33 @@ class EmailReplyService
         ]);
 
         Mail::purge('account_smtp');
+
+        $this->prepareTransport($account);
+    }
+
+    protected function prepareTransport(MailAccount $account): void
+    {
+        $transport = Mail::mailer('account_smtp')->getSymfonyTransport();
+        if (! ($transport instanceof EsmtpTransport)) {
+            return;
+        }
+
+        if ($account->isOutlookOAuth()) {
+            $transport->setAuthenticators([new XOAuth2Authenticator]);
+        }
+
+        if (app()->isLocal()) {
+            $stream = $transport->getStream();
+            if ($stream instanceof SocketStream) {
+                $stream->setStreamOptions([
+                    'ssl' => [
+                        'verify_peer' => false,
+                        'verify_peer_name' => false,
+                        'allow_self_signed' => true,
+                    ],
+                ]);
+            }
+        }
     }
 
     /**
@@ -183,8 +218,25 @@ class EmailReplyService
      */
     public function buildSmtpConfig(MailAccount $account): array
     {
-        $host = strtolower(trim((string) ($account->host ?? '')));
         $emailDomain = strtolower(substr(strrchr((string) $account->email, '@') ?: '', 1));
+
+        if ($account->isOutlookOAuth()) {
+            $accessToken = app(MicrosoftMailOAuthService::class)->ensureValidAccessToken($account);
+            $isPersonal = in_array($emailDomain, ['outlook.com', 'hotmail.com', 'live.com', 'msn.com'], true);
+
+            return [
+                'transport' => 'smtp',
+                'host' => $isPersonal ? 'smtp-mail.outlook.com' : 'smtp.office365.com',
+                'port' => 587,
+                'encryption' => 'tls',
+                'username' => $account->email,
+                'password' => $accessToken,
+                'timeout' => 25,
+                'verify_peer' => ! app()->isLocal(),
+            ];
+        }
+
+        $host = strtolower(trim((string) ($account->host ?? '')));
         $isGmail = str_contains($host, 'gmail') || $emailDomain === 'gmail.com';
 
         $provider = MailAccountService::inferProvider($account->email, $account->host);
@@ -215,7 +267,7 @@ class EmailReplyService
             'username' => $username,
             'password' => $password,
             'timeout' => 25,
-            'verify_peer' => true,
+            'verify_peer' => ! app()->isLocal(),
         ];
     }
 
@@ -229,15 +281,22 @@ class EmailReplyService
                 ->to($email->sender_email, $email->sender_name)
                 ->send($mailable);
         } catch (\Throwable $e) {
+            if ($email->account?->isOutlookOAuth()) {
+                throw $e;
+            }
+
             $currentPort = config('mail.mailers.account_smtp.port');
 
             if ($currentPort == 465) {
                 config([
                     'mail.mailers.account_smtp.port' => 587,
                     'mail.mailers.account_smtp.encryption' => 'tls',
-                    'mail.mailers.account_smtp.verify_peer' => true,
+                    'mail.mailers.account_smtp.verify_peer' => ! app()->isLocal(),
                 ]);
                 Mail::purge('account_smtp');
+                if ($email->account) {
+                    $this->prepareTransport($email->account);
+                }
 
                 Mail::mailer('account_smtp')
                     ->to($email->sender_email, $email->sender_name)
@@ -246,9 +305,12 @@ class EmailReplyService
                 config([
                     'mail.mailers.account_smtp.port' => 465,
                     'mail.mailers.account_smtp.encryption' => 'ssl',
-                    'mail.mailers.account_smtp.verify_peer' => true,
+                    'mail.mailers.account_smtp.verify_peer' => ! app()->isLocal(),
                 ]);
                 Mail::purge('account_smtp');
+                if ($email->account) {
+                    $this->prepareTransport($email->account);
+                }
 
                 Mail::mailer('account_smtp')
                     ->to($email->sender_email, $email->sender_name)
@@ -256,6 +318,70 @@ class EmailReplyService
             } else {
                 throw $e;
             }
+        }
+    }
+
+    /**
+     * Send email reply via Microsoft Graph API for Outlook accounts.
+     *
+     * @param  array<string>  $attachmentPaths
+     */
+    protected function sendViaMicrosoftGraph(MailAccount $account, MailMessage $email, string $replySubject, string $body, array $attachmentPaths): void
+    {
+        $token = app(MicrosoftMailOAuthService::class)->ensureValidGraphAccessToken($account);
+
+        $toEmail = $email->sender_email;
+        $toName = $email->sender_name ?: $toEmail;
+
+        $messagePayload = [
+            'subject' => $replySubject,
+            'body' => [
+                'contentType' => 'HTML',
+                'content' => nl2br(e($body)),
+            ],
+            'toRecipients' => [
+                [
+                    'emailAddress' => [
+                        'address' => $toEmail,
+                        'name' => $toName,
+                    ],
+                ],
+            ],
+        ];
+
+        $attachments = [];
+        $disk = Storage::disk(MailSyncService::ATTACHMENT_DISK);
+        foreach ($attachmentPaths as $path) {
+            if ($disk->exists($path)) {
+                $attachments[] = [
+                    '@odata.type' => '#microsoft.graph.fileAttachment',
+                    'name' => basename($path),
+                    'contentType' => $disk->mimeType($path) ?: 'application/octet-stream',
+                    'contentBytes' => base64_encode($disk->get($path)),
+                ];
+            }
+        }
+
+        if (! empty($attachments)) {
+            $messagePayload['attachments'] = $attachments;
+        }
+
+        $client = app()->isLocal()
+            ? Http::withoutVerifying()
+            : Http::withOptions([]);
+
+        $response = $client
+            ->withToken($token)
+            ->timeout(30)
+            ->post('https://graph.microsoft.com/v1.0/me/sendMail', [
+                'message' => $messagePayload,
+                'saveToSentItems' => true,
+            ]);
+
+        if (! $response->successful()) {
+            $error = $response->json();
+            $msg = $error['error']['message'] ?? $response->body();
+            throw new \RuntimeException("Microsoft Graph API Error: {$msg}");
         }
     }
 

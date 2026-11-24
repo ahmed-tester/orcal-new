@@ -20,6 +20,8 @@ class CodeGeneratorService
      *                                     (e.g. per voucher type).
      * @param  bool  $ignoreCompany  When true the sequence is not scoped by company
      *                               and the code carries no company part.
+     * @param  bool  $uniqueWithinScope  Limit uniqueness to scopeQuery (departments only).
+     * @param  bool  $sequenceFromMaximum  Append after the largest numeric suffix instead of counting rows.
      */
     public static function generate(
         string $modelClass,
@@ -30,6 +32,8 @@ class CodeGeneratorService
         ?string $datePart = null,
         ?callable $scopeQuery = null,
         bool $ignoreCompany = false,
+        bool $uniqueWithinScope = false,
+        bool $sequenceFromMaximum = false,
     ): string {
         $companyId = $ignoreCompany ? null : ($companyId ?: static::resolveCompanyId());
         $scopedByCompany = ! $ignoreCompany && static::modelHasCompanyId($modelClass);
@@ -47,18 +51,34 @@ class CodeGeneratorService
             $scopeQuery($query);
         }
 
-        $count = $query->count();
-        $nextSeq = $count + 1;
+        $nextSeq = $sequenceFromMaximum
+            ? static::maximumSequence($query->pluck($column)->all()) + 1
+            : $query->count() + 1;
+
+        $uniqueQuery = $uniqueWithinScope ? clone $query : $modelClass::withoutGlobalScopes();
 
         $code = static::buildCode($prefix, $companyId, $nextSeq, $padLength, $datePart, $scopedByCompany);
 
-        // Ensure uniqueness across the entire table to prevent database unique constraint violations
-        while ($modelClass::withoutGlobalScopes()->where($column, $code)->exists()) {
+        // Table-wide uniqueness remains the default for all existing callers.
+        while ((clone $uniqueQuery)->where($column, $code)->exists()) {
             $nextSeq++;
             $code = static::buildCode($prefix, $companyId, $nextSeq, $padLength, $datePart, $scopedByCompany);
         }
 
         return $code;
+    }
+
+    /** @param array<int, string> $codes */
+    protected static function maximumSequence(array $codes): int
+    {
+        $maximum = 0;
+        foreach ($codes as $code) {
+            if (preg_match('/-([0-9]+)$/D', $code, $matches)) {
+                $maximum = max($maximum, (int) $matches[1]);
+            }
+        }
+
+        return $maximum;
     }
 
     /**

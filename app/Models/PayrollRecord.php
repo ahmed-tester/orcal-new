@@ -17,6 +17,12 @@ class PayrollRecord extends Model
 {
     use HasFactory, HasHijriDates;
 
+    public const FLOW_KEY = 'financial_workflow_version';
+
+    public const WORKFLOW_VERSION = 1;
+
+    public const FLOW_MANAGED = 'managed';
+
     public function getHijriDateFieldNames(): array
     {
         return [
@@ -91,5 +97,53 @@ class PayrollRecord extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(PayrollPayment::class);
+    }
+
+    public function financialReceipts(): HasMany
+    {
+        return $this->hasMany(FinancialReceipt::class, 'source_id')
+            ->where('source_type', FinancialReceipt::SOURCE_PAYROLL_COLLECTION);
+    }
+
+    public function financialSourceType(): string
+    {
+        return FinancialReceipt::SOURCE_PAYROLL_COLLECTION;
+    }
+
+    public function isManaged(): bool
+    {
+        return (int) ($this->metadata[self::FLOW_KEY] ?? 0) === self::WORKFLOW_VERSION;
+    }
+
+    public function isCollection(): bool
+    {
+        return $this->operation_type === 'collection';
+    }
+
+    public function isPayroll(): bool
+    {
+        return $this->operation_type === 'payroll';
+    }
+
+    public function hasFinancialImpact(): bool
+    {
+        if ((float) $this->paid_amount > 0) {
+            return true;
+        }
+
+        if ($this->exists && $this->payments()->exists()) {
+            return true;
+        }
+
+        if ($this->exists && FinancialReceipt::forSource(FinancialReceipt::SOURCE_PAYROLL_COLLECTION, (int) $this->id)->exists()) {
+            return true;
+        }
+
+        $meta = $this->metadata ?? [];
+
+        return ! empty($meta['reversed_at'])
+            || ! empty($meta['salary_deduction_allocations'])
+            || ! empty($meta['linked_collection_deductions'])
+            || ! empty($meta['pending_bank_transfers']);
     }
 }

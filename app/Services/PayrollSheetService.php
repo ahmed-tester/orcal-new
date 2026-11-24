@@ -179,9 +179,9 @@ class PayrollSheetService
 
             $currentChecked = $checkedEmployees[$emp->id] ?? false;
 
-            $effectivePaid = $currentChecked ? $net : $paid;
-            $effectiveRemaining = $currentChecked ? 0.0 : $remaining;
-            $isRowPaid = ($currentChecked || $isPaid || ($effectiveRemaining <= 0 && $net > 0));
+            $effectivePaid = $paid;
+            $effectiveRemaining = $remaining;
+            $isRowPaid = $isPaid;
 
             $iqamaNumber = $emp->details?->iqama_number ?: $emp->details?->national_id ?: '—';
             $iqamaExpiryGregorian = $emp->details?->iqama_expiry ? Carbon::parse($emp->details->iqama_expiry)->format('Y/m/d') : '—';
@@ -279,98 +279,257 @@ class PayrollSheetService
     }
 
     /**
-     * Save/update batch payroll or collection records and process disbursements.
+     * Save/update batch payroll or collection records and process checked rows
+     * with independent per-row transactions and stable retry keys.
      */
     public static function saveSheet(
         array $employeeRows,
         array $checkedEmployees,
         array $notes,
         string $operationType,
-        string $payrollMonth
+        string $payrollMonth,
+        string $attemptKey = '',
+        string $paymentMethod = 'cash',
+        ?int $collectorEmployeeId = null,
     ): int {
+        $result = static::saveSheetDetailed(
+            employeeRows: $employeeRows,
+            checkedEmployees: $checkedEmployees,
+            notes: $notes,
+            operationType: $operationType,
+            payrollMonth: $payrollMonth,
+            attemptKey: $attemptKey,
+            paymentMethod: $paymentMethod,
+            collectorEmployeeId: $collectorEmployeeId,
+        );
+
+        return (int) $result['saved_count'];
+    }
+
+    /**
+     * @return array{
+     *   saved_count: int,
+     *   executed: array<int, array<string, mixed>>,
+     *   already_executed: array<int, array<string, mixed>>,
+     *   pending: array<int, array<string, mixed>>,
+     *   failed: array<int, array<string, mixed>>,
+     *   save_failed: array<int, array<string, mixed>>
+     * }
+     */
+    public static function saveSheetDetailed(
+        array $employeeRows,
+        array $checkedEmployees,
+        array $notes,
+        string $operationType,
+        string $payrollMonth,
+        string $attemptKey = '',
+        string $paymentMethod = 'cash',
+        ?int $collectorEmployeeId = null,
+    ): array {
+        $result = [
+            'saved_count' => 0,
+            'executed' => [],
+            'already_executed' => [],
+            'pending' => [],
+            'failed' => [],
+            'save_failed' => [],
+        ];
+
         if (empty($employeeRows)) {
-            return 0;
+            return $result;
         }
 
-        $savedCount = 0;
         $monthDate = Carbon::parse($payrollMonth)->startOfMonth()->toDateString();
+        $attemptKey = trim($attemptKey) !== '' ? trim($attemptKey) : ('sheet:'.\Illuminate\Support\Str::uuid()->toString());
+        $savedRecords = [];
 
-        DB::transaction(function () use ($employeeRows, $checkedEmployees, $notes, $operationType, $payrollMonth, $monthDate, &$savedCount) {
-            foreach ($employeeRows as $row) {
-                $empId = $row['employee_id'];
-                $emp = Employee::find($empId);
-                if (! $emp || empty($emp->company_id) || ! Company::where('id', $emp->company_id)->exists()) {
-                    continue;
+        // Phase 1: Save entitlements in short per-row transactions without faking PAID from checkboxes.
+        foreach ($employeeRows as $row) {
+            $empId = (int) ($row['employee_id'] ?? 0);
+            if ($empId <= 0) {
+                continue;
+            }
+
+            try {
+                $record = static::saveSheetRowEntitlement($row, $empId, $notes, $operationType, $payrollMonth, $monthDate);
+                if ($record) {
+                    $savedRecords[$empId] = $record;
+                    $result['saved_count']++;
                 }
+            } catch (\Throwable $e) {
+                $result['save_failed'][] = [
+                    'employee_id' => $empId,
+                    'reason' => $e->getMessage(),
+                ];
+            }
+        }
 
-                $isChecked = $checkedEmployees[$empId] ?? false;
-                $netAmount = (float) $row['net_amount'];
+        // Phase 2: Execute each checked row in its own independent transaction (no outer lock across the whole sheet).
+        foreach ($savedRecords as $empId => $record) {
+            if (empty($checkedEmployees[$empId])) {
+                continue;
+            }
 
-                $record = PayrollRecord::firstOrNew([
-                    'company_id' => $emp->company_id,
-                    'employee_id' => $emp->id,
-                    'operation_type' => $operationType,
-                    'payroll_month' => $monthDate,
-                ]);
+            static::executeCheckedSheetRow(
+                record: $record,
+                empId: $empId,
+                operationType: $operationType,
+                rowKey: $attemptKey.':'.$operationType.':'.$record->id,
+                paymentMethod: $paymentMethod,
+                collectorEmployeeId: $collectorEmployeeId,
+                result: $result,
+            );
+        }
 
+        return $result;
+    }
+
+    private static function saveSheetRowEntitlement(
+        array $row,
+        int $empId,
+        array $notes,
+        string $operationType,
+        string $payrollMonth,
+        string $monthDate,
+    ): ?PayrollRecord {
+        return DB::transaction(function () use ($row, $empId, $notes, $operationType, $payrollMonth, $monthDate): ?PayrollRecord {
+            $emp = Employee::find($empId);
+            if (! $emp || empty($emp->company_id) || ! Company::where('id', $emp->company_id)->exists()) {
+                return null;
+            }
+
+            $netAmount = round(max(0.0, (float) ($row['net_amount'] ?? 0)), 2);
+
+            $record = PayrollRecord::firstOrNew([
+                'company_id' => $emp->company_id,
+                'employee_id' => $emp->id,
+                'operation_type' => $operationType,
+                'payroll_month' => $monthDate,
+            ]);
+
+            $isNew = ! $record->exists;
+
+            if (! $record->hasFinancialImpact()) {
                 $financials = PayrollCalculationService::calculateEmployeeFinancials($emp->id, $payrollMonth);
-
                 $record->record_date = now()->toDateString();
-                $record->basic_salary = (float) $row['basic_salary'];
-                $record->additional_amount = (float) $row['additional_amount'];
-                $record->deduction_amount = (float) $row['deduction_amount'];
+                $record->basic_salary = (float) ($row['basic_salary'] ?? 0);
+                $record->additional_amount = (float) ($row['additional_amount'] ?? 0);
+                $record->deduction_amount = (float) ($row['deduction_amount'] ?? 0);
                 $record->overtime_amount = (float) ($financials['overtime_amount'] ?? 0);
                 $record->rewards_amount = (float) ($financials['rewards_amount'] ?? 0);
                 $record->advance_deduction = (float) ($financials['advance_deduction'] ?? 0);
                 $record->absence_deduction = (float) ($financials['absence_deduction'] ?? 0);
-                if (! empty($financials['metadata'])) {
-                    $record->metadata = array_merge($record->metadata ?? [], $financials['metadata']);
+                $meta = array_merge($record->metadata ?? [], $financials['metadata'] ?? []);
+                if ($record->isManaged()) {
+                    $meta['net_amount_snapshot'] = $netAmount;
                 }
+                $record->metadata = $meta;
                 $record->net_amount = $netAmount;
-                $record->notes = $notes[$empId] ?? null;
+                $record->paid_amount = 0.0;
+                $record->remaining_amount = $netAmount;
+                $record->payment_status = $netAmount > 0 ? PaymentStatus::UNPAID : PaymentStatus::PAID;
+            }
 
-                if ($isChecked) {
-                    $record->paid_amount = $netAmount;
-                    $record->remaining_amount = 0.0;
-                    $record->payment_status = PaymentStatus::PAID;
-                    $record->save();
+            $record->notes = $notes[$empId] ?? $record->notes;
+            $record->save();
 
-                    // If not disbursed yet, create treasury transaction and payment
-                    if ($record->payments()->count() === 0 && $netAmount > 0) {
-                        try {
-                            PayrollCalculationService::disburseSalary(
-                                record: $record,
-                                amount: $netAmount,
-                                paymentDate: now()->toDateString(),
-                                paymentMethod: 'cash',
-                                notes: $record->notes
-                            );
-                        } catch (\Throwable $e) {
-                        }
-                    }
-                } else {
-                    $paidAmount = (float) ($row['paid_amount'] ?? 0.0);
-                    $remainingAmount = (float) ($row['remaining_amount'] ?? max(0.0, $netAmount - $paidAmount));
+            if ($isNew) {
+                PayrollRecordFinancialService::activate($record);
+            }
 
-                    $record->paid_amount = $paidAmount;
-                    $record->remaining_amount = $remainingAmount;
+            return $record->refresh();
+        });
+    }
 
-                    if ($paidAmount >= $netAmount && $netAmount > 0) {
-                        $record->payment_status = PaymentStatus::PAID;
-                    } elseif ($paidAmount > 0) {
-                        $record->payment_status = PaymentStatus::PARTIALLY_PAID;
-                    } else {
-                        $record->payment_status = PaymentStatus::UNPAID;
-                    }
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    private static function executeCheckedSheetRow(
+        PayrollRecord $record,
+        int $empId,
+        string $operationType,
+        string $rowKey,
+        string $paymentMethod,
+        ?int $collectorEmployeeId,
+        array &$result,
+    ): void {
+        try {
+            $fresh = PayrollRecord::findOrFail($record->id);
 
-                    $record->save();
+            if ($operationType === 'collection') {
+                $remaining = $fresh->isManaged()
+                    ? (float) PayrollRecordFinancialService::collectionSummary($fresh)['available_to_settle']
+                    : (float) $fresh->remaining_amount;
+
+                if ($remaining <= 0) {
+                    return;
                 }
 
-                $savedCount++;
-            }
-        });
+                $existing = \App\Models\FinancialReceipt::where('request_key', $rowKey)->first();
+                $receipt = FinancialReceiptService::recordFor(
+                    \App\Models\FinancialReceipt::SOURCE_PAYROLL_COLLECTION,
+                    (int) $fresh->id,
+                    [
+                        'request_key' => $rowKey,
+                        'amount' => $remaining,
+                        'payment_method' => $paymentMethod,
+                        'collector_employee_id' => $collectorEmployeeId,
+                        'notes' => $fresh->notes,
+                    ],
+                );
 
-        return $savedCount;
+                if ($existing) {
+                    $result['already_executed'][] = ['employee_id' => $empId, 'record_id' => $fresh->id, 'receipt_id' => $receipt->id];
+                } elseif ($receipt->status === \App\Enums\FinancialReceiptStatus::PENDING_CONFIRMATION) {
+                    $result['pending'][] = ['employee_id' => $empId, 'record_id' => $fresh->id, 'receipt_id' => $receipt->id];
+                } else {
+                    $result['executed'][] = ['employee_id' => $empId, 'record_id' => $fresh->id, 'receipt_id' => $receipt->id];
+                }
+
+                return;
+            }
+
+            $remaining = $fresh->isManaged()
+                ? (float) PayrollRecordFinancialService::payrollSummary($fresh)['available_for_disbursement']
+                : (float) $fresh->remaining_amount;
+
+            if ($remaining <= 0) {
+                $reservedKeys = collect($fresh->metadata['linked_collection_deductions'] ?? [])
+                    ->where('status', 'reserved')
+                    ->keys()
+                    ->all();
+
+                if ($reservedKeys !== []) {
+                    PayrollDeductionSettlementService::confirmBatch($fresh, $reservedKeys, null, true);
+                    $result['executed'][] = ['employee_id' => $empId, 'record_id' => $fresh->id];
+                }
+
+                return;
+            }
+
+            $disbursement = PayrollDisbursementService::disburse($fresh, [
+                'request_key' => $rowKey,
+                'amount' => $remaining,
+                'payment_date' => now()->toDateString(),
+                'payment_method' => $paymentMethod,
+                'notes' => $fresh->notes,
+                'confirm_reserved_deductions' => true,
+            ]);
+
+            if (! empty($disbursement['already_executed'])) {
+                $result['already_executed'][] = ['employee_id' => $empId, 'record_id' => $fresh->id];
+            } elseif ($disbursement['status'] === 'pending_confirmation') {
+                $result['pending'][] = ['employee_id' => $empId, 'record_id' => $fresh->id];
+            } else {
+                $result['executed'][] = ['employee_id' => $empId, 'record_id' => $fresh->id];
+            }
+        } catch (\Throwable $e) {
+            $result['failed'][] = [
+                'employee_id' => $empId,
+                'record_id' => $record->id,
+                'reason' => $e->getMessage(),
+            ];
+        }
     }
 
     /**
@@ -378,29 +537,13 @@ class PayrollSheetService
      */
     public static function applyEmployeeCheck(array &$rows, array $checkedEmployees, int $employeeId): array
     {
-        $isChecked = $checkedEmployees[$employeeId] ?? false;
         $totalPaid = 0.0;
         $totalPending = 0.0;
 
-        foreach ($rows as &$row) {
-            if ($row['employee_id'] === $employeeId) {
-                $net = (float) $row['net_amount'];
-                if ($isChecked) {
-                    $row['paid_amount'] = $net;
-                    $row['remaining_amount'] = 0.0;
-                    $row['payment_status'] = PaymentStatus::PAID;
-                    $row['is_paid'] = true;
-                } else {
-                    $row['paid_amount'] = (float) ($row['original_paid_amount'] ?? 0.0);
-                    $row['remaining_amount'] = (float) ($row['original_remaining_amount'] ?? $net);
-                    $row['payment_status'] = $row['original_payment_status'] ?? PaymentStatus::UNPAID;
-                    $row['is_paid'] = false;
-                }
-            }
-            $totalPaid += (float) $row['paid_amount'];
-            $totalPending += (float) $row['remaining_amount'];
+        foreach ($rows as $row) {
+            $totalPaid += (float) ($row['paid_amount'] ?? 0.0);
+            $totalPending += (float) ($row['remaining_amount'] ?? 0.0);
         }
-        unset($row);
 
         return [
             'totalPaidAmount' => round($totalPaid, 2),

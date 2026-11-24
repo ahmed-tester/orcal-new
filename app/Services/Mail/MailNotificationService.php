@@ -31,7 +31,7 @@ class MailNotificationService
             'sender' => $email->sender_email,
             'subject' => $email->subject,
             'priority' => $email->priority?->getLabel() ?? '',
-            'category' => $email->category?->getLabel() ?? '',
+            'category' => $email->categoryLabel(),
         ];
 
         $sentCount = NotificationDispatcher::translated(

@@ -194,6 +194,9 @@
     }
 
     /* Clean Scrollbar inside Sidebar */
+    .fi-main-sidebar .fi-sidebar-nav {
+        padding-bottom: 2.5rem !important;
+    }
     .fi-main-sidebar .fi-sidebar-nav::-webkit-scrollbar {
         width: 6px;
     }
@@ -258,6 +261,9 @@
             if (!items || items.length === 0) {
                 group.style.display = 'none';
                 group.setAttribute('aria-hidden', 'true');
+            } else if (group.getAttribute('aria-hidden') === 'true') {
+                group.style.display = '';
+                group.removeAttribute('aria-hidden');
             }
         });
     }
@@ -271,12 +277,50 @@
     }
 
     // Fix RTL topbar user menu dropdown placement so it opens inward instead of clipping off the left edge
+    function getRtlUserMenuPanel(menu) {
+        if (!menu) {
+            return null;
+        }
+
+        return menu.querySelector('.fi-dropdown-panel') || menu._x_refs?.panel || null;
+    }
+
+    function clampRtlUserMenuPanel(panel) {
+        if (!panel || document.documentElement.dir !== 'rtl') {
+            return;
+        }
+
+        const rect = panel.getBoundingClientRect();
+        if (rect.width <= 0 || rect.left >= 12) {
+            return;
+        }
+
+        const currentLeft = parseFloat(panel.style.left) || 0;
+        panel.style.setProperty('left', `${Math.ceil(currentLeft + (12 - rect.left))}px`, 'important');
+        panel.style.setProperty('right', 'auto', 'important');
+    }
+
+    function observeRtlUserMenuPanel(panel) {
+        if (!panel || panel.dataset.rtlClampObserved === '1') {
+            return;
+        }
+
+        panel.dataset.rtlClampObserved = '1';
+        const styleObserver = new MutationObserver(() => clampRtlUserMenuPanel(panel));
+        styleObserver.observe(panel, { attributes: true, attributeFilter: ['style', 'class'] });
+    }
+
     function fixRtlUserMenuDropdown() {
         if (document.documentElement.dir !== 'rtl') {
             return;
         }
 
-        document.querySelectorAll('.fi-user-menu .fi-dropdown-panel').forEach(panel => {
+        document.querySelectorAll('.fi-user-menu').forEach(menu => {
+            const panel = getRtlUserMenuPanel(menu);
+            if (!panel) {
+                return;
+            }
+
             for (const attr of Array.from(panel.attributes)) {
                 if (attr.name.startsWith('x-float') && attr.name.includes('.placement.bottom-end')) {
                     let newName = attr.name.replace('.placement.bottom-end', '.placement.bottom-start');
@@ -288,10 +332,14 @@
                     panel.setAttribute(newName, value);
                 }
             }
+
+            observeRtlUserMenuPanel(panel);
+            clampRtlUserMenuPanel(panel);
         });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        fixRtlUserMenuDropdown();
         disableBrowserValidation();
         hideEmptySidebarGroups();
     });
@@ -308,14 +356,28 @@
     document.addEventListener('alpine:init', () => {
         fixRtlUserMenuDropdown();
     });
+    document.addEventListener('pointerdown', (event) => {
+        const menu = event.target?.closest?.('.fi-user-menu');
+        if (!menu) {
+            return;
+        }
+        fixRtlUserMenuDropdown();
+        const panel = getRtlUserMenuPanel(menu);
+        if (panel) {
+            observeRtlUserMenuPanel(panel);
+            requestAnimationFrame(() => clampRtlUserMenuPanel(panel));
+            setTimeout(() => clampRtlUserMenuPanel(panel), 50);
+        }
+    }, true);
 
-    // Watch for dynamically opened modals and Livewire components
+    // Watch for dynamically opened modals, wire:navigate body swaps, and Livewire components
     const formObserver = new MutationObserver(() => {
+        fixRtlUserMenuDropdown();
         disableBrowserValidation();
         hideEmptySidebarGroups();
     });
 
-    if (document.body) {
-        formObserver.observe(document.body, { childList: true, subtree: true });
+    if (document.documentElement) {
+        formObserver.observe(document.documentElement, { childList: true, subtree: true });
     }
 </script>

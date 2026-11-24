@@ -3,7 +3,6 @@
 namespace App\Services\Mail;
 
 use App\Enums\Mail\MailAccountStatus;
-use App\Enums\Mail\MailCategory;
 use App\Enums\Mail\MailConversationStatus;
 use App\Enums\Mail\MailMessageStatus;
 use App\Enums\Mail\MailPriority;
@@ -49,12 +48,8 @@ class MailSyncService
      */
     public function testConnection(MailAccount $account): array
     {
-        if ($account->isOAuth()) {
-            if (empty($account->oauth_access_token)) {
-                return ['success' => false, 'message' => __('mail_inbox.sync.oauth_incomplete')];
-            }
-
-            return ['success' => true, 'message' => __('mail_inbox.sync.oauth_ok')];
+        if ($account->isOAuth() && ! $account->hasOAuthTokens()) {
+            return ['success' => false, 'message' => __('mail_inbox.sync.oauth_incomplete')];
         }
 
         try {
@@ -62,7 +57,17 @@ class MailSyncService
             $client->connect();
             $client->disconnect();
 
-            return ['success' => true, 'message' => __('mail_inbox.sync.imap_ok')];
+            if ($account->status !== MailAccountStatus::CONNECTED || filled($account->error_message)) {
+                $account->update([
+                    'status' => MailAccountStatus::CONNECTED,
+                    'error_message' => null,
+                ]);
+            }
+
+            return [
+                'success' => true,
+                'message' => $account->isOAuth() ? __('mail_inbox.sync.oauth_ok') : __('mail_inbox.sync.imap_ok'),
+            ];
         } catch (\Throwable $e) {
             $msg = $this->formatImapError($e->getMessage());
 
@@ -88,6 +93,10 @@ class MailSyncService
      */
     public function syncAccount(MailAccount $account): array
     {
+        if ($account->isOAuth() && ! $account->hasOAuthTokens()) {
+            return ['imported' => 0, 'rejected' => 0, 'found' => 0];
+        }
+
         $lock = Cache::lock('mail_sync_account_'.$account->id, 180);
         if (! $lock->get()) {
             Log::info('Mail sync skipped: sync already in progress for account', [
@@ -98,6 +107,11 @@ class MailSyncService
         }
 
         try {
+            $wasInError = in_array($account->fresh()?->status, [
+                MailAccountStatus::CONNECTION_ERROR,
+                MailAccountStatus::REAUTH_REQUIRED,
+            ], true);
+
             $maxRetries = 3;
             $attempt = 0;
             $lastException = null;
@@ -124,8 +138,13 @@ class MailSyncService
             $errorMessage = $this->formatImapError($rawError);
 
             if (MailAccount::where('id', $account->id)->exists()) {
+                $freshStatus = MailAccount::where('id', $account->id)->value('status');
+                $targetStatus = $freshStatus === MailAccountStatus::REAUTH_REQUIRED->value
+                    ? MailAccountStatus::REAUTH_REQUIRED
+                    : MailAccountStatus::CONNECTION_ERROR;
+
                 $account->update([
-                    'status' => MailAccountStatus::CONNECTION_ERROR,
+                    'status' => $targetStatus,
                     'error_message' => $errorMessage,
                 ]);
 
@@ -139,7 +158,9 @@ class MailSyncService
                     'completed_at' => now(),
                 ]);
 
-                $this->notifySyncErrorIfAvailable($account, $errorMessage);
+                if (! $wasInError) {
+                    $this->notifySyncErrorIfAvailable($account, $errorMessage);
+                }
             }
 
             return ['imported' => 0, 'rejected' => 0, 'found' => 0];
@@ -189,6 +210,10 @@ class MailSyncService
 
             try {
                 $folder = $client->getFolder($folderName);
+                if (! $folder) {
+                    $folder = $client->getFolders(false, null, true)
+                        ->first(fn ($f) => strcasecmp((string) $f->name, $folderName) === 0 || strcasecmp((string) $f->path, $folderName) === 0);
+                }
                 if (! $folder) {
                     continue;
                 }
@@ -431,12 +456,17 @@ class MailSyncService
 
                 // Reply inside an existing conversation or with In-Reply-To is never rejected
                 if ($existingThreadCount > 0 || $hasInReplyTo) {
+                    $categoryService = app(MailCategoryService::class);
+                    $rawCategory = $classification['category'] instanceof \BackedEnum
+                        ? (string) $classification['category']->value
+                        : (string) ($classification['category'] ?? '');
+
                     if (
                         $classification['status'] === MailMessageStatus::REJECTED
-                        || in_array($classification['category'], [MailCategory::SPAM, MailCategory::MARKETING], true)
+                        || $categoryService->isExcluded($rawCategory)
                     ) {
                         $classification['status'] = MailMessageStatus::NEW;
-                        $classification['category'] = MailCategory::INQUIRY;
+                        $classification['category'] = $categoryService->resolveActiveNonExcludedSlug('inquiry');
                         $classification['priority'] = MailPriority::MEDIUM;
                         $classification['is_important'] = true;
                         $classification['classification_reason'] = (string) __('mail_inbox.sync.reply_in_thread_reason');
@@ -479,7 +509,7 @@ class MailSyncService
                     'has_in_reply_to' => $hasInReplyTo,
                     'reply_override_applied' => $replyOverrideApplied,
                     'status' => $classification['status']->value,
-                    'category' => $classification['category']->value,
+                    'category' => $email->category,
                     'priority' => $classification['priority']->value,
                     'is_important' => $classification['is_important'],
                     'confidence' => $classification['confidence'],
@@ -670,6 +700,21 @@ class MailSyncService
      */
     public function buildImapConfig(MailAccount $account): array
     {
+        if ($account->isOutlookOAuth()) {
+            $accessToken = app(MicrosoftMailOAuthService::class)->ensureValidAccessToken($account);
+
+            return [
+                'host' => $account->host ?: 'outlook.office365.com',
+                'port' => $account->port ?: 993,
+                'encryption' => 'ssl',
+                'validate_cert' => ! app()->isLocal(),
+                'username' => $account->email,
+                'password' => $accessToken,
+                'authentication' => 'oauth',
+                'protocol' => 'imap',
+            ];
+        }
+
         $encryption = in_array(strtolower((string) $account->encryption), ['ssl', 'tls'], true)
             ? strtolower((string) $account->encryption)
             : 'ssl';
@@ -694,7 +739,7 @@ class MailSyncService
             'host' => $host,
             'port' => $account->port ?: 993,
             'encryption' => $encryption,
-            'validate_cert' => true,
+            'validate_cert' => ! app()->isLocal(),
             'username' => $username,
             'password' => $password,
             'protocol' => 'imap',
@@ -784,6 +829,9 @@ class MailSyncService
         $messageId = is_callable([$message, 'getMessageId']) ? (string) $message->getMessageId() : null;
         $rawSubject = is_callable([$message, 'getSubject']) ? $message->getSubject() : ($message->subject ?? null);
         $subject = is_object($rawSubject) && method_exists($rawSubject, 'toString') ? $rawSubject->toString() : (string) $rawSubject;
+        if (str_contains($subject, '=?')) {
+            $subject = mb_decode_mimeheader($subject);
+        }
         $subject = trim($subject) ?: $noSubject;
 
         $fromAttr = is_callable([$message, 'getFrom']) ? $message->getFrom() : null;
@@ -850,6 +898,9 @@ class MailSyncService
     protected function isAuthenticationError(string $message): bool
     {
         return str_contains($message, 'AUTHENTICATIONFAILED')
+            || str_contains($message, 'AUTHENTICATE failed')
+            || str_contains($message, 'XOAUTH2')
+            || str_contains($message, 'invalid_grant')
             || str_contains($message, 'Application-specific password')
             || str_contains($message, 'Bad credentials')
             || str_contains($message, 'credentials')

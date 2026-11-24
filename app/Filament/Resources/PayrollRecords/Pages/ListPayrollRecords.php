@@ -15,6 +15,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class ListPayrollRecords extends ListRecords
 {
@@ -47,6 +48,8 @@ class ListPayrollRecords extends ListRecords
 
     // Bulk Basic Salary tool
     public ?float $bulkBasicSalary = null;
+
+    public int|string|null $collectionCollectorEmployeeId = null;
 
     public string $printReportType = 'payroll';
 
@@ -81,6 +84,8 @@ class ListPayrollRecords extends ListRecords
     public array $notes = [];            // [emp_id => string]
 
     public array $deletedEmployeeIds = []; // [emp_id] - Employees deleted from this sheet
+
+    public string $sheetAttemptKey = '';
 
     // Summary Statistics
     public int $totalEmployees = 0;
@@ -624,25 +629,98 @@ class ListPayrollRecords extends ListRecords
             return;
         }
 
-        $savedCount = PayrollSheetService::saveSheet(
+        if ($this->sheetAttemptKey === '') {
+            $this->sheetAttemptKey = 'sheet:'.Str::uuid()->toString();
+        }
+
+        $result = PayrollSheetService::saveSheetDetailed(
             employeeRows: $this->employeeRows,
             checkedEmployees: $this->checkedEmployees,
             notes: $this->notes,
             operationType: $this->operationType,
             payrollMonth: $this->payrollMonth,
+            attemptKey: $this->sheetAttemptKey,
+            collectorEmployeeId: $this->operationType === 'collection'
+                && (auth()->user()?->isSuperAdminOrOwner() ?? false)
+                && $this->collectionCollectorEmployeeId
+                ? (int) $this->collectionCollectorEmployeeId
+                : null,
         );
 
         $opLabel = $this->operationType === 'payroll'
             ? __('finance.payroll_records.sheet.op_payroll')
             : __('finance.payroll_records.sheet.op_collection');
 
-        Notification::make()
+        $summaryParts = [
+            __('finance.payroll_records.sheet.save_success_body', ['count' => $result['saved_count'], 'month' => $this->payrollMonth]),
+            'منفذ: '.count($result['executed']),
+        ];
+
+        if ($result['already_executed'] !== []) {
+            $summaryParts[] = 'سبق تنفيذه: '.count($result['already_executed']);
+        }
+        if ($result['pending'] !== []) {
+            $summaryParts[] = 'معلق للتأكيد: '.count($result['pending']);
+        }
+        if ($result['failed'] !== [] || $result['save_failed'] !== []) {
+            $summaryParts[] = 'فشل: '.(count($result['failed']) + count($result['save_failed']));
+        } else {
+            // Rotate attempt key only after a clean completion so retries reuse the same key.
+            $this->sheetAttemptKey = 'sheet:'.Str::uuid()->toString();
+        }
+
+        $notification = Notification::make()
             ->title(__('finance.payroll_records.sheet.save_success_title', ['op' => $opLabel]))
-            ->body(__('finance.payroll_records.sheet.save_success_body', ['count' => $savedCount, 'month' => $this->payrollMonth]))
-            ->success()
-            ->send();
+            ->body(implode(' | ', $summaryParts));
+
+        if ($result['failed'] !== [] || $result['save_failed'] !== []) {
+            $notification->warning()->send();
+        } else {
+            $notification->success()->send();
+        }
 
         $this->loadSheet();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function getCollectionCollectorOptionsProperty(): array
+    {
+        $user = auth()->user();
+        if (! $user || ! $user->isSuperAdminOrOwner()) {
+            return [];
+        }
+
+        $query = Employee::query()
+            ->where('status', 'active')
+            ->with('user');
+
+        if (! $user->isSuperAdmin()) {
+            $authorizedIds = CompanyFormService::getAuthorizedCompanyIds($user);
+            $query->whereIn('company_id', ! empty($authorizedIds) ? $authorizedIds : [0]);
+        }
+
+        if ($this->filterMode === 'single_company' && $this->selectedCompanyId) {
+            $query->where('company_id', (int) $this->selectedCompanyId);
+        } elseif ($this->filterMode === 'multiple_companies' && ! empty($this->selectedCompanyIds)) {
+            $query->whereIn('company_id', array_map('intval', $this->selectedCompanyIds));
+        } elseif ($this->filterMode === 'by_guarantor' && $this->selectedGuarantorId) {
+            $guarId = (int) $this->selectedGuarantorId;
+            $guarName = Guarantor::find($guarId)?->name;
+
+            $query->whereHas('details', function ($q) use ($guarId, $guarName): void {
+                $q->where('guarantor_id', $guarId);
+                if ($guarName) {
+                    $q->orWhere('sponsor_name', $guarName);
+                }
+            });
+        }
+
+        return $query
+            ->get()
+            ->mapWithKeys(fn (Employee $emp) => [$emp->id => $emp->user?->name ?? ('#'.$emp->id)])
+            ->all();
     }
 
     public function openEmployeeRecord(int $employeeId)

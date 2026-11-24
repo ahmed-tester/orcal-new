@@ -2,13 +2,17 @@
 
 namespace App\Services;
 
+use App\Enums\FinancialCashDirection;
 use App\Enums\FinancialHandoverStatus;
 use App\Enums\FinancialPaymentMethod;
 use App\Enums\FinancialReceiptStatus;
 use App\Models\FinancialReceipt;
 use App\Models\ServiceTransaction;
 use App\Models\User;
+use App\Services\Financial\Contracts\FinancialReceiptSourceConnector;
+use App\Services\Financial\FinancialReceiptConnectorRegistry;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,10 +25,28 @@ class FinancialReceiptService
      *
      * @param  array<string, mixed>  $data
      */
-    public static function record(ServiceTransaction $transaction, array $data, ?User $user = null): FinancialReceipt
+    public static function record(ServiceTransaction|Model $source, array $data, ?User $user = null): FinancialReceipt
     {
-        $user = ServiceFinancialWorkflowService::authorize($transaction, 'record_service_receipt', $user);
-        ServiceFinancialWorkflowService::assertManaged($transaction);
+        $sourceType = $source instanceof ServiceTransaction
+            ? FinancialReceipt::SOURCE_SERVICE_TRANSACTION
+            : (method_exists($source, 'financialSourceType')
+                ? $source->financialSourceType()
+                : throw ValidationException::withMessages(['source_type' => __('financial.errors.unsupported_source')]));
+
+        return static::recordFor($sourceType, (int) $source->getKey(), $data, $user);
+    }
+
+    /**
+     * Register a receipt against any registered source connector.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function recordFor(string $sourceType, int $sourceId, array $data, ?User $user = null): FinancialReceipt
+    {
+        $connector = FinancialReceiptConnectorRegistry::for($sourceType);
+        $source = $connector->find($sourceId);
+        $user = $connector->authorize($source, 'record', $user);
+        $connector->assertManaged($source);
 
         $amount = round((float) ($data['amount'] ?? 0), 2);
         if ($amount <= 0) {
@@ -51,7 +73,7 @@ class FinancialReceiptService
             ]);
         }
 
-        $collectorId = $data['collector_employee_id'] ?? $transaction->executed_by ?? $user->employee?->id;
+        $collectorId = $connector->defaultCollectorEmployeeId($source, $user, $data);
 
         if ($method->isCash() && empty($collectorId)) {
             throw ValidationException::withMessages([
@@ -59,21 +81,26 @@ class FinancialReceiptService
             ]);
         }
 
-        if ($method->isCash() && empty($data['payer_name'])) {
+        $payerName = $connector->defaultPayerName($source, $data);
+        if ($method->isCash() && empty($payerName)) {
             throw ValidationException::withMessages([
                 'payer_name' => __('financial.errors.payer_required'),
             ]);
         }
 
         $fingerprint = static::fingerprint([
-            'source' => FinancialReceipt::SOURCE_SERVICE_TRANSACTION.':'.$transaction->id,
+            'source' => $sourceType.':'.$sourceId,
             'amount' => $amount,
             'method' => $method->value,
             'collector' => $collectorId,
             'reference' => $data['reference_number'] ?? null,
         ]);
 
-        return DB::transaction(function () use ($transaction, $data, $user, $amount, $method, $requestKey, $collectorId, $fingerprint) {
+        $companyId = $connector->companyId($source);
+
+        return DB::transaction(function () use ($connector, $companyId, $sourceType, $sourceId, $data, $user, $amount, $method, $requestKey, $collectorId, $payerName, $fingerprint) {
+            DB::table('companies')->where('id', $companyId)->lockForUpdate()->first();
+            $lockedSource = $connector->findLocked($sourceId);
             $existing = FinancialReceipt::where('request_key', $requestKey)->lockForUpdate()->first();
 
             if ($existing) {
@@ -87,18 +114,16 @@ class FinancialReceiptService
             }
 
             $isCash = $method->isCash();
-            if ($isCash) {
-                $transaction = ServiceTransaction::whereKey($transaction->id)->lockForUpdate()->firstOrFail();
-            }
+            $connector->validateRecordAmount($lockedSource, $amount);
 
             $receipt = FinancialReceipt::create([
-                'company_id' => $transaction->company_id,
-                'branch_id' => $transaction->employee?->branch_id ?? $transaction->executor?->branch_id,
-                'source_type' => FinancialReceipt::SOURCE_SERVICE_TRANSACTION,
-                'source_id' => $transaction->id,
+                'company_id' => $connector->companyId($lockedSource),
+                'branch_id' => $connector->branchId($lockedSource),
+                'source_type' => $sourceType,
+                'source_id' => $sourceId,
                 'request_key' => $requestKey,
                 'collector_employee_id' => $collectorId ?: null,
-                'payer_name' => $data['payer_name'] ?? $transaction->display_beneficiary,
+                'payer_name' => $payerName,
                 'amount' => $amount,
                 'payment_method' => $method->value,
                 'status' => $isCash ? FinancialReceiptStatus::CONFIRMED->value : FinancialReceiptStatus::PENDING_CONFIRMATION->value,
@@ -116,28 +141,13 @@ class FinancialReceiptService
                     'confirmed_item_amounts' => [],
                 ]),
             ]);
-            OperationsAuditService::record(
-                companyId: (int) $transaction->company_id,
-                transactionId: $transaction->id,
-                actionType: 'financial_receipt_recorded',
-                oldStatus: $transaction->workflow_status,
-                newStatus: $transaction->workflow_status,
-                payload: [
-                    'receipt_number' => $receipt->receipt_number,
-                    'amount' => $amount,
-                    'payment_method' => $method->value,
-                ],
-                userId: $user->id,
-            );
+
+            $connector->onReceiptRecorded($lockedSource, $receipt, $user);
 
             if ($isCash) {
-                static::afterConfirmation($transaction, $receipt, $user);
+                static::afterConfirmation($connector, $lockedSource, $receipt, $user);
             } elseif (! empty($data['confirm'])) {
                 return static::confirm($receipt, [], $user);
-            } else {
-                DB::afterCommit(function () use ($transaction, $receipt, $user) {
-                    OperationsNotificationService::notifyFinancialReceiptRecorded($transaction, $receipt, $user);
-                });
             }
 
             return $receipt->refresh();
@@ -151,10 +161,13 @@ class FinancialReceiptService
      */
     public static function confirm(FinancialReceipt $receipt, array $data = [], ?User $user = null): FinancialReceipt
     {
-        $transaction = static::sourceTransaction($receipt);
-        $user = ServiceFinancialWorkflowService::authorize($transaction, 'confirm_service_receipt', $user);
+        $connector = FinancialReceiptConnectorRegistry::for((string) $receipt->source_type);
+        $source = $connector->find((int) $receipt->source_id);
+        $user = $connector->authorize($source, 'confirm', $user);
 
-        return DB::transaction(function () use ($transaction, $receipt, $data, $user) {
+        return DB::transaction(function () use ($connector, $source, $receipt, $data, $user) {
+            DB::table('companies')->where('id', $receipt->company_id)->lockForUpdate()->first();
+            $lockedSource = $connector->findLocked((int) $receipt->source_id);
             $locked = FinancialReceipt::whereKey($receipt->id)->lockForUpdate()->firstOrFail();
 
             if ($locked->status === FinancialReceiptStatus::CONFIRMED) {
@@ -166,6 +179,8 @@ class FinancialReceiptService
                     'status' => __('financial.errors.receipt_reversed'),
                 ]);
             }
+
+            $connector->validateConfirmAmount($lockedSource, $locked);
 
             $reference = $data['reference_number'] ?? $locked->reference_number;
             $proof = $data['proof_path'] ?? $locked->proof_path;
@@ -180,6 +195,35 @@ class FinancialReceiptService
                 }
             }
 
+            $meta = $locked->metadata ?? [];
+
+            if (! $locked->isCash() && empty($meta['treasury_transaction_id'])) {
+                $treasuryTx = FinancialTreasuryService::post(
+                    companyId: (int) $locked->company_id,
+                    direction: FinancialCashDirection::INCOMING,
+                    amount: (float) $locked->amount,
+                    description: __('financial.descriptions.non_cash_receipt_confirmed', [
+                        'number' => $locked->receipt_number,
+                    ]),
+                    metadata: [
+                        'source' => 'financial_receipt',
+                        'financial_receipt_id' => $locked->id,
+                        'receipt_number' => $locked->receipt_number,
+                        'source_type' => $locked->source_type,
+                        'source_id' => $locked->source_id,
+                        'payment_method' => $locked->payment_method?->value,
+                        'reference_number' => $reference,
+                        'destination_type' => $destinationType,
+                        'destination_reference' => $destinationReference,
+                    ],
+                    executedByEmployeeId: $locked->collector_employee_id,
+                    counterparty: $locked->payer_name,
+                    category: $connector->handoverCategory(),
+                );
+
+                $meta['treasury_transaction_id'] = $treasuryTx->id;
+            }
+
             $locked->update([
                 'status' => FinancialReceiptStatus::CONFIRMED->value,
                 'confirmed_by' => $user->id,
@@ -188,47 +232,36 @@ class FinancialReceiptService
                 'proof_path' => $proof,
                 'destination_type' => $destinationType,
                 'destination_reference' => $destinationReference,
+                'metadata' => $meta,
             ]);
 
-            static::afterConfirmation($transaction, $locked, $user);
+            static::afterConfirmation($connector, $lockedSource, $locked, $user);
 
             return $locked->refresh();
         });
     }
 
-    private static function afterConfirmation(ServiceTransaction $transaction, FinancialReceipt $receipt, User $user): void
-    {
-        ServiceFinancialWorkflowService::sync($transaction);
-        OperationsReconciliationService::reconcile($transaction);
-
-        OperationsAuditService::record(
-            companyId: (int) $transaction->company_id,
-            transactionId: $transaction->id,
-            actionType: 'financial_receipt_confirmed',
-            oldStatus: $transaction->workflow_status,
-            newStatus: $transaction->workflow_status,
-            payload: [
-                'receipt_number' => $receipt->receipt_number,
-                'amount' => (float) $receipt->amount,
-                'payment_method' => $receipt->payment_method?->value,
-                'cash' => $receipt->isCash(),
-            ],
-            userId: $user->id,
-        );
-
-        DB::afterCommit(function () use ($transaction, $receipt) {
-            OperationsNotificationService::notifyFinancialReceiptConfirmed($transaction, $receipt);
-        });
-
+    private static function afterConfirmation(
+        FinancialReceiptSourceConnector $connector,
+        Model $source,
+        FinancialReceipt $receipt,
+        User $user,
+    ): void {
+        $connector->onReceiptConfirmed($source, $receipt, $user);
         static::fulfillPendingHandoverIntent($receipt);
     }
 
     public static function reverse(FinancialReceipt $receipt, string $reason, ?User $user = null): FinancialReceipt
     {
-        $transaction = static::sourceTransaction($receipt);
-        ServiceFinancialWorkflowService::authorize($transaction, 'confirm_service_receipt', $user);
+        $connector = FinancialReceiptConnectorRegistry::for((string) $receipt->source_type);
+        $source = $connector->find((int) $receipt->source_id);
+        $user = $connector->authorize($source, 'reverse', $user);
 
-        $receipt = DB::transaction(function () use ($receipt, $reason) {
+        $wasReversed = false;
+
+        $receipt = DB::transaction(function () use ($connector, $receipt, $reason, $user, &$wasReversed) {
+            DB::table('companies')->where('id', $receipt->company_id)->lockForUpdate()->first();
+            $connector->findLocked((int) $receipt->source_id);
             $locked = FinancialReceipt::whereKey($receipt->id)->lockForUpdate()->firstOrFail();
 
             if ($locked->status === FinancialReceiptStatus::REVERSED) {
@@ -263,32 +296,44 @@ class FinancialReceiptService
             $meta = $locked->metadata ?? [];
             $meta['reversal_reason'] = $reason;
             $meta['reversed_at'] = now()->toDateTimeString();
-            $meta['reversed_by'] = auth()->id();
+            $meta['reversed_by'] = $user?->id ?? auth()->id();
+
+            if (! $locked->isCash()
+                && ! empty($meta['treasury_transaction_id'])
+                && empty($meta['reversal_treasury_transaction_id'])) {
+                $reversalTx = FinancialTreasuryService::post(
+                    companyId: (int) $locked->company_id,
+                    direction: FinancialCashDirection::OUTGOING,
+                    amount: (float) $locked->amount,
+                    description: __('financial.descriptions.non_cash_receipt_reversed', [
+                        'number' => $locked->receipt_number,
+                    ]),
+                    metadata: [
+                        'source' => 'financial_receipt_reversal',
+                        'financial_receipt_id' => $locked->id,
+                        'reversal_of_treasury_transaction_id' => $meta['treasury_transaction_id'],
+                    ],
+                    executedByEmployeeId: $locked->collector_employee_id,
+                    counterparty: $locked->payer_name,
+                    category: $connector->handoverCategory(),
+                );
+
+                $meta['reversal_treasury_transaction_id'] = $reversalTx->id;
+            }
 
             $locked->update([
                 'status' => FinancialReceiptStatus::REVERSED->value,
                 'metadata' => $meta,
             ]);
 
+            $wasReversed = true;
+
             return $locked;
         });
 
-        ServiceFinancialWorkflowService::sync($transaction);
-        OperationsReconciliationService::reconcile($transaction);
-
-        OperationsAuditService::record(
-            companyId: (int) $transaction->company_id,
-            transactionId: $transaction->id,
-            actionType: 'financial_receipt_reversed',
-            oldStatus: $transaction->workflow_status,
-            newStatus: $transaction->workflow_status,
-            payload: [
-                'receipt_number' => $receipt->receipt_number,
-                'amount' => (float) $receipt->amount,
-                'reason' => $reason,
-            ],
-            userId: auth()->id(),
-        );
+        if ($wasReversed) {
+            $connector->onReceiptReversed($source, $receipt, $reason, $user);
+        }
 
         return $receipt->refresh();
     }
@@ -300,9 +345,21 @@ class FinancialReceiptService
      */
     public static function availableForHandover(ServiceTransaction $transaction, ?int $collectorEmployeeId = null)
     {
-        $collectorEmployeeId ??= $transaction->executed_by;
+        return static::availableForSource(
+            FinancialReceipt::SOURCE_SERVICE_TRANSACTION,
+            (int) $transaction->id,
+            $collectorEmployeeId ?? $transaction->executed_by,
+        );
+    }
 
-        $receipts = FinancialReceipt::forSource(FinancialReceipt::SOURCE_SERVICE_TRANSACTION, (int) $transaction->id)
+    /**
+     * Receipts eligible for a cash handover for any source.
+     *
+     * @return Collection<int, FinancialReceipt>
+     */
+    public static function availableForSource(string $sourceType, int $sourceId, ?int $collectorEmployeeId = null): Collection
+    {
+        $receipts = FinancialReceipt::forSource($sourceType, $sourceId)
             ->confirmed()
             ->cash()
             ->when($collectorEmployeeId, fn ($query) => $query->where('collector_employee_id', $collectorEmployeeId))

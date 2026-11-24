@@ -2,6 +2,7 @@
 
 namespace App\Services\Mail;
 
+use App\Enums\Mail\MailAccountStatus;
 use App\Models\Employee;
 use App\Models\Mail\MailAccount;
 use App\Models\User;
@@ -142,7 +143,12 @@ class MailAccountService
         $data['company_id'] = $companyId;
 
         $provider = (string) ($data['provider'] ?? '');
-        unset($data['provider']);
+        unset(
+            $data['provider'],
+            $data['oauth_access_token'],
+            $data['oauth_refresh_token'],
+            $data['oauth_token_expires_at'],
+        );
 
         $email = (string) ($data['email'] ?? $account?->email ?? '');
         $provider = in_array($provider, self::providerOptions(), true)
@@ -163,8 +169,34 @@ class MailAccountService
             $data['username'] = filled($data['username'] ?? null) ? $data['username'] : $defaults['username'];
         }
 
-        if (array_key_exists('password', $data)) {
-            $data['password'] = self::normalizePassword($data['password'], $provider);
+        if ($provider === self::PROVIDER_OUTLOOK) {
+            $data['type'] = 'outlook_oauth';
+            $data['password'] = null;
+
+            $emailChanged = $account !== null && strcasecmp(trim((string) $account->email), trim($email)) !== 0;
+            $typeChanged = $account !== null && $account->type !== 'outlook_oauth';
+
+            if ($account === null || $emailChanged || $typeChanged) {
+                $data['oauth_access_token'] = null;
+                $data['oauth_refresh_token'] = null;
+                $data['oauth_token_expires_at'] = null;
+                $data['status'] = MailAccountStatus::PENDING_AUTH;
+                $data['error_message'] = null;
+            }
+        } else {
+            $data['type'] = 'imap';
+
+            if ($account !== null && $account->isOutlookOAuth()) {
+                $data['oauth_access_token'] = null;
+                $data['oauth_refresh_token'] = null;
+                $data['oauth_token_expires_at'] = null;
+                $data['status'] = MailAccountStatus::CONNECTED;
+                $data['error_message'] = null;
+            }
+
+            if (array_key_exists('password', $data)) {
+                $data['password'] = self::normalizePassword($data['password'], $provider);
+            }
         }
 
         if ($companyId <= 0 || ! MailAccessService::hasCompanyAccess($actor, $companyId)) {
@@ -218,7 +250,7 @@ class MailAccountService
             unset($data['employees']);
 
             if ($account) {
-                if (empty($data['password'])) {
+                if (($data['type'] ?? $account->type) !== 'outlook_oauth' && empty($data['password'])) {
                     unset($data['password']);
                 }
                 $account->update($data);
@@ -239,6 +271,43 @@ class MailAccountService
 
             return $account->fresh(['company', 'employees']);
         });
+    }
+
+    public function convertLegacyOutlookToOAuth(MailAccount $account, User $actor): MailAccount
+    {
+        Gate::forUser($actor)->authorize('update', $account);
+
+        if ($account->isOutlookOAuth()) {
+            return $account;
+        }
+
+        $account->update([
+            'type' => 'outlook_oauth',
+            'host' => 'outlook.office365.com',
+            'port' => 993,
+            'encryption' => 'ssl',
+            'username' => $account->email,
+            'password' => null,
+            'oauth_access_token' => null,
+            'oauth_refresh_token' => null,
+            'oauth_token_expires_at' => null,
+            'status' => MailAccountStatus::PENDING_AUTH,
+            'error_message' => null,
+        ]);
+
+        return $account->fresh(['company', 'employees']);
+    }
+
+    public function findPendingMicrosoftAccount(int $companyId, string $email): ?MailAccount
+    {
+        return MailAccount::query()
+            ->where('company_id', $companyId)
+            ->whereRaw('LOWER(email) = ?', [strtolower(trim($email))])
+            ->where('type', 'outlook_oauth')
+            ->where('status', MailAccountStatus::PENDING_AUTH)
+            ->whereNull('oauth_refresh_token')
+            ->latest('id')
+            ->first();
     }
 
     protected function logCreationStage(string $stage): void

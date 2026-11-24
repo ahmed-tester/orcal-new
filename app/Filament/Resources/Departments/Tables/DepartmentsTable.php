@@ -52,6 +52,7 @@ class DepartmentsTable
 
                 TextColumn::make('visible_children_count')
                     ->label(__('organization.departments.hierarchy.columns.children_count'))
+                    ->visible(fn ($livewire): bool => $livewire->shouldShowChildrenCountColumn())
                     ->numeric()
                     ->badge()
                     ->color('info'),

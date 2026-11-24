@@ -107,6 +107,17 @@ class ListDepartments extends ListRecords
         return DepartmentHierarchyService::levelOf($currentParent) < DepartmentHierarchyService::MAX_DEPTH;
     }
 
+    public function shouldShowChildrenCountColumn(): bool
+    {
+        if ($this->isFlatMode()) {
+            return true;
+        }
+
+        $currentParent = $this->resolveCurrentParent();
+
+        return ! $currentParent || DepartmentHierarchyService::levelOf($currentParent) < DepartmentHierarchyService::MAX_DEPTH - 1;
+    }
+
     protected function isFlatMode(): bool
     {
         return (bool) data_get($this->tableFilters, 'all_levels.isActive', false)

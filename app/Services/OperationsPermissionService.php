@@ -16,20 +16,28 @@ class OperationsPermissionService
     public static function getPermissions(): array
     {
         return [
-            'escalate_service_transaction' => __('permissions.escalate_service_transaction'),
-            'resolve_service_escalation' => __('permissions.resolve_service_escalation'),
-            'manage_batch_deposits' => __('permissions.manage_batch_deposits'),
-            'manage_suspense_amounts' => __('permissions.manage_suspense_amounts'),
-            'resolve_deficiency_task' => __('permissions.resolve_deficiency_task'),
-            'view_operational_dashboard' => __('permissions.view_operational_dashboard'),
+            // 1. Receipts & Collection
             'record_service_receipt' => __('permissions.record_service_receipt'),
             'confirm_service_receipt' => __('permissions.confirm_service_receipt'),
+
+            // 2. Cash Handover to Treasury
             'request_cash_handover' => __('permissions.request_cash_handover'),
             'confirm_cash_handover' => __('permissions.confirm_cash_handover'),
+
+            // 3. Disbursements & Employee Reimbursements
             'record_service_disbursement' => __('permissions.record_service_disbursement'),
             'approve_self_paid_disbursement' => __('permissions.approve_self_paid_disbursement'),
             'pay_employee_reimbursement' => __('permissions.pay_employee_reimbursement'),
+
+            // 4. Operational Control, Escalation & Reconciliation
+            'view_operational_dashboard' => __('permissions.view_operational_dashboard'),
+            'escalate_service_transaction' => __('permissions.escalate_service_transaction'),
+            'resolve_service_escalation' => __('permissions.resolve_service_escalation'),
+            'resolve_deficiency_task' => __('permissions.resolve_deficiency_task'),
+            'manage_batch_deposits' => __('permissions.manage_batch_deposits'),
+            'manage_suspense_amounts' => __('permissions.manage_suspense_amounts'),
             'reverse_financial_transaction' => __('permissions.reverse_financial_transaction'),
+            'disburse_payroll_salary' => __('permissions.disburse_payroll_salary'),
         ];
     }
 

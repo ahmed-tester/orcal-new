@@ -3,12 +3,11 @@
 namespace App\Filament\Resources\Mail\MailMessages\Pages;
 
 use App\Enums\Mail\MailAccountStatus;
-use App\Enums\Mail\MailCategory;
-use App\Enums\Mail\MailMessageStatus;
 use App\Filament\Resources\Mail\MailMessages\MailMessageResource;
 use App\Models\Mail\MailAccount;
 use App\Models\Mail\MailMessage;
 use App\Services\Mail\MailAccessService;
+use App\Services\Mail\MailMessageService;
 use App\Services\Mail\MailSyncService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -153,25 +152,26 @@ class ListMailMessages extends ListRecords
     {
         $user = auth()->user();
         $baseQuery = fn () => MailAccessService::scopeRecords(MailMessage::query(), $user, 'emails');
+        $messageService = app(MailMessageService::class);
 
         return [
             'important' => Tab::make(__('mail_inbox.tabs.important'))
                 ->icon('heroicon-m-star')
                 ->badgeColor('warning')
-                ->badge($baseQuery()->where('is_important', true)->where('status', '!=', MailMessageStatus::REJECTED->value)->count())
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('is_important', true)->where('status', '!=', MailMessageStatus::REJECTED->value)),
+                ->badge($messageService->applyTabScope($baseQuery(), MailMessageService::TAB_IMPORTANT)->count())
+                ->modifyQueryUsing(fn (Builder $query) => $messageService->applyTabScope($query, MailMessageService::TAB_IMPORTANT)),
 
             'under_review' => Tab::make(__('mail_inbox.tabs.under_review'))
                 ->icon('heroicon-m-clock')
                 ->badgeColor('info')
-                ->badge($baseQuery()->where('status', MailMessageStatus::UNDER_REVIEW->value)->count())
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', MailMessageStatus::UNDER_REVIEW->value)),
+                ->badge($messageService->applyTabScope($baseQuery(), MailMessageService::TAB_UNDER_REVIEW)->count())
+                ->modifyQueryUsing(fn (Builder $query) => $messageService->applyTabScope($query, MailMessageService::TAB_UNDER_REVIEW)),
 
             'spam_excluded' => Tab::make(__('mail_inbox.tabs.spam_excluded'))
                 ->icon('heroicon-m-no-symbol')
                 ->badgeColor('danger')
-                ->badge($baseQuery()->where(fn (Builder $q) => $q->where('status', MailMessageStatus::REJECTED->value)->orWhere('category', MailCategory::SPAM->value)->orWhere('category', MailCategory::MARKETING->value))->count())
-                ->modifyQueryUsing(fn (Builder $query) => $query->where(fn (Builder $q) => $q->where('status', MailMessageStatus::REJECTED->value)->orWhere('category', MailCategory::SPAM->value)->orWhere('category', MailCategory::MARKETING->value))),
+                ->badge($messageService->applyTabScope($baseQuery(), MailMessageService::TAB_SPAM_EXCLUDED)->count())
+                ->modifyQueryUsing(fn (Builder $query) => $messageService->applyTabScope($query, MailMessageService::TAB_SPAM_EXCLUDED)),
 
             'all' => Tab::make(__('mail_inbox.tabs.all'))
                 ->icon('heroicon-m-inbox-stack')

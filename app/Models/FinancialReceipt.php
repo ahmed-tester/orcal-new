@@ -18,6 +18,10 @@ class FinancialReceipt extends Model
 
     public const SOURCE_SERVICE_TRANSACTION = 'service_transaction';
 
+    public const SOURCE_INVOICE = 'invoice';
+
+    public const SOURCE_PAYROLL_COLLECTION = 'payroll_collection';
+
     protected $fillable = [
         'company_id',
         'branch_id',

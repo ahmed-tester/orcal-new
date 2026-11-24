@@ -596,6 +596,90 @@
         .dark .md-dl-row dd {
             color: #f1f5f9;
         }
+        .md-status-form {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+        }
+        .md-status-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+        }
+        .md-status-field label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #475569;
+        }
+        .dark .md-status-field label {
+            color: #cbd5e1;
+        }
+        .md-select {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.625rem;
+            background-color: #ffffff;
+            color: #0f172a;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+        }
+        .dark .md-select {
+            border-color: rgba(255, 255, 255, 0.16);
+            background-color: #1f2937;
+            color: #f8fafc;
+        }
+        .md-checkbox-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.35rem 0;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #334155;
+        }
+        .dark .md-checkbox-row {
+            color: #e2e8f0;
+        }
+        .md-status-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding-top: 0.25rem;
+        }
+        .md-btn-primary {
+            border: 0;
+            border-radius: 0.625rem;
+            background-color: #082c50;
+            color: #ffffff;
+            padding: 0.55rem 1rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .md-btn-primary:hover {
+            background-color: #0c3d6e;
+        }
+        .md-btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .md-btn-secondary {
+            border: 1px solid #cbd5e1;
+            border-radius: 0.625rem;
+            background-color: #ffffff;
+            color: #334155;
+            padding: 0.5rem 0.9rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .dark .md-btn-secondary {
+            border-color: rgba(255, 255, 255, 0.16);
+            background-color: #1f2937;
+            color: #e2e8f0;
+        }
         .md-ai-card {
             border-radius: 1rem;
             border: 1px solid #e2e8f0;
@@ -874,44 +958,132 @@
         </div>
 
         <div class="md-col-side">
-            <div class="md-card md-card-pad">
+            <div class="md-card md-card-pad" id="mail-status-card">
                 <div class="md-section-head">
                     <h3 class="md-section-title">{{ __('mail_inbox.fields.status_and_details') }}</h3>
                 </div>
-                <dl class="md-dl">
-                    <div class="md-dl-row">
-                        <dt>{{ __('mail_inbox.fields.status') }}</dt>
-                        <dd>{{ $record->status?->getLabel() ?? '-' }}</dd>
+                @if (($isEditingStatus ?? false) && ($canReview ?? false))
+                    <div class="md-status-form">
+                        <div class="md-status-field">
+                            <label for="md-review-status">{{ __('mail_inbox.fields.status') }}</label>
+                            <select id="md-review-status" wire:model="reviewStatus" class="md-select">
+                                @foreach (($statusOptions ?? []) as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('reviewStatus')
+                                <span style="color: #dc2626; font-size: 0.75rem;">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="md-status-field">
+                            <label for="md-review-priority">{{ __('mail_inbox.fields.priority') }}</label>
+                            <select id="md-review-priority" wire:model="reviewPriority" class="md-select">
+                                @foreach (($priorityOptions ?? []) as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('reviewPriority')
+                                <span style="color: #dc2626; font-size: 0.75rem;">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="md-status-field">
+                            <label for="md-review-category">{{ __('mail_inbox.fields.category') }}</label>
+                            <select id="md-review-category" wire:model="reviewCategory" class="md-select">
+                                @foreach (($categoryOptions ?? []) as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('reviewCategory')
+                                <span style="color: #dc2626; font-size: 0.75rem;">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div>
+                            <label class="md-checkbox-row" for="md-review-important">
+                                <span>{{ __('mail_inbox.fields.is_important') }}</span>
+                                <input id="md-review-important" type="checkbox" wire:model="reviewIsImportant">
+                            </label>
+                            <p style="margin: 0.15rem 0 0; font-size: 0.72rem; color: #64748b;">{{ __('mail_inbox.helpers.priority_vs_importance') }}</p>
+                            @error('reviewIsImportant')
+                                <span style="color: #dc2626; font-size: 0.75rem;">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="md-status-field">
+                            <label for="md-review-assignee">{{ __('mail_inbox.fields.assignee') }}</label>
+                            <select id="md-review-assignee" wire:model="reviewAssignedTo" class="md-select">
+                                <option value="">{{ __('mail_inbox.fields.unassigned') }}</option>
+                                @foreach (($assigneeOptions ?? []) as $id => $name)
+                                    <option value="{{ $id }}">{{ $name }}</option>
+                                @endforeach
+                            </select>
+                            @error('reviewAssignedTo')
+                                <span style="color: #dc2626; font-size: 0.75rem;">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="md-status-actions">
+                            <button type="button"
+                                    wire:click="saveStatusReview"
+                                    wire:loading.attr="disabled"
+                                    class="md-btn-primary">
+                                {{ __('mail_inbox.actions.save_status_changes') }}
+                            </button>
+                            <button type="button"
+                                    wire:click="cancelStatusReview"
+                                    wire:loading.attr="disabled"
+                                    class="md-btn-secondary">
+                                {{ __('mail_inbox.actions.cancel_edit_status') }}
+                            </button>
+                        </div>
                     </div>
-                    <div class="md-dl-row">
-                        <dt>{{ __('mail_inbox.fields.priority') }}</dt>
-                        <dd>{{ $record->priority?->getLabel() ?? '-' }}</dd>
-                    </div>
-                    <div class="md-dl-row">
-                        <dt>{{ __('mail_inbox.fields.category') }}</dt>
-                        <dd>{{ $record->category?->getLabel() ?? '-' }}</dd>
-                    </div>
-                    <div class="md-dl-row">
-                        <dt>{{ __('mail_inbox.fields.is_important') }}</dt>
-                        <dd>{{ $record->is_important ? __('mail_inbox.fields.yes') : __('mail_inbox.fields.no') }}</dd>
-                    </div>
-                    <div class="md-dl-row">
-                        <dt>{{ __('mail_inbox.fields.assignee') }}</dt>
-                        <dd>{{ $record->assignee?->name ?? __('mail_inbox.fields.unassigned') }}</dd>
-                    </div>
-                    <div class="md-dl-row">
-                        <dt>{{ __('mail_inbox.fields.source_folder') }}</dt>
-                        <dd>{{ $record->source_folder?->getLabel() ?? '-' }}</dd>
-                    </div>
-                    <div class="md-dl-row">
-                        <dt>{{ __('mail_inbox.fields.received_at') }}</dt>
-                        <dd>{{ $record->received_at?->format('Y-m-d H:i') ?? '-' }}</dd>
-                    </div>
-                    <div class="md-dl-row">
-                        <dt>{{ __('mail_inbox.fields.replied_at') }}</dt>
-                        <dd>{{ $record->replied_at?->format('Y-m-d H:i') ?? __('mail_inbox.fields.not_replied_yet') }}</dd>
-                    </div>
-                </dl>
+                    <dl class="md-dl" style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid #e2e8f0;">
+                        <div class="md-dl-row">
+                            <dt>{{ __('mail_inbox.fields.source_folder') }}</dt>
+                            <dd>{{ $record->source_folder?->getLabel() ?? '-' }}</dd>
+                        </div>
+                        <div class="md-dl-row">
+                            <dt>{{ __('mail_inbox.fields.received_at') }}</dt>
+                            <dd>{{ $record->received_at?->format('Y-m-d H:i') ?? '-' }}</dd>
+                        </div>
+                        <div class="md-dl-row">
+                            <dt>{{ __('mail_inbox.fields.replied_at') }}</dt>
+                            <dd>{{ $record->replied_at?->format('Y-m-d H:i') ?? __('mail_inbox.fields.not_replied_yet') }}</dd>
+                        </div>
+                    </dl>
+                @else
+                    <dl class="md-dl">
+                        <div class="md-dl-row">
+                            <dt>{{ __('mail_inbox.fields.status') }}</dt>
+                            <dd>{{ $record->status?->getLabel() ?? '-' }}</dd>
+                        </div>
+                        <div class="md-dl-row">
+                            <dt>{{ __('mail_inbox.fields.priority') }}</dt>
+                            <dd>{{ $record->priority?->getLabel() ?? '-' }}</dd>
+                        </div>
+                        <div class="md-dl-row">
+                            <dt>{{ __('mail_inbox.fields.category') }}</dt>
+                            <dd>{{ $record->categoryLabel() }}</dd>
+                        </div>
+                        <div class="md-dl-row">
+                            <dt>{{ __('mail_inbox.fields.is_important') }}</dt>
+                            <dd>{{ $record->is_important ? __('mail_inbox.fields.yes') : __('mail_inbox.fields.no') }}</dd>
+                        </div>
+                        <div class="md-dl-row">
+                            <dt>{{ __('mail_inbox.fields.assignee') }}</dt>
+                            <dd>{{ $record->assignee?->name ?? __('mail_inbox.fields.unassigned') }}</dd>
+                        </div>
+                        <div class="md-dl-row">
+                            <dt>{{ __('mail_inbox.fields.source_folder') }}</dt>
+                            <dd>{{ $record->source_folder?->getLabel() ?? '-' }}</dd>
+                        </div>
+                        <div class="md-dl-row">
+                            <dt>{{ __('mail_inbox.fields.received_at') }}</dt>
+                            <dd>{{ $record->received_at?->format('Y-m-d H:i') ?? '-' }}</dd>
+                        </div>
+                        <div class="md-dl-row">
+                            <dt>{{ __('mail_inbox.fields.replied_at') }}</dt>
+                            <dd>{{ $record->replied_at?->format('Y-m-d H:i') ?? __('mail_inbox.fields.not_replied_yet') }}</dd>
+                        </div>
+                    </dl>
+                @endif
             </div>
 
             <div class="md-ai-card">

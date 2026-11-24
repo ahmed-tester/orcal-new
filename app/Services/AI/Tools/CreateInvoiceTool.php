@@ -3,11 +3,11 @@
 namespace App\Services\AI\Tools;
 
 use App\Enums\GeneralStatus;
-use App\Enums\PaymentStatus;
 use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Services\AI\Contracts\GeminiToolInterface;
+use App\Services\InvoiceFinancialService;
 
 class CreateInvoiceTool implements GeminiToolInterface
 {
@@ -102,31 +102,20 @@ class CreateInvoiceTool implements GeminiToolInterface
                 ];
             }
 
-            $remaining = max(0, $totalAmount - $paidAmount);
-            $paymentStatus = PaymentStatus::UNPAID;
-            if ($paidAmount >= $totalAmount && $totalAmount > 0) {
-                $paymentStatus = PaymentStatus::PAID;
-            } elseif ($paidAmount > 0) {
-                $paymentStatus = PaymentStatus::PARTIALLY_PAID;
-            }
-
             $invoiceData = [
                 'company_id' => $companyId,
                 'customer_id' => $customer->id,
                 'issue_date' => $issueDate ?: date('Y-m-d'),
                 'total_amount' => $totalAmount,
-                'paid_amount' => $paidAmount,
-                'remaining_amount' => $remaining,
-                'payment_status' => $paymentStatus,
                 'notes' => $notes ?: null,
                 'created_by' => auth()->id(),
             ];
 
-            if (!empty($invoiceNumber)) {
+            if (! empty($invoiceNumber)) {
                 $invoiceData['invoice_number'] = $invoiceNumber;
             }
 
-            $invoice = Invoice::create($invoiceData);
+            $invoice = InvoiceFinancialService::createIndependent($invoiceData, [], auth()->user());
 
             return [
                 'success' => true,

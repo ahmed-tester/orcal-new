@@ -8,8 +8,11 @@ use App\Enums\TreasuryTransactionType;
 use App\Models\CashHandover;
 use App\Models\FinancialDisbursement;
 use App\Models\FinancialDisbursementPayment;
+use App\Models\FinancialReceipt;
 use App\Models\PaymentCollectionItem;
+use App\Models\PayrollPayment;
 use App\Models\TreasuryTransaction;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -48,8 +51,12 @@ class FinancialTreasuryService
         array $metadata = [],
         ?int $executedByEmployeeId = null,
         ?string $counterparty = null,
+        ?PaymentItemCategory $category = null,
+        ?string $transactionDate = null,
     ): TreasuryTransaction {
         $amount = round(abs($amount), 2);
+        $category ??= PaymentItemCategory::SERVICES;
+        $resolvedDate = $transactionDate ? Carbon::parse($transactionDate)->toDateString() : now()->toDateString();
 
         if ($amount <= 0) {
             throw ValidationException::withMessages([
@@ -57,7 +64,7 @@ class FinancialTreasuryService
             ]);
         }
 
-        return DB::transaction(function () use ($companyId, $direction, $amount, $description, $metadata, $executedByEmployeeId, $counterparty) {
+        return DB::transaction(function () use ($companyId, $direction, $amount, $description, $metadata, $executedByEmployeeId, $counterparty, $category, $resolvedDate) {
             // Serialize treasury writes for the same company (shared lock scope).
             DB::table('companies')->where('id', $companyId)->lockForUpdate()->first();
 
@@ -69,11 +76,15 @@ class FinancialTreasuryService
             $previousBalance = $last ? (float) $last->balance_after : 0.0;
             $signed = $direction === FinancialCashDirection::INCOMING ? $amount : -$amount;
 
+            $subItem = $category === PaymentItemCategory::SERVICES
+                ? __('financial.payment_item_name')
+                : $category->getLabel();
+
             $item = PaymentCollectionItem::firstOrCreate(
                 [
                     'company_id' => $companyId,
-                    'main_item' => PaymentItemCategory::SERVICES,
-                    'sub_item' => __('financial.payment_item_name'),
+                    'main_item' => $category,
+                    'sub_item' => $subItem,
                 ],
                 ['service_price' => 0],
             );
@@ -86,7 +97,7 @@ class FinancialTreasuryService
 
             return TreasuryTransaction::create([
                 'company_id' => $companyId,
-                'transaction_date' => now()->toDateString(),
+                'transaction_date' => $resolvedDate,
                 'transaction_type' => $direction === FinancialCashDirection::INCOMING
                     ? TreasuryTransactionType::INCOMING
                     : TreasuryTransactionType::OUTGOING,
@@ -118,7 +129,9 @@ class FinancialTreasuryService
         return ($transaction->metadata['source'] ?? null) === FinancialSurplusRefundService::TREASURY_SOURCE
             || CashHandover::where('treasury_transaction_id', $transaction->id)->exists()
             || FinancialDisbursement::where('treasury_transaction_id', $transaction->id)->exists()
-            || FinancialDisbursementPayment::where('treasury_transaction_id', $transaction->id)->exists();
+            || FinancialDisbursementPayment::where('treasury_transaction_id', $transaction->id)->exists()
+            || PayrollPayment::where('treasury_transaction_id', $transaction->id)->exists()
+            || FinancialReceipt::where('metadata->treasury_transaction_id', $transaction->id)->exists();
     }
 
     /**
