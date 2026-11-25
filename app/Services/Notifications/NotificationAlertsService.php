@@ -515,7 +515,11 @@ class NotificationAlertsService
 
         // Apply filters
         if ($category && $category !== 'all') {
-            $alerts = $alerts->where('category', $category);
+            if ($category === 'tasks_invoices') {
+                $alerts = $alerts->whereIn('category', ['tasks', 'invoices']);
+            } else {
+                $alerts = $alerts->where('category', $category);
+            }
         }
 
         // Filter by targetType (employees vs companies)

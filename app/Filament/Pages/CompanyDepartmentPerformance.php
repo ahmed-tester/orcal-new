@@ -14,10 +14,13 @@ use App\Filament\Traits\HasFilterBarState;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Department;
+use App\Models\ServiceTransaction;
+use App\Models\TaskAssignment;
 use App\Services\AttendanceSummaryService;
 use App\Services\CompanyCompliancePerformanceService;
 use App\Services\CompanyDepartmentPerformanceService;
 use App\Services\CompanyFinancialPerformanceService;
+use App\Services\CompanySummaryOverviewService;
 use App\Services\CompanyTicketsPerformanceService;
 use App\Services\CompanyViolationsPerformanceService;
 use App\Services\LeaveSummaryService;
@@ -27,6 +30,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\WithPagination;
@@ -76,7 +80,10 @@ class CompanyDepartmentPerformance extends Page
     public bool $showAttendanceAndLeaves = false;
 
     #[Locked]
-    public string $activeOverviewTab = 'operations';
+    public string $activeOverviewTab = 'summary';
+
+    #[Locked]
+    public ?int $summaryDepartmentId = null;
 
     #[Locked]
     public array $financialPreviewTypes = [];
@@ -106,22 +113,22 @@ class CompanyDepartmentPerformance extends Page
     public mixed $selectedDepartmentId = null;
 
     #[Locked]
-    public bool $showKashfModal = false;
+    public bool $showStatementModal = false;
 
     #[Locked]
-    public string $kashfDomain = 'services';
+    public string $statementDomain = 'services';
 
     #[Locked]
-    public string $kashfType = 'all';
+    public string $statementType = 'all';
 
     #[Locked]
-    public ?int $kashfCompanyId = null;
+    public ?int $statementCompanyId = null;
 
     #[Locked]
-    public mixed $kashfDepartmentId = null;
+    public mixed $statementDepartmentId = null;
 
     #[Locked]
-    public ?int $kashfEmployeeId = null;
+    public ?int $statementEmployeeId = null;
 
     public function mount(): void
     {
@@ -152,17 +159,35 @@ class CompanyDepartmentPerformance extends Page
 
     public static function canAccess(array $parameters = []): bool
     {
-        return auth()->user()?->isSuperAdmin() ?? false;
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($user->isOwner()) {
+            return CompanyDepartmentPerformanceService::getAuthorizedCompanyIds($user) !== [];
+        }
+
+        return CompanyDepartmentPerformanceService::isSupervisorViewer($user);
     }
 
     public function handleFilterBarUpdate(): void
     {
-        unset($this->branchFilterOptions);
+        unset($this->branchFilterOptions, $this->departmentsOverview, $this->summaryData);
         $this->clearUnavailableBranchFilter();
 
         $this->resetPage();
-        $this->resetPage('kashfPage');
+        $this->resetPage('statementPage');
         $this->selectedDepartmentId = null;
+
+        if ($this->summaryDepartmentId !== null && ! $this->departmentsOverview->contains('department_id', $this->summaryDepartmentId)) {
+            $this->summaryDepartmentId = null;
+        }
 
         if (CompanyDepartmentPerformanceService::resolveBranchId($this->filters()) !== null) {
             unset($this->financialPreviewTypes['treasury']);
@@ -181,13 +206,64 @@ class CompanyDepartmentPerformance extends Page
             $this->employeeRankMode = self::EMPLOYEE_RANK_MODE_ALL;
         }
 
-        $this->showKashfModal = false;
-        $this->dispatch('close-modal', id: 'performance-kashf-modal');
+        $this->showStatementModal = false;
+        $this->dispatch('close-modal', id: 'performance-statement-modal');
     }
 
     public function filters(): array
     {
         return $this->filterBarState();
+    }
+
+    public function showSummaryOverview(): void
+    {
+        $this->activeOverviewTab = 'summary';
+        $this->showAttendanceAndLeaves = false;
+        $this->closeStatement();
+    }
+
+    public function selectSummaryDepartment(int $departmentId): void
+    {
+        abort_unless($this->departmentsOverview->contains('department_id', $departmentId), 404);
+
+        $this->summaryDepartmentId = $departmentId;
+        unset($this->summaryData);
+        $this->closeStatement();
+    }
+
+    public function backToSummaryOverview(): void
+    {
+        $this->summaryDepartmentId = null;
+        unset($this->summaryData);
+        $this->closeStatement();
+    }
+
+    #[Computed]
+    public function summaryData(): ?array
+    {
+        if ($this->activeOverviewTab !== 'summary') {
+            return null;
+        }
+
+        if ($this->summaryDepartmentId !== null && ! $this->departmentsOverview->contains('department_id', $this->summaryDepartmentId)) {
+            return null;
+        }
+
+        return CompanySummaryOverviewService::build(
+            $this->filters(),
+            $this->authorizedCompanyIds,
+            $this->summaryDepartmentId,
+        );
+    }
+
+    #[Computed]
+    public function selectedSummaryDepartment(): ?object
+    {
+        if ($this->summaryDepartmentId === null) {
+            return null;
+        }
+
+        return $this->departmentsOverview->firstWhere('department_id', $this->summaryDepartmentId);
     }
 
     public function showOperationsOverview(): void
@@ -202,7 +278,7 @@ class CompanyDepartmentPerformance extends Page
 
         $this->activeOverviewTab = 'workforce';
         $this->showAttendanceAndLeaves = true;
-        $this->closeKashf();
+        $this->closeStatement();
     }
 
     public function showComplianceOverview(): void
@@ -227,7 +303,7 @@ class CompanyDepartmentPerformance extends Page
 
         $this->activeOverviewTab = 'financial';
         $this->showAttendanceAndLeaves = false;
-        $this->closeKashf();
+        $this->closeStatement();
     }
 
     public function showTicketsOverview(): void
@@ -236,7 +312,7 @@ class CompanyDepartmentPerformance extends Page
 
         $this->activeOverviewTab = 'tickets';
         $this->showAttendanceAndLeaves = false;
-        $this->closeKashf();
+        $this->closeStatement();
     }
 
     #[Computed]
@@ -248,7 +324,7 @@ class CompanyDepartmentPerformance extends Page
     #[Computed]
     public function canViewViolationsOverview(): bool
     {
-        return ViolationsSummary::canAccess();
+        return ! CompanyDepartmentPerformanceService::isSupervisorViewer() && ViolationsSummary::canAccess();
     }
 
     #[Computed]
@@ -405,7 +481,7 @@ class CompanyDepartmentPerformance extends Page
                 ?? array_key_first($cards);
             $previews[$group] = [
                 'type' => $type,
-                'records' => CompanyCompliancePerformanceService::getKashfQuery($filters, $type)->limit(5)->get(),
+                'records' => CompanyCompliancePerformanceService::getStatementQuery($filters, $type)->limit(5)->get(),
             ];
         }
 
@@ -915,96 +991,96 @@ class CompanyDepartmentPerformance extends Page
     }
 
     #[Computed]
-    public function kashfTitle(): string
+    public function statementTitle(): string
     {
-        return match ($this->kashfDomain) {
-            'services' => __('performance.kashf.services_title', ['type' => __('performance.types.'.$this->kashfType)]),
-            'deficiencies' => $this->kashfType === 'score_overdue'
-                ? __('performance.kashf.score_deficiencies_title')
-                : __('performance.kashf.deficiencies_title'),
-            'tasks' => $this->kashfType === 'score_overdue'
-                ? __('performance.kashf.score_tasks_title')
-                : __('performance.kashf.tasks_title', ['type' => __('performance.types.'.$this->kashfType)]),
-            'compliance' => __('performance.kashf.compliance_title', ['type' => CompanyCompliancePerformanceService::statementTitle($this->kashfType)]),
-            'violations' => __('performance.kashf.violations_title', [
-                'type' => __('performance.violations.'.match ($this->kashfType) {
+        return match ($this->statementDomain) {
+            'services' => __('performance.statement.services_title', ['type' => __('performance.types.'.$this->statementType)]),
+            'deficiencies' => $this->statementType === 'score_overdue'
+                ? __('performance.statement.score_deficiencies_title')
+                : __('performance.statement.deficiencies_title'),
+            'tasks' => $this->statementType === 'score_overdue'
+                ? __('performance.statement.score_tasks_title')
+                : __('performance.statement.tasks_title', ['type' => __('performance.types.'.$this->statementType)]),
+            'compliance' => __('performance.statement.compliance_title', ['type' => CompanyCompliancePerformanceService::statementTitle($this->statementType)]),
+            'violations' => __('performance.statement.violations_title', [
+                'type' => __('performance.violations.'.match ($this->statementType) {
                     'all' => 'total_violations',
                     'payments' => 'total_paid',
                     'unpaid' => 'total_remaining',
-                    default => $this->kashfType,
+                    default => $this->statementType,
                 }),
             ]),
-            'attendance' => __('performance.kashf.attendance_title', [
-                'type' => __('performance.overview.'.$this->kashfType),
+            'attendance' => __('performance.statement.attendance_title', [
+                'type' => __('performance.overview.'.$this->statementType),
                 'month' => substr(CompanyDepartmentPerformanceService::resolveDateRange($this->filters())[0], 0, 7),
             ]),
-            'leaves' => __('performance.kashf.leaves_title', ['type' => __('performance.overview.'.$this->kashfType)]),
-            'financial' => match ($this->kashfType) {
-                'current_balance' => __('performance.financial.kashf_current_balance'),
-                'incoming' => __('performance.financial.kashf_incoming'),
-                'outgoing' => __('performance.financial.kashf_outgoing'),
-                'net_flow' => __('performance.financial.kashf_net_flow'),
-                default => __('performance.financial.metrics.'.$this->kashfType),
+            'leaves' => __('performance.statement.leaves_title', ['type' => __('performance.overview.'.$this->statementType)]),
+            'financial' => match ($this->statementType) {
+                'current_balance' => __('performance.financial.statement_current_balance'),
+                'incoming' => __('performance.financial.statement_incoming'),
+                'outgoing' => __('performance.financial.statement_outgoing'),
+                'net_flow' => __('performance.financial.statement_net_flow'),
+                default => __('performance.financial.metrics.'.$this->statementType),
             },
-            'tickets' => __('performance.kashf.tickets_title', [
-                'type' => __('performance.tickets.'.($this->kashfType === 'all' ? 'total' : $this->kashfType)),
+            'tickets' => __('performance.statement.tickets_title', [
+                'type' => __('performance.tickets.'.($this->statementType === 'all' ? 'total' : $this->statementType)),
             ]),
-            default => __('performance.kashf.title'),
+            default => __('performance.statement.title'),
         };
     }
 
     #[Computed]
-    public function kashfRecords(): ?LengthAwarePaginator
+    public function statementRecords(): ?LengthAwarePaginator
     {
-        if (! $this->showKashfModal) {
+        if (! $this->showStatementModal) {
             return null;
         }
 
-        if ($this->isDepartmentOverviewScoreStatement($this->kashfDomain, $this->kashfType, $this->kashfDepartmentId)
-            && ! $this->departmentOverviewIncludesCompany($this->kashfCompanyId, $this->kashfDepartmentId)) {
+        if ($this->isDepartmentOverviewScoreStatement($this->statementDomain, $this->statementType, $this->statementDepartmentId)
+            && ! $this->departmentOverviewIncludesCompany($this->statementCompanyId, $this->statementDepartmentId)) {
             return null;
         }
 
-        return match ($this->kashfDomain) {
-            'services' => CompanyDepartmentPerformanceService::getKashfServicesQuery(
+        return match ($this->statementDomain) {
+            'services' => CompanyDepartmentPerformanceService::getServicesStatementQuery(
                 $this->filters(),
-                $this->kashfType,
-                $this->kashfCompanyId,
-                $this->kashfDepartmentId,
-                $this->kashfEmployeeId
-            )->paginate(15, ['*'], 'kashfPage'),
-            'deficiencies' => CompanyDepartmentPerformanceService::getKashfDeficienciesQuery(
+                $this->statementType,
+                $this->statementCompanyId,
+                $this->statementDepartmentId,
+                $this->statementEmployeeId
+            )->paginate(15, ['*'], 'statementPage'),
+            'deficiencies' => CompanyDepartmentPerformanceService::getDeficienciesStatementQuery(
                 $this->filters(),
-                $this->kashfType,
-                $this->kashfCompanyId,
-                $this->kashfDepartmentId,
-                $this->kashfEmployeeId
-            )->paginate(15, ['*'], 'kashfPage'),
-            'tasks' => CompanyDepartmentPerformanceService::getKashfTasksQuery(
+                $this->statementType,
+                $this->statementCompanyId,
+                $this->statementDepartmentId,
+                $this->statementEmployeeId
+            )->paginate(15, ['*'], 'statementPage'),
+            'tasks' => CompanyDepartmentPerformanceService::getTasksStatementQuery(
                 $this->filters(),
-                $this->kashfType,
-                $this->kashfCompanyId,
-                $this->kashfDepartmentId,
-                $this->kashfEmployeeId
-            )->paginate(15, ['*'], 'kashfPage'),
-            'compliance' => CompanyCompliancePerformanceService::getKashfQuery(
+                $this->statementType,
+                $this->statementCompanyId,
+                $this->statementDepartmentId,
+                $this->statementEmployeeId
+            )->paginate(15, ['*'], 'statementPage'),
+            'compliance' => CompanyCompliancePerformanceService::getStatementQuery(
                 $this->filters(),
-                $this->kashfType,
-                $this->kashfCompanyId,
-                $this->kashfDepartmentId
-            )->paginate(15, ['*'], 'kashfPage'),
-            'violations' => CompanyViolationsPerformanceService::getKashfQuery(
+                $this->statementType,
+                $this->statementCompanyId,
+                $this->statementDepartmentId
+            )->paginate(15, ['*'], 'statementPage'),
+            'violations' => CompanyViolationsPerformanceService::getStatementQuery(
                 $this->filters(),
-                $this->kashfType,
-                $this->kashfCompanyId
-            )->paginate(15, ['*'], 'kashfPage'),
+                $this->statementType,
+                $this->statementCompanyId
+            )->paginate(15, ['*'], 'statementPage'),
             'attendance' => $this->attendanceStatement(),
             'leaves' => $this->leaveStatement(),
             'financial' => $this->financialStatement(),
-            'tickets' => CompanyTicketsPerformanceService::getKashfQuery(
+            'tickets' => CompanyTicketsPerformanceService::getStatementQuery(
                 $this->filters(),
-                $this->kashfType
-            )->paginate(15, ['*'], 'kashfPage'),
+                $this->statementType
+            )->paginate(15, ['*'], 'statementPage'),
             default => null,
         };
     }
@@ -1012,9 +1088,11 @@ class CompanyDepartmentPerformance extends Page
     private function financialStatement(): LengthAwarePaginator
     {
         return CompanyFinancialPerformanceService::statement(
-            $this->kashfType,
+            $this->statementType,
             $this->filters(),
-            $this->authorizedCompanyIds
+            $this->authorizedCompanyIds,
+            $this->statementCompanyId,
+            $this->statementDepartmentId
         );
     }
 
@@ -1040,12 +1118,12 @@ class CompanyDepartmentPerformance extends Page
 
     private function attendanceStatement(): LengthAwarePaginator
     {
-        return $this->attendanceStatementQuery($this->kashfType)->paginate(15, ['*'], 'kashfPage');
+        return $this->attendanceStatementQuery($this->statementType)->paginate(15, ['*'], 'statementPage');
     }
 
     private function leaveStatement(): LengthAwarePaginator
     {
-        return $this->leaveStatementQuery($this->kashfType)->paginate(15, ['*'], 'kashfPage');
+        return $this->leaveStatementQuery($this->statementType)->paginate(15, ['*'], 'statementPage');
     }
 
     private function authorizeAttendanceStatement(string $type): void
@@ -1060,7 +1138,7 @@ class CompanyDepartmentPerformance extends Page
 
         $this->operationsViewMode = $mode;
         $this->closeDepartmentDetails();
-        $this->closeKashf();
+        $this->closeStatement();
         $this->backToCompanies();
     }
 
@@ -1094,13 +1172,13 @@ class CompanyDepartmentPerformance extends Page
         $this->dispatch('close-modal', id: 'performance-department-details-modal');
     }
 
-    public function openDepartmentScoreKashf(string $domain, int $companyId, int $departmentId): void
+    public function openDepartmentScoreStatement(string $domain, int $companyId, int $departmentId): void
     {
         abort_unless($this->operationsViewMode === self::OPERATIONS_VIEW_DEPARTMENT, 404);
         abort_unless(in_array($domain, ['tasks', 'deficiencies'], true), 404);
 
         $this->closeDepartmentDetails();
-        $this->openKashf($domain, 'score_overdue', $companyId, $departmentId);
+        $this->openStatement($domain, 'score_overdue', $companyId, $departmentId);
     }
 
     private function isDepartmentOverviewScoreStatement(string $domain, string $type, mixed $departmentId): bool
@@ -1150,7 +1228,7 @@ class CompanyDepartmentPerformance extends Page
         $this->resetPage();
     }
 
-    public function openKashf(
+    public function openStatement(
         string $domain,
         string $type = 'all',
         ?int $companyId = null,
@@ -1159,10 +1237,26 @@ class CompanyDepartmentPerformance extends Page
     ): void {
         if ($this->isDepartmentOverviewScoreStatement($domain, $type, $departmentId)) {
             abort_unless($employeeId === null && $this->departmentOverviewIncludesCompany($companyId, $departmentId), 404);
+        } elseif ($this->activeOverviewTab === 'summary' && $departmentId !== null) {
+            abort_unless(
+                is_numeric($departmentId) && $this->departmentsOverview->contains('department_id', (int) $departmentId),
+                404
+            );
+        }
+
+        if ($domain === 'tasks') {
+            abort_unless(Gate::allows('viewAny', TaskAssignment::class), 403);
+        }
+
+        if (in_array($domain, ['services', 'deficiencies'], true)) {
+            abort_unless(Gate::allows('viewAny', ServiceTransaction::class), 403);
         }
 
         if ($domain === 'compliance') {
             CompanyCompliancePerformanceService::authorizeStatement($type);
+            if ($departmentId !== null && ! str_starts_with($type, 'iqama_') && ! str_starts_with($type, 'work_permit_') && ! str_starts_with($type, 'insurance_')) {
+                abort(403);
+            }
         }
 
         if ($domain === 'violations') {
@@ -1179,25 +1273,29 @@ class CompanyDepartmentPerformance extends Page
 
         if ($domain === 'financial') {
             CompanyFinancialPerformanceService::authorizeStatement($type, $this->filters());
+            $isSupervisor = CompanyDepartmentPerformanceService::isSupervisorViewer();
+            if ($isSupervisor && ! isset(CompanyFinancialPerformanceService::PAYROLL_METRICS[$type])) {
+                abort(403);
+            }
         }
 
         if ($domain === 'tickets') {
             abort_unless($this->canViewTicketsOverview, 403);
         }
 
-        $this->kashfDomain = $domain;
-        $this->kashfType = $type;
-        $this->kashfCompanyId = $companyId;
-        $this->kashfDepartmentId = $departmentId;
-        $this->kashfEmployeeId = $employeeId;
-        $this->showKashfModal = true;
-        $this->resetPage('kashfPage');
-        $this->dispatch('open-modal', id: 'performance-kashf-modal');
+        $this->statementDomain = $domain;
+        $this->statementType = $type;
+        $this->statementCompanyId = $companyId;
+        $this->statementDepartmentId = $departmentId;
+        $this->statementEmployeeId = $employeeId;
+        $this->showStatementModal = true;
+        $this->resetPage('statementPage');
+        $this->dispatch('open-modal', id: 'performance-statement-modal');
     }
 
-    public function closeKashf(): void
+    public function closeStatement(): void
     {
-        $this->showKashfModal = false;
-        $this->dispatch('close-modal', id: 'performance-kashf-modal');
+        $this->showStatementModal = false;
+        $this->dispatch('close-modal', id: 'performance-statement-modal');
     }
 }

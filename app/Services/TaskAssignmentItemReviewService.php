@@ -40,6 +40,29 @@ class TaskAssignmentItemReviewService
             return false;
         }
 
+        if (EmployeePerformanceAccessService::isSupervisor($user)) {
+            $date = $assignment->assignment_date ?? now();
+            $windows = EmployeePerformanceAccessService::teamWindows(
+                $user,
+                $date->copy()->startOfMonth(),
+                $date->copy()->endOfMonth(),
+                currentOnly: true
+            );
+
+            foreach ($windows as $window) {
+                if ((int) $employee->company_id === (int) $window['company']
+                    && in_array((int) $assignment->employee_id, $window['employees'], true)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        if (EmployeePerformanceAccessService::isFormerOrRevokedSupervisor($user)) {
+            return false;
+        }
+
         $authorizedCompanyIds = CompanyFormService::getAuthorizedCompanyIds($user);
 
         if (in_array((int) $employee->company_id, $authorizedCompanyIds, true)) {
@@ -47,18 +70,6 @@ class TaskAssignmentItemReviewService
 
             if ($userBranchId === null || (int) $employee->branch_id === (int) $userBranchId) {
                 return true;
-            }
-        }
-
-        if (EmployeePerformanceAccessService::isSupervisor($user)) {
-            $date = $assignment->assignment_date ?? now();
-            $windows = EmployeePerformanceAccessService::teamWindows($user, $date->copy()->startOfMonth(), $date->copy()->endOfMonth());
-
-            foreach ($windows as $window) {
-                if ((int) $employee->company_id === (int) $window['company']
-                    && in_array((int) $assignment->employee_id, $window['employees'], true)) {
-                    return true;
-                }
             }
         }
 

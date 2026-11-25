@@ -58,27 +58,15 @@
             $rows = $this->summary;
             $details = $this->details;
             $cards = [
-                ['title' => __('tasks.summary.employees_count'), 'value' => number_format((float) ($stats->employees_count ?? 0)), 'icon' => 'heroicon-o-users', 'color' => '#1d4ed8', 'bg' => '#eff6ff', 'icon_bg' => '#dbeafe'],
-                ['title' => __('tasks.summary.total_items'), 'value' => number_format((float) ($stats->total_items ?? 0)), 'icon' => 'heroicon-o-queue-list', 'color' => '#15803d', 'bg' => '#f0fdf4', 'icon_bg' => '#dcfce7'],
-                ['title' => __('tasks.summary.completed_in_period'), 'value' => number_format((float) ($stats->completed_in_period ?? 0)), 'icon' => 'heroicon-o-check-circle', 'color' => '#059669', 'bg' => '#ecfdf5', 'icon_bg' => '#d1fae5'],
-                ['title' => __('tasks.summary.overdue_now'), 'value' => number_format((float) ($stats->overdue_count ?? 0)), 'icon' => 'heroicon-o-exclamation-triangle', 'color' => '#b91c1c', 'bg' => '#fef2f2', 'icon_bg' => '#fee2e2'],
-                ['title' => __('tasks.summary.postponed'), 'value' => number_format((float) ($stats->postponed_count ?? 0)), 'icon' => 'heroicon-o-pause-circle', 'color' => '#b45309', 'bg' => '#fffbeb', 'icon_bg' => '#fef3c7'],
+                ['key' => null, 'clickable' => true, 'title' => __('tasks.summary.employees_count'), 'value' => number_format((float) ($stats->employees_count ?? 0)), 'icon' => 'heroicon-o-users', 'color' => '#1d4ed8', 'bg' => '#eff6ff', 'icon_bg' => '#dbeafe'],
+                ['key' => 'total_items', 'title' => __('tasks.summary.total_items'), 'value' => number_format((float) ($stats->total_items ?? 0)), 'icon' => 'heroicon-o-queue-list', 'color' => '#15803d', 'bg' => '#f0fdf4', 'icon_bg' => '#dcfce7'],
+                ['key' => 'completed_in_period', 'title' => __('tasks.summary.completed_in_period'), 'value' => number_format((float) ($stats->completed_in_period ?? 0)), 'icon' => 'heroicon-o-check-circle', 'color' => '#059669', 'bg' => '#ecfdf5', 'icon_bg' => '#d1fae5'],
+                ['key' => 'overdue_now', 'title' => __('tasks.summary.overdue_now'), 'value' => number_format((float) ($stats->overdue_count ?? 0)), 'icon' => 'heroicon-o-exclamation-triangle', 'color' => '#b91c1c', 'bg' => '#fef2f2', 'icon_bg' => '#fee2e2'],
+                ['key' => 'postponed', 'title' => __('tasks.summary.postponed'), 'value' => number_format((float) ($stats->postponed_count ?? 0)), 'icon' => 'heroicon-o-pause-circle', 'color' => '#b45309', 'bg' => '#fffbeb', 'icon_bg' => '#fef3c7'],
             ];
         @endphp
 
-        <div class="report-stats-grid">
-            @foreach($cards as $card)
-                <div class="report-stat-card" style="background-color: {{ $card['bg'] }};">
-                    <div class="report-stat-top">
-                        <span class="report-stat-title" style="color: {{ $card['color'] }};">{{ $card['title'] }}</span>
-                        <div class="report-stat-icon-wrapper" style="background-color: {{ $card['icon_bg'] }}; color: {{ $card['color'] }};">
-                            <x-dynamic-component :component="$card['icon']" class="report-icon-md" />
-                        </div>
-                    </div>
-                    <div class="report-stat-value" style="color: {{ $card['color'] }};">{{ $card['value'] }}</div>
-                </div>
-            @endforeach
-        </div>
+        <x-summary-stat-cards :cards="$cards" :active="$this->quickFilter" />
 
         <x-filter-bar
             :title="__('tasks.summary.filter_title')"

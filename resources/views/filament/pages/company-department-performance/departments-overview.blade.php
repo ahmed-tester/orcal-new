@@ -129,7 +129,7 @@
                             <td style="text-align: center;">{{ number_format($company->employees_count) }}</td>
                             <td style="text-align: center;">
                                 @if($company->overdue_tasks > 0)
-                                    <button type="button" wire:click="openDepartmentScoreKashf('tasks', {{ $company->company_id }}, {{ $details->department_id }})" title="{{ __('performance.columns.view_statement') }}">
+                                    <button type="button" wire:click="openDepartmentScoreStatement('tasks', {{ $company->company_id }}, {{ $details->department_id }})" title="{{ __('performance.columns.view_statement') }}">
                                         {{ number_format($company->overdue_tasks) }} × {{ \App\Services\PerformanceScoreService::OVERDUE_TASK_WEIGHT }}
                                     </button>
                                 @else
@@ -138,7 +138,7 @@
                             </td>
                             <td style="text-align: center;">
                                 @if($company->overdue_deficiencies > 0)
-                                    <button type="button" wire:click="openDepartmentScoreKashf('deficiencies', {{ $company->company_id }}, {{ $details->department_id }})" title="{{ __('performance.columns.view_statement') }}">
+                                    <button type="button" wire:click="openDepartmentScoreStatement('deficiencies', {{ $company->company_id }}, {{ $details->department_id }})" title="{{ __('performance.columns.view_statement') }}">
                                         {{ number_format($company->overdue_deficiencies) }} × {{ \App\Services\PerformanceScoreService::OVERDUE_DEFICIENCY_WEIGHT }}
                                     </button>
                                 @else

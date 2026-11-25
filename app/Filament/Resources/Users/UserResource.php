@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Users;
 
-use App\Filament\Resources\Users\Pages\CreateUser;
+use App\Enums\UserType;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Filament\Resources\Users\Schemas\UserForm;
@@ -12,7 +12,7 @@ use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
-use UnitEnum;
+use Illuminate\Database\Eloquent\Builder;
 
 class UserResource extends Resource
 {
@@ -62,19 +62,16 @@ class UserResource extends Resource
         return UsersTable::configure($table);
     }
 
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
             ->where(function ($query) {
                 $query->whereHas('roles', fn ($q) => $q->where('name', '!=', 'Super Admin'))
-                    ->orWhereIn('user_type', [
-                        \App\Enums\UserType::ADMIN,
-                        \App\Enums\UserType::SUPERVISOR,
-                    ]);
+                    ->orWhere('user_type', UserType::ADMIN);
             })
             ->whereNotIn('user_type', [
-                \App\Enums\UserType::SUPER_ADMIN,
-                \App\Enums\UserType::OWNER,
+                UserType::SUPER_ADMIN,
+                UserType::OWNER,
             ])
             ->whereDoesntHave('roles', fn ($q) => $q->where('name', 'Super Admin'))
             ->doesntHave('owner')

@@ -89,6 +89,21 @@ class AttendanceSummaryService
         self::applyAccessScope($query);
         self::applyFilters($query, $filters);
 
+        $quickColumn = match ($filters['quick_filter'] ?? null) {
+            'recorded_days' => 'att.recorded_days',
+            'present_days' => 'att.present_days',
+            'late_days' => 'att.late_days',
+            'absent_days' => 'att.absent_days',
+            'leave_days' => 'att.leave_days',
+            'late_minutes' => 'att.late_minutes',
+            'total_hours' => 'att.total_hours',
+            default => null,
+        };
+
+        if ($quickColumn !== null) {
+            $query->whereRaw("COALESCE({$quickColumn}, 0) > 0");
+        }
+
         return $query->when($employeeIds !== null, fn (Builder $query) => $query->whereIn('employees.id', $employeeIds));
     }
 
@@ -97,7 +112,7 @@ class AttendanceSummaryService
      */
     public static function getStats(array $filters = [], ?array $employeeIds = null): array
     {
-        $totals = self::summaryQuery($filters, $employeeIds)
+        $totals = self::summaryQuery(array_merge($filters, ['quick_filter' => null]), $employeeIds)
             ->toBase()
             ->select([])
             ->selectRaw('COUNT(*) as employees_count,

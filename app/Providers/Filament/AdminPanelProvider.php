@@ -35,6 +35,8 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('')
+            ->resourceCreatePageRedirect('index')
+            ->resourceEditPageRedirect('index')
             ->brandName(fn () => rescue(fn () => Setting::getActive('site_name') ?: Setting::getActive('system_name'), 'مجموعة فواز القابضة', false) ?: 'مجموعة فواز القابضة')
             ->login(Login::class)
             ->profile()

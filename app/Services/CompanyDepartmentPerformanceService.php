@@ -109,12 +109,12 @@ class CompanyDepartmentPerformanceService
     /**
      * Overall KPI stats for the top summary cards.
      */
-    public static function getOverallStats(array $filters = []): object
+    public static function getOverallStats(array $filters = [], ?int $companyId = null, int|string|null $departmentId = null): object
     {
         $user = auth()->user();
-        $authorizedCompanyIds = self::getAuthorizedCompanyIds($user);
+        $scopedCompanyIds = self::scopedCompanyIds($filters, $companyId, $user);
 
-        if ($authorizedCompanyIds === []) {
+        if ($scopedCompanyIds === []) {
             return (object) [
                 ...self::metrics(null, null, null),
                 'companies_count' => 0,
@@ -125,43 +125,33 @@ class CompanyDepartmentPerformanceService
 
         [$startDate, $endDate] = self::resolveDateRange($filters);
         $branchId = self::resolveBranchId($filters, $user);
-        $scopedCompanyIds = filled($filters['company_id'] ?? null)
-            ? array_values(array_intersect($authorizedCompanyIds, (array) $filters['company_id']))
-            : $authorizedCompanyIds;
-
-        if ($scopedCompanyIds === []) {
-            $scopedCompanyIds = [0];
-        }
-
         $teamIds = self::isSupervisorViewer($user) ? self::supervisorTeamIds($user, $startDate, $endDate) : null;
 
         // Services summary
-        $serviceRow = self::selectServiceMetrics(
-            self::servicesAggregateQuery($scopedCompanyIds, $branchId, $teamIds),
-            $startDate,
-            $endDate,
-        )->first();
+        $serviceQuery = self::servicesAggregateQuery($scopedCompanyIds, $branchId, $teamIds);
+        self::applyServiceDepartmentFilter($serviceQuery, $departmentId);
+        $serviceRow = self::selectServiceMetrics($serviceQuery, $startDate, $endDate)->first();
 
         // Deficiencies summary
-        $deficiencyRow = self::deficienciesAggregateQuery($scopedCompanyIds, $branchId, $startDate, $endDate, $teamIds)
-            ->selectRaw('COUNT(*) as open_deficiencies')
-            ->first();
+        $deficiencyQuery = self::deficienciesAggregateQuery($scopedCompanyIds, $branchId, $startDate, $endDate, $teamIds);
+        self::applyDeficiencyDepartmentFilter($deficiencyQuery, $departmentId);
+        $deficiencyRow = $deficiencyQuery->selectRaw('COUNT(*) as open_deficiencies')->first();
 
         // Tasks summary
-        $taskRow = self::selectTaskMetrics(
-            self::tasksAggregateQuery($scopedCompanyIds, $branchId, $teamIds),
-            $startDate,
-            $endDate,
-        )->first();
+        $taskQuery = self::tasksAggregateQuery($scopedCompanyIds, $branchId, $teamIds);
+        self::applyTaskDepartmentFilter($taskQuery, $departmentId);
+        $taskRow = self::selectTaskMetrics($taskQuery, $startDate, $endDate)->first();
 
         // Counts
         $companiesCount = count($scopedCompanyIds);
-        $departmentsCount = Department::query()
-            ->where(function (Builder $q) use ($scopedCompanyIds) {
-                $q->whereIn('company_id', $scopedCompanyIds)
-                    ->orWhereHas('companies', fn (Builder $sub) => $sub->whereIn('companies.id', $scopedCompanyIds));
-            })
-            ->count();
+        $departmentsCount = $departmentId !== null
+            ? (($departmentId === 'unassigned' || $departmentId === 0) ? 0 : 1)
+            : Department::query()
+                ->where(function (Builder $q) use ($scopedCompanyIds) {
+                    $q->whereIn('company_id', $scopedCompanyIds)
+                        ->orWhereHas('companies', fn (Builder $sub) => $sub->whereIn('companies.id', $scopedCompanyIds));
+                })
+                ->count();
 
         $employeesCountQuery = Employee::query()
             ->nonTemporary()
@@ -175,12 +165,51 @@ class CompanyDepartmentPerformanceService
             $employeesCountQuery->whereIn('id', $teamIds);
         }
 
+        if ($departmentId === 'unassigned' || $departmentId === 0) {
+            $employeesCountQuery->whereNull('department_id');
+        } elseif ($departmentId !== null) {
+            $employeesCountQuery->where('department_id', (int) $departmentId);
+        }
+
         return (object) [
             ...self::metrics($serviceRow, $deficiencyRow, $taskRow),
             'companies_count' => $companiesCount,
             'departments_count' => $departmentsCount,
             'employees_count' => $employeesCountQuery->count(),
         ];
+    }
+
+    private static function applyServiceDepartmentFilter(Builder $query, int|string|null $departmentId): void
+    {
+        if ($departmentId === 'unassigned' || $departmentId === 0) {
+            $query->where(function (Builder $q) {
+                $q->whereNull('service_transactions.executed_by')
+                    ->orWhereHas('executor', fn (Builder $e) => $e->whereNull('employees.department_id'));
+            });
+        } elseif ($departmentId !== null) {
+            $query->whereHas('executor', fn (Builder $e) => $e->where('employees.department_id', (int) $departmentId));
+        }
+    }
+
+    private static function applyDeficiencyDepartmentFilter(Builder $query, int|string|null $departmentId): void
+    {
+        if ($departmentId === 'unassigned' || $departmentId === 0) {
+            $query->where(function (Builder $q) {
+                $q->whereNull('unified_deficiency_tasks.responsible_employee_id')
+                    ->orWhereHas('responsibleEmployee', fn (Builder $e) => $e->whereNull('employees.department_id'));
+            });
+        } elseif ($departmentId !== null) {
+            $query->whereHas('responsibleEmployee', fn (Builder $e) => $e->where('employees.department_id', (int) $departmentId));
+        }
+    }
+
+    private static function applyTaskDepartmentFilter(Builder $query, int|string|null $departmentId): void
+    {
+        if ($departmentId === 'unassigned' || $departmentId === 0) {
+            $query->whereNull('employees.department_id');
+        } elseif ($departmentId !== null) {
+            $query->where('employees.department_id', (int) $departmentId);
+        }
     }
 
     /**
@@ -765,7 +794,7 @@ class CompanyDepartmentPerformanceService
     /**
      * Level 4: Kashf Services Query for Modal with pagination.
      */
-    public static function getKashfServicesQuery(
+    public static function getServicesStatementQuery(
         array $filters,
         string $type = 'all',
         ?int $companyId = null,
@@ -819,7 +848,7 @@ class CompanyDepartmentPerformanceService
      * The 'score_overdue' type lists the currently overdue open deficiencies
      * that deduct from the performance score, ignoring the report period.
      */
-    public static function getKashfDeficienciesQuery(
+    public static function getDeficienciesStatementQuery(
         array $filters,
         string $type = 'all',
         ?int $companyId = null,
@@ -858,7 +887,7 @@ class CompanyDepartmentPerformanceService
     /**
      * Level 4: Kashf Tasks Query for Modal with pagination.
      */
-    public static function getKashfTasksQuery(
+    public static function getTasksStatementQuery(
         array $filters,
         string $type = 'all',
         ?int $companyId = null,

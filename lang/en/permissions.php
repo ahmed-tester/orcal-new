@@ -115,6 +115,7 @@ return [
     'create_task_assignment' => 'Create Task Assignment',
     'update_task_assignment' => 'Update Task Assignment',
     'delete_task_assignment' => 'Delete Task Assignment',
+    'supervise_task_team' => 'Supervise Task Team',
 
     'view_any_weekly_note' => 'View Weekly Notes',
     'create_weekly_note' => 'Create Weekly Note',

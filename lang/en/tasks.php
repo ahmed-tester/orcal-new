@@ -242,6 +242,10 @@ return [
     'supervision_shifts' => [
         'actions' => [
             'view_evaluation' => 'View evaluation',
+            'end_supervision' => 'End supervision responsibility',
+            'end_supervision_confirm' => 'Active shifts for this supervisor will be completed and direct/dedicated supervision permission revoked if no active shifts remain. Continue?',
+            'supervision_ended_revoked' => 'Active shifts ended and supervision permission revoked successfully.',
+            'supervision_ended_shared_role' => 'Active shifts ended, but the permission is inherited from a shared role and requires role review.',
         ],
     ],
 
@@ -249,6 +253,10 @@ return [
         'new_assignment_title' => 'New Task Assignment',
         'new_assignment_body' => 'A new task assignment (:number) has been assigned to you by :creator.',
         'view_assignment' => 'View Assignment',
+    ],
+    'validation' => [
+        'saudi_only' => 'Task assignments and transfers are restricted to eligible Saudi employees only.',
+        'supervisor_ineligible' => 'Selected supervisor must be an active eligible Saudi employee with task team supervision permission.',
     ],
     'review' => [
         'actions' => [

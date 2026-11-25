@@ -2339,6 +2339,479 @@
                 border-inline-end: 1px solid var(--bd);
             }
         }
+
+        /* Simplified Executive Summary Tab */
+        .company-perf-page .perf-summary-shell {
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .company-perf-page .perf-summary-hero {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            gap: 1.25rem;
+            padding: 1.5rem;
+            border-radius: 18px;
+            background: linear-gradient(135deg, var(--card) 0%, var(--bg) 100%);
+            border: 1px solid var(--bd);
+            box-shadow: var(--sh);
+        }
+
+        @media (max-width: 960px) {
+            .company-perf-page .perf-summary-hero {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+        }
+
+        .company-perf-page .perf-summary-hero-side,
+        .company-perf-page .perf-summary-hero-meta {
+            display: flex;
+            flex-direction: column;
+            gap: .6rem;
+        }
+
+        @media (max-width: 960px) {
+            .company-perf-page .perf-summary-hero-side,
+            .company-perf-page .perf-summary-hero-meta {
+                align-items: center;
+            }
+        }
+
+        .company-perf-page .perf-summary-back {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            width: fit-content;
+            padding: .35rem .75rem;
+            border-radius: 999px;
+            border: 1px solid var(--bd);
+            background: var(--card);
+            color: var(--tx);
+            font-size: .8rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .company-perf-page .perf-summary-back:hover {
+            border-color: var(--a);
+            color: var(--a);
+        }
+
+        .company-perf-page .perf-summary-greeting {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--tx);
+        }
+
+        .company-perf-page .perf-summary-scope {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .45rem;
+        }
+
+        .company-perf-page .perf-summary-scope-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: .25rem .65rem;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--a) 12%, transparent);
+            color: var(--a);
+            font-size: .8rem;
+            font-weight: 700;
+        }
+
+        .company-perf-page .perf-summary-scope-companies {
+            font-size: .8rem;
+            color: var(--mu);
+        }
+
+        .company-perf-page .perf-summary-period {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            font-size: .82rem;
+            color: var(--mu);
+            font-weight: 600;
+        }
+
+        .company-perf-page .perf-summary-hero-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: .45rem;
+        }
+
+        .company-perf-page .perf-summary-status {
+            display: inline-flex;
+            align-items: center;
+            padding: .25rem .8rem;
+            border-radius: 999px;
+            font-size: .8rem;
+            font-weight: 700;
+            background: color-mix(in srgb, var(--col, var(--mu)) 14%, transparent);
+            color: var(--col, var(--mu));
+        }
+
+        .company-perf-page .perf-summary-score-note,
+        .company-perf-page .perf-summary-legend {
+            font-size: .75rem;
+            color: var(--mu);
+            margin: 0;
+            max-width: 26ch;
+            text-align: center;
+        }
+
+        .company-perf-page .perf-summary-legend {
+            text-align: start;
+            max-width: none;
+        }
+
+        .company-perf-page .perf-summary-meta-pill {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: .5rem .85rem;
+            border-radius: 12px;
+            background: var(--card);
+            border: 1px solid var(--bd);
+            font-size: .84rem;
+        }
+
+        .company-perf-page .perf-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        @media (max-width: 1120px) {
+            .company-perf-page .perf-summary-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            .company-perf-page .perf-summary-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .company-perf-page .perf-summary-card {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            gap: .85rem;
+            padding: 1.1rem;
+            border-radius: 16px;
+            background: var(--card);
+            border: 1px solid var(--bd);
+            box-shadow: var(--sh);
+        }
+
+        .company-perf-page .perf-summary-card-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: .75rem;
+        }
+
+        .company-perf-page .perf-summary-card-title-wrap {
+            display: flex;
+            align-items: flex-start;
+            gap: .65rem;
+        }
+
+        .company-perf-page .perf-summary-card-title-wrap h3 {
+            margin: 0;
+            font-size: .95rem;
+            font-weight: 800;
+            color: var(--tx);
+        }
+
+        .company-perf-page .perf-summary-tag {
+            display: inline-block;
+            margin-top: .2rem;
+            font-size: .72rem;
+            color: var(--mu);
+        }
+
+        .company-perf-page .perf-summary-icon {
+            display: grid;
+            place-items: center;
+            width: 2.35rem;
+            height: 2.35rem;
+            border-radius: 12px;
+            flex-shrink: 0;
+            background: color-mix(in srgb, var(--ic, var(--a)) 14%, transparent);
+            color: var(--ic, var(--a));
+        }
+
+        .company-perf-page .perf-summary-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: .45rem;
+        }
+
+        .company-perf-page .perf-summary-metrics > .perf-summary-metric-btn:last-child:nth-child(odd) {
+            grid-column: 1 / -1;
+        }
+
+        .company-perf-page .perf-summary-metrics.is-stacked {
+            grid-template-columns: 1fr;
+            flex: 1;
+            align-content: stretch;
+            gap: .55rem;
+        }
+
+        .company-perf-page .perf-summary-metrics.is-stacked > .perf-summary-metric-btn {
+            padding: .65rem .85rem;
+        }
+
+        .company-perf-page .perf-summary-split {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: .75rem;
+        }
+
+        .company-perf-page .perf-summary-compliance-docs {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: .5rem;
+        }
+
+        @media (max-width: 520px) {
+            .company-perf-page .perf-summary-compliance-docs {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .company-perf-page .perf-summary-doc-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: .35rem;
+            padding: .5rem .4rem;
+            border-radius: 12px;
+            background: var(--bg);
+            border: 1px solid var(--bd);
+        }
+
+        .company-perf-page .perf-summary-doc-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: .25rem;
+            width: 100%;
+        }
+
+        .company-perf-page .perf-summary-chip-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            padding: .18rem .45rem;
+            border-radius: 999px;
+            border: 1px solid var(--bd);
+            background: var(--card);
+            color: var(--tx);
+            font-size: .7rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .company-perf-page .perf-summary-chip-btn:hover {
+            border-color: var(--a);
+        }
+
+        .company-perf-page .perf-summary-chip-btn.is-danger {
+            color: var(--d);
+        }
+
+        .company-perf-page .perf-summary-chip-btn.is-warn {
+            color: var(--c);
+        }
+
+        .company-perf-page .perf-summary-license-list {
+            display: grid;
+            gap: .35rem;
+        }
+
+        .company-perf-page .perf-summary-license-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: .35rem .6rem;
+            padding: .35rem .55rem;
+            border-radius: 10px;
+            background: var(--bg);
+            border: 1px solid var(--bd);
+            font-size: .76rem;
+        }
+
+        .company-perf-page .perf-summary-license-name {
+            font-weight: 700;
+            color: var(--tx);
+        }
+
+        .company-perf-page .perf-summary-license-rate {
+            font-weight: 800;
+            color: var(--a);
+        }
+
+        .company-perf-page .perf-summary-subblock,
+        .company-perf-page .perf-summary-mini-actions {
+            display: flex;
+            flex-direction: column;
+            gap: .4rem;
+        }
+
+        .company-perf-page .perf-summary-subblock {
+            height: 100%;
+        }
+
+        .company-perf-page .perf-summary-subblock > .perf-summary-metric-btn {
+            margin-top: auto;
+        }
+
+        .company-perf-page .perf-summary-metric-btn {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+            padding: .45rem .65rem;
+            border-radius: 10px;
+            border: 1px solid var(--bd);
+            background: var(--bg);
+            color: var(--tx);
+            font-size: .78rem;
+            cursor: pointer;
+            text-align: start;
+        }
+
+        .company-perf-page .perf-summary-metric-btn:hover {
+            border-color: var(--a);
+        }
+
+        .company-perf-page .perf-summary-metric-btn.is-warn strong {
+            color: var(--c);
+        }
+
+        .company-perf-page .perf-summary-metric-btn.is-danger strong {
+            color: var(--d);
+        }
+
+        .company-perf-page .perf-summary-subs {
+            padding-top: .5rem;
+            border-top: 1px solid var(--bd);
+            display: grid;
+            gap: .4rem;
+        }
+
+        .company-perf-page .perf-summary-subs-title {
+            font-size: .76rem;
+            font-weight: 700;
+            color: var(--mu);
+        }
+
+        .company-perf-page .perf-summary-subs-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .4rem;
+        }
+
+        .company-perf-page .perf-summary-sub-chip {
+            padding: .25rem .55rem;
+            border-radius: 8px;
+            background: var(--bg);
+            border: 1px solid var(--bd);
+            font-size: .74rem;
+        }
+
+        .company-perf-page .perf-summary-sub-chip .is-expired {
+            color: var(--d);
+            font-weight: 700;
+        }
+
+        .company-perf-page .perf-summary-section-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: .4rem 1rem;
+            margin-bottom: .75rem;
+        }
+
+        .company-perf-page .perf-summary-section-head h2 {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 800;
+        }
+
+        .company-perf-page .perf-summary-section-head span {
+            font-size: .8rem;
+            color: var(--mu);
+        }
+
+        .company-perf-page .perf-summary-dept-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: .75rem;
+        }
+
+        @media (max-width: 1120px) {
+            .company-perf-page .perf-summary-dept-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            .company-perf-page .perf-summary-dept-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .company-perf-page .perf-summary-dept-card {
+            display: grid;
+            gap: .5rem;
+            padding: .95rem 1rem;
+            border-radius: 14px;
+            background: var(--card);
+            border: 1px solid var(--bd);
+            box-shadow: var(--sh);
+            text-align: start;
+            cursor: pointer;
+        }
+
+        .company-perf-page .perf-summary-dept-card:hover {
+            border-color: var(--a);
+        }
+
+        .company-perf-page .perf-summary-dept-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+        }
+
+        .company-perf-page .perf-summary-dept-score {
+            padding: .2rem .55rem;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--a) 12%, transparent);
+            color: var(--a);
+            font-size: .82rem;
+            font-weight: 800;
+        }
+
+        .company-perf-page .perf-summary-dept-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .4rem .85rem;
+            font-size: .78rem;
+            color: var(--mu);
+        }
     </style>
 
     <div class="company-perf-page">
@@ -2369,13 +2842,16 @@
                 :show-dates="true"
                 :date-from-label="__('performance.filters.date_from')"
                 :date-to-label="__('performance.filters.date_to')"
-                :show-search="$this->activeOverviewTab === 'operations'"
+                :show-search="in_array($this->activeOverviewTab, ['summary', 'operations'], true)"
                 :search-placeholder="__('performance.filters.search')"
                 :has-active="$this->hasActiveFilterBar()"
             />
         </div>
 
         <nav class="perf-overview-tabs" aria-label="{{ __('performance.overview.navigation') }}">
+            <button type="button" wire:click="showSummaryOverview" aria-pressed="{{ $this->activeOverviewTab === 'summary' ? 'true' : 'false' }}">
+                {{ __('performance.overview.summary') }}
+            </button>
             <button type="button" wire:click="showOperationsOverview" aria-pressed="{{ $this->activeOverviewTab === 'operations' ? 'true' : 'false' }}">
                 {{ __('performance.overview.operations') }}
             </button>
@@ -2406,7 +2882,9 @@
             @endif
         </nav>
 
-        @if($this->activeOverviewTab === 'workforce' && $this->canViewWorkforceOverview)
+        @if($this->activeOverviewTab === 'summary')
+            @include('filament.pages.company-department-performance.summary-overview')
+        @elseif($this->activeOverviewTab === 'workforce' && $this->canViewWorkforceOverview)
             @include('filament.pages.company-department-performance.workforce-overview')
         @elseif($this->activeOverviewTab === 'compliance' && $this->canViewComplianceOverview)
             @include('filament.pages.company-department-performance.compliance-overview')

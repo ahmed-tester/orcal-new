@@ -149,7 +149,7 @@
 
                 <div
                     class="inst-kpi-banner {{ $row->active_services > 0 ? 'has-active' : '' }}"
-                    wire:click="openKashf('services', 'active', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})"
+                    wire:click="openStatement('services', 'active', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})"
                     role="button"
                     tabindex="0"
                     title="{{ __('performance.cards.active_services_hint') }}"
@@ -164,7 +164,7 @@
                 <div class="mini">
                     <span
                         class="mini-clickable"
-                        wire:click="openKashf('services', 'completed', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})"
+                        wire:click="openStatement('services', 'completed', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})"
                         role="button"
                         tabindex="0"
                     >
@@ -173,7 +173,7 @@
                     </span>
                     <span
                         class="mini-clickable"
-                        wire:click="openKashf('services', 'overdue', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})"
+                        wire:click="openStatement('services', 'overdue', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})"
                         role="button"
                         tabindex="0"
                     >
@@ -182,7 +182,7 @@
                     </span>
                     <span
                         class="mini-clickable"
-                        wire:click="openKashf('deficiencies', 'all', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})"
+                        wire:click="openStatement('deficiencies', 'all', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})"
                         role="button"
                         tabindex="0"
                     >
@@ -191,7 +191,7 @@
                     </span>
                     <span
                         class="mini-clickable"
-                        wire:click="openKashf('tasks', 'completed', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})"
+                        wire:click="openStatement('tasks', 'completed', {{ $this->selectedCompanyId }}, '{{ $this->selectedDepartmentId }}', {{ $row->employee_id }})"
                         role="button"
                         tabindex="0"
                     >
@@ -203,8 +203,8 @@
                 <x-performance.operational-rates
                     :on-time="$row->on_time_rate"
                     :task-completion="$row->task_completion_rate"
-                    :on-time-action="'openKashf(\'services\', \'on_time\', ' . $this->selectedCompanyId . ', \'' . $this->selectedDepartmentId . '\', ' . $row->employee_id . ')'"
-                    :task-completion-action="'openKashf(\'tasks\', \'all\', ' . $this->selectedCompanyId . ', \'' . $this->selectedDepartmentId . '\', ' . $row->employee_id . ')'"
+                    :on-time-action="'openStatement(\'services\', \'on_time\', ' . $this->selectedCompanyId . ', \'' . $this->selectedDepartmentId . '\', ' . $row->employee_id . ')'"
+                    :task-completion-action="'openStatement(\'tasks\', \'all\', ' . $this->selectedCompanyId . ', \'' . $this->selectedDepartmentId . '\', ' . $row->employee_id . ')'"
                 />
 
                 @if($row->performance_url)
@@ -227,7 +227,7 @@
                         <p>{{ __('performance.employee_ranking.no_rankable') }}</p>
                     @else
                         <x-heroicon-o-users style="width: 32px; height: 32px; color: var(--mu, #6b7490); margin-bottom: 0.5rem;" />
-                        <strong>{{ __('performance.kashf.empty') }}</strong>
+                        <strong>{{ __('performance.statement.empty') }}</strong>
                         <p>{{ __('performance.empty.no_employees') }}</p>
                     @endif
                 </div>

@@ -74,8 +74,8 @@ class CompanyFinancialPerformanceTest extends TestCase
         }
 
         try {
-            $page->openKashf('financial', 'current_balance');
-            $this->fail('Expected openKashf to throw 403');
+            $page->openStatement('financial', 'current_balance');
+            $this->fail('Expected openStatement to throw 403');
         } catch (HttpException $e) {
             $this->assertSame(403, $e->getStatusCode());
         }
@@ -154,17 +154,17 @@ class CompanyFinancialPerformanceTest extends TestCase
         $this->assertSame(0.0, $stats['current_balance']);
 
         // Kashf query should return empty query when branch is specified
-        $kashf = TreasurySummaryService::getPerformanceKashfQuery([
+        $kashf = TreasurySummaryService::getPerformanceStatementQuery([
             'branch_id' => $branch->id,
         ], 'current_balance', [$company->id]);
         $this->assertSame(0, $kashf->count());
 
-        // Livewire page openKashf throws 403 when branch is restricted
+        // Livewire page openStatement throws 403 when branch is restricted
         $page = new CompanyDepartmentPerformance;
         $page->branchId = $branch->id;
         try {
-            $page->openKashf('financial', 'current_balance');
-            $this->fail('Expected openKashf to throw 403 on branch restriction');
+            $page->openStatement('financial', 'current_balance');
+            $this->fail('Expected openStatement to throw 403 on branch restriction');
         } catch (HttpException $e) {
             $this->assertSame(403, $e->getStatusCode());
         }
@@ -187,13 +187,13 @@ class CompanyFinancialPerformanceTest extends TestCase
         $authorized = [$companyA->id, $companyB->id];
 
         // 1. Current balance statement: exactly 1 record per company (latest)
-        $latestKashf = TreasurySummaryService::getPerformanceKashfQuery([], 'current_balance', $authorized)->get();
+        $latestKashf = TreasurySummaryService::getPerformanceStatementQuery([], 'current_balance', $authorized)->get();
         $this->assertCount(2, $latestKashf);
         $this->assertSame(700.0, (float) $latestKashf->firstWhere('company_id', $companyA->id)->balance_after);
         $this->assertSame(500.0, (float) $latestKashf->firstWhere('company_id', $companyB->id)->balance_after);
 
         // 2. Incoming statement in period (2026-11-02 to 2026-11-10)
-        $incomingKashf = TreasurySummaryService::getPerformanceKashfQuery([
+        $incomingKashf = TreasurySummaryService::getPerformanceStatementQuery([
             'date_from' => '2026-11-02',
             'date_to' => '2026-11-10',
         ], 'incoming', $authorized)->get();
@@ -201,7 +201,7 @@ class CompanyFinancialPerformanceTest extends TestCase
         $this->assertSame(500.0, (float) $incomingKashf->first()->amount);
 
         // 3. Outgoing statement in period
-        $outgoingKashf = TreasurySummaryService::getPerformanceKashfQuery([
+        $outgoingKashf = TreasurySummaryService::getPerformanceStatementQuery([
             'date_from' => '2026-11-02',
             'date_to' => '2026-11-10',
         ], 'outgoing', $authorized)->get();
@@ -209,7 +209,7 @@ class CompanyFinancialPerformanceTest extends TestCase
         $this->assertSame(300.0, (float) $outgoingKashf->first()->amount);
 
         // 4. Net flow statement
-        $allKashf = TreasurySummaryService::getPerformanceKashfQuery([], 'net_flow', $authorized)->get();
+        $allKashf = TreasurySummaryService::getPerformanceStatementQuery([], 'net_flow', $authorized)->get();
         $this->assertCount(3, $allKashf);
     }
 
@@ -236,7 +236,7 @@ class CompanyFinancialPerformanceTest extends TestCase
         $this->assertSame(0.0, $stats['current_balance']);
         $this->assertSame(0.0, $stats['total_incoming']);
 
-        $kashf = TreasurySummaryService::getPerformanceKashfQuery(
+        $kashf = TreasurySummaryService::getPerformanceStatementQuery(
             ['company_id' => [$companyForbidden->id]],
             'current_balance',
             [$companyAllowed->id]
@@ -299,18 +299,18 @@ class CompanyFinancialPerformanceTest extends TestCase
             ->assertSet('financialPreviewTypes', ['treasury' => 'outgoing'])
             ->assertSeeHtml('id="financial-preview-outgoing"')
             ->call('selectFinancialPreview', 'treasury', 'incoming')
-            ->call('openKashf', 'financial', 'current_balance')
-            ->assertDispatched('open-modal', id: 'performance-kashf-modal')
+            ->call('openStatement', 'financial', 'current_balance')
+            ->assertDispatched('open-modal', id: 'performance-statement-modal')
             ->assertSee($last->transaction_number)
-            ->call('openKashf', 'financial', 'outgoing')
+            ->call('openStatement', 'financial', 'outgoing')
             ->assertSee($last->transaction_number)
-            ->call('openKashf', 'financial', 'net_flow')
-            ->assertSee(__('performance.financial.kashf_net_flow'))
-            ->call('openKashf', 'financial', 'incoming')
-            ->assertSee(__('performance.financial.kashf_incoming'))
-            ->call('setPage', 2, 'kashfPage')
+            ->call('openStatement', 'financial', 'net_flow')
+            ->assertSee(__('performance.financial.statement_net_flow'))
+            ->call('openStatement', 'financial', 'incoming')
+            ->assertSee(__('performance.financial.statement_incoming'))
+            ->call('setPage', 2, 'statementPage')
             ->assertSee($first->transaction_number)
-            ->call('closeKashf')
+            ->call('closeStatement')
             ->set('branchId', (string) $branch->id)
             ->assertSet('financialPreviewTypes', [])
             ->assertDontSeeHtml('id="financial-preview-incoming"')
@@ -435,10 +435,10 @@ class CompanyFinancialPerformanceTest extends TestCase
             ->assertSeeHtml('id="financial-preview-custody"')
             ->assertSee('CASH-001')
             ->assertSee('300.00')
-            ->call('openKashf', 'financial', 'custody')
+            ->call('openStatement', 'financial', 'custody')
             ->assertSee('CASH-001')
             ->assertSee('300.00')
-            ->call('openKashf', 'financial', 'reimbursement_paid')
+            ->call('openStatement', 'financial', 'reimbursement_paid')
             ->assertSee('PAY-001')
             ->assertDontSee('PAY-002');
     }
@@ -492,10 +492,10 @@ class CompanyFinancialPerformanceTest extends TestCase
             ->assertSeeHtml('<span>66.7%</span>')
             ->assertSeeHtml('<span>20%</span>')
             ->assertSeeHtml('<span>80%</span>')
-            ->call('openKashf', 'financial', 'debt_overdue')
+            ->call('openStatement', 'financial', 'debt_overdue')
             ->assertSee('DEBT-001')
             ->assertDontSee('DEBT-002')
-            ->call('openKashf', 'financial', 'payroll_paid')
+            ->call('openStatement', 'financial', 'payroll_paid')
             ->assertSee('400.00')
             ->assertSee(__('invoices.statuses.partially_paid'));
     }

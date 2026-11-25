@@ -92,15 +92,15 @@ class PerformanceDashboardDemoSeederTest extends TestCase
             ->assertSee(__('performance.violations.paid'))
             ->assertSeeHtmlInOrder([
                 '<div class="perf-violation-status-grid">',
-                'wire:click="openKashf(&#039;violations&#039;, &#039;paid&#039;)"',
+                'wire:click="openStatement(&#039;violations&#039;, &#039;paid&#039;)"',
                 '<div class="perf-violation-totals-grid">',
                 '<div class="perf-violation-total-amount">',
                 e(__('performance.violations.amount_share')),
-                'wire:click="openKashf(&#039;violations&#039;, &#039;unpaid&#039;)"',
+                'wire:click="openStatement(&#039;violations&#039;, &#039;unpaid&#039;)"',
             ])
             ->call('showFinancialOverview')->assertSet('activeOverviewTab', 'financial')
             ->assertSeeHtml('id="financial-preview-receipt_cash"')
-            ->call('openKashf', 'financial', 'receipt_cash')->assertSet('showKashfModal', true);
+            ->call('openStatement', 'financial', 'receipt_cash')->assertSet('showStatementModal', true);
 
         auth()->logout();
         $this->artisan('db:seed', ['--class' => PerformanceDashboardDemoSeeder::class])->assertSuccessful();

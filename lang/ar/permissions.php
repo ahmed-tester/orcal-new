@@ -94,6 +94,7 @@ return [
     'create_task_assignment' => 'تكليف موظف بمهمة',
     'update_task_assignment' => 'تعديل تكليف مهمة',
     'delete_task_assignment' => 'حذف تكليف مهمة',
+    'supervise_task_team' => 'الإشراف على فريق المهام',
     'view_any_weekly_note' => 'استعراض الملاحظات والتقارير الأسبوعية',
     'create_weekly_note' => 'إضافة ملاحظة أسبوعية',
     'update_weekly_note' => 'تعديل ملاحظة أسبوعية',

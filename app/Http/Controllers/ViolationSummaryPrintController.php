@@ -23,6 +23,7 @@ class ViolationSummaryPrintController extends Controller
             'date_to' => ['nullable', 'date_format:Y-m-d'],
             'search' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable'],
+            'quick_filter' => ['nullable', 'string', 'max:50'],
         ]);
 
         return view('violations.summary-print', [

@@ -29,6 +29,7 @@ class LeavePrintController extends Controller
             'branch_id.*' => ['integer'],
             'employment_status' => ['nullable', 'in:all,active,inactive'],
             'leave_filter' => ['nullable', 'in:all,on_leave,has_pending'],
+            'quick_filter' => ['nullable', 'string', 'max:50'],
         ]);
 
         $year = LeaveSummaryService::resolveYear(array_key_exists('year', $filters) ? $filters['year'] : now()->year);

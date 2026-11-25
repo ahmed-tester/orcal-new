@@ -117,7 +117,7 @@ class LeavesSummary extends Page
 
     public function resetFilters(): void
     {
-        $this->reset(['search', 'companyId', 'branchId', 'employmentStatus', 'leaveFilter']);
+        $this->reset(['search', 'companyId', 'branchId', 'employmentStatus', 'leaveFilter', 'quickFilter']);
         $this->year = (int) now()->year;
         $this->updatedYear();
         $this->resetPage();

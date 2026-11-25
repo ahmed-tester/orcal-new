@@ -112,6 +112,7 @@ class AttendanceSummary extends Page
             'dateTo',
             'status',
             'employmentStatus',
+            'quickFilter',
         ]);
         $this->month = now()->format('Y-m');
         $this->resetPage();

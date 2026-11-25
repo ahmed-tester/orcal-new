@@ -99,6 +99,8 @@
             $sar = __('finance.employee_rewards.summary.currency_sar');
             $cards = [
                 [
+                    'key' => null,
+                    'clickable' => true,
                     'title' => __('finance.employee_rewards.summary.cards.total_employees'),
                     'value' => number_format($stats['employees_count']),
                     'subtitle' => __('finance.employee_rewards.summary.cards.employees_unit'),
@@ -109,6 +111,7 @@
                     'icon_bg' => '#dbeafe',
                 ],
                 [
+                    'key' => 'total_rewards',
                     'title' => __('finance.employee_rewards.summary.cards.total_rewards'),
                     'value' => number_format($stats['total_rewards']),
                     'subtitle' => __('finance.employee_rewards.summary.cards.rewards_unit'),
@@ -119,6 +122,7 @@
                     'icon_bg' => '#dcfce7',
                 ],
                 [
+                    'key' => 'total_amount',
                     'title' => __('finance.employee_rewards.summary.cards.total_amount'),
                     'value' => number_format($stats['total_amount'], 2),
                     'subtitle' => $sar,
@@ -129,6 +133,7 @@
                     'icon_bg' => '#f3e8ff',
                 ],
                 [
+                    'key' => 'paid_amount',
                     'title' => __('finance.employee_rewards.summary.cards.paid_amount'),
                     'value' => number_format($stats['paid_amount'], 2),
                     'subtitle' => $sar,
@@ -139,6 +144,7 @@
                     'icon_bg' => '#d1fae5',
                 ],
                 [
+                    'key' => 'pending_count',
                     'title' => __('finance.employee_rewards.summary.cards.pending_count'),
                     'value' => number_format($stats['pending_count']),
                     'subtitle' => __('finance.employee_rewards.summary.cards.pending_unit'),
@@ -151,26 +157,7 @@
             ];
         @endphp
 
-        <div class="report-stats-grid">
-            @foreach($cards as $card)
-                <div class="report-stat-card" style="background-color: {{ $card['bg'] }}; border-color: {{ $card['border'] }};">
-                    <div class="report-stat-top">
-                        <span class="report-stat-title" style="color: {{ $card['text'] }};">{{ $card['title'] }}</span>
-                        <div class="report-stat-icon-wrapper" style="background-color: {{ $card['icon_bg'] }}; color: {{ $card['text'] }};">
-                            <x-dynamic-component :component="$card['icon']" class="report-icon-md" />
-                        </div>
-                    </div>
-                    <div class="report-stat-metric">
-                        <div class="report-stat-value" style="color: {{ $card['text'] }};">{{ $card['value'] }}</div>
-                        @if(isset($card['subtitle']))
-                            <div class="report-stat-subtitle" style="color: {{ $card['text'] }};">
-                                <span>{{ $card['subtitle'] }}</span>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-            @endforeach
-        </div>
+        <x-summary-stat-cards :cards="$cards" :active="$this->quickFilter" />
 
         {{-- Unified Filter Bar --}}
         <x-filter-bar

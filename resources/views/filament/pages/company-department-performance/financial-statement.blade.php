@@ -2,12 +2,12 @@
     <table class="perf-table">
         <thead>
             <tr>
-                <th>{{ __('performance.financial.kashf_transaction_number') }}</th>
-                <th>{{ __('performance.kashf.company') }}</th>
-                <th>{{ __('performance.financial.kashf_date') }}</th>
-                <th>{{ __('performance.financial.kashf_beneficiary') }}</th>
-                <th>{{ __('performance.financial.kashf_description') }}</th>
-                <th>{{ __('performance.financial.kashf_amount') }}</th>
+                <th>{{ __('performance.financial.statement_transaction_number') }}</th>
+                <th>{{ __('performance.statement.company') }}</th>
+                <th>{{ __('performance.financial.statement_date') }}</th>
+                <th>{{ __('performance.financial.statement_beneficiary') }}</th>
+                <th>{{ __('performance.financial.statement_description') }}</th>
+                <th>{{ __('performance.financial.statement_amount') }}</th>
             </tr>
         </thead>
         <tbody>
@@ -31,7 +31,7 @@
                         $row instanceof \App\Models\CashHandover => [
                             $row->handover_number, $row->confirmed_at ?? $row->requested_at, $row->collector?->user?->name,
                             $type === 'handover_confirmed' ? [
-                                __('performance.financial.kashf_voucher_number') => $row->treasuryTransaction?->voucher_number ?? $row->treasuryTransaction?->transaction_number,
+                                __('performance.financial.statement_voucher_number') => $row->treasuryTransaction?->voucher_number ?? $row->treasuryTransaction?->transaction_number,
                                 __('performance.financial.allocated') => $formatMoney($row->total_confirmed_amount),
                                 __('performance.financial.count_difference') => $formatMoney($row->difference_amount),
                                 __('performance.financial.excess') => $formatMoney($row->metadata['extra_amount'] ?? 0),
@@ -41,7 +41,7 @@
                             $row->payment_number, $row->paid_at, $row->disbursement?->paidByEmployee?->user?->name,
                             array_filter([
                                 __('performance.financial.claim_reference') => $row->disbursement?->disbursement_number,
-                                __('performance.financial.kashf_voucher_number') => $row->treasuryTransaction?->voucher_number ?? $row->treasuryTransaction?->transaction_number,
+                                __('performance.financial.statement_voucher_number') => $row->treasuryTransaction?->voucher_number ?? $row->treasuryTransaction?->transaction_number,
                             ]), $row->dashboard_amount,
                         ],
                         $row instanceof \App\Models\FinancialDisbursement => [
@@ -49,7 +49,7 @@
                             $row->paidByEmployee?->user?->name ?? $row->beneficiary_name,
                             array_filter([
                                 __('performance.financial.status') => $row->status?->getLabel(),
-                                __('performance.financial.kashf_voucher_number') => $row->treasuryTransaction?->voucher_number ?? $row->treasuryTransaction?->transaction_number,
+                                __('performance.financial.statement_voucher_number') => $row->treasuryTransaction?->voucher_number ?? $row->treasuryTransaction?->transaction_number,
                                 __('performance.financial.metrics.reimbursement_paid') => $type === 'reimbursement_due' ? $formatMoney($row->dashboard_reimbursed) : null,
                             ]), $row->dashboard_amount,
                         ],
@@ -91,7 +91,7 @@
                     <td><strong><bdi>{{ $formatMoney($amount) }}</bdi></strong></td>
                 </tr>
             @empty
-                <tr><td colspan="6">{{ __('performance.kashf.empty') }}</td></tr>
+                <tr><td colspan="6">{{ __('performance.statement.empty') }}</td></tr>
             @endforelse
         </tbody>
     </table>

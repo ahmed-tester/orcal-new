@@ -14,11 +14,7 @@ class CreateSupervisionShift extends CreateRecord
     {
         $data['created_by'] = auth()->id();
 
-        if (empty($data['supervisor_id']) && !empty($data['assigned_employees']) && is_array($data['assigned_employees'])) {
-            $data['supervisor_id'] = $data['assigned_employees'][0] ?? null;
-        }
-
-        if (empty($data['company_id']) && !empty($data['supervisor_id'])) {
+        if (empty($data['company_id']) && ! empty($data['supervisor_id'])) {
             $data['company_id'] = Employee::find($data['supervisor_id'])?->company_id;
         }
 

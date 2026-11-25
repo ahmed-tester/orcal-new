@@ -112,7 +112,7 @@ class RewardsSummary extends Page
 
     public function resetFilters(): void
     {
-        $this->reset(['search', 'companyId', 'branchId', 'employmentStatus', 'rewardFilter']);
+        $this->reset(['search', 'companyId', 'branchId', 'employmentStatus', 'rewardFilter', 'quickFilter']);
         $this->year = (int) now()->year;
         $this->updatedYear();
         $this->resetPage();

@@ -41,12 +41,26 @@ class DebtSummaryService
 
     public static function summaryQuery(array $filters): Builder
     {
-        return Debt::query()
+        $query = Debt::query()
             ->joinSub(self::grouped($filters), 'summary', 'debts.id', '=', 'summary.row_id')
             ->select('debts.*', 'summary.debt_count', ...array_map(fn ($key) => "summary.{$key}", self::TOTALS))
             ->with(['company', 'employee.user'])
             ->orderByDesc('summary.remaining_sum')
             ->orderBy('debts.id');
+
+        $quickColumn = match ($filters['quick_filter'] ?? null) {
+            'debt_count' => 'summary.debt_count',
+            'total_sum' => 'summary.total_sum',
+            'paid_sum' => 'summary.paid_sum',
+            'remaining_sum' => 'summary.remaining_sum',
+            default => null,
+        };
+
+        if ($quickColumn !== null) {
+            $query->whereRaw("COALESCE({$quickColumn}, 0) > 0");
+        }
+
+        return $query;
     }
 
     public static function stats(array $filters): object

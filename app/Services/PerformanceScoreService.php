@@ -43,8 +43,13 @@ class PerformanceScoreService
      *
      * @param  array<string, mixed>  $filters
      */
-    public static function getScore(array $filters = [], ?int $companyId = null, int|string|null $departmentId = null): object
-    {
+    public static function getScore(
+        array $filters = [],
+        ?int $companyId = null,
+        int|string|null $departmentId = null,
+        bool $includeTasks = true,
+        bool $includeDeficiencies = true
+    ): object {
         $user = auth()->user();
         $authorizedCompanyIds = CompanyDepartmentPerformanceService::getAuthorizedCompanyIds($user);
 
@@ -86,13 +91,21 @@ class PerformanceScoreService
             )
             : null;
 
-        $taskRows = self::overdueTasksByScope($scopedCompanyIds, $branchId, $teamIds);
-        $deficiencyRows = self::overdueDeficienciesByScope($scopedCompanyIds, $branchId, $teamIds);
+        $taskCount = $includeTasks
+            ? self::scopeCount(self::overdueTasksByScope($scopedCompanyIds, $branchId, $teamIds), $companyId, $departmentId)
+            : 0;
+        $deficiencyCount = $includeDeficiencies
+            ? self::scopeCount(self::overdueDeficienciesByScope($scopedCompanyIds, $branchId, $teamIds), $companyId, $departmentId)
+            : 0;
 
-        $taskCount = self::scopeCount($taskRows, $companyId, $departmentId);
-        $deficiencyCount = self::scopeCount($deficiencyRows, $companyId, $departmentId);
+        $result = self::scoreFromCounts($taskCount, $deficiencyCount);
 
-        return self::scoreFromCounts($taskCount, $deficiencyCount);
+        if (! ($includeTasks && $includeDeficiencies)) {
+            $result->available = false;
+            $result->score = null;
+        }
+
+        return $result;
     }
 
     /**

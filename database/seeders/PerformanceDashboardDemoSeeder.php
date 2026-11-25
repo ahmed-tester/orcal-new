@@ -138,7 +138,7 @@ class PerformanceDashboardDemoSeeder extends Seeder
 
         $employees = [];
         $staff = [
-            ['مشرف العمليات', UserType::SUPERVISOR],
+            ['مشرف العمليات', UserType::SAUDI_EMPLOYEE],
             ['منفذ الخدمات', UserType::SAUDI_EMPLOYEE],
             ['منسق المعاملات', UserType::FOREIGN_EMPLOYEE],
             ['أخصائي المتابعة', UserType::FOREIGN_EMPLOYEE],
@@ -157,6 +157,13 @@ class PerformanceDashboardDemoSeeder extends Seeder
                 'user_type' => $type,
                 'status' => 'active',
             ]);
+            if ($index === 0) {
+                \Spatie\Permission\Models\Permission::firstOrCreate([
+                    'name' => \App\Services\EmployeePerformanceAccessService::SUPERVISE_PERMISSION,
+                    'guard_name' => 'web',
+                ]);
+                $user->givePermissionTo(\App\Services\EmployeePerformanceAccessService::SUPERVISE_PERMISSION);
+            }
             $employee = Employee::query()->firstOrCreate([
                 'company_id' => $company->id,
                 'user_id' => $user->id,

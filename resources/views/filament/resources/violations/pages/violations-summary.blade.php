@@ -67,6 +67,8 @@
             $sar = __('violations.summary.currency_sar');
             $cards = [
                 [
+                    'key' => null,
+                    'clickable' => true,
                     'title' => __('violations.summary.companies'),
                     'value' => number_format((float) ($stats->companies ?? 0)),
                     'subtitle' => __('violations.summary.companies_unit'),
@@ -77,6 +79,7 @@
                     'icon_bg' => '#dbeafe',
                 ],
                 [
+                    'key' => 'violation_count',
                     'title' => __('violations.summary.violation_count'),
                     'value' => number_format((float) ($stats->violation_count ?? 0)),
                     'subtitle' => __('violations.summary.violations_unit'),
@@ -87,6 +90,7 @@
                     'icon_bg' => '#dcfce7',
                 ],
                 [
+                    'key' => 'total_sum',
                     'title' => __('violations.summary.total_sum'),
                     'value' => number_format((float) ($stats->total_sum ?? 0), 2),
                     'subtitle' => $sar,
@@ -97,6 +101,7 @@
                     'icon_bg' => '#f3e8ff',
                 ],
                 [
+                    'key' => 'paid_sum',
                     'title' => __('violations.summary.paid_sum'),
                     'value' => number_format((float) ($stats->paid_sum ?? 0), 2),
                     'subtitle' => $sar,
@@ -107,6 +112,7 @@
                     'icon_bg' => '#d1fae5',
                 ],
                 [
+                    'key' => 'remaining_sum',
                     'title' => __('violations.summary.remaining_sum'),
                     'value' => number_format((float) ($stats->remaining_sum ?? 0), 2),
                     'subtitle' => $sar,
@@ -119,26 +125,7 @@
             ];
         @endphp
 
-        <div class="report-stats-grid">
-            @foreach($cards as $card)
-                <div class="report-stat-card" style="background-color: {{ $card['bg'] }}; border-color: {{ $card['border'] }};">
-                    <div class="report-stat-top">
-                        <span class="report-stat-title" style="color: {{ $card['text'] }};">{{ $card['title'] }}</span>
-                        <div class="report-stat-icon-wrapper" style="background-color: {{ $card['icon_bg'] }}; color: {{ $card['text'] }};">
-                            <x-dynamic-component :component="$card['icon']" class="report-icon-md" />
-                        </div>
-                    </div>
-                    <div class="report-stat-metric">
-                        <div class="report-stat-value" style="color: {{ $card['text'] }};">{{ $card['value'] }}</div>
-                        @if(isset($card['subtitle']))
-                            <div class="report-stat-subtitle" style="color: {{ $card['text'] }};">
-                                <span>{{ $card['subtitle'] }}</span>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-            @endforeach
-        </div>
+        <x-summary-stat-cards :cards="$cards" :active="$this->quickFilter" />
 
         {{-- Unified Filter Bar --}}
         <x-filter-bar

@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
-
+use App\Observers\SupervisionShiftObserver;
 use App\Traits\HasHijriDates;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Collection;
 
+#[ObservedBy([SupervisionShiftObserver::class])]
 class SupervisionShift extends Model
 {
     use HasFactory, HasHijriDates;
@@ -20,7 +22,6 @@ class SupervisionShift extends Model
             'end_date',
         ];
     }
-
 
     protected $table = 'supervision_shifts';
 
@@ -79,7 +80,7 @@ class SupervisionShift extends Model
      */
     public function getAssignedEmployeesModelsAttribute(): Collection
     {
-        if (empty($this->assigned_employees) || !is_array($this->assigned_employees)) {
+        if (empty($this->assigned_employees) || ! is_array($this->assigned_employees)) {
             return collect();
         }
 

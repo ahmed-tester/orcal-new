@@ -22,6 +22,7 @@ class AttendancePrintController extends Controller
             'branch_id' => ['nullable', 'array'],
             'branch_id.*' => ['integer'],
             'employment_status' => ['nullable', 'in:all,active,inactive'],
+            'quick_filter' => ['nullable', 'string', 'max:50'],
         ]);
 
         $query = AttendanceSummaryService::summaryQuery($filters);

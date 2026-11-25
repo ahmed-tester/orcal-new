@@ -15,11 +15,13 @@ use App\Models\TaskAssignmentItem;
 use App\Models\UnifiedDeficiencyTask;
 use App\Models\User;
 use App\Services\CompanyDepartmentPerformanceService;
+use App\Services\EmployeePerformanceAccessService;
 use App\Services\PerformanceScoreService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class PerformanceScoreServiceTest extends TestCase
@@ -403,8 +405,8 @@ class PerformanceScoreServiceTest extends TestCase
         $this->assertSame(2, $score->deductions->firstWhere('key', 'overdue_tasks')->count);
         $this->assertSame(1, $score->deductions->firstWhere('key', 'overdue_deficiencies')->count);
 
-        $tasksStatement = CompanyDepartmentPerformanceService::getKashfTasksQuery($filters, 'score_overdue');
-        $deficienciesStatement = CompanyDepartmentPerformanceService::getKashfDeficienciesQuery($filters, 'score_overdue');
+        $tasksStatement = CompanyDepartmentPerformanceService::getTasksStatementQuery($filters, 'score_overdue');
+        $deficienciesStatement = CompanyDepartmentPerformanceService::getDeficienciesStatementQuery($filters, 'score_overdue');
 
         $this->assertSame(2, $tasksStatement->count());
         $this->assertSame(1, $deficienciesStatement->count());
@@ -433,12 +435,14 @@ class PerformanceScoreServiceTest extends TestCase
         $company = $this->createCompany('Supervisor');
         $this->seq++;
 
+        Permission::findOrCreate(EmployeePerformanceAccessService::SUPERVISE_PERMISSION, 'web');
         $supervisorUser = User::create([
             'name' => 'Supervisor',
             'email' => "sup{$this->seq}@test.local",
             'password' => bcrypt('password'),
-            'user_type' => UserType::SUPERVISOR->value,
+            'user_type' => UserType::SAUDI_EMPLOYEE->value,
         ]);
+        $supervisorUser->givePermissionTo(EmployeePerformanceAccessService::SUPERVISE_PERMISSION);
         $supervisor = Employee::create([
             'user_id' => $supervisorUser->id,
             'company_id' => $company->id,
@@ -451,10 +455,8 @@ class PerformanceScoreServiceTest extends TestCase
 
         $overdue = now()->copy()->subDay()->toDateString();
         $this->createTaskItem($company->id, $member, $overdue, TaskStatus::PENDING);
-        $this->createTaskItem($company->id, $supervisor, $overdue, TaskStatus::PENDING);
 
-        // A supervisor without a shift team only sees their own records, and
-        // the task scope stays Saudi-employee-only as on the performance page.
+        // A supervisor without a shift team sees no deductions from other company employees.
         $score = PerformanceScoreService::getScore();
 
         $this->assertSame(100, $score->score);
@@ -536,11 +538,11 @@ class PerformanceScoreServiceTest extends TestCase
         $this->assertSame(1, $row->overdue_deficiencies);
         $this->assertSame(
             $row->overdue_tasks,
-            CompanyDepartmentPerformanceService::getKashfTasksQuery([], 'score_overdue', $company->id, $department->id)->count()
+            CompanyDepartmentPerformanceService::getTasksStatementQuery([], 'score_overdue', $company->id, $department->id)->count()
         );
         $this->assertSame(
             $row->overdue_deficiencies,
-            CompanyDepartmentPerformanceService::getKashfDeficienciesQuery([], 'score_overdue', $company->id, $department->id)->count()
+            CompanyDepartmentPerformanceService::getDeficienciesStatementQuery([], 'score_overdue', $company->id, $department->id)->count()
         );
     }
 
@@ -566,12 +568,14 @@ class PerformanceScoreServiceTest extends TestCase
         $company = $this->createCompany('Shift Team');
         $this->seq++;
 
+        Permission::findOrCreate(EmployeePerformanceAccessService::SUPERVISE_PERMISSION, 'web');
         $supervisorUser = User::create([
             'name' => 'Shift Supervisor',
             'email' => "shift{$this->seq}@test.local",
             'password' => bcrypt('password'),
-            'user_type' => UserType::SUPERVISOR->value,
+            'user_type' => UserType::SAUDI_EMPLOYEE->value,
         ]);
+        $supervisorUser->givePermissionTo(EmployeePerformanceAccessService::SUPERVISE_PERMISSION);
         $supervisor = Employee::create([
             'user_id' => $supervisorUser->id,
             'company_id' => $company->id,

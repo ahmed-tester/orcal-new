@@ -103,6 +103,8 @@
             $stats = $this->stats;
             $cards = [
                 [
+                    'key' => null,
+                    'clickable' => true,
                     'title' => __('leaves.summary.cards.total_employees'),
                     'value' => number_format($stats['employees_count']),
                     'subtitle' => __('leaves.summary.cards.employees_count_unit'),
@@ -113,6 +115,7 @@
                     'icon_bg' => '#dbeafe',
                 ],
                 [
+                    'key' => 'on_leave_today',
                     'title' => __('leaves.summary.cards.on_leave_today'),
                     'value' => number_format($stats['on_leave_today_count']),
                     'subtitle' => __('leaves.summary.status.on_leave'),
@@ -123,6 +126,7 @@
                     'icon_bg' => '#dcfce7',
                 ],
                 [
+                    'key' => 'pending_requests',
                     'title' => __('leaves.summary.cards.pending_requests'),
                     'value' => number_format($stats['pending_requests_count']),
                     'subtitle' => __('leaves.summary.cards.requests_unit'),
@@ -133,6 +137,7 @@
                     'icon_bg' => '#fef3c7',
                 ],
                 [
+                    'key' => 'total_used_days',
                     'title' => __('leaves.summary.cards.total_used_days'),
                     'value' => number_format($stats['total_approved_days']),
                     'subtitle' => __('leaves.summary.cards.days_unit'),
@@ -143,6 +148,7 @@
                     'icon_bg' => '#e0e7ff',
                 ],
                 [
+                    'key' => null,
                     'title' => __('leaves.summary.cards.total_available_days'),
                     'value' => number_format($stats['total_available_annual_days']),
                     'subtitle' => __('leaves.summary.cards.days_unit'),
@@ -155,26 +161,7 @@
             ];
         @endphp
 
-        <div class="report-stats-grid">
-            @foreach($cards as $card)
-                <div class="report-stat-card" style="background-color: {{ $card['bg'] }}; border-color: {{ $card['border'] }};">
-                    <div class="report-stat-top">
-                        <span class="report-stat-title" style="color: {{ $card['text'] }};">{{ $card['title'] }}</span>
-                        <div class="report-stat-icon-wrapper" style="background-color: {{ $card['icon_bg'] }}; color: {{ $card['text'] }};">
-                            <x-dynamic-component :component="$card['icon']" class="report-icon-md" />
-                        </div>
-                    </div>
-                    <div class="report-stat-metric">
-                        <div class="report-stat-value" style="color: {{ $card['text'] }};">{{ $card['value'] }}</div>
-                        @if(isset($card['subtitle']))
-                            <div class="report-stat-subtitle" style="color: {{ $card['text'] }};">
-                                <span>{{ $card['subtitle'] }}</span>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-            @endforeach
-        </div>
+        <x-summary-stat-cards :cards="$cards" :active="$this->quickFilter" />
 
         {{-- Unified Filter Bar --}}
         <x-filter-bar

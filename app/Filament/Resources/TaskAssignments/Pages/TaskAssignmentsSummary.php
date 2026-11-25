@@ -92,6 +92,7 @@ class TaskAssignmentsSummary extends Page
             'search'       => $this->search ?? null,
             'company_id'   => $this->companyId ?? null,
             'branch_id'    => $this->branchId ?? null,
+            'quick_filter' => $this->quickFilter ?? null,
             'employee_ids' => ! empty($selected) ? array_values(array_map('intval', $selected)) : null,
         ]);
 
@@ -138,7 +139,9 @@ class TaskAssignmentsSummary extends Page
 
     public function filters(): array
     {
-        return $this->filterBarState();
+        return $this->filterBarState([
+            'only_with_items' => true,
+        ]);
     }
 
     #[Computed]

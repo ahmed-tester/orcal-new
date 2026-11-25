@@ -230,6 +230,7 @@ class RoleForm
                 'label' => __('navigation.tasks_group'),
                 'permissions' => [
                     'view_any_supervision_shift' => __('permissions.view_any_supervision_shift'),
+                    'supervise_task_team' => __('permissions.supervise_task_team'),
                     'create_supervision_shift' => __('permissions.create_supervision_shift'),
                     'update_supervision_shift' => __('permissions.update_supervision_shift'),
                     'delete_supervision_shift' => __('permissions.delete_supervision_shift'),

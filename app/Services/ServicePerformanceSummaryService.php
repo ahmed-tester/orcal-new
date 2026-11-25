@@ -334,9 +334,18 @@ class ServicePerformanceSummaryService
         if (
             ! $target
             || ! $user
-            || ! EmployeePerformanceAccessService::isSupervisor($user)
             || EmployeePerformanceAccessService::isSelf($user, $target)
         ) {
+            return;
+        }
+
+        if (EmployeePerformanceAccessService::isFormerOrRevokedSupervisor($user)) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        if (! EmployeePerformanceAccessService::isSupervisor($user)) {
             return;
         }
 

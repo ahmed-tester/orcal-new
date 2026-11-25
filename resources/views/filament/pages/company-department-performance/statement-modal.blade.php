@@ -1,32 +1,32 @@
-<x-filament::modal id="performance-kashf-modal" width="7xl">
+<x-filament::modal id="performance-statement-modal" width="7xl">
     <x-slot:heading>
         <div class="perf-modal-header">
             <div class="perf-modal-icon">
                 <x-heroicon-o-clipboard-document-list style="width: 20px; height: 20px;" />
             </div>
-            <span>{{ $this->kashfTitle }}</span>
+            <span>{{ $this->statementTitle }}</span>
         </div>
     </x-slot:heading>
 
     @php
-        $records = $this->kashfRecords;
+        $records = $this->statementRecords;
     @endphp
 
     @if($records)
-        @if($this->kashfDomain === 'services')
+        @if($this->statementDomain === 'services')
             <div class="perf-table-wrapper">
                 <table class="perf-table">
                     <thead>
                         <tr>
-                            <th>{{ __('performance.kashf.transaction_number') }}</th>
-                            <th>{{ __('performance.kashf.service') }}</th>
-                            <th>{{ __('performance.kashf.beneficiary') }}</th>
-                            <th>{{ __('performance.kashf.executor') }}</th>
-                            <th>{{ __('performance.kashf.transaction_date') }}</th>
-                            <th>{{ __('performance.kashf.due_date') }}</th>
-                            <th>{{ __('performance.kashf.completion_date') }}</th>
-                            <th style="text-align: center;">{{ __('performance.kashf.status') }}</th>
-                            <th style="text-align: center;">{{ __('performance.kashf.pending_action') }}</th>
+                            <th>{{ __('performance.statement.transaction_number') }}</th>
+                            <th>{{ __('performance.statement.service') }}</th>
+                            <th>{{ __('performance.statement.beneficiary') }}</th>
+                            <th>{{ __('performance.statement.executor') }}</th>
+                            <th>{{ __('performance.statement.transaction_date') }}</th>
+                            <th>{{ __('performance.statement.due_date') }}</th>
+                            <th>{{ __('performance.statement.completion_date') }}</th>
+                            <th style="text-align: center;">{{ __('performance.statement.status') }}</th>
+                            <th style="text-align: center;">{{ __('performance.statement.pending_action') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -66,7 +66,7 @@
                                         <div class="perf-empty-icon">
                                             <x-heroicon-o-document-magnifying-glass style="width: 28px; height: 28px;" />
                                         </div>
-                                        <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
+                                        <div class="perf-empty-title">{{ __('performance.statement.empty') }}</div>
                                     </div>
                                 </td>
                             </tr>
@@ -75,16 +75,16 @@
                 </table>
             </div>
 
-        @elseif($this->kashfDomain === 'deficiencies')
+        @elseif($this->statementDomain === 'deficiencies')
             <div class="perf-table-wrapper">
                 <table class="perf-table">
                     <thead>
                         <tr>
-                            <th>{{ __('performance.kashf.transaction_number') }}</th>
-                            <th>{{ __('performance.kashf.deficiency_type') }}</th>
-                            <th>{{ __('performance.kashf.responsible') }}</th>
-                            <th>{{ __('performance.kashf.due_date') }}</th>
-                            <th style="text-align: center;">{{ __('performance.kashf.status') }}</th>
+                            <th>{{ __('performance.statement.transaction_number') }}</th>
+                            <th>{{ __('performance.statement.deficiency_type') }}</th>
+                            <th>{{ __('performance.statement.responsible') }}</th>
+                            <th>{{ __('performance.statement.due_date') }}</th>
+                            <th style="text-align: center;">{{ __('performance.statement.status') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -119,7 +119,7 @@
                                         <div class="perf-empty-icon">
                                             <x-heroicon-o-document-magnifying-glass style="width: 28px; height: 28px;" />
                                         </div>
-                                        <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
+                                        <div class="perf-empty-title">{{ __('performance.statement.empty') }}</div>
                                     </div>
                                 </td>
                             </tr>
@@ -128,18 +128,18 @@
                 </table>
             </div>
 
-        @elseif($this->kashfDomain === 'tasks')
+        @elseif($this->statementDomain === 'tasks')
             <div class="perf-table-wrapper">
                 <table class="perf-table">
                     <thead>
                         <tr>
-                            <th>{{ __('performance.kashf.task_name') }}</th>
-                            <th>{{ __('performance.kashf.assignment_number') }}</th>
+                            <th>{{ __('performance.statement.task_name') }}</th>
+                            <th>{{ __('performance.statement.assignment_number') }}</th>
                             <th>{{ __('performance.columns.employee') }}</th>
-                            <th>{{ __('performance.kashf.due_date') }}</th>
-                            <th>{{ __('performance.kashf.completion_date') }}</th>
-                            <th style="text-align: center;">{{ __('performance.kashf.status') }}</th>
-                            <th style="text-align: center;">{{ __('performance.kashf.weight') }} / {{ __('performance.kashf.score') }}</th>
+                            <th>{{ __('performance.statement.due_date') }}</th>
+                            <th>{{ __('performance.statement.completion_date') }}</th>
+                            <th style="text-align: center;">{{ __('performance.statement.status') }}</th>
+                            <th style="text-align: center;">{{ __('performance.statement.weight') }} / {{ __('performance.statement.score') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -167,7 +167,7 @@
                                         <div class="perf-empty-icon">
                                             <x-heroicon-o-document-magnifying-glass style="width: 28px; height: 28px;" />
                                         </div>
-                                        <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
+                                        <div class="perf-empty-title">{{ __('performance.statement.empty') }}</div>
                                     </div>
                                 </td>
                             </tr>
@@ -175,33 +175,33 @@
                     </tbody>
                 </table>
             </div>
-        @elseif($this->kashfDomain === 'attendance' || $this->kashfDomain === 'leaves')
+        @elseif($this->statementDomain === 'attendance' || $this->statementDomain === 'leaves')
             @include('filament.pages.company-department-performance.workforce-records', [
-                'group' => $this->kashfDomain,
-                'type' => $this->kashfType,
+                'group' => $this->statementDomain,
+                'type' => $this->statementType,
                 'records' => $records,
                 'preview' => false,
             ])
 
-        @elseif($this->kashfDomain === 'compliance')
+        @elseif($this->statementDomain === 'compliance')
             @include('filament.pages.company-department-performance.compliance-records', [
-                'type' => $this->kashfType,
+                'type' => $this->statementType,
                 'records' => $records,
             ])
 
-        @elseif($this->kashfDomain === 'violations')
+        @elseif($this->statementDomain === 'violations')
             <div class="perf-table-wrapper">
                 <table class="perf-table">
                     <thead>
                         <tr>
-                            <th>{{ __('performance.kashf.violation_number') }}</th>
-                            <th>{{ __('performance.kashf.company') }}</th>
-                            <th>{{ __('performance.kashf.issuing_authority') }}</th>
-                            <th>{{ __('performance.kashf.violation_amount') }}</th>
-                            <th>{{ __('performance.kashf.paid_amount') }}</th>
-                            <th>{{ __('performance.kashf.remaining_amount') }}</th>
-                            <th style="text-align: center;">{{ __('performance.kashf.stage') }}</th>
-                            <th style="text-align: center;">{{ __('performance.kashf.status') }}</th>
+                            <th>{{ __('performance.statement.violation_number') }}</th>
+                            <th>{{ __('performance.statement.company') }}</th>
+                            <th>{{ __('performance.statement.issuing_authority') }}</th>
+                            <th>{{ __('performance.statement.violation_amount') }}</th>
+                            <th>{{ __('performance.statement.paid_amount') }}</th>
+                            <th>{{ __('performance.statement.remaining_amount') }}</th>
+                            <th style="text-align: center;">{{ __('performance.statement.stage') }}</th>
+                            <th style="text-align: center;">{{ __('performance.statement.status') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -231,7 +231,7 @@
                                         <div class="perf-empty-icon">
                                             <x-heroicon-o-document-magnifying-glass style="width: 28px; height: 28px;" />
                                         </div>
-                                        <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
+                                        <div class="perf-empty-title">{{ __('performance.statement.empty') }}</div>
                                     </div>
                                 </td>
                             </tr>
@@ -240,22 +240,22 @@
                 </table>
             </div>
 
-        @elseif($this->kashfDomain === 'financial')
-            @include('filament.pages.company-department-performance.financial-records', ['type' => $this->kashfType])
+        @elseif($this->statementDomain === 'financial')
+            @include('filament.pages.company-department-performance.financial-records', ['type' => $this->statementType])
 
-        @elseif($this->kashfDomain === 'tickets')
+        @elseif($this->statementDomain === 'tickets')
             <div class="perf-table-wrapper">
                 <table class="perf-table">
                     <thead>
                         <tr>
-                            <th>{{ __('performance.kashf.ticket_number') }}</th>
-                            <th>{{ __('performance.kashf.ticket_subject') }}</th>
-                            <th>{{ __('performance.kashf.company') }}</th>
-                            <th style="text-align: center;">{{ __('performance.kashf.ticket_category') }}</th>
-                            <th style="text-align: center;">{{ __('performance.kashf.ticket_priority') }}</th>
-                            <th style="text-align: center;">{{ __('performance.kashf.status') }}</th>
-                            <th>{{ __('performance.kashf.ticket_assignee') }}</th>
-                            <th>{{ __('performance.kashf.ticket_created_at') }}</th>
+                            <th>{{ __('performance.statement.ticket_number') }}</th>
+                            <th>{{ __('performance.statement.ticket_subject') }}</th>
+                            <th>{{ __('performance.statement.company') }}</th>
+                            <th style="text-align: center;">{{ __('performance.statement.ticket_category') }}</th>
+                            <th style="text-align: center;">{{ __('performance.statement.ticket_priority') }}</th>
+                            <th style="text-align: center;">{{ __('performance.statement.status') }}</th>
+                            <th>{{ __('performance.statement.ticket_assignee') }}</th>
+                            <th>{{ __('performance.statement.ticket_created_at') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -297,7 +297,7 @@
                                         <div class="perf-empty-icon">
                                             <x-heroicon-o-document-magnifying-glass style="width: 28px; height: 28px;" />
                                         </div>
-                                        <div class="perf-empty-title">{{ __('performance.kashf.empty') }}</div>
+                                        <div class="perf-empty-title">{{ __('performance.statement.empty') }}</div>
                                     </div>
                                 </td>
                             </tr>
@@ -315,8 +315,8 @@
     @endif
 
     <x-slot:footerActions>
-        <x-filament::button color="gray" wire:click="closeKashf">
-            {{ __('performance.kashf.close') }}
+        <x-filament::button color="gray" wire:click="closeStatement">
+            {{ __('performance.statement.close') }}
         </x-filament::button>
     </x-slot:footerActions>
 </x-filament::modal>

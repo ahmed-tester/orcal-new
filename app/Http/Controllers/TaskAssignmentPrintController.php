@@ -34,7 +34,10 @@ class TaskAssignmentPrintController extends Controller
             'branch_id'      => ['nullable', 'array'],
             'branch_id.*'    => ['integer'],
             'search'         => ['nullable', 'string', 'max:255'],
+            'quick_filter'   => ['nullable', 'string', 'max:50'],
         ]);
+
+        $filters['only_with_items'] = true;
 
         $rows = TaskAssignmentSummaryService::summaryQuery($filters)
             ->orderBy('employees.id')

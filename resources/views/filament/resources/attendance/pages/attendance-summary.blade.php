@@ -130,37 +130,18 @@
             $minsUnit = __('attendance.units.minute');
             $hoursUnit = __('attendance.units.hour');
             $cards = [
-                ['title' => __('attendance.summary.stats.employees'), 'value' => number_format($stats['employees_count'] ?? 0), 'icon' => 'heroicon-o-users', 'bg' => '#eff6ff', 'text' => '#2563eb', 'border' => '#bfdbfe'],
-                ['title' => __('attendance.summary.stats.recorded_days'), 'value' => number_format($stats['recorded_days'] ?? 0), 'icon' => 'heroicon-o-calendar', 'bg' => '#f1f5f9', 'text' => '#475569', 'border' => '#cbd5e1'],
-                ['title' => __('attendance.summary.stats.present_days'), 'value' => number_format($stats['present_days'] ?? 0), 'icon' => 'heroicon-o-check-circle', 'bg' => '#ecfdf5', 'text' => '#059669', 'border' => '#a7f3d0'],
-                ['title' => __('attendance.summary.stats.late_days'), 'value' => number_format($stats['late_days'] ?? 0), 'icon' => 'heroicon-o-clock', 'bg' => '#fffbeb', 'text' => '#d97706', 'border' => '#fde68a'],
-                ['title' => __('attendance.summary.stats.absent_days'), 'value' => number_format($stats['absent_days'] ?? 0), 'icon' => 'heroicon-o-x-circle', 'bg' => '#fef2f2', 'text' => '#dc2626', 'border' => '#fecaca'],
-                ['title' => __('attendance.summary.stats.leave_days'), 'value' => number_format($stats['leave_days'] ?? 0), 'icon' => 'heroicon-o-calendar-days', 'bg' => '#f5f3ff', 'text' => '#7c3aed', 'border' => '#ddd6fe'],
-                ['title' => __('attendance.summary.stats.late_minutes'), 'value' => number_format($stats['late_minutes'] ?? 0), 'subtitle' => $minsUnit, 'icon' => 'heroicon-o-exclamation-triangle', 'bg' => '#fff7ed', 'text' => '#ea580c', 'border' => '#ffedd5'],
-                ['title' => __('attendance.summary.stats.total_hours'), 'value' => number_format($stats['total_hours'] ?? 0, 2), 'subtitle' => $hoursUnit, 'icon' => 'heroicon-o-chart-bar', 'bg' => '#f0fdfa', 'text' => '#0d9488', 'border' => '#ccfbf1'],
+                ['key' => null, 'clickable' => true, 'title' => __('attendance.summary.stats.employees'), 'value' => number_format($stats['employees_count'] ?? 0), 'icon' => 'heroicon-o-users', 'bg' => '#eff6ff', 'text' => '#2563eb', 'border' => '#bfdbfe'],
+                ['key' => 'recorded_days', 'title' => __('attendance.summary.stats.recorded_days'), 'value' => number_format($stats['recorded_days'] ?? 0), 'icon' => 'heroicon-o-calendar', 'bg' => '#f1f5f9', 'text' => '#475569', 'border' => '#cbd5e1'],
+                ['key' => 'present_days', 'title' => __('attendance.summary.stats.present_days'), 'value' => number_format($stats['present_days'] ?? 0), 'icon' => 'heroicon-o-check-circle', 'bg' => '#ecfdf5', 'text' => '#059669', 'border' => '#a7f3d0'],
+                ['key' => 'late_days', 'title' => __('attendance.summary.stats.late_days'), 'value' => number_format($stats['late_days'] ?? 0), 'icon' => 'heroicon-o-clock', 'bg' => '#fffbeb', 'text' => '#d97706', 'border' => '#fde68a'],
+                ['key' => 'absent_days', 'title' => __('attendance.summary.stats.absent_days'), 'value' => number_format($stats['absent_days'] ?? 0), 'icon' => 'heroicon-o-x-circle', 'bg' => '#fef2f2', 'text' => '#dc2626', 'border' => '#fecaca'],
+                ['key' => 'leave_days', 'title' => __('attendance.summary.stats.leave_days'), 'value' => number_format($stats['leave_days'] ?? 0), 'icon' => 'heroicon-o-calendar-days', 'bg' => '#f5f3ff', 'text' => '#7c3aed', 'border' => '#ddd6fe'],
+                ['key' => 'late_minutes', 'title' => __('attendance.summary.stats.late_minutes'), 'value' => number_format($stats['late_minutes'] ?? 0), 'subtitle' => $minsUnit, 'icon' => 'heroicon-o-exclamation-triangle', 'bg' => '#fff7ed', 'text' => '#ea580c', 'border' => '#ffedd5'],
+                ['key' => 'total_hours', 'title' => __('attendance.summary.stats.total_hours'), 'value' => number_format($stats['total_hours'] ?? 0, 2), 'subtitle' => $hoursUnit, 'icon' => 'heroicon-o-chart-bar', 'bg' => '#f0fdfa', 'text' => '#0d9488', 'border' => '#ccfbf1'],
             ];
         @endphp
 
-        <div class="report-stats-grid">
-            @foreach($cards as $card)
-                <div class="report-stat-card">
-                    <div class="report-stat-top">
-                        <span class="report-stat-title">{{ $card['title'] }}</span>
-                        <div class="report-stat-icon-wrapper" style="background-color: {{ $card['bg'] }}; color: {{ $card['text'] }}; border: 1px solid {{ $card['border'] }};">
-                            <x-dynamic-component :component="$card['icon']" class="report-icon-md" />
-                        </div>
-                    </div>
-                    <div class="report-stat-metric">
-                        <div class="report-stat-value">{{ $card['value'] }}</div>
-                        @if(isset($card['subtitle']))
-                            <div class="report-stat-subtitle" style="color: {{ $card['text'] }};">
-                                <span>{{ $card['subtitle'] }}</span>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-            @endforeach
-        </div>
+        <x-summary-stat-cards :cards="$cards" :active="$this->quickFilter" :columns="4" />
 
         {{-- Unified Filter Bar --}}
         <x-filter-bar
