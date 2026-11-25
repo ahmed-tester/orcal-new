@@ -473,6 +473,12 @@ return [
         'actions' => [
             'create_single' => 'Add Single Record',
             'print_record' => 'Print Record',
+            'recalculate_policy' => 'Recalculate Under Current Policy',
+            'recalculate_policy_heading' => 'Recalculate Payroll Record: :employee',
+            'recalculate_policy_desc' => 'Compare the currently pinned calculation against the active company policy before applying.',
+            'recalculate_current_net' => 'Current Net: :net SAR | Deduction: :deduction SAR',
+            'recalculate_new_net' => 'Recalculated Net: :net SAR | Deduction: :deduction SAR | Diff: :diff SAR',
+            'recalculate_success' => 'Payroll record recalculated and snapshot updated successfully.',
             'pay_salary' => 'Pay Salary',
             'pay_salary_heading' => 'Disburse Salary: :employee',
             'pay_salary_description' => 'For Month (:month) — Net: :net SAR | Remaining: :remaining SAR',

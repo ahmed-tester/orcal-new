@@ -7,7 +7,7 @@ use App\Filament\Pages\SupervisorPerformance;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\User;
-use App\Services\AttendanceSummaryService;
+use App\Services\Attendance\AttendanceSummaryService;
 use App\Services\CompanyCompliancePerformanceService;
 use App\Services\CompanyDepartmentPerformanceService;
 use App\Services\CompanyFinancialPerformanceService;

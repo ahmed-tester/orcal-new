@@ -162,7 +162,7 @@
                                         wire:click="openArchivedMonth('{{ $archiveYear }}-{{ $paddedM }}', 'payroll')"
                                         class="scope-pill-btn scope-pill-btn-inactive"
                                     >
-                                        {{ \App\Services\PayrollSheetService::getArabicMonthName($m) }}
+                                        {{ \App\Services\Payroll\PayrollSheetService::getArabicMonthName($m) }}
                                     </button>
                                 @endfor
                             </div>
@@ -294,7 +294,7 @@
                                         wire:click="openArchivedMonth('{{ $archiveYear }}-{{ $paddedM }}', 'collection')"
                                         class="scope-pill-btn scope-pill-btn-inactive"
                                     >
-                                        {{ \App\Services\PayrollSheetService::getArabicMonthName($m) }}
+                                        {{ \App\Services\Payroll\PayrollSheetService::getArabicMonthName($m) }}
                                     </button>
                                 @endfor
                             </div>

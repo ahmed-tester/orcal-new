@@ -81,6 +81,7 @@ class RoleForm
                     'create_saudi_employee' => __('permissions.create_saudi_employee'),
                     'update_saudi_employee' => __('permissions.update_saudi_employee'),
                     'delete_saudi_employee' => __('permissions.delete_saudi_employee'),
+                    'manage_employee_compensation' => __('permissions.manage_employee_compensation'),
 
                     'view_any_foreign_employee' => __('permissions.view_any_foreign_employee'),
                     'create_foreign_employee' => __('permissions.create_foreign_employee'),

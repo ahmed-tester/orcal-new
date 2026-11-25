@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use App\Enums\DeductionBasis;
 use App\Enums\EmploymentType;
 use App\Enums\GeneralStatus;
 use App\Enums\UserType;
+use App\Observers\EmployeeObserver;
 use App\Services\CodeGeneratorService;
 use App\Services\EmployeeAgeService;
 use App\Services\EmployeeServiceDurationService;
 use App\Traits\HasHijriDates;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -17,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
+#[ObservedBy([EmployeeObserver::class])]
 class Employee extends Model
 {
     use HasFactory, HasHijriDates;
@@ -42,6 +46,15 @@ class Employee extends Model
         'annual_leave_days',
         'termination_date',
         'basic_salary',
+        'allowances_amount',
+        'bonuses_amount',
+        'other_allowances_amount',
+        'overtime_hourly_rate',
+        'compensation_hourly_rate',
+        'deduction_basis',
+        'is_policy_complete',
+        'compensation_is_eligible',
+        'compensation_effective_date',
         'bank_iban',
         'hourly_rate',
         'daily_work_hours',
@@ -69,6 +82,15 @@ class Employee extends Model
             'termination_date' => 'date',
             'contract_end_date' => 'date',
             'basic_salary' => 'decimal:2',
+            'allowances_amount' => 'decimal:2',
+            'bonuses_amount' => 'decimal:2',
+            'other_allowances_amount' => 'decimal:2',
+            'overtime_hourly_rate' => 'decimal:2',
+            'compensation_hourly_rate' => 'decimal:2',
+            'deduction_basis' => DeductionBasis::class,
+            'is_policy_complete' => 'boolean',
+            'compensation_is_eligible' => 'boolean',
+            'compensation_effective_date' => 'date',
             'hourly_rate' => 'decimal:2',
             'daily_work_hours' => 'decimal:1',
             'weekly_work_hours' => 'decimal:1',
@@ -87,50 +109,6 @@ class Employee extends Model
             companyId: $companyId,
             padLength: 4,
         );
-    }
-
-    protected static function booted(): void
-    {
-        static::creating(function (Employee $employee) {
-            if (empty($employee->employee_number)) {
-                $employee->employee_number = static::generateNextEmployeeNumber($employee->company_id);
-            }
-        });
-
-        static::saving(function (Employee $employee) {
-            $employee->basic_salary = (float) ($employee->basic_salary ?? 0);
-
-            $employee->contract_duration = $employee->contract_duration
-                ?: EmployeeServiceDurationService::calculateContractDuration(
-                    $employee->hire_date,
-                    $employee->contract_end_date
-                );
-
-            // Persist duration metrics in metadata JSON column without touching unrelated keys
-            $meta = is_array($employee->metadata)
-                ? $employee->metadata
-                : (is_string($employee->metadata) ? (json_decode($employee->metadata, true) ?? []) : []);
-
-            $days = EmployeeServiceDurationService::calculateDaysServed(
-                $employee->hire_date,
-                $employee->termination_date ?? $employee->contract_end_date
-            );
-
-            $computed = [
-                'days_served' => $days,
-                'days_served_formatted' => $days !== null ? EmployeeServiceDurationService::formatDaysServed($days) : null,
-                'time_since_termination' => EmployeeServiceDurationService::calculateTimeSinceTermination($employee->termination_date),
-            ];
-
-            $employee->metadata = array_merge(
-                array_diff_key($meta, $computed),
-                array_filter($computed, fn ($value) => $value !== null)
-            );
-        });
-
-        static::deleted(function (Employee $employee) {
-            \App\Services\PersonCapacityService::cleanupOrphanedUser($employee->user_id, 'employee', $employee->id);
-        });
     }
 
     public function scopeSaudi(Builder $query): Builder

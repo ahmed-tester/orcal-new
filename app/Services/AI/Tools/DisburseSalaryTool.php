@@ -9,7 +9,7 @@ use App\Models\PayrollPayment;
 use App\Models\PayrollRecord;
 use App\Services\AI\Contracts\GeminiToolInterface;
 use App\Services\AI\EmployeeNameMatcher;
-use App\Services\PayrollCalculationService;
+use App\Services\Payroll\PayrollCalculationService;
 use Carbon\Carbon;
 
 class DisburseSalaryTool implements GeminiToolInterface
@@ -134,7 +134,7 @@ class DisburseSalaryTool implements GeminiToolInterface
             }
 
             // تنفيذ الصرف الفعلي عبر الخدمة الموحّدة
-            $res = \App\Services\PayrollDisbursementService::disburse($record, [
+            $res = \App\Services\Payroll\PayrollDisbursementService::disburse($record, [
                 'request_key' => 'ai:'.$record->id.':'.$paymentDate.':'.$amount.':'.$paymentMethod,
                 'amount' => $amount,
                 'payment_date' => $paymentDate,

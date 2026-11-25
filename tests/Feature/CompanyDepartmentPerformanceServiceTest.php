@@ -16,7 +16,7 @@ use App\Models\TaskAssignment;
 use App\Models\TaskAssignmentItem;
 use App\Models\UnifiedDeficiencyTask;
 use App\Models\User;
-use App\Services\AttendanceSummaryService;
+use App\Services\Attendance\AttendanceSummaryService;
 use App\Services\CompanyDepartmentPerformanceService;
 use App\Services\EmployeePerformanceAccessService;
 use App\Services\PerformanceScoreService;

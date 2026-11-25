@@ -479,6 +479,12 @@ return [
         'actions' => [
             'create_single' => 'إضافة مسير منفرد',
             'print_record' => 'طباعة السجل',
+            'recalculate_policy' => 'إعادة احتساب بالسياسة الحالية',
+            'recalculate_policy_heading' => 'إعادة احتساب مسير الموظف: :employee',
+            'recalculate_policy_desc' => 'مقارنة الحساب المثبت حاليًا مع السياسة المفعّلة الحالية قبل الاعتماد.',
+            'recalculate_current_net' => 'الصافي الحالي: :net ر.س | الخصم: :deduction ر.س',
+            'recalculate_new_net' => 'الصافي بعد إعادة الاحتساب: :net ر.س | الخصم: :deduction ر.س | الفرق: :diff ر.س',
+            'recalculate_success' => 'تمت إعادة احتساب المسير وتحديث اللقطة بنجاح.',
             'pay_salary' => 'تسليم الراتب',
             'pay_salary_heading' => 'صرف وتسليم راتب: :employee',
             'pay_salary_description' => 'عن شهر (:month) — صافي الراتب: :net ر.س | المتبقي: :remaining ر.س',

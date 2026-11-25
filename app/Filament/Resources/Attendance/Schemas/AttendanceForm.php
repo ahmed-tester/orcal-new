@@ -5,7 +5,7 @@ namespace App\Filament\Resources\Attendance\Schemas;
 use App\Enums\AttendanceSource;
 use App\Enums\AttendanceStatus;
 use App\Models\Employee;
-use App\Services\AttendancePenaltyService;
+use App\Services\Attendance\AttendancePenaltyService;
 use App\Services\CompanyFormService;
 use Carbon\Carbon;
 use Filament\Forms\Components\DatePicker;

@@ -2,9 +2,11 @@
 
 namespace App\Observers;
 
+use App\Enums\PaymentStatus;
 use App\Models\PayrollRecord;
 use App\Services\CodeGeneratorService;
-use App\Services\PayrollCalculationService;
+use App\Services\Payroll\PayrollCalculationService;
+use App\Services\Payroll\SaudiCompensationGrantService;
 use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
 
@@ -55,15 +57,51 @@ class PayrollRecordObserver
         $record->absence_deduction = (float) ($record->absence_deduction ?? 0);
         $record->paid_amount = (float) ($record->paid_amount ?? 0);
 
+        if ($record->exists && $record->hasFinancialImpact()) {
+            foreach ([
+                'basic_salary',
+                'overtime_amount',
+                'rewards_amount',
+                'additional_amount',
+                'advance_deduction',
+                'absence_deduction',
+                'deduction_amount',
+                'net_amount',
+            ] as $protectedColumn) {
+                if ($record->isDirty($protectedColumn)) {
+                    $record->{$protectedColumn} = $record->getOriginal($protectedColumn);
+                }
+            }
+
+            if (! $record->isManaged()) {
+                $net = (float) ($record->net_amount ?? 0);
+                $paid = (float) ($record->paid_amount ?? 0);
+                $record->remaining_amount = round(max(0.0, $net - $paid), 2);
+                $record->payment_status = ($paid >= $net && $net > 0)
+                    ? PaymentStatus::PAID
+                    : ($paid > 0 ? PaymentStatus::PARTIALLY_PAID : PaymentStatus::UNPAID);
+            }
+
+            return;
+        }
+
+        if ($record->skipObserverTotalsSync) {
+            if ($record->isManaged()) {
+                $meta = $record->metadata ?? [];
+                $meta['net_amount_snapshot'] = round((float) $record->net_amount, 2);
+                $record->metadata = $meta;
+            }
+
+            return;
+        }
+
         if (! $record->isManaged()) {
             PayrollCalculationService::syncTotalsForRecord($record);
-        } elseif (! $record->hasFinancialImpact()) {
+        } else {
             PayrollCalculationService::syncTotalsForRecord($record);
             $meta = $record->metadata ?? [];
             $meta['net_amount_snapshot'] = round((float) $record->net_amount, 2);
             $record->metadata = $meta;
-        } elseif ($record->exists && $record->isDirty('net_amount')) {
-            $record->net_amount = $record->getOriginal('net_amount');
         }
     }
 
@@ -79,6 +117,7 @@ class PayrollRecordObserver
         }
 
         $record->isDeletingRecord = true;
+        SaudiCompensationGrantService::reverseAllocationsForRecord($record, 'إلغاء وحذف مسير');
         PayrollCalculationService::reverseDisbursementsForRecord($record, 'إلغاء وحذف مسير');
         $record->payments()->delete();
     }

@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Attendance;
 use App\Models\Employee;
-use App\Services\AttendanceSummaryService;
+use App\Services\Attendance\AttendanceSummaryService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Tests\TestCase;

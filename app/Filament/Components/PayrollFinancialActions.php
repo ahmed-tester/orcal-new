@@ -10,10 +10,12 @@ use App\Models\PayrollPayment;
 use App\Models\PayrollRecord;
 use App\Services\BarcodeService;
 use App\Services\CashHandoverService;
+use App\Services\Payroll\EmployeeSalaryProfileService;
 use App\Services\FinancialReceiptService;
-use App\Services\PayrollDeductionSettlementService;
-use App\Services\PayrollDisbursementService;
-use App\Services\PayrollRecordFinancialService;
+use App\Services\Payroll\PayrollCalculationService;
+use App\Services\Payroll\PayrollDeductionSettlementService;
+use App\Services\Payroll\PayrollDisbursementService;
+use App\Services\Payroll\PayrollRecordFinancialService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -28,6 +30,62 @@ use Illuminate\Validation\ValidationException;
 
 class PayrollFinancialActions
 {
+    public static function recalculateSaudiPolicy(): Action
+    {
+        return Action::make('recalculate_saudi_policy')
+            ->label(__('finance.payroll_records.actions.recalculate_policy'))
+            ->icon('heroicon-o-arrow-path')
+            ->color('warning')
+            ->modalWidth('lg')
+            ->visible(fn (?PayrollRecord $record): bool => $record !== null
+                && $record->isPayroll()
+                && ! $record->hasFinancialImpact()
+                && $record->employee !== null
+                && EmployeeSalaryProfileService::isEligibleSaudiEmployee($record->employee)
+                && (auth()->user()?->can('update', $record) ?? false))
+            ->modalHeading(fn (PayrollRecord $record): string => __('finance.payroll_records.actions.recalculate_policy_heading', [
+                'employee' => $record->employee?->user?->name ?? '—',
+            ]))
+            ->modalDescription(__('finance.payroll_records.actions.recalculate_policy_desc'))
+            ->form(function (PayrollRecord $record): array {
+                $monthStr = Carbon::parse($record->payroll_month)->format('Y-m');
+                $preview = PayrollCalculationService::calculateEmployeeFinancials(
+                    $record->employee_id,
+                    $monthStr,
+                    $record->id,
+                    $record,
+                    true
+                );
+                $currentNet = (float) $record->net_amount;
+                $newNet = (float) ($preview['net_amount'] ?? $currentNet);
+                $diff = round($newNet - $currentNet, 2);
+
+                return [
+                    TextEntry::make('current_summary')
+                        ->hiddenLabel()
+                        ->state(__('finance.payroll_records.actions.recalculate_current_net', [
+                            'net' => number_format($currentNet, 2),
+                            'deduction' => number_format((float) $record->absence_deduction, 2),
+                        ])),
+                    TextEntry::make('new_summary')
+                        ->hiddenLabel()
+                        ->state(__('finance.payroll_records.actions.recalculate_new_net', [
+                            'net' => number_format($newNet, 2),
+                            'deduction' => number_format((float) ($preview['absence_deduction'] ?? 0), 2),
+                            'diff' => number_format($diff, 2),
+                        ])),
+                ];
+            })
+            ->action(function (PayrollRecord $record): void {
+                PayrollCalculationService::recalculateExistingRecord($record);
+
+                Notification::make()
+                    ->title(__('finance.payroll_records.actions.recalculate_success'))
+                    ->success()
+                    ->send();
+            });
+    }
+
     public static function confirmCollectionReceipt(): Action
     {
         return Action::make('confirm_collection_receipt')

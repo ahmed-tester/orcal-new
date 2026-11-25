@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Payroll;
 
+use App\Services\Attendance\AttendancePenaltyService;
 use App\Enums\AttendanceStatus;
 use App\Enums\PaymentItemCategory;
 use App\Enums\PaymentStatus;
@@ -18,14 +19,20 @@ use Carbon\Carbon;
 use Closure;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class PayrollCalculationService
 {
     /**
      * Calculate all employee dues and deductions for a given month.
      */
-    public static function calculateEmployeeFinancials(?int $employeeId, ?string $monthStr = null): array
-    {
+    public static function calculateEmployeeFinancials(
+        ?int $employeeId,
+        ?string $monthStr = null,
+        ?int $currentPayrollRecordId = null,
+        ?PayrollRecord $existingRecord = null,
+        bool $explicitRecalculate = false,
+    ): array {
         if (! $employeeId) {
             return [
                 'company_id' => null,
@@ -42,7 +49,7 @@ class PayrollCalculationService
             ];
         }
 
-        $employee = Employee::with('branch')->find($employeeId);
+        $employee = Employee::with(['branch', 'company', 'user', 'details'])->find($employeeId);
         if (! $employee) {
             return [];
         }
@@ -51,6 +58,20 @@ class PayrollCalculationService
         $month = Carbon::parse($monthStr ?: now());
         $branch = $employee->branch;
         $branchConfig = AttendancePenaltyService::getBranchSettings($branch);
+
+        $resolvedPolicy = SaudiPayrollPolicyService::resolveForPayrollMonth(
+            $employee,
+            $month->toDateString(),
+            $existingRecord,
+            $explicitRecalculate
+        );
+        if (! empty($resolvedPolicy['blocked'])) {
+            throw ValidationException::withMessages([
+                'daily_work_hours' => __('employees.salary_profile.errors.missing_daily_work_hours'),
+            ]);
+        }
+
+        $useNewPolicy = (bool) ($resolvedPolicy['use_new_policy'] ?? false);
 
         // 1. Approved rewards
         $rewards = (float) EmployeeReward::where('employee_id', $employee->id)
@@ -62,27 +83,35 @@ class PayrollCalculationService
         // 2. Loan installments and advances (separated from payroll per business rules - not deducted automatically)
         $advanceAmount = 0.0;
 
-        // 3. Overtime and absence from attendance policies
-        $hourRate = $basic > 0 ? ($basic / 240) : 0;
-        $dayRate = $basic > 0 ? ($basic / 30) : 0;
-
         $overtimeMinutes = (float) Attendance::where('employee_id', $employee->id)
             ->whereYear('date', $month->year)->whereMonth('date', $month->month)
             ->sum('overtime_hours');
 
-        $overtimeHours = $overtimeMinutes > 0 ? ($overtimeMinutes / 60) : 0;
-        $overtimeAmount = round($overtimeHours * $hourRate, 2);
-
-        // Calculate late deduction (daily tiers if enabled by branch, or precise hours if disabled)
-        if ($branchConfig['late_deduction_enabled']) {
+        $lateAndComp = null;
+        $legacyLateAmount = 0.0;
+        if ($useNewPolicy) {
+            $lateAndComp = SaudiCompensationGrantService::calculateMonthlyLateAndCompensation(
+                $employee,
+                $month->toDateString(),
+                $resolvedPolicy,
+                $currentPayrollRecordId
+            );
+            if (! empty($lateAndComp['blocked_missing_comp_rate'])) {
+                throw ValidationException::withMessages([
+                    'compensation_hourly_rate' => __('employees.compensation_grants.errors.missing_compensation_rate'),
+                ]);
+            }
+        } elseif ($branchConfig['late_deduction_enabled']) {
+            $dayRate = $basic > 0 ? ($basic / 30) : 0.0;
             $lateDeductionDays = AttendancePenaltyService::calculateMonthlyLateDeductionDays($employee, $month);
-            $lateAmount = round($lateDeductionDays * $dayRate, 2);
+            $legacyLateAmount = round($lateDeductionDays * $dayRate, 2);
         } else {
+            $hourRate = $basic > 0 ? ($basic / 240) : 0.0;
             $lateMinutes = (float) Attendance::where('employee_id', $employee->id)
                 ->whereYear('date', $month->year)->whereMonth('date', $month->month)
                 ->sum('late_hours');
             $lateHours = $lateMinutes > 0 ? ($lateMinutes / 60) : 0;
-            $lateAmount = round($lateHours * $hourRate, 2);
+            $legacyLateAmount = round($lateHours * $hourRate, 2);
         }
 
         // Calculate absence deduction (applying branch multiplier if present)
@@ -92,10 +121,6 @@ class PayrollCalculationService
             ->count();
 
         $effectiveAbsentDays = AttendancePenaltyService::calculateAbsenceDeductionDays($rawAbsentDays, $branch);
-        $absencePenaltyAmount = round($effectiveAbsentDays * $dayRate, 2);
-
-        $absenceAmount = round($lateAmount + $absencePenaltyAmount, 2);
-        $rewardsAmount = round($rewards, 2);
 
         // 4. Deduct only legacy collections automatically; managed collections use explicit settlement allocations
         $collections = PayrollRecord::where('employee_id', $employee->id)
@@ -115,29 +140,28 @@ class PayrollCalculationService
             return $note ? "{$note} ({$amt} {$currency})" : "{$colLabel} ({$amt} {$currency})";
         })->filter()->implode(' | ');
 
-        $additions = round($overtimeAmount + $rewardsAmount, 2);
-        $deductions = round($absenceAmount + $collectedDeduction, 2);
-        $net = round(max(0, $basic + $additions - $deductions), 2);
+        $snapshotBase = $useNewPolicy
+            ? EmployeeSalaryProfileService::buildCalculationSnapshot($employee, [
+                'basic_salary' => (float) $resolvedPolicy['basic_salary'],
+            ])
+            : [];
 
-        return [
+        return PayrollEntitlementCalculator::calculateEntitlement([
             'company_id' => $employee->company_id,
+            'month' => $month->format('Y-m'),
+            'use_new_policy' => $useNewPolicy,
             'basic_salary' => $basic,
-            'rewards_amount' => $rewardsAmount,
-            'overtime_amount' => $overtimeAmount,
-            'additional_amount' => $additions,
+            'rewards_amount' => $rewards,
             'advance_deduction' => $advanceAmount,
-            'absence_deduction' => $absenceAmount,
+            'overtime_minutes' => $overtimeMinutes,
+            'absent_days' => $effectiveAbsentDays,
             'collected_deduction' => $collectedDeduction,
             'collection_notes' => $collectionNotes,
-            'metadata' => array_filter([
-                'collected_deduction' => $collectedDeduction,
-                'collection_notes' => $collectionNotes,
-            ]),
-            'deduction_amount' => $deductions,
-            'net_amount' => $net,
-            'remaining_amount' => $net,
-            'payment_status' => PaymentStatus::UNPAID->value,
-        ];
+            'resolved_policy' => $resolvedPolicy,
+            'late_and_comp' => $lateAndComp,
+            'legacy_late_amount' => $legacyLateAmount,
+            'snapshot_base' => $snapshotBase,
+        ]);
     }
 
     /**
@@ -145,21 +169,7 @@ class PayrollCalculationService
      */
     public static function computeTotals(float $basic, float $additional, float $deductions, float $paid = 0): array
     {
-        $net = round(max(0, $basic + $additional - $deductions), 2);
-        $remaining = round(max(0, $net - $paid), 2);
-
-        $status = PaymentStatus::UNPAID;
-        if ($paid >= $net && $net > 0) {
-            $status = PaymentStatus::PAID;
-        } elseif ($paid > 0) {
-            $status = PaymentStatus::PARTIALLY_PAID;
-        }
-
-        return [
-            'net_amount' => $net,
-            'remaining_amount' => $remaining,
-            'payment_status' => $status,
-        ];
+        return PayrollEntitlementCalculator::computeTotals($basic, $additional, $deductions, $paid);
     }
 
     /**
@@ -190,8 +200,14 @@ class PayrollCalculationService
         $overtime = (float) ($record->overtime_amount ?? 0);
         $rewards = (float) ($record->rewards_amount ?? 0);
 
-        $sumAdditions = round($overtime + $rewards, 2);
-        if ($sumAdditions > 0 || ! isset($record->additional_amount)) {
+        $snapshot = is_array($record->metadata['calculation_snapshot'] ?? null) ? $record->metadata['calculation_snapshot'] : [];
+        $fixedAllowances = ! empty($snapshot['use_new_policy']) ? (float) ($snapshot['fixed_allowances_total'] ?? 0) : 0.0;
+        $compensationAmount = ! empty($snapshot['use_new_policy']) ? (float) ($snapshot['compensation_amount'] ?? 0) : 0.0;
+
+        $sumAdditions = round($overtime + $rewards + $fixedAllowances + $compensationAmount, 2);
+        if (! empty($snapshot['use_new_policy'])) {
+            $record->additional_amount = $sumAdditions;
+        } elseif ($sumAdditions > 0 || ! isset($record->additional_amount)) {
             $record->additional_amount = $sumAdditions;
         } else {
             $record->additional_amount = round((float) ($record->additional_amount ?? 0), 2);
@@ -201,7 +217,9 @@ class PayrollCalculationService
         $absence = (float) ($record->absence_deduction ?? 0);
         $collected = (float) ($record->metadata['collected_deduction'] ?? 0);
         $sumDeductions = round($advance + $absence + $collected, 2);
-        if ($sumDeductions > 0 || ! isset($record->deduction_amount)) {
+        if (! empty($snapshot['use_new_policy'])) {
+            $record->deduction_amount = $sumDeductions;
+        } elseif ($sumDeductions > 0 || ! isset($record->deduction_amount)) {
             $record->deduction_amount = $sumDeductions;
         } else {
             $record->deduction_amount = round((float) ($record->deduction_amount ?? 0), 2);
@@ -213,6 +231,14 @@ class PayrollCalculationService
         $record->net_amount = $totals['net_amount'];
         $record->remaining_amount = $totals['remaining_amount'];
         $record->payment_status = $totals['payment_status'];
+    }
+
+    /**
+     * Explicitly recalculate an existing non-financially-impacted payroll record under the current policy.
+     */
+    public static function recalculateExistingRecord(PayrollRecord $record): PayrollRecord
+    {
+        return PayrollEntitlementService::recalculateExistingRecord($record);
     }
 
     /**
@@ -353,7 +379,7 @@ class PayrollCalculationService
     ): PayrollPayment {
         if ($record->isCollection()) {
             if ($record->isManaged() || ! $record->hasFinancialImpact()) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'operation_type' => __('financial.errors.collection_uses_receipt_workflow'),
                 ]);
             }
@@ -368,7 +394,7 @@ class PayrollCalculationService
             ]);
 
             if (! $res['payment']) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'payment_method' => __('financial.errors.non_cash_destination_required'),
                 ]);
             }

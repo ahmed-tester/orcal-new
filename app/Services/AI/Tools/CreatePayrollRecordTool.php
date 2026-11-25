@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\PayrollRecord;
 use App\Services\AI\Contracts\GeminiToolInterface;
 use App\Services\AI\EmployeeNameMatcher;
+use App\Services\Payroll\PayrollEntitlementService;
 use Carbon\Carbon;
 
 class CreatePayrollRecordTool implements GeminiToolInterface
@@ -99,50 +100,48 @@ class CreatePayrollRecordTool implements GeminiToolInterface
             }
 
             // فحص وجود مسير سابق لنفس الموظف ونفس الشهر لتعديله أو إنشائه
-            $existing = PayrollRecord::where('company_id', $companyId)
+            $existing = PayrollRecord::where('company_id', $employee->company_id ?? $companyId)
                 ->where('employee_id', $employee->id)
+                ->where('operation_type', 'payroll')
                 ->whereDate('payroll_month', $monthDate)
                 ->first();
 
-            if ($existing) {
-                $existing->basic_salary = $basic;
-                $existing->overtime_amount = $overtime;
-                $existing->rewards_amount = $rewards;
-                $existing->advance_deduction = $advance;
-                $existing->absence_deduction = $absence;
-                if (! empty($notes)) {
-                    $existing->notes = $notes;
-                }
-                $existing->save();
+            $options = [
+                'skip_if_financially_impacted' => false,
+                'activate_if_new' => true,
+                'record_date' => date('Y-m-d'),
+                'overrides' => [
+                    'basic_salary' => $basic,
+                    'overtime_amount' => $overtime,
+                    'rewards_amount' => $rewards,
+                    'advance_deduction' => $advance,
+                    'absence_deduction' => $absence,
+                ],
+            ];
+            if (! empty($notes)) {
+                $options['notes'] = $notes;
+            } elseif (! $existing) {
+                $options['notes'] = 'استيراد ذكي — مسير رواتب';
+            }
 
+            $record = PayrollEntitlementService::upsertMonthlyPayroll($employee->id, $monthDate, $options);
+            if (! $record) {
+                return ['success' => false, 'message' => 'تعذر حفظ مسير الراتب للموظف المحدد.'];
+            }
+
+            if ($existing) {
                 return [
                     'success' => true,
-                    'message' => "تم تعديل وتحديث مسير شهر ({$monthStr}) للموظف ({$employee->user?->name}) بصافي جديد ".number_format($existing->net_amount, 2).' ر.س',
-                    'record_name' => $employee->user?->name ?? "مسير #{$existing->id}",
+                    'message' => "تم تعديل وتحديث مسير شهر ({$monthStr}) للموظف ({$employee->user?->name}) بصافي جديد ".number_format($record->net_amount, 2).' ر.س',
+                    'record_name' => $employee->user?->name ?? "مسير #{$record->id}",
                     'details' => [
                         'العملية' => 'تعديل مسير قائم',
                         'basic_salary' => number_format($basic, 2).' ر.س',
-                        'net_amount' => number_format($existing->net_amount, 2).' ر.س',
+                        'net_amount' => number_format($record->net_amount, 2).' ر.س',
                         'payroll_month' => $monthStr,
                     ],
                 ];
             }
-
-            $record = PayrollRecord::create([
-                'company_id' => $companyId,
-                'employee_id' => $employee->id,
-                'payroll_month' => $monthDate,
-                'record_date' => date('Y-m-d'),
-                'basic_salary' => $basic,
-                'overtime_amount' => $overtime,
-                'rewards_amount' => $rewards,
-                'advance_deduction' => $advance,
-                'absence_deduction' => $absence,
-                'paid_amount' => 0,
-                'notes' => $notes ?: 'استيراد ذكي — مسير رواتب',
-            ]);
-
-            \App\Services\PayrollRecordFinancialService::activate($record, auth()->user());
 
             return [
                 'success' => true,

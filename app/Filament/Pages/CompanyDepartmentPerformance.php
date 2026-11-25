@@ -16,7 +16,7 @@ use App\Models\Company;
 use App\Models\Department;
 use App\Models\ServiceTransaction;
 use App\Models\TaskAssignment;
-use App\Services\AttendanceSummaryService;
+use App\Services\Attendance\AttendanceSummaryService;
 use App\Services\CompanyCompliancePerformanceService;
 use App\Services\CompanyDepartmentPerformanceService;
 use App\Services\CompanyFinancialPerformanceService;

@@ -1,15 +1,23 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Payroll;
 
+use App\Services\CompanyAccessScopeService;
+use App\Services\CompanyFormService;
+use App\Services\FilterBarService;
+use App\Services\FinancialReceiptService;
+use App\Services\HijriDateService;
+use App\Enums\FinancialReceiptStatus;
 use App\Enums\PaymentStatus;
 use App\Models\Company;
 use App\Models\Employee;
+use App\Models\FinancialReceipt;
 use App\Models\Guarantor;
 use App\Models\PayrollRecord;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class PayrollSheetService
 {
@@ -262,8 +270,8 @@ class PayrollSheetService
             'checkedEmployees' => $checkedEmployees,
             'notes' => $notes,
             'counts' => [
-                'all'    => $countAll,
-                'paid'   => $countPaid,
+                'all' => $countAll,
+                'paid' => $countPaid,
                 'unpaid' => $countUnpaid,
             ],
             'totals' => [
@@ -340,7 +348,7 @@ class PayrollSheetService
         }
 
         $monthDate = Carbon::parse($payrollMonth)->startOfMonth()->toDateString();
-        $attemptKey = trim($attemptKey) !== '' ? trim($attemptKey) : ('sheet:'.\Illuminate\Support\Str::uuid()->toString());
+        $attemptKey = trim($attemptKey) !== '' ? trim($attemptKey) : ('sheet:'.Str::uuid()->toString());
         $savedRecords = [];
 
         // Phase 1: Save entitlements in short per-row transactions without faking PAID from checkboxes.
@@ -392,25 +400,58 @@ class PayrollSheetService
         string $payrollMonth,
         string $monthDate,
     ): ?PayrollRecord {
+        if ($operationType === 'payroll') {
+            $options = [
+                'explicit_recalculate' => ! empty($row['explicit_recalculate']),
+                'skip_if_financially_impacted' => true,
+                'return_record_when_protected' => true,
+                'activate_if_new' => true,
+                'overrides' => [
+                    'basic_salary' => (float) ($row['basic_salary'] ?? 0),
+                ],
+            ];
+            if (array_key_exists($empId, $notes)) {
+                $options['notes'] = $notes[$empId];
+            }
+
+            return PayrollEntitlementService::upsertMonthlyPayroll($empId, $monthDate, $options);
+        }
+
         return DB::transaction(function () use ($row, $empId, $notes, $operationType, $payrollMonth, $monthDate): ?PayrollRecord {
-            $emp = Employee::find($empId);
+            $emp = Employee::query()->whereKey($empId)->lockForUpdate()->first();
             if (! $emp || empty($emp->company_id) || ! Company::where('id', $emp->company_id)->exists()) {
                 return null;
             }
 
             $netAmount = round(max(0.0, (float) ($row['net_amount'] ?? 0)), 2);
 
-            $record = PayrollRecord::firstOrNew([
-                'company_id' => $emp->company_id,
-                'employee_id' => $emp->id,
-                'operation_type' => $operationType,
-                'payroll_month' => $monthDate,
-            ]);
+            $record = PayrollRecord::query()
+                ->where('company_id', $emp->company_id)
+                ->where('employee_id', $emp->id)
+                ->where('operation_type', $operationType)
+                ->where('payroll_month', $monthDate)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $record) {
+                $record = new PayrollRecord([
+                    'company_id' => $emp->company_id,
+                    'employee_id' => $emp->id,
+                    'operation_type' => $operationType,
+                    'payroll_month' => $monthDate,
+                ]);
+            }
 
             $isNew = ! $record->exists;
 
             if (! $record->hasFinancialImpact()) {
-                $financials = PayrollCalculationService::calculateEmployeeFinancials($emp->id, $payrollMonth);
+                $financials = PayrollCalculationService::calculateEmployeeFinancials(
+                    $emp->id,
+                    $payrollMonth,
+                    $record->exists ? $record->id : null,
+                    $record->exists ? $record : null,
+                    ! empty($row['explicit_recalculate'])
+                );
                 $record->record_date = now()->toDateString();
                 $record->basic_salary = (float) ($row['basic_salary'] ?? 0);
                 $record->additional_amount = (float) ($row['additional_amount'] ?? 0);
@@ -420,6 +461,11 @@ class PayrollSheetService
                 $record->advance_deduction = (float) ($financials['advance_deduction'] ?? 0);
                 $record->absence_deduction = (float) ($financials['absence_deduction'] ?? 0);
                 $meta = array_merge($record->metadata ?? [], $financials['metadata'] ?? []);
+                if ($operationType === 'payroll' && EmployeeSalaryProfileService::isEligibleSaudiEmployee($emp) && empty($meta['calculation_snapshot']['use_new_policy'])) {
+                    $meta['calculation_snapshot'] = EmployeeSalaryProfileService::buildCalculationSnapshot($emp, [
+                        'basic_salary' => $record->basic_salary,
+                    ]);
+                }
                 if ($record->isManaged()) {
                     $meta['net_amount_snapshot'] = $netAmount;
                 }
@@ -465,9 +511,9 @@ class PayrollSheetService
                     return;
                 }
 
-                $existing = \App\Models\FinancialReceipt::where('request_key', $rowKey)->first();
+                $existing = FinancialReceipt::where('request_key', $rowKey)->first();
                 $receipt = FinancialReceiptService::recordFor(
-                    \App\Models\FinancialReceipt::SOURCE_PAYROLL_COLLECTION,
+                    FinancialReceipt::SOURCE_PAYROLL_COLLECTION,
                     (int) $fresh->id,
                     [
                         'request_key' => $rowKey,
@@ -480,7 +526,7 @@ class PayrollSheetService
 
                 if ($existing) {
                     $result['already_executed'][] = ['employee_id' => $empId, 'record_id' => $fresh->id, 'receipt_id' => $receipt->id];
-                } elseif ($receipt->status === \App\Enums\FinancialReceiptStatus::PENDING_CONFIRMATION) {
+                } elseif ($receipt->status === FinancialReceiptStatus::PENDING_CONFIRMATION) {
                     $result['pending'][] = ['employee_id' => $empId, 'record_id' => $fresh->id, 'receipt_id' => $receipt->id];
                 } else {
                     $result['executed'][] = ['employee_id' => $empId, 'record_id' => $fresh->id, 'receipt_id' => $receipt->id];
@@ -629,6 +675,15 @@ class PayrollSheetService
                 'payment_status' => PaymentStatus::UNPAID,
                 'notes' => $note,
                 'created_by' => auth()->id(),
+            ]);
+        }
+
+        if ($operationType === 'payroll') {
+            return PayrollEntitlementService::upsertMonthlyPayroll($emp->id, $payrollMonth, [
+                'only_if_missing' => true,
+                'skip_if_financially_impacted' => true,
+                'return_record_when_protected' => true,
+                'notes' => $note,
             ]);
         }
 
@@ -783,20 +838,20 @@ class PayrollSheetService
             $title = "{$opLabel} {$monthName} {$year}";
 
             $result[] = [
-                'month_num'            => $m,
-                'month_key'            => $monthKey,
-                'month_name'           => $monthName,
-                'year'                 => $year,
-                'title'                => $title,
-                'operation_type'       => $operationType,
-                'total_employees'      => $totalEmployees,
-                'total_net'            => $totalNet,
-                'total_paid'           => $totalPaid,
-                'total_remaining'      => $totalRemaining,
-                'paid_count'           => $paidCount,
-                'unpaid_count'         => $unpaidCount,
-                'completion_rate'      => $completionRate,
-                'is_fully_paid'        => $isFullyPaid,
+                'month_num' => $m,
+                'month_key' => $monthKey,
+                'month_name' => $monthName,
+                'year' => $year,
+                'title' => $title,
+                'operation_type' => $operationType,
+                'total_employees' => $totalEmployees,
+                'total_net' => $totalNet,
+                'total_paid' => $totalPaid,
+                'total_remaining' => $totalRemaining,
+                'paid_count' => $paidCount,
+                'unpaid_count' => $unpaidCount,
+                'completion_rate' => $completionRate,
+                'is_fully_paid' => $isFullyPaid,
             ];
         }
 
@@ -809,15 +864,15 @@ class PayrollSheetService
     public static function getArabicMonthName(int $month): string
     {
         $months = [
-            1  => 'يناير',
-            2  => 'فبراير',
-            3  => 'مارس',
-            4  => 'أبريل',
-            5  => 'مايو',
-            6  => 'يونيو',
-            7  => 'يوليو',
-            8  => 'أغسطس',
-            9  => 'سبتمبر',
+            1 => 'يناير',
+            2 => 'فبراير',
+            3 => 'مارس',
+            4 => 'أبريل',
+            5 => 'مايو',
+            6 => 'يونيو',
+            7 => 'يوليو',
+            8 => 'أغسطس',
+            9 => 'سبتمبر',
             10 => 'أكتوبر',
             11 => 'نوفمبر',
             12 => 'ديسمبر',

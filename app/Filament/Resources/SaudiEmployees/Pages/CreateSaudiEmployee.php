@@ -2,19 +2,15 @@
 
 namespace App\Filament\Resources\SaudiEmployees\Pages;
 
-use App\Enums\UserType;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Models\Branch;
-use App\Models\Employee;
 use App\Models\EmployeeDetail;
-use App\Models\Owner;
-use App\Models\User;
 use App\Services\EmployeeAgeService;
+use App\Services\Payroll\EmployeeSalaryProfileService;
 use App\Services\PersonCapacityService;
-use App\Services\PhoneService;
 use Filament\Resources\Pages\CreateRecord;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class CreateSaudiEmployee extends CreateRecord
 {
@@ -49,27 +45,49 @@ class CreateSaudiEmployee extends CreateRecord
         $capacity = $data['person_capacity'] ?? $rawState['person_capacity'] ?? null;
         $data['metadata'] = PersonCapacityService::mergeIntoMetadata($data['metadata'] ?? [], $capacity, 'employee');
 
-        unset($data['registration_source'], $data['selected_owner_id'], $data['person_capacity']);
+        unset(
+            $data['registration_source'],
+            $data['selected_owner_id'],
+            $data['person_capacity'],
+            $data['allowances_amount'],
+            $data['bonuses_amount'],
+            $data['other_allowances_amount'],
+            $data['total_salary_display'],
+            $data['overtime_hourly_rate'],
+            $data['compensation_hourly_rate'],
+            $data['deduction_basis']
+        );
 
         return $data;
     }
 
-    protected function afterCreate(): void
+    protected function handleRecordCreation(array $data): Model
     {
-        $data = $this->form->getRawState();
+        return DB::transaction(function () use ($data): Model {
+            $rawState = $this->form->getRawState();
+            $record = parent::handleRecordCreation($data);
 
-        EmployeeDetail::create([
-            'employee_id' => $this->record->id,
-            'nationality' => 'saudi',
-            'national_id' => $data['national_id'] ?? null,
-            'profession' => $data['profession'] ?? null,
-            'birth_date' => $data['birth_date'] ?? null,
-            'metadata' => ! empty($data['birth_date']) ? ['age' => EmployeeAgeService::calculateAge($data['birth_date'])] : null,
-            'address' => $data['address'] ?? null,
-        ]);
+            EmployeeDetail::create([
+                'employee_id' => $record->id,
+                'nationality' => 'saudi',
+                'national_id' => $rawState['national_id'] ?? null,
+                'profession' => $rawState['profession'] ?? null,
+                'birth_date' => $rawState['birth_date'] ?? null,
+                'metadata' => ! empty($rawState['birth_date']) ? ['age' => EmployeeAgeService::calculateAge($rawState['birth_date'])] : null,
+                'address' => $rawState['address'] ?? null,
+            ]);
 
-        if (! empty($data['roles']) && $this->record->user) {
-            $this->record->user->syncRoles($data['roles']);
-        }
+            if (! empty($rawState['roles']) && $record->user) {
+                $record->user->syncRoles($rawState['roles']);
+            }
+
+            if (EmployeeSalaryProfileService::isEligibleSaudiEmployee($record)) {
+                EmployeeSalaryProfileService::saveForSaudiEmployee($record, $rawState, auth()->user());
+            }
+
+            return $record;
+        });
     }
+
+    protected function afterCreate(): void {}
 }

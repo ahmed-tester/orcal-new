@@ -1,7 +1,9 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Payroll;
 
+use App\Services\FinancialSummaryService;
+use App\Services\OperationsAuditService;
 use App\Enums\PaymentStatus;
 use App\Models\FinancialReceipt;
 use App\Models\PayrollPayment;

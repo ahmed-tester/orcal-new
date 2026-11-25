@@ -43,11 +43,11 @@ class CreateAttendanceTool implements GeminiToolInterface
                     ],
                     'late_hours' => [
                         'type' => 'NUMBER',
-                        'description' => 'ساعات التأخير إن وجدت',
+                        'description' => 'دقائق التأخير إن وجدت (تُخزن كدقائق في late_hours)',
                     ],
                     'overtime_hours' => [
                         'type' => 'NUMBER',
-                        'description' => 'ساعات العمل الإضافي إن وجدت',
+                        'description' => 'دقائق العمل الإضافي إن وجدت (تُخزن كدقائق في overtime_hours)',
                     ],
                     'status' => [
                         'type' => 'STRING',

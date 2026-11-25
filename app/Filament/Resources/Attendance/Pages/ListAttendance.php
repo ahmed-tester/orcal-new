@@ -101,7 +101,7 @@ class ListAttendance extends ListRecords
                             ]
                         );
 
-                        $service = app(\App\Services\BiometricAttendanceService::class);
+                        $service = app(\App\Services\Attendance\BiometricAttendanceService::class);
                         $count = $service->processAttLog('ZK-TEST-SIMULATOR', $payload);
 
                         Notification::make()

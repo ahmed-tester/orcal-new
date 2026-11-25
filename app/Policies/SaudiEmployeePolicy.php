@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\SaudiEmployee;
 use App\Models\User;
+use App\Services\Payroll\EmployeeCompensationEligibilityService;
 
 class SaudiEmployeePolicy
 {
@@ -32,5 +33,10 @@ class SaudiEmployeePolicy
     public function delete(User $user, SaudiEmployee $model): bool
     {
         return $user->can('delete_saudi_employee');
+    }
+
+    public function manageCompensation(User $user, SaudiEmployee $model): bool
+    {
+        return EmployeeCompensationEligibilityService::canManage($user, $model);
     }
 }

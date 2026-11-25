@@ -48,6 +48,7 @@ return [
     'create_saudi_employee' => 'Create Saudi Employee',
     'update_saudi_employee' => 'Update Saudi Employee',
     'delete_saudi_employee' => 'Delete Saudi Employee',
+    'manage_employee_compensation' => 'Manage Employee Compensation Eligibility',
 
     'view_any_foreign_employee' => 'View Resident Employees',
     'create_foreign_employee' => 'Create Resident Employee',

@@ -6,6 +6,7 @@ use App\Filament\Resources\Attendance\Pages\AttendanceSummary;
 use App\Filament\Resources\Attendance\Pages\CreateAttendance;
 use App\Filament\Resources\Attendance\Pages\EditAttendance;
 use App\Filament\Resources\Attendance\Pages\ListAttendance;
+use App\Filament\Resources\Attendance\Pages\SaudiPeriodReport;
 use App\Filament\Resources\Attendance\Schemas\AttendanceForm;
 use App\Filament\Resources\Attendance\Tables\AttendanceTable;
 use App\Filament\Traits\HasCompanyScope;
@@ -69,6 +70,7 @@ class AttendanceResource extends Resource
         return [
             'index' => AttendanceSummary::route('/'),
             'detailed' => ListAttendance::route('/detailed'),
+            'saudi-period' => SaudiPeriodReport::route('/saudi-period'),
             'create' => CreateAttendance::route('/create'),
             'edit' => EditAttendance::route('/{record}/edit'),
         ];

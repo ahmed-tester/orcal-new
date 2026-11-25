@@ -1,7 +1,9 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Attendance;
 
+use App\Services\CompanyAccessScopeService;
+use App\Services\HijriDateService;
 use App\Enums\AttendanceStatus;
 use App\Enums\GeneralStatus;
 use App\Models\Attendance;

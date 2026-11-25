@@ -6,7 +6,7 @@ use App\Filament\Resources\Attendance\AttendanceResource;
 use App\Filament\Traits\HasFilterBarState;
 use App\Models\Attendance;
 use App\Models\Employee;
-use App\Services\AttendanceSummaryService;
+use App\Services\Attendance\AttendanceSummaryService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\Page;
@@ -73,6 +73,12 @@ class AttendanceSummary extends Page
                 ->icon('heroicon-o-plus-circle')
                 ->url(fn (): string => AttendanceResource::getUrl('create'))
                 ->visible(fn (): bool => auth()->user()?->can('create', Attendance::class) ?? false),
+
+            Action::make('saudiPeriodReport')
+                ->label(__('attendance.period_report.action_label'))
+                ->icon('heroicon-o-calendar-days')
+                ->color('info')
+                ->url(fn (): string => AttendanceResource::getUrl('saudi-period')),
 
             Action::make('detailedView')
                 ->label(__('attendance.summary.detailed_view'))

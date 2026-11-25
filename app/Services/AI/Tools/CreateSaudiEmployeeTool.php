@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\AI\Contracts\GeminiToolInterface;
 use App\Services\AI\EmployeeNameMatcher;
 use App\Services\CompanyFormService;
+use App\Services\Payroll\EmployeeSalaryProfileService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -230,6 +231,12 @@ class CreateSaudiEmployeeTool implements GeminiToolInterface
                     'city' => $city ?: null,
                     'birth_date' => $birthDate ?: null,
                 ]);
+
+                EmployeeSalaryProfileService::saveForSaudiEmployee(
+                    $employee->refresh(),
+                    ['basic_salary' => $salary],
+                    auth()->user()
+                );
 
                 return [
                     'success' => true,

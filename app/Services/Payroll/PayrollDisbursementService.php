@@ -1,7 +1,10 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Payroll;
 
+use App\Services\FinancialTreasuryService;
+use App\Services\OperationsAuditService;
+use App\Services\ServiceFinancialWorkflowService;
 use App\Enums\FinancialCashDirection;
 use App\Enums\FinancialPaymentMethod;
 use App\Enums\PaymentItemCategory;

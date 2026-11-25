@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Payroll;
 
+use App\Services\OperationsAuditService;
 use App\Models\PayrollPayment;
 use App\Models\PayrollRecord;
 use App\Models\User;

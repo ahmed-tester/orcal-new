@@ -4,7 +4,7 @@ namespace App\Models;
 
 use App\Enums\PaymentStatus;
 use App\Observers\PayrollRecordObserver;
-use App\Services\PayrollCalculationService;
+use App\Services\Payroll\PayrollCalculationService;
 use App\Traits\HasHijriDates;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,6 +22,8 @@ class PayrollRecord extends Model
     public const WORKFLOW_VERSION = 1;
 
     public const FLOW_MANAGED = 'managed';
+
+    public bool $skipObserverTotalsSync = false;
 
     public function getHijriDateFieldNames(): array
     {

@@ -16,7 +16,7 @@ use App\Models\Guarantor;
 use App\Models\JobTitle;
 use App\Models\PayrollRecord;
 use App\Models\User;
-use App\Services\PayrollCalculationService;
+use App\Services\Payroll\PayrollCalculationService;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;

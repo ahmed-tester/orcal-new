@@ -11,7 +11,7 @@ use App\Models\User;
 use App\Services\Financial\Contracts\FinancialReceiptSourceConnector;
 use App\Services\Notifications\NotificationDispatcher;
 use App\Services\OperationsAuditService;
-use App\Services\PayrollRecordFinancialService;
+use App\Services\Payroll\PayrollRecordFinancialService;
 use App\Services\ServiceFinancialWorkflowService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;

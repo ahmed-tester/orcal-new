@@ -84,6 +84,7 @@ Route::middleware('auth')->group(function () {
 
     // Attendance Employee Monthly Sheet Print Route
     Route::get('/attendances/summary/print', [AttendancePrintController::class, 'summary'])->name('attendance.summary.print');
+    Route::get('/attendances/saudi-period/print', [AttendancePrintController::class, 'saudiPeriod'])->name('attendance.saudi-period.print');
     Route::get('/attendances/{employee}/sheet/print', [AttendancePrintController::class, 'sheet'])->name('attendance.sheet.print');
 
     // Asset Fund Statement PDF

@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Models\AttendanceDevice;
 use App\Models\Company;
 use App\Models\Employee;
-use App\Services\BiometricAttendanceService;
+use App\Services\Attendance\BiometricAttendanceService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 

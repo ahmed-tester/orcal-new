@@ -4,8 +4,8 @@ namespace App\Observers;
 
 use App\Models\PayrollPayment;
 use App\Services\CodeGeneratorService;
-use App\Services\PayrollCalculationService;
-use App\Services\PayrollRecordFinancialService;
+use App\Services\Payroll\PayrollCalculationService;
+use App\Services\Payroll\PayrollRecordFinancialService;
 use Illuminate\Validation\ValidationException;
 
 class PayrollPaymentObserver

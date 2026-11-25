@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Attendance;
 
 use App\Enums\AttendanceSource;
 use App\Enums\AttendanceStatus;

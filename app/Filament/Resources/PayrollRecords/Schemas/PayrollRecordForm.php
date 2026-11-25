@@ -5,7 +5,7 @@ namespace App\Filament\Resources\PayrollRecords\Schemas;
 use App\Enums\PaymentStatus;
 use App\Filament\Components\OrgSelect;
 use App\Models\PayrollRecord;
-use App\Services\PayrollCalculationService;
+use App\Services\Payroll\PayrollCalculationService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -41,6 +41,8 @@ class PayrollRecordForm
                             ])
                             ->default('payroll')
                             ->required()
+                            ->disabled(fn (?PayrollRecord $record): bool => $record !== null)
+                            ->dehydrated()
                             ->live()
                             ->afterStateUpdated(function ($state, callable $set, callable $get) {
                                 if ($state === 'collection') {
@@ -70,6 +72,8 @@ class PayrollRecordForm
                             ->searchable()
                             ->preload()
                             ->required()
+                            ->disabled(fn (?PayrollRecord $record): bool => $record !== null)
+                            ->dehydrated()
                             ->reactive()
                             ->afterStateUpdated(fn ($state, callable $set, callable $get) => static::syncFinancials($set, $get, (int) $state, $get('payroll_month'))),
 
@@ -77,6 +81,8 @@ class PayrollRecordForm
                             ->label(__('finance.payroll_records.fields.payroll_month'))
                             ->default(now()->startOfMonth())
                             ->required()
+                            ->disabled(fn (?PayrollRecord $record): bool => $record !== null)
+                            ->dehydrated()
                             ->reactive()
                             ->afterStateUpdated(fn ($state, callable $set, callable $get) => static::syncFinancials($set, $get, (int) $get('employee_id'), $state))
                             ->rules([fn (callable $get, $record) => PayrollCalculationService::uniquePayrollRule($get, $record)]),

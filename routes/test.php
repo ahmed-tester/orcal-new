@@ -209,6 +209,23 @@ Route::get('/system/sync-operations-permissions', function () {
     ]);
 })->name('system.sync-operations-permissions');
 
+// Route::get('/system/sync-supervise-task-team-permission', function () {
+//     abort_unless(auth()->user()?->isSuperAdmin(), 403);
+
+//     $permission = \Spatie\Permission\Models\Permission::firstOrCreate([
+//         'name' => \App\Services\EmployeePerformanceAccessService::SUPERVISE_PERMISSION,
+//         'guard_name' => 'web',
+//     ]);
+
+//     app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
+//     return response()->json([
+//         'status' => 'success',
+//         'permission' => $permission->name,
+//         'created' => $permission->wasRecentlyCreated,
+//     ]);
+// })->name('system.sync-supervise-task-team-permission');
+
 Route::get('/sync-operations-permissions', function () {
     (new \Database\Seeders\RolesAndPermissionsSeeder)->run();
     $result = \App\Services\OperationsPermissionService::syncPermissions();

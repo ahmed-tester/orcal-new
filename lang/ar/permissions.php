@@ -37,6 +37,7 @@ return [
     'create_saudi_employee' => 'إضافة موظف سعودي',
     'update_saudi_employee' => 'تعديل موظف سعودي',
     'delete_saudi_employee' => 'حذف موظف سعودي',
+    'manage_employee_compensation' => 'إدارة أهلية تعويض الموظفين',
     'view_any_foreign_employee' => 'استعراض الموظفين المقيمين',
     'create_foreign_employee' => 'إضافة موظف مقيم',
     'update_foreign_employee' => 'تعديل موظف مقيم',

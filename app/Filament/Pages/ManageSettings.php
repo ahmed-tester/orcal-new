@@ -3,15 +3,20 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Schemas\MailSettingsForm;
+use App\Models\Company;
 use App\Models\Setting;
+use App\Services\CompanyFormService;
 use App\Services\DatabaseResetService;
 use App\Services\Mail\MailAccessService;
 use App\Services\Mail\MailSettingsService;
+use App\Services\Payroll\SaudiPayrollPolicyService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
@@ -80,6 +85,7 @@ class ManageSettings extends Page implements HasForms
         if (auth()->user() && MailAccessService::canAdministerAllMail(auth()->user())) {
             $settings = array_replace($settings, MailSettingsService::values());
         }
+        $settings['saudi_payroll_default_days'] = SaudiPayrollPolicyService::getGlobalDefaultDays();
         $this->form->fill($settings);
     }
 
@@ -120,6 +126,16 @@ class ManageSettings extends Page implements HasForms
                                             ->helperText(__('settings.manage.general.company_email_helper'))
                                             ->email()
                                             ->disabled(! $canEdit),
+
+                                        TextInput::make('saudi_payroll_default_days')
+                                            ->label(__('settings.manage.payroll_attendance.default_days'))
+                                            ->helperText(__('settings.manage.payroll_attendance.default_days_helper'))
+                                            ->numeric()
+                                            ->integer()
+                                            ->minValue(1)
+                                            ->maxValue(31)
+                                            ->default(26)
+                                            ->disabled(fn (): bool => ! SaudiPayrollPolicyService::canEditGlobalDefaultDays(auth()->user())),
                                     ]),
                             ]),
 
@@ -471,7 +487,13 @@ class ManageSettings extends Page implements HasForms
         if ($mailData !== []) {
             MailSettingsService::save($mailData);
         }
-        $formData = Arr::except($formData, $mailKeys);
+
+        $user = auth()->user();
+        if (array_key_exists('saudi_payroll_default_days', $formData) && SaudiPayrollPolicyService::canEditGlobalDefaultDays($user)) {
+            SaudiPayrollPolicyService::setGlobalDefaultDays((int) $formData['saudi_payroll_default_days'], $user);
+        }
+
+        $formData = Arr::except($formData, array_merge($mailKeys, ['saudi_payroll_default_days']));
 
         foreach ($formData as $key => $value) {
             Setting::updateOrCreate(
