@@ -191,6 +191,11 @@ class Employee extends Model
         return $this->belongsTo(Department::class);
     }
 
+    public function managedDepartments(): HasMany
+    {
+        return $this->hasMany(Department::class, 'manager_id');
+    }
+
     public function jobTitle(): BelongsTo
     {
         return $this->belongsTo(JobTitle::class);

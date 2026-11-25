@@ -63,7 +63,7 @@ class DepartmentsReport extends AbstractReport
     public function getQuery(?string $dateFrom, ?string $dateTo, ?int $branchId, string $status, ?string $search)
     {
         $query = Department::query()
-            ->with(['company', 'parent', 'companies'])
+            ->with(['company', 'parent', 'companies', 'manager.user'])
             ->withCount('employees');
 
         $this->applyCompanyScope($query);
@@ -71,7 +71,8 @@ class DepartmentsReport extends AbstractReport
 
         $this->applySearchFilter($query, $search, function ($sub, $search) {
             $sub->where('name', 'like', "%{$search}%")
-                ->orWhere('department_code', 'like', "%{$search}%");
+                ->orWhere('department_code', 'like', "%{$search}%")
+                ->orWhereHas('manager.user', fn ($user) => $user->where('name', 'like', "%{$search}%"));
         });
 
         return $query->orderByDesc('id');
@@ -92,6 +93,7 @@ class DepartmentsReport extends AbstractReport
         return [
             ['key' => 'department_code', 'label' => __('reports.columns.department_code')],
             ['key' => 'name', 'label' => __('reports.columns.department_name')],
+            ['key' => 'manager_name', 'label' => __('organization.departments.fields.manager')],
             ['key' => 'parent_name', 'label' => __('reports.columns.parent_department')],
             ['key' => 'company_name', 'label' => __('reports.columns.company_name')],
             ['key' => 'employees_count', 'label' => __('reports.columns.employees_count')],
@@ -115,6 +117,7 @@ class DepartmentsReport extends AbstractReport
         return [
             'department_code' => $item->department_code ?? '—',
             'name' => $item->name,
+            'manager_name' => $item->manager?->user?->name ?? '—',
             'parent_name' => $item->parent?->name ?? '—',
             'company_name' => $companyName,
             'employees_count' => $item->employees_count ?? 0,

@@ -24,6 +24,7 @@ class Department extends Model
         'company_id',
         'is_global',
         'parent_id',
+        'manager_id',
         'name',
         'description',
         'department_code',
@@ -88,6 +89,11 @@ class Department extends Model
     public function parent(): BelongsTo
     {
         return $this->belongsTo(Department::class, 'parent_id');
+    }
+
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'manager_id');
     }
 
     public function children(): HasMany

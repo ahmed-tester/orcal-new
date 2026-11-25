@@ -197,6 +197,7 @@ return [
             'is_global_helper' => 'Enable this option if the department is shared across multiple companies (e.g., Accounting or General Administration)',
             'global_badge' => 'General / Shared Department',
             'parent' => 'Parent Department',
+            'manager' => 'Department Manager',
             'name' => 'Department Name',
             'department_code' => 'Department Code',
             'status' => 'Status',
@@ -256,6 +257,7 @@ return [
                 'parent' => 'Select a compatible parent administration or main department, or leave empty for a group administration.',
                 'sort_order' => 'Leave empty to place the department last within its level.',
                 'code' => 'The code is fixed; its prefix reflects the classification at creation, and the current level is shown separately.',
+                'manager' => 'Available for first-layer general administrations only, and the manager must be an active Saudi employee.',
             ],
             'notifications' => [
                 'delete_blocked' => 'The department could not be deleted: :reasons',
@@ -278,6 +280,8 @@ return [
                 'assignments_outside_scope' => 'The new company assignment conflicts with linked employees, users or job titles.',
                 'busy' => 'Another department update is in progress. Please try again.',
                 'scope_invalid' => 'Select a valid department affiliation scope.',
+                'manager_only_for_first_layer' => 'A manager can only be assigned to first-layer general administrations.',
+                'manager_must_be_active_saudi' => 'The department manager must be an active Saudi employee.',
             ],
             'delete_blockers' => [
                 'has_children' => 'A department that contains sub-departments cannot be deleted.',

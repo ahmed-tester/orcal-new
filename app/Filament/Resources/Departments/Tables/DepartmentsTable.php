@@ -25,7 +25,7 @@ class DepartmentsTable
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query
-                ->with(['parent' => fn ($parent) => CompanyAccessScopeService::apply($parent->getQuery()), 'companies', 'company'])
+                ->with(['parent' => fn ($parent) => CompanyAccessScopeService::apply($parent->getQuery()), 'manager.user', 'companies', 'company'])
                 ->withCount(['children as visible_children_count' => fn (Builder $children) => CompanyAccessScopeService::apply($children)])
                 ->ordered())
             ->columns([
@@ -61,6 +61,15 @@ class DepartmentsTable
                     ->label(__('organization.departments.hierarchy.columns.level'))
                     ->state(fn (Department $record) => DepartmentHierarchyService::levelLabel($record)),
 
+                TextColumn::make('manager.user.name')
+                    ->label(__('organization.departments.fields.manager'))
+                    ->visible(fn ($livewire): bool => $livewire->parent === null
+                        || data_get($livewire->tableFilters, 'all_levels.isActive', false))
+                    ->placeholder('-')
+                    ->badge()
+                    ->color('primary')
+                    ->searchable(),
+
                 TextColumn::make('parent.name')
                     ->label(__('organization.departments.hierarchy.columns.parent'))
                     ->visible(fn ($livewire): bool => ! data_get($livewire->tableFilters, 'unclassified.isActive', false)
@@ -95,6 +104,17 @@ class DepartmentsTable
                 SelectFilter::make('company_id')
                     ->label(__('organization.departments.fields.company'))
                     ->relationship('company', 'trade_name')
+                    ->searchable()
+                    ->preload(),
+
+                SelectFilter::make('manager_id')
+                    ->label(__('organization.departments.fields.manager'))
+                    ->relationship(
+                        'manager',
+                        'id',
+                        fn (Builder $query) => $query->with('user')->whereHas('managedDepartments'),
+                    )
+                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->user?->name ?? ('#'.$record->id))
                     ->searchable()
                     ->preload(),
 

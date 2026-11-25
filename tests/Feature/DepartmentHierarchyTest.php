@@ -17,6 +17,7 @@ use App\Services\CodeGeneratorService;
 use App\Services\CompanyAccessScopeService;
 use App\Services\DepartmentHierarchyService;
 use App\Services\DepartmentScopeService;
+use App\Services\Reports\Types\DepartmentsReport;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Schema\Blueprint;
@@ -54,6 +55,7 @@ class DepartmentHierarchyTest extends TestCase
             $table->id();
             $table->foreignId('company_id')->nullable();
             $table->foreignId('parent_id')->nullable();
+            $table->foreignId('manager_id')->nullable();
             $table->boolean('is_global')->default(false);
             $table->string('name');
             $table->text('description')->nullable();
@@ -72,12 +74,27 @@ class DepartmentHierarchyTest extends TestCase
 
         Schema::create('employees', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->nullable();
             $table->foreignId('department_id')->nullable();
             $table->foreignId('company_id')->nullable();
+            $table->foreignId('branch_id')->nullable();
+            $table->decimal('basic_salary', 10, 2)->default(0);
+            $table->string('status')->default('active');
+            $table->timestamps();
+        });
+
+        Schema::create('employee_details', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('employee_id');
+            $table->string('nationality')->nullable();
         });
 
         Schema::create('users', function (Blueprint $table) {
             $table->id();
+            $table->string('name')->nullable();
+            $table->string('user_type')->nullable();
+            $table->string('status')->default('active');
+            $table->timestamps();
         });
         Schema::create('owners', function (Blueprint $table) {
             $table->id();
@@ -1101,6 +1118,243 @@ class DepartmentHierarchyTest extends TestCase
         );
 
         $this->assertSame('TEST-0002', $code);
+    }
+
+    public function test_super_admin_can_assign_and_update_saudi_manager_on_first_layer_only(): void
+    {
+        $saudiUser = new User;
+        $saudiUser->forceFill(['name' => 'Saudi Manager', 'user_type' => UserType::SAUDI_EMPLOYEE, 'status' => 'active'])->save();
+        $saudiEmployee = Employee::withoutEvents(fn () => Employee::forceCreate([
+            'user_id' => $saudiUser->id,
+            'status' => 'active',
+        ]));
+
+        $otherSaudiUser = new User;
+        $otherSaudiUser->forceFill(['name' => 'Second Saudi', 'user_type' => UserType::SAUDI_EMPLOYEE, 'status' => 'active'])->save();
+        $otherSaudiEmployee = Employee::withoutEvents(fn () => Employee::forceCreate([
+            'user_id' => $otherSaudiUser->id,
+            'status' => 'active',
+        ]));
+
+        Livewire::test(CreateDepartment::class)
+            ->assertFormFieldIsVisible('manager_id')
+            ->fillForm([
+                'name' => 'Group Operations',
+                'manager_id' => $saudiEmployee->id,
+                'status' => 'active',
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $administration = Department::where('name', 'Group Operations')->firstOrFail();
+        $this->assertSame($saudiEmployee->id, $administration->manager_id);
+        $this->assertSame('DEP1-0001', $administration->department_code);
+
+        Livewire::test(EditDepartment::class, ['record' => $administration->id])
+            ->assertFormFieldIsVisible('manager_id')
+            ->fillForm(['manager_id' => $otherSaudiEmployee->id])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame($otherSaudiEmployee->id, $administration->fresh()->manager_id);
+        $this->assertSame('DEP1-0001', $administration->fresh()->department_code);
+
+        Livewire::test(ListDepartments::class)
+            ->assertCanSeeTableRecords([$administration])
+            ->assertSee('Second Saudi');
+    }
+
+    public function test_manager_is_rejected_for_non_saudi_or_inactive_employee_and_lower_layers(): void
+    {
+        $foreignUser = new User;
+        $foreignUser->forceFill(['name' => 'Foreign Employee', 'user_type' => UserType::FOREIGN_EMPLOYEE, 'status' => 'active'])->save();
+        $foreignEmployee = Employee::withoutEvents(fn () => Employee::forceCreate([
+            'user_id' => $foreignUser->id,
+            'status' => 'active',
+        ]));
+
+        $inactiveUser = new User;
+        $inactiveUser->forceFill(['name' => 'Inactive Saudi', 'user_type' => UserType::SAUDI_EMPLOYEE, 'status' => 'active'])->save();
+        $inactiveEmployee = Employee::withoutEvents(fn () => Employee::forceCreate([
+            'user_id' => $inactiveUser->id,
+            'status' => 'inactive',
+        ]));
+
+        $saudiUser = new User;
+        $saudiUser->forceFill(['name' => 'Active Saudi', 'user_type' => UserType::SAUDI_EMPLOYEE, 'status' => 'active'])->save();
+        $saudiEmployee = Employee::withoutEvents(fn () => Employee::forceCreate([
+            'user_id' => $saudiUser->id,
+            'status' => 'active',
+        ]));
+
+        try {
+            DepartmentHierarchyService::createFromContext([
+                'name' => 'Invalid Foreign',
+                'manager_id' => $foreignEmployee->id,
+            ], null);
+            $this->fail('Expected validation error for foreign employee.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('manager_id', $e->errors());
+        }
+
+        try {
+            DepartmentHierarchyService::createFromContext([
+                'name' => 'Invalid Inactive',
+                'manager_id' => $inactiveEmployee->id,
+            ], null);
+            $this->fail('Expected validation error for inactive employee.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('manager_id', $e->errors());
+        }
+
+        $administration = $this->group('Administration');
+
+        Livewire::withQueryParams(['parent' => $administration->id])
+            ->test(CreateDepartment::class)
+            ->assertFormFieldIsHidden('manager_id');
+
+        try {
+            DepartmentHierarchyService::createFromContext([
+                'name' => 'Main Dept',
+                'manager_id' => $saudiEmployee->id,
+            ], $administration->id);
+            $this->fail('Expected validation error for second layer manager.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('manager_id', $e->errors());
+        }
+    }
+
+    public function test_moving_administration_to_second_layer_clears_manager_and_staff_cannot_assign_manager(): void
+    {
+        $company = Company::create(['trade_name' => 'A']);
+        $saudiUser = new User;
+        $saudiUser->forceFill(['name' => 'Active Saudi', 'user_type' => UserType::SAUDI_EMPLOYEE, 'status' => 'active'])->save();
+        $saudiEmployee = Employee::withoutEvents(fn () => Employee::forceCreate([
+            'user_id' => $saudiUser->id,
+            'company_id' => $company->id,
+            'status' => 'active',
+        ]));
+
+        $targetAdmin = $this->group('Target Admin');
+        $movableAdmin = DepartmentHierarchyService::createFromContext([
+            'name' => 'Movable Admin',
+            'manager_id' => $saudiEmployee->id,
+        ], null);
+
+        $this->assertSame($saudiEmployee->id, $movableAdmin->manager_id);
+
+        $moved = DepartmentHierarchyService::save([
+            'name' => 'Movable Admin',
+            'parent_id' => $targetAdmin->id,
+            'manager_id' => $saudiEmployee->id,
+        ], $movableAdmin, DepartmentScope::FAWAZ_GROUP, []);
+
+        $this->assertNull($moved->manager_id);
+        $this->assertSame($targetAdmin->id, $moved->parent_id);
+
+        $this->actAsStaff($company->id);
+        $this->expectException(AuthorizationException::class);
+        DepartmentHierarchyService::createFromContext([
+            'name' => 'Staff Admin',
+            'manager_id' => $saudiEmployee->id,
+        ], null);
+    }
+
+    public function test_legacy_shared_root_direct_model_save_and_departments_report_respect_manager_rules(): void
+    {
+        $companyA = Company::create(['trade_name' => 'A']);
+        $companyB = Company::create(['trade_name' => 'B']);
+
+        $saudiUser = new User;
+        $saudiUser->forceFill(['name' => 'Report Manager', 'user_type' => UserType::SAUDI_EMPLOYEE, 'status' => 'active'])->save();
+        $saudiEmployee = Employee::withoutEvents(fn () => Employee::forceCreate([
+            'user_id' => $saudiUser->id,
+            'status' => 'active',
+        ]));
+
+        $foreignUser = new User;
+        $foreignUser->forceFill(['name' => 'Foreign Direct', 'user_type' => UserType::FOREIGN_EMPLOYEE, 'status' => 'active'])->save();
+        $foreignEmployee = Employee::withoutEvents(fn () => Employee::forceCreate([
+            'user_id' => $foreignUser->id,
+            'status' => 'active',
+        ]));
+
+        // Legacy shared root (parent_id = null, is_global = true, linked companies) cannot have a manager.
+        $legacySharedRoot = $this->sharedWith($this->group('Legacy Shared'), [$companyA->id, $companyB->id]);
+
+        Livewire::test(EditDepartment::class, ['record' => $legacySharedRoot->id])
+            ->assertFormFieldIsHidden('manager_id');
+
+        try {
+            DepartmentHierarchyService::save([
+                'name' => 'Legacy Shared',
+                'manager_id' => $saudiEmployee->id,
+            ], $legacySharedRoot, DepartmentScope::SHARED, [$companyA->id, $companyB->id]);
+            $this->fail('Expected validation error for legacy shared root manager.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('manager_id', $e->errors());
+        }
+
+        // Direct model save cannot bypass active Saudi employee check.
+        try {
+            Department::create([
+                'name' => 'Direct Invalid',
+                'is_global' => true,
+                'manager_id' => $foreignEmployee->id,
+            ]);
+            $this->fail('Expected validation error on direct model create.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('manager_id', $e->errors());
+        }
+
+        // Valid Layer 1 administration appears with manager_name in DepartmentsReport.
+        $admin = DepartmentHierarchyService::createFromContext([
+            'name' => 'Executive Group',
+            'manager_id' => $saudiEmployee->id,
+        ], null);
+
+        $report = app(DepartmentsReport::class);
+        $columnKeys = array_column($report->getColumns(), 'key');
+        $this->assertContains('manager_name', $columnKeys);
+
+        $rows = $report->getQuery(null, null, null, 'all', 'Report Manager')->get();
+        $this->assertCount(1, $rows);
+        $this->assertSame('Report Manager', $report->formatRow($rows->first())['manager_name']);
+        $this->assertSame($admin->id, $rows->first()->id);
+
+        // Changing affiliation away from group scope while keeping manager_id must be rejected.
+        try {
+            $admin->update([
+                'is_global' => false,
+                'company_id' => $companyA->id,
+            ]);
+            $this->fail('Expected validation error when changing affiliation of managed administration.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('manager_id', $e->errors());
+        }
+        $this->assertTrue((bool) $admin->fresh()->is_global);
+        $this->assertSame($saudiEmployee->id, $admin->fresh()->manager_id);
+
+        // Editing an existing legacy administration with 4-layer descendants without changing parent_id succeeds.
+        $legacyMain = $this->group('Legacy Main', $admin->id);
+        $legacySub = Department::create(['name' => 'Legacy Sub', 'parent_id' => $legacyMain->id, 'company_id' => $companyA->id]);
+        Department::withoutEvents(fn () => Department::create([
+            'name' => 'Legacy Fourth',
+            'parent_id' => $legacySub->id,
+            'company_id' => $companyA->id,
+        ]));
+
+        Livewire::test(EditDepartment::class, ['record' => $admin->id])
+            ->fillForm(['name' => 'Executive Group Updated', 'manager_id' => $saudiEmployee->id])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('Executive Group Updated', $admin->fresh()->name);
+
+        // Non-super-admin cannot clear manager_id directly on the model.
+        $this->actAsStaff($companyA->id);
+        $this->expectException(AuthorizationException::class);
+        $admin->fresh()->update(['manager_id' => null]);
     }
 
     private function actAsStaff(int $companyId): void

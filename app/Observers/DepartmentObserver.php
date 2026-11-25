@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Department;
 use App\Services\DepartmentHierarchyService;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Validation\ValidationException;
 
 class DepartmentObserver
@@ -23,6 +24,9 @@ class DepartmentObserver
         if (blank($department->description)) {
             $department->description = null;
         }
+        if (blank($department->manager_id)) {
+            $department->manager_id = null;
+        }
     }
 
     public function saving(Department $department): void
@@ -32,6 +36,42 @@ class DepartmentObserver
         }
         if (blank($department->description)) {
             $department->description = null;
+        }
+        if (blank($department->manager_id)) {
+            $department->manager_id = null;
+        }
+
+        if ($department->exists && $department->isDirty('manager_id') && ! auth()->user()?->isSuperAdmin()) {
+            throw new AuthorizationException;
+        }
+
+        $companyIds = $department->pendingCompanyIds ?? ($department->is_global
+            ? ($department->exists ? $department->companies()->pluck('companies.id')->all() : [])
+            : array_filter([(int) $department->company_id]));
+
+        $isFirstLayerGroup = $department->parent_id === null
+            && (bool) $department->is_global
+            && $companyIds === []
+            && $department->company_id === null;
+
+        if ($department->manager_id !== null) {
+            if (! $isFirstLayerGroup) {
+                if ($department->isDirty('parent_id') && $department->parent_id !== null) {
+                    $department->manager_id = null;
+                } else {
+                    throw ValidationException::withMessages([
+                        'manager_id' => __('organization.departments.hierarchy.errors.manager_only_for_first_layer'),
+                    ]);
+                }
+            } elseif (! $department->exists || $department->isDirty('manager_id')) {
+                DepartmentHierarchyService::assertManagerValid(
+                    (int) $department->manager_id,
+                    $department->parent_id !== null ? (int) $department->parent_id : null,
+                    (bool) $department->is_global,
+                    $companyIds,
+                    $department->company_id !== null ? (int) $department->company_id : null,
+                );
+            }
         }
 
         if ($department->exists && $department->sort_order === null) {

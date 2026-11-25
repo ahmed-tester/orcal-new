@@ -6,6 +6,7 @@ use App\Enums\DepartmentScope;
 use App\Filament\Resources\Departments\DepartmentResource;
 use App\Filament\Resources\Departments\Pages\CreateDepartment;
 use App\Models\Department;
+use App\Services\CompanyFormService;
 use App\Services\DepartmentHierarchyService;
 use App\Services\DepartmentScopeService;
 use Filament\Forms\Components\Select;
@@ -85,6 +86,20 @@ class DepartmentForm
                             ->label(fn ($get, $livewire) => static::label('name', static::contextParentId($get, $livewire)))
                             ->required(),
 
+                        CompanyFormService::makeEmployeeSelect(
+                            name: 'manager_id',
+                            label: __('organization.departments.fields.manager'),
+                            required: false,
+                            relationshipName: 'manager',
+                            saudiOnly: true,
+                            ignoreCompanyScope: true,
+                        )
+                            ->nullable()
+                            ->helperText(__('organization.departments.hierarchy.helpers.manager'))
+                            ->visible(fn ($get, $livewire, ?Department $record): bool => (auth()->user()?->isSuperAdmin() ?? false)
+                                && static::contextParentId($get, $livewire) === null
+                                && ($record === null || DepartmentScopeService::resolveScope($record) === DepartmentScope::FAWAZ_GROUP)),
+
                         Select::make('parent_id')
                             ->label(__('organization.departments.hierarchy.form.parent_context'))
                             ->visible(fn (string $operation) => $operation !== 'create')
@@ -97,6 +112,9 @@ class DepartmentForm
                             ->live()
                             ->afterStateUpdated(function ($state, $get, $set) {
                                 $targetLevel = DepartmentHierarchyService::targetLevelForParent(filled($state) ? (int) $state : null);
+                                if ($targetLevel > 1) {
+                                    $set('manager_id', null);
+                                }
                                 if ($targetLevel <= 2) {
                                     $set('department_scope', DepartmentScope::FAWAZ_GROUP->value);
                                     $set('is_global', true);

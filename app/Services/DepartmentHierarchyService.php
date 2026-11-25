@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\DepartmentScope;
 use App\Models\Department;
+use App\Models\Employee;
 use Closure;
 use DomainException;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -32,6 +33,7 @@ class DepartmentHierarchyService
 
         return [
             'parent_id' => $parent?->id,
+            'manager_id' => null,
             'department_scope' => $isGeneral ? DepartmentScope::FAWAZ_GROUP->value : DepartmentScope::SINGLE->value,
             'is_global' => $isGeneral,
             'company_id' => null,
@@ -58,7 +60,9 @@ class DepartmentHierarchyService
             $data = array_replace($defaults, $data);
             $data['parent_id'] = $parentId;
             if ($targetLevel <= 2) {
-                $data = array_replace($data, $defaults);
+                $lockedDefaults = $defaults;
+                unset($lockedDefaults['manager_id']);
+                $data = array_replace($data, $lockedDefaults);
             }
             $scope = DepartmentScope::tryFrom((string) $data['department_scope']);
             if (! $scope) {
@@ -106,12 +110,15 @@ class DepartmentHierarchyService
 
             [$data, $companyIds] = static::prepareSave($data, $record, $scope, $companyIds);
             $parentId = $data['parent_id'];
+            $moving = $record && $record->parent_id != $parentId;
+            if ($moving && $parentId !== null) {
+                $data['manager_id'] = null;
+            }
 
             static::authorizeAssignment($parentId, $companyIds);
             static::assertStructure($data, $record, $companyIds, $errorKeyPrefix);
             static::assertValidSave($data, $record, $companyIds, $errorKeyPrefix);
 
-            $moving = $record && $record->parent_id != $parentId;
             $assignmentChanged = $record && static::companyIds($record) != static::normalizedIds($companyIds);
             if ($moving || $assignmentChanged) {
                 static::assertBranchAssignable($record, $errorKeyPrefix);
@@ -147,7 +154,7 @@ class DepartmentHierarchyService
 
     protected static function prepareSave(array $data, ?Department $record, DepartmentScope $scope, array $companyIds): array
     {
-        $data = array_replace($record?->only(['name', 'description', 'parent_id', 'company_id', 'status']) ?? ['status' => 'active'], $data);
+        $data = array_replace($record?->only(['name', 'description', 'parent_id', 'manager_id', 'company_id', 'status']) ?? ['status' => 'active'], $data);
         $data = DepartmentScopeService::mutateBeforeSave($data, $scope, $record);
         $companyIds = match ($scope) {
             DepartmentScope::SINGLE => array_filter([(int) ($data['company_id'] ?? 0)]),
@@ -156,6 +163,7 @@ class DepartmentHierarchyService
         };
         $data['company_id'] = $companyIds[0] ?? null;
         $data['parent_id'] = filled($data['parent_id'] ?? null) ? (int) $data['parent_id'] : null;
+        $data['manager_id'] = filled($data['manager_id'] ?? null) ? (int) $data['manager_id'] : null;
 
         return [$data, $companyIds];
     }
@@ -212,12 +220,13 @@ class DepartmentHierarchyService
     protected static function assertStructure(array $data, ?Department $record, array $companyIds, string $prefix): void
     {
         $targetLevel = static::targetLevelForParent($data['parent_id']);
+        $moving = $record?->exists && (int) ($record->parent_id ?? 0) !== (int) ($data['parent_id'] ?? 0);
 
-        if ($targetLevel > self::MAX_DEPTH) {
+        if ((! $record?->exists || $moving) && $targetLevel > self::MAX_DEPTH) {
             static::fail($prefix.'parent_id', 'max_depth_exceeded');
         }
 
-        if ($record?->exists && ($targetLevel + static::subtreeDepth((int) $record->id) - 1) > self::MAX_DEPTH) {
+        if ($moving && ($targetLevel + static::subtreeDepth((int) $record->id) - 1) > self::MAX_DEPTH) {
             static::fail($prefix.'parent_id', 'max_depth_exceeded');
         }
 
@@ -600,6 +609,14 @@ class DepartmentHierarchyService
         $parentId = ($data['parent_id'] ?? null) ? (int) $data['parent_id'] : null;
 
         static::assertParentAssignable($record, $parentId, $errorKeyPrefix);
+        static::assertManagerValid(
+            filled($data['manager_id'] ?? null) ? (int) $data['manager_id'] : null,
+            $parentId,
+            (bool) ($data['is_global'] ?? false),
+            $companyIds,
+            filled($data['company_id'] ?? null) ? (int) $data['company_id'] : null,
+            $errorKeyPrefix,
+        );
         static::assertCompaniesWithinParent(
             $parentId,
             (bool) ($data['is_global'] ?? false),
@@ -611,6 +628,37 @@ class DepartmentHierarchyService
             $finalIds = (bool) ($data['is_global'] ?? false)
                 ? $companyIds : array_filter([(int) ($data['company_id'] ?? 0)]);
             static::assertDependentsCompatible($record, $finalIds, $errorKeyPrefix);
+        }
+    }
+
+    public static function assertManagerValid(
+        ?int $managerId,
+        ?int $parentId,
+        bool $isGlobal,
+        array $companyIds = [],
+        ?int $companyId = null,
+        string $errorKeyPrefix = '',
+    ): void {
+        if ($managerId === null) {
+            return;
+        }
+
+        if (! auth()->user()?->isSuperAdmin()) {
+            throw new AuthorizationException;
+        }
+
+        if ($parentId !== null || ! $isGlobal || $companyIds !== [] || $companyId !== null) {
+            static::fail($errorKeyPrefix.'manager_id', 'manager_only_for_first_layer');
+        }
+
+        $valid = Employee::query()
+            ->whereKey($managerId)
+            ->where('status', 'active')
+            ->saudi()
+            ->exists();
+
+        if (! $valid) {
+            static::fail($errorKeyPrefix.'manager_id', 'manager_must_be_active_saudi');
         }
     }
 
