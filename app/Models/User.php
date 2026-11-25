@@ -73,6 +73,11 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(Owner::class);
     }
 
+    public function favorites()
+    {
+        return $this->hasMany(UserFavorite::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     public function employee()
     {
         return $this->hasOne(Employee::class);

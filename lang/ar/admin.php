@@ -33,4 +33,10 @@ return [
     'branch' => 'الفرع',
     'all_branches' => 'كل الفروع',
     'all_companies' => 'جميع المنشآت',
+    'favorites' => 'المفضلة',
+    'add_to_favorites' => 'إضافة للمفضلة',
+    'in_favorites' => 'في المفضلة',
+    'remove_from_favorites' => 'إزالة من المفضلة',
+    'added_to_favorites' => 'تمت الإضافة إلى المفضلة',
+    'removed_from_favorites' => 'تمت الإزالة من المفضلة',
 ];
