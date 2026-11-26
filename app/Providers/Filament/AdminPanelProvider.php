@@ -50,6 +50,10 @@ class AdminPanelProvider extends PanelProvider
                 fn () => view('filament.back-button')
             )
             ->renderHook(
+                PanelsRenderHook::PAGE_HEADER_ACTIONS_BEFORE,
+                fn () => view('filament.favorite-button')
+            )
+            ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn () => view('filament.custom-sidebar')
             )
@@ -62,8 +66,16 @@ class AdminPanelProvider extends PanelProvider
                 fn () => view('filament.sidebar-search')
             )
             ->renderHook(
+                PanelsRenderHook::SIDEBAR_NAV_START,
+                fn () => view('filament.sidebar-favorites')
+            )
+            ->renderHook(
                 TablesRenderHook::TOOLBAR_AFTER,
                 fn () => view('filament.global-table-scrollbar')
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => view('filament.directive-popup-hook')
             )
             ->navigationGroups(NavigationOrderService::navigationGroups())
             ->navigationItems([

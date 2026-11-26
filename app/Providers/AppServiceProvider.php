@@ -15,6 +15,8 @@ use App\Models\DailyJournal;
 use App\Models\Debt;
 use App\Models\DebtCollection;
 use App\Models\Department;
+use App\Models\Directive;
+use App\Models\DirectiveCategory;
 use App\Models\Employee;
 use App\Models\EmployeeReward;
 use App\Models\Faq;
@@ -69,6 +71,8 @@ use App\Policies\DailyJournalPolicy;
 use App\Policies\DebtCollectionPolicy;
 use App\Policies\DebtPolicy;
 use App\Policies\DepartmentPolicy;
+use App\Policies\DirectiveCategoryPolicy;
+use App\Policies\DirectivePolicy;
 use App\Policies\EmployeePolicy;
 use App\Policies\EmployeeRewardPolicy;
 use App\Policies\FaqPolicy;
@@ -110,10 +114,12 @@ use App\Policies\WeeklyNotePolicy;
 use App\Services\HijriDateService;
 use App\Services\Notifications\OperationsNotificationDiagnostics;
 use App\Services\Notifications\SmsService;
+use App\Services\SidebarBadgeService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Navigation\NavigationManager;
 use Filament\Tables\Filters\SelectFilter;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -162,6 +168,22 @@ class AppServiceProvider extends ServiceProvider
                     OperationsNotificationDiagnostics::notification('database_saved', $event->notification, [
                         'recipient_id' => $event->notifiable->getKey(),
                     ]);
+                }
+            },
+        );
+
+        Event::listen(
+            [
+                'eloquent.created: *',
+                'eloquent.deleted: *',
+                'eloquent.restored: *',
+                'eloquent.forceDeleted: *',
+            ],
+            static function (string $eventName, array $data): void {
+                $model = $data[0] ?? null;
+
+                if ($model instanceof Model) {
+                    SidebarBadgeService::invalidateForModel($model);
                 }
             },
         );
@@ -284,6 +306,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(MailImportanceKeyword::class, MailRulePolicy::class);
         Gate::policy(MailExclusionKeyword::class, MailRulePolicy::class);
         Gate::policy(MailCategory::class, MailCategoryPolicy::class);
+        Gate::policy(Directive::class, DirectivePolicy::class);
+        Gate::policy(DirectiveCategory::class, DirectiveCategoryPolicy::class);
 
         // Global Select Searchable Configuration for all Filament Forms and Tables
         Select::configureUsing(function (Select $select): void {

@@ -85,4 +85,6 @@ return [
     'asset_funds' => 'صناديق الأصول',
     'asset_fund_vouchers' => 'سندات الإيداع والسحب',
     'asset_fund_statement' => 'كشف حركة الصندوق',
+    'directives' => 'التوجيهات والتنبيهات',
+    'directive_categories' => 'تصنيفات التوجيهات',
 ];

@@ -17,6 +17,7 @@ use App\Http\Controllers\PayrollRecordPrintController;
 use App\Http\Controllers\SupervisionShiftPrintController;
 use App\Http\Controllers\TreasuryVoucherController;
 use App\Http\Controllers\UniversalPrintController;
+use App\Http\Controllers\UserFavoriteController;
 use App\Http\Controllers\ViolationSummaryPrintController;
 use Illuminate\Support\Facades\Route;
 
@@ -99,6 +100,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/exports/companies-statement', [CompanyPrintController::class, 'statement'])->name('exports.companies-statement');
     Route::get('/companies/{company}/print', [CompanyPrintController::class, 'print'])->name('companies.print');
     Route::get('/companies/{company}/pdf', [CompanyPrintController::class, 'pdf'])->name('companies.pdf');
+
+    // User Sidebar Favorites Routes
+    Route::post('/favorites/toggle', [UserFavoriteController::class, 'toggle'])->name('favorites.toggle');
+    Route::delete('/favorites/{favorite}', [UserFavoriteController::class, 'destroy'])->name('favorites.destroy');
 });
 
 // ─── ZKTeco Biometric ADMS / Push Protocol Routes ───────────────────────────

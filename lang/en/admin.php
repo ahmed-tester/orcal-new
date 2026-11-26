@@ -33,4 +33,10 @@ return [
     'branch' => 'Branch',
     'all_branches' => 'All Branches',
     'all_companies' => 'All Companies',
+    'favorites' => 'Favorites',
+    'add_to_favorites' => 'Add to Favorites',
+    'in_favorites' => 'Favorited',
+    'remove_from_favorites' => 'Remove from Favorites',
+    'added_to_favorites' => 'Added to favorites',
+    'removed_from_favorites' => 'Removed from favorites',
 ];
