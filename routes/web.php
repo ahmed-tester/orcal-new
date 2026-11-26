@@ -15,6 +15,7 @@ use App\Http\Controllers\OfferPdfController;
 use App\Http\Controllers\OfficialLetterPrintController;
 use App\Http\Controllers\PayrollRecordPrintController;
 use App\Http\Controllers\SupervisionShiftPrintController;
+use App\Http\Controllers\TaskAssignmentPrintController;
 use App\Http\Controllers\TreasuryVoucherController;
 use App\Http\Controllers\UniversalPrintController;
 use App\Http\Controllers\UserFavoriteController;
@@ -92,8 +93,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/asset-fund-statement/pdf', [AssetFundStatementController::class, 'pdf'])->name('asset-fund.statement.pdf');
 
     // Task Assignments Print Routes
-    Route::get('/task-assignments/summary/print', [\App\Http\Controllers\TaskAssignmentPrintController::class, 'summary'])->name('task-assignments.summary.print');
-    Route::get('/task-assignments/{employee}/statement/print', [\App\Http\Controllers\TaskAssignmentPrintController::class, 'statement'])->name('task-assignments.statement.print')->whereNumber('employee');
+    Route::get('/task-assignments/summary/print', [TaskAssignmentPrintController::class, 'summary'])->name('task-assignments.summary.print');
+    Route::get('/task-assignments/{employee}/statement/print', [TaskAssignmentPrintController::class, 'statement'])->name('task-assignments.statement.print')->whereNumber('employee');
 
     // Companies Print & PDF Routes
     Route::get('/companies/statement/print', [CompanyPrintController::class, 'statement'])->name('companies.statement.print');

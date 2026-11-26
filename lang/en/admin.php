@@ -39,4 +39,5 @@ return [
     'remove_from_favorites' => 'Remove from Favorites',
     'added_to_favorites' => 'Added to favorites',
     'removed_from_favorites' => 'Removed from favorites',
+    'favorite_action_failed' => 'Could not update favorites, please try again',
 ];

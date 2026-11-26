@@ -39,4 +39,5 @@ return [
     'remove_from_favorites' => 'إزالة من المفضلة',
     'added_to_favorites' => 'تمت الإضافة إلى المفضلة',
     'removed_from_favorites' => 'تمت الإزالة من المفضلة',
+    'favorite_action_failed' => 'تعذر تحديث المفضلة، يرجى المحاولة مرة أخرى',
 ];

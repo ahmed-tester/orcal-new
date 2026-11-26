@@ -16,7 +16,9 @@
         ->all();
 
     $currentNormalizedUrl = \App\Models\UserFavorite::normalizeUrl(url()->current());
-    $sidebarCounts = \App\Services\SidebarBadgeService::getCountsByUrl();
+    $sidebarCounts = class_exists(\App\Services\SidebarBadgeService::class)
+        ? \App\Services\SidebarBadgeService::getCountsByUrl()
+        : [];
 @endphp
 
 <div
@@ -30,6 +32,7 @@
     data-csrf="{{ csrf_token() }}"
     data-current-url="{{ $currentNormalizedUrl }}"
     data-remove-title="{{ __('admin.remove_from_favorites') }}"
+    data-error-message="{{ __('admin.favorite_action_failed') }}"
 >
     <button
         type="button"
@@ -286,11 +289,13 @@
                 || '';
         }
 
-        function showFavoriteToast(message, isAdded) {
+        function showFavoriteToast(message, type) {
             if (window.FilamentNotification) {
                 const notif = new window.FilamentNotification().title(message);
-                if (isAdded) {
+                if (type === 'success') {
                     notif.success();
+                } else if (type === 'error') {
+                    notif.danger();
                 } else {
                     notif.warning();
                 }
@@ -301,10 +306,11 @@
             const existing = document.getElementById('fi-favorite-toast');
             if (existing) existing.remove();
 
+            const bg = type === 'success' ? '#059669' : (type === 'error' ? '#dc2626' : '#d97706');
             const toast = document.createElement('div');
             toast.id = 'fi-favorite-toast';
             toast.textContent = message;
-            toast.style.cssText = 'position:fixed;bottom:1.25rem;inset-inline-end:1.25rem;z-index:9999;padding:0.65rem 1rem;border-radius:0.5rem;font-size:0.85rem;font-weight:700;color:#fff;box-shadow:0 10px 25px rgba(0,0,0,0.2);background:' + (isAdded ? '#059669' : '#d97706') + ';';
+            toast.style.cssText = 'position:fixed;bottom:1.25rem;inset-inline-end:1.25rem;z-index:9999;padding:0.65rem 1rem;border-radius:0.5rem;font-size:0.85rem;font-weight:700;color:#fff;box-shadow:0 10px 25px rgba(0,0,0,0.2);background:' + bg + ';';
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 2500);
         }
@@ -366,6 +372,13 @@
                 span.textContent = fav.title;
                 a.appendChild(span);
 
+                if (fav.count !== null && fav.count !== undefined && Number(fav.count) > 0) {
+                    const badge = document.createElement('span');
+                    badge.className = 'fi-sidebar-fav-badge';
+                    badge.textContent = String(fav.count);
+                    a.appendChild(badge);
+                }
+
                 const delBtn = document.createElement('button');
                 delBtn.type = 'button';
                 delBtn.className = 'fi-sidebar-fav-remove';
@@ -420,9 +433,10 @@
 
                 const data = await response.json();
                 renderSidebarFavorites(data.favorites || []);
-                showFavoriteToast(data.message || '', Boolean(data.favorited));
+                showFavoriteToast(data.message || '', data.favorited ? 'success' : 'warning');
             } catch (err) {
                 console.error(err);
+                showFavoriteToast(root?.dataset.errorMessage || 'Error', 'error');
             } finally {
                 btn.classList.remove('is-loading');
                 btn.disabled = false;
@@ -449,9 +463,10 @@
 
                 const data = await response.json();
                 renderSidebarFavorites(data.favorites || []);
-                showFavoriteToast(data.message || '', false);
+                showFavoriteToast(data.message || '', 'warning');
             } catch (err) {
                 console.error(err);
+                showFavoriteToast(root?.dataset.errorMessage || 'Error', 'error');
                 if (triggerBtn) triggerBtn.disabled = false;
             }
         };

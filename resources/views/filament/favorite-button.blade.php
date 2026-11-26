@@ -11,11 +11,14 @@
     $livewire = isset($this) ? $this : (is_object($routeController) ? $routeController : null);
 
     // During Livewire AJAX updates (/livewire/update), url()->current() points to Livewire's endpoint;
-    // fall back to the Referer header so the button keeps the actual page URL.
+    // fall back to the Referer path (without query string) so the button keeps the actual page URL.
     $rawUrl = url()->current();
     $rawPath = parse_url($rawUrl, PHP_URL_PATH) ?? '';
     if (request()->hasHeader('X-Livewire') || str_starts_with($rawPath, '/livewire')) {
-        $rawUrl = request()->header('Referer') ?: $rawUrl;
+        $referer = request()->header('Referer');
+        if ($referer) {
+            $rawUrl = parse_url($referer, PHP_URL_PATH) ?: $rawUrl;
+        }
     }
     $currentUrl = \App\Models\UserFavorite::normalizeUrl($rawUrl);
 
@@ -88,6 +91,7 @@
     </button>
 </div>
 
+@once
 <style>
     .fi-favorite-header-btn {
         display: inline-flex;
@@ -146,3 +150,4 @@
         color: #fcd34d;
     }
 </style>
+@endonce

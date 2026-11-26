@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\UserFavorite;
+use App\Services\SidebarBadgeService;
+use Filament\Facades\Filament;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +22,7 @@ class UserFavoriteController extends Controller
         $user = $request->user();
         $url = UserFavorite::normalizeUrl($validated['url']);
 
-        if (str_starts_with($url, '//') || str_starts_with($url, '/livewire')) {
+        if (str_starts_with($url, '/livewire')) {
             abort(422, 'Invalid favorite URL.');
         }
 
@@ -82,14 +84,25 @@ class UserFavoriteController extends Controller
      */
     private function formatFavorites($user): array
     {
+        if (Filament::getCurrentPanel() === null && ($defaultPanel = Filament::getDefaultPanel())) {
+            Filament::setCurrentPanel($defaultPanel);
+        }
+
+        $sidebarCounts = rescue(fn () => SidebarBadgeService::getCountsByUrl(), [], false);
+
         return $user->favorites()
             ->get(['id', 'title', 'url', 'icon', 'sort_order'])
-            ->map(fn (UserFavorite $fav) => [
-                'id' => $fav->id,
-                'title' => $fav->title,
-                'url' => $fav->url,
-                'icon' => $fav->icon,
-            ])
+            ->map(function (UserFavorite $fav) use ($sidebarCounts) {
+                $count = $sidebarCounts[rtrim(url($fav->url), '/')] ?? null;
+
+                return [
+                    'id' => $fav->id,
+                    'title' => $fav->title,
+                    'url' => $fav->url,
+                    'icon' => $fav->icon,
+                    'count' => ($count !== null && $count > 0) ? (int) $count : null,
+                ];
+            })
             ->values()
             ->all();
     }

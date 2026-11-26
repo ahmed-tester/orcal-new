@@ -73,10 +73,10 @@ class AdminPanelProvider extends PanelProvider
                 TablesRenderHook::TOOLBAR_AFTER,
                 fn () => view('filament.global-table-scrollbar')
             )
-            ->renderHook(
-                PanelsRenderHook::BODY_END,
-                fn () => view('filament.directive-popup-hook')
-            )
+            // ->renderHook(
+            //     PanelsRenderHook::BODY_END,
+            //     fn () => view('filament.directive-popup-hook')
+            // )
             ->navigationGroups(NavigationOrderService::navigationGroups())
             ->navigationItems([
                 NavigationItem::make(fn () => __('navigation.system_logs') ?: 'سجل الأخطاء والعمليات')
