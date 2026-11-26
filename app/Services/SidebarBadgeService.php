@@ -7,6 +7,7 @@ use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use ReflectionMethod;
 use Throwable;
 
@@ -15,6 +16,12 @@ class SidebarBadgeService
     protected const VERSION_CACHE_KEY = 'sidebar_badges:version';
 
     protected const CACHE_TTL_MINUTES = 5;
+
+    protected const SLOW_TOTAL_MS = 500.0;
+
+    protected const SLOW_RESOURCE_MS = 150.0;
+
+    protected const HIGH_QUERY_COUNT = 45;
 
     /**
      * Tables whose mutations should not trigger sidebar badge cache invalidation.
@@ -85,8 +92,11 @@ class SidebarBadgeService
         $version = (int) Cache::get(self::VERSION_CACHE_KEY, 1);
         $cacheKey = "sidebar_badges:v{$version}:p{$panel->getId()}:u{$user->getAuthIdentifier()}";
 
-        return Cache::remember($cacheKey, now()->addMinutes(self::CACHE_TTL_MINUTES), function () use ($panel): array {
+        return Cache::remember($cacheKey, now()->addMinutes(self::CACHE_TTL_MINUTES), function () use ($panel, $user): array {
+            $startedAt = hrtime(true);
             $counts = [];
+            $queryCount = 0;
+            $slowResources = [];
 
             foreach ($panel->getResources() as $resource) {
                 if (! static::shouldCountResource($resource)) {
@@ -94,11 +104,29 @@ class SidebarBadgeService
                 }
 
                 try {
+                    $resourceStart = hrtime(true);
                     $url = rtrim((string) $resource::getUrl('index'), '/');
                     $counts[$url] = (int) $resource::getEloquentQuery()->count();
+                    $queryCount++;
+
+                    $resourceMs = (hrtime(true) - $resourceStart) / 1_000_000;
+                    if ($resourceMs >= self::SLOW_RESOURCE_MS) {
+                        $slowResources[$resource] = round($resourceMs, 2);
+                    }
                 } catch (Throwable) {
                     continue;
                 }
+            }
+
+            $totalMs = (hrtime(true) - $startedAt) / 1_000_000;
+            if ($totalMs >= self::SLOW_TOTAL_MS || $queryCount >= self::HIGH_QUERY_COUNT || $slowResources !== []) {
+                Log::warning('SidebarBadgeService slow or high-query computation', [
+                    'user_id' => $user->getAuthIdentifier(),
+                    'panel' => $panel->getId(),
+                    'query_count' => $queryCount,
+                    'total_ms' => round($totalMs, 2),
+                    'slow_resources' => $slowResources,
+                ]);
             }
 
             return $counts;
