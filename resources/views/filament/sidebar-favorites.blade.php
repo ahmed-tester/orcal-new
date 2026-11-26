@@ -16,6 +16,7 @@
         ->all();
 
     $currentNormalizedUrl = \App\Models\UserFavorite::normalizeUrl(url()->current());
+    $sidebarCounts = \App\Services\SidebarBadgeService::getCountsByUrl();
 @endphp
 
 <div
@@ -56,6 +57,7 @@
         @foreach($favorites as $fav)
             @php
                 $isActiveFav = $fav['url'] === $currentNormalizedUrl;
+                $favCount = $sidebarCounts[rtrim(url($fav['url']), '/')] ?? null;
             @endphp
             <li class="fi-sidebar-fav-item {{ $isActiveFav ? 'is-active' : '' }}" data-fav-id="{{ $fav['id'] }}" data-fav-url="{{ $fav['url'] }}">
                 <a href="{{ url($fav['url']) }}" class="fi-sidebar-fav-link" title="{{ $fav['title'] }}">
@@ -63,6 +65,9 @@
                         <path fill-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clip-rule="evenodd" />
                     </svg>
                     <span class="fi-sidebar-fav-label">{{ $fav['title'] }}</span>
+                    @if($favCount !== null && $favCount > 0)
+                        <span class="fi-sidebar-fav-badge">{{ $favCount }}</span>
+                    @endif
                 </a>
                 <button
                     type="button"
@@ -202,6 +207,23 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+    }
+
+    .fi-sidebar-fav-badge {
+        margin-inline-start: auto;
+        background: rgba(255, 255, 255, 0.18);
+        color: #ffffff;
+        border-radius: 9999px;
+        padding: 0.05rem 0.45rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        line-height: 1.35;
+        flex-shrink: 0;
+    }
+
+    .fi-sidebar-fav-item.is-active .fi-sidebar-fav-badge {
+        background: rgba(4, 56, 108, 0.12);
+        color: #04386c;
     }
 
     .fi-sidebar-fav-remove {
