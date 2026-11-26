@@ -13,6 +13,8 @@ use App\Models\DailyJournal;
 use App\Models\Debt;
 use App\Models\DebtCollection;
 use App\Models\Department;
+use App\Models\Directive;
+use App\Models\DirectiveCategory;
 use App\Models\Employee;
 use App\Models\EmployeeReward;
 use App\Models\Faq;
@@ -63,6 +65,8 @@ use App\Policies\DailyJournalPolicy;
 use App\Policies\DebtCollectionPolicy;
 use App\Policies\DebtPolicy;
 use App\Policies\DepartmentPolicy;
+use App\Policies\DirectiveCategoryPolicy;
+use App\Policies\DirectivePolicy;
 use App\Policies\EmployeePolicy;
 use App\Policies\EmployeeRewardPolicy;
 use App\Policies\FaqPolicy;
@@ -263,6 +267,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(MailImportanceKeyword::class, MailRulePolicy::class);
         Gate::policy(MailExclusionKeyword::class, MailRulePolicy::class);
         Gate::policy(MailCategory::class, MailCategoryPolicy::class);
+        Gate::policy(Directive::class, DirectivePolicy::class);
+        Gate::policy(DirectiveCategory::class, DirectiveCategoryPolicy::class);
 
         // Global Select Searchable Configuration for all Filament Forms and Tables
         Select::configureUsing(function (Select $select): void {

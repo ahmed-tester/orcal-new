@@ -160,7 +160,7 @@ class CompanyAccessScopeService
                 ->orWhereHas('companies', fn ($sub) => $sub->whereIn('companies.id', $companyIds))
                 ->orWhere(fn ($org) => $org->where("{$tableName}.is_global", true)
                     ->whereNull("{$tableName}.company_id")
-                    ->whereDoesntHave('companies'));
+                    ->whereDoesntHave('companies')); 
         });
     }
 

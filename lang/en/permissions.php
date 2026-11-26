@@ -321,4 +321,12 @@ return [
     'delete_asset_fund_voucher' => 'Delete Asset Fund Voucher',
 
     'view_asset_fund_statement' => 'View Asset Fund Statement',
+    'view_any_directive' => 'View Directives & Alerts',
+    'create_directive' => 'Create Directive / Alert',
+    'update_directive' => 'Update Directive / Alert',
+    'delete_directive' => 'Delete Directive / Alert',
+    'view_any_directive_category' => 'View Directive Categories',
+    'create_directive_category' => 'Create Directive Category',
+    'update_directive_category' => 'Update Directive Category',
+    'delete_directive_category' => 'Delete Directive Category',
 ];

@@ -277,6 +277,14 @@ class RolesAndPermissionsSeeder extends Seeder
                 'manage_smart_import' => 'الوصول للاستيراد الذكي (AI)',
                 'view_loan_fund_policy' => 'استعراض وتعديل لائحة صندوق سلفني',
                 'view_rosca_fund_policy' => 'استعراض وتعديل لائحة صندوق الجمعية',
+                'view_any_directive' => 'استعراض التوجيهات والتنبيهات',
+                'create_directive' => 'إرسال توجيه أو تنبيه جديد',
+                'update_directive' => 'تعديل التوجيهات والتنبيهات',
+                'delete_directive' => 'حذف التوجيهات والتنبيهات',
+                'view_any_directive_category' => 'استعراض تصنيفات التوجيهات',
+                'create_directive_category' => 'إضافة تصنيف توجيهات',
+                'update_directive_category' => 'تعديل تصنيف توجيهات',
+                'delete_directive_category' => 'حذف تصنيف توجيهات',
             ],
         ];
 

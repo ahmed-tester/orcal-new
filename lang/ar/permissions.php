@@ -270,4 +270,12 @@ return [
     'update_asset_fund_voucher' => 'تعديل سند صندوق أصول',
     'delete_asset_fund_voucher' => 'حذف سند صندوق أصول',
     'view_asset_fund_statement' => 'استعراض كشف حركة صندوق الأصول',
+    'view_any_directive' => 'استعراض التوجيهات والتنبيهات',
+    'create_directive' => 'إرسال توجيه أو تنبيه جديد',
+    'update_directive' => 'تعديل التوجيهات والتنبيهات',
+    'delete_directive' => 'حذف التوجيهات والتنبيهات',
+    'view_any_directive_category' => 'استعراض تصنيفات التوجيهات',
+    'create_directive_category' => 'إضافة تصنيف توجيهات',
+    'update_directive_category' => 'تعديل تصنيف توجيهات',
+    'delete_directive_category' => 'حذف تصنيف توجيهات',
 ];
