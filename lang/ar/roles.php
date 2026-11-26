@@ -14,4 +14,6 @@ return [
     'delete' => 'حذف',
     'services_and_transactions_group' => 'الخدمات ومعاملات الخدمات',
     'services_financial_workflow_group' => 'الدورة المالية للخدمات والرقابة التشغيلية',
+    'treasury_employee_group' => 'صلاحيات موظف الخزنة',
+    'treasury_manager_group' => 'صلاحيات مدير مجموعة الخزنة (الاعتماد النهائي)',
 ];

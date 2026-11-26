@@ -2,16 +2,20 @@
 
 namespace App\Services\Payroll;
 
-use App\Services\FinancialTreasuryService;
-use App\Services\OperationsAuditService;
-use App\Services\ServiceFinancialWorkflowService;
 use App\Enums\FinancialCashDirection;
 use App\Enums\FinancialPaymentMethod;
 use App\Enums\PaymentItemCategory;
-use App\Models\PayrollPayment;
-use App\Models\PayrollRecord;
+use App\Enums\Payroll\FinancialApprovalItemStatus;
+use App\Enums\Payroll\FinancialApprovalStatus;
+use App\Models\Payroll\FinancialApprovalRequest;
+use App\Models\Payroll\FinancialApprovalRequestItem;
+use App\Models\Payroll\PayrollPayment;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\User;
+use App\Services\FinancialTreasuryService;
 use App\Services\Notifications\NotificationDispatcher;
+use App\Services\OperationsAuditService;
+use App\Services\ServiceFinancialWorkflowService;
 use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
@@ -61,121 +65,122 @@ class PayrollDisbursementService
             ]);
         }
 
-        $actor = static::authorize($record, 'disburse_payroll_salary', $actor);
+        throw ValidationException::withMessages([
+            'approval_request' => __('financial.errors.payroll_requires_approval_workflow'),
+        ]);
+    }
 
-        $rawMethod = trim((string) ($data['payment_method'] ?? FinancialPaymentMethod::CASH->value));
-        if ($rawMethod === 'cheque') {
+    /**
+     * Execute payroll disbursement for an approved request item (both cash and bank immediately) inside the caller's transaction.
+     *
+     * @return array{status: string, payment: ?PayrollPayment, request: ?array<string, mixed>, already_executed?: bool}
+     */
+    public static function disburseFromApprovedRequest(
+        FinancialApprovalRequestItem $item,
+        FinancialApprovalRequest $request,
+        User $manager,
+    ): array {
+        if (DB::transactionLevel() < 1 || ! FinancialApprovalService::isExecutingRequest((int) $request->id)) {
+            throw new AuthorizationException(__('financial.errors.unauthorized_manager_approval'));
+        }
+
+        $lockedRequest = FinancialApprovalRequest::query()
+            ->with(['companies:id'])
+            ->lockForUpdate()
+            ->findOrFail($request->id);
+
+        if ($lockedRequest->status !== FinancialApprovalStatus::PENDING_MANAGER) {
             throw ValidationException::withMessages([
-                'payment_method' => __('financial.errors.cheque_not_supported'),
+                'status' => __('financial.errors.request_not_pending_manager'),
             ]);
         }
 
-        $method = FinancialPaymentMethod::tryFrom($rawMethod);
+        if (! PayrollApprovalScopeService::isAssignedManager($manager, $lockedRequest)) {
+            throw new AuthorizationException(__('financial.errors.unauthorized_manager_approval'));
+        }
+
+        $lockedItem = FinancialApprovalRequestItem::query()
+            ->lockForUpdate()
+            ->findOrFail($item->id);
+
+        if ((int) $lockedItem->request_id !== (int) $lockedRequest->id
+            || (int) $lockedItem->version !== (int) $lockedRequest->version
+            || $lockedItem->status !== FinancialApprovalItemStatus::PENDING) {
+            throw ValidationException::withMessages([
+                'items' => __('financial.errors.approval_item_fingerprint_mismatch'),
+            ]);
+        }
+
+        $locked = PayrollRecord::whereKey($lockedItem->payroll_record_id)->lockForUpdate()->firstOrFail();
+
+        PayrollApprovalSnapshotService::verifyItemMatchesSourceRecord($lockedItem, $locked);
+
+        $method = FinancialPaymentMethod::tryFrom((string) $lockedItem->payment_method);
         if (! $method instanceof FinancialPaymentMethod) {
             throw ValidationException::withMessages([
                 'payment_method' => __('financial.errors.invalid_payment_method'),
             ]);
         }
 
-        $amount = round((float) ($data['amount'] ?? 0), 2);
+        $amount = round((float) $lockedItem->requested_amount, 2);
         if ($amount <= 0) {
             throw ValidationException::withMessages([
                 'amount' => __('financial.errors.invalid_amount'),
             ]);
         }
 
-        $requestKey = trim((string) ($data['request_key'] ?? ''));
-        if ($requestKey === '') {
-            throw ValidationException::withMessages([
-                'request_key' => __('financial.errors.request_key_required'),
-            ]);
-        }
-
-        $paymentDate = ! empty($data['payment_date'])
-            ? Carbon::parse($data['payment_date'])->toDateString()
-            : now()->toDateString();
-
-        $destinationRef = $data['destination_reference'] ?? null;
-        $referenceNumber = $data['reference_number'] ?? null;
-        $proofPath = $data['proof_path'] ?? null;
-
+        $paymentDate = now()->toDateString();
+        $requestKey = (string) $lockedItem->idempotency_key;
         $fingerprint = hash('sha256', json_encode([
-            'record_id' => $record->id,
-            'company_id' => (int) $record->company_id,
+            'record_id' => $locked->id,
+            'company_id' => (int) $locked->company_id,
             'operation_type' => 'payroll',
             'amount' => $amount,
             'method' => $method->value,
-            'date' => $paymentDate,
-            'destination' => $destinationRef,
+            'request_id' => $lockedRequest->id,
+            'version' => (int) $lockedRequest->version,
+            'item_id' => $lockedItem->id,
         ], JSON_THROW_ON_ERROR));
 
-        $result = DB::transaction(function () use (
-            $record,
-            $data,
-            $actor,
-            $method,
-            $amount,
-            $requestKey,
-            $paymentDate,
-            $destinationRef,
-            $referenceNumber,
-            $proofPath,
-            $fingerprint
-        ): array {
-            DB::table('companies')->where('id', $record->company_id)->lockForUpdate()->first();
-            $locked = PayrollRecord::whereKey($record->id)->lockForUpdate()->firstOrFail();
-            $locked = PayrollRecordFinancialService::ensureManaged($locked, $actor);
+        $locked = PayrollRecordFinancialService::ensureManaged($locked, $manager);
 
-            $idempotent = static::findIdempotentRequest($locked, $requestKey, $fingerprint);
-            if ($idempotent !== null) {
-                return $idempotent;
-            }
+        $idempotent = static::findIdempotentRequest($locked, $requestKey, $fingerprint);
+        if ($idempotent !== null) {
+            return $idempotent;
+        }
 
-            $deductionKeys = static::resolveDeductionKeys($locked, $data);
+        $deductionKeys = static::resolveDeductionKeys($locked, ['confirm_reserved_deductions' => true]);
+        if ($deductionKeys !== []) {
+            PayrollDeductionSettlementService::confirmBatch($locked, $deductionKeys, $manager, false);
+            $locked = $locked->fresh();
+        }
 
-            $isConfirmedNow = $method->isCash()
-                || (! empty($data['confirm']) && ! empty($referenceNumber) && ! empty($proofPath));
+        static::assertWithinAvailable($locked, $amount);
 
-            if (! $isConfirmedNow) {
-                return static::storePendingTransfer(
-                    locked: $locked,
-                    actor: $actor,
-                    method: $method,
-                    amount: $amount,
-                    requestKey: $requestKey,
-                    fingerprint: $fingerprint,
-                    paymentDate: $paymentDate,
-                    destinationRef: $destinationRef,
-                    referenceNumber: $referenceNumber,
-                    proofPath: $proofPath,
-                    deductionKeys: $deductionKeys,
-                );
-            }
+        $result = static::executeTreasuryAndPayment(
+            locked: $locked,
+            actor: $manager,
+            method: $method,
+            amount: $amount,
+            requestKey: $requestKey,
+            fingerprint: $fingerprint,
+            paymentDate: $paymentDate,
+            destinationRef: $lockedItem->destination_reference,
+            referenceNumber: $lockedItem->reference_number,
+            proofPath: $lockedItem->proof_path,
+            notes: $lockedItem->reason_description,
+        );
 
-            // Confirm linked deductions atomically ONLY when actual disbursement is executing now.
-            if ($deductionKeys !== []) {
-                PayrollDeductionSettlementService::confirmBatch($locked, $deductionKeys, $actor, false);
-                $locked = $locked->fresh();
-            }
-
-            static::assertWithinAvailable($locked, $amount);
-
-            return static::executeTreasuryAndPayment(
-                locked: $locked,
-                actor: $actor,
-                method: $method,
-                amount: $amount,
-                requestKey: $requestKey,
-                fingerprint: $fingerprint,
-                paymentDate: $paymentDate,
-                destinationRef: $destinationRef,
-                referenceNumber: $referenceNumber,
-                proofPath: $proofPath,
-                notes: $data['notes'] ?? null,
-            );
-        });
-
-        static::dispatchDisbursementNotification($record, $result, $actor);
+        if (! empty($result['payment']) && $result['payment'] instanceof PayrollPayment) {
+            $meta = $result['payment']->metadata ?? [];
+            $meta['approval_request_id'] = $lockedRequest->id;
+            $meta['approval_request_number'] = $lockedRequest->request_number;
+            $meta['approval_item_id'] = $lockedItem->id;
+            $meta['approval_version'] = (int) $lockedRequest->version;
+            $meta['treasury_reviewer_id'] = $lockedRequest->treasury_reviewer_id;
+            $meta['approved_by_manager_id'] = $manager->id;
+            $result['payment']->updateQuietly(['metadata' => $meta]);
+        }
 
         return $result;
     }
@@ -469,56 +474,9 @@ class PayrollDisbursementService
      */
     public static function confirmPendingTransfer(PayrollRecord $record, string $requestKey, array $data, ?User $actor = null): PayrollPayment
     {
-        $pending = $record->metadata['pending_bank_transfers'][$requestKey] ?? null;
-        if (! is_array($pending)) {
-            throw ValidationException::withMessages([
-                'request_key' => __('financial.errors.pending_transfer_not_found'),
-            ]);
-        }
-
-        if (empty($data['reference_number']) || empty($data['proof_path'])) {
-            throw ValidationException::withMessages([
-                'reference_number' => __('financial.errors.non_cash_destination_required'),
-            ]);
-        }
-
-        $actor = static::authorize($record, 'disburse_payroll_salary', $actor);
-
-        return DB::transaction(function () use ($record, $requestKey, $pending, $data, $actor): PayrollPayment {
-            DB::table('companies')->where('id', $record->company_id)->lockForUpdate()->first();
-            $locked = PayrollRecord::whereKey($record->id)->lockForUpdate()->firstOrFail();
-
-            $meta = $locked->metadata ?? [];
-            if (empty($meta['pending_bank_transfers'][$requestKey])) {
-                $existingId = $meta['disbursement_requests'][$requestKey]['payment_id'] ?? null;
-                if ($existingId) {
-                    return PayrollPayment::findOrFail($existingId);
-                }
-
-                throw ValidationException::withMessages([
-                    'request_key' => __('financial.errors.pending_transfer_not_found'),
-                ]);
-            }
-
-            unset($meta['pending_bank_transfers'][$requestKey], $meta['disbursement_requests'][$requestKey]);
-            $locked->metadata = $meta;
-            $locked->saveQuietly();
-
-            $res = static::disburse($locked, [
-                'request_key' => $requestKey,
-                'amount' => $pending['amount'],
-                'payment_method' => $pending['payment_method'],
-                'payment_date' => $pending['payment_date'],
-                'destination_reference' => $data['destination_reference'] ?? $pending['destination_reference'] ?? null,
-                'reference_number' => $data['reference_number'],
-                'proof_path' => $data['proof_path'],
-                'notes' => $data['notes'] ?? null,
-                'deduction_request_keys' => $pending['deduction_request_keys'] ?? [],
-                'confirm' => true,
-            ], $actor);
-
-            return $res['payment'];
-        });
+        throw ValidationException::withMessages([
+            'approval_request' => __('financial.errors.payroll_requires_approval_workflow'),
+        ]);
     }
 
     /**

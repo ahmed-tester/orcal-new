@@ -14,7 +14,7 @@ use App\Models\Employee;
 use App\Models\EmployeeDetail;
 use App\Models\Leave;
 use App\Models\LeaveType;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\Service;
 use App\Models\ServiceTransaction;
 use App\Models\SupervisionShift;
@@ -27,6 +27,7 @@ use App\Models\Violation;
 use App\Models\ViolationCategory;
 use App\Models\ViolationType;
 use App\Services\CashHandoverService;
+use App\Services\EmployeePerformanceAccessService;
 use App\Services\FinancialDisbursementService;
 use App\Services\FinancialReceiptService;
 use Carbon\CarbonImmutable;
@@ -34,6 +35,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Spatie\Permission\Models\Permission;
 
 class PerformanceDashboardDemoSeeder extends Seeder
 {
@@ -158,11 +160,11 @@ class PerformanceDashboardDemoSeeder extends Seeder
                 'status' => 'active',
             ]);
             if ($index === 0) {
-                \Spatie\Permission\Models\Permission::firstOrCreate([
-                    'name' => \App\Services\EmployeePerformanceAccessService::SUPERVISE_PERMISSION,
+                Permission::firstOrCreate([
+                    'name' => EmployeePerformanceAccessService::SUPERVISE_PERMISSION,
                     'guard_name' => 'web',
                 ]);
-                $user->givePermissionTo(\App\Services\EmployeePerformanceAccessService::SUPERVISE_PERMISSION);
+                $user->givePermissionTo(EmployeePerformanceAccessService::SUPERVISE_PERMISSION);
             }
             $employee = Employee::query()->firstOrCreate([
                 'company_id' => $company->id,

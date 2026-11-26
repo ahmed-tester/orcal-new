@@ -2,13 +2,13 @@
 
 namespace App\Services\Payroll;
 
-use App\Services\OperationsAuditService;
 use App\Enums\AttendanceStatus;
 use App\Models\Attendance;
 use App\Models\Employee;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\UnifiedAuditLog;
 use App\Models\User;
+use App\Services\OperationsAuditService;
 use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
@@ -417,5 +417,4 @@ class SaudiCompensationGrantService
 
         return $totals;
     }
-
 }

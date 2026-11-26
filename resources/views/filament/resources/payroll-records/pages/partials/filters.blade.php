@@ -184,7 +184,14 @@
                     </div>
                 </div>
 
-                {{ $this->form }}
+                <div class="payroll-companies-select-wrap">
+                    <style>
+                        .payroll-companies-select-wrap [role="option"][aria-selected="true"] {
+                            display: none !important;
+                        }
+                    </style>
+                    {{ $this->form }}
+                </div>
             </div>
 
         @elseif($filterMode === 'all_companies')

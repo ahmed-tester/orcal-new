@@ -6,12 +6,12 @@ use App\Enums\FinancialHandoverStatus;
 use App\Enums\PaymentStatus;
 use App\Models\CashHandover;
 use App\Models\FinancialReceipt;
-use App\Models\PayrollPayment;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollPayment;
+use App\Models\Payroll\PayrollRecord;
 use App\Services\BarcodeService;
 use App\Services\CashHandoverService;
-use App\Services\Payroll\EmployeeSalaryProfileService;
 use App\Services\FinancialReceiptService;
+use App\Services\Payroll\EmployeeSalaryProfileService;
 use App\Services\Payroll\PayrollCalculationService;
 use App\Services\Payroll\PayrollDeductionSettlementService;
 use App\Services\Payroll\PayrollDisbursementService;
@@ -328,10 +328,7 @@ class PayrollFinancialActions
             ->icon('heroicon-o-check-badge')
             ->color('info')
             ->modalWidth('xl')
-            ->visible(fn (?PayrollRecord $record): bool => $record !== null
-                && $record->isPayroll()
-                && static::canPerform('disburse_payroll_salary')
-                && ! empty($record->metadata['pending_bank_transfers']))
+            ->visible(fn (): bool => false)
             ->form([
                 Select::make('request_key')
                     ->label(__('financial.payroll_actions.pending_transfer_request'))

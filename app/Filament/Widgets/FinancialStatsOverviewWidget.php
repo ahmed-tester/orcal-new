@@ -7,7 +7,7 @@ use App\Models\DailyJournal;
 use App\Models\Installment;
 use App\Models\InstallmentPayment;
 use App\Models\Invoice;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\TreasuryTransaction;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;

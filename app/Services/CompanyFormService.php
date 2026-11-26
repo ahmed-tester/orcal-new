@@ -6,6 +6,7 @@ use App\Enums\GeneralStatus;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Department;
+use App\Services\Departments\DepartmentHierarchyService;
 use App\Models\Employee;
 use App\Models\InvoiceType;
 use App\Models\JobTitle;

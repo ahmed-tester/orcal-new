@@ -6,7 +6,7 @@ use App\Enums\FinancialReceiptStatus;
 use App\Enums\PaymentItemCategory;
 use App\Models\Employee;
 use App\Models\FinancialReceipt;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\User;
 use App\Services\Financial\Contracts\FinancialReceiptSourceConnector;
 use App\Services\Notifications\NotificationDispatcher;

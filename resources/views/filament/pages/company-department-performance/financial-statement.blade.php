@@ -53,7 +53,7 @@
                                 __('performance.financial.metrics.reimbursement_paid') => $type === 'reimbursement_due' ? $formatMoney($row->dashboard_reimbursed) : null,
                             ]), $row->dashboard_amount,
                         ],
-                        $row instanceof \App\Models\PayrollRecord => [
+                        $row instanceof \App\Models\Payroll\PayrollRecord => [
                             $row->record_number, $row->payroll_month?->format('Y-m'), $row->employee?->user?->name,
                             [
                                 __('performance.financial.status') => \App\Enums\PaymentStatus::tryFrom(

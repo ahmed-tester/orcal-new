@@ -6,7 +6,7 @@ use App\Filament\Resources\Violations\Pages\ViolationsSummary;
 use App\Models\Company;
 use App\Models\Debt;
 use App\Models\Employee;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\ServiceTransaction;
 use App\Models\TaskAssignment;
 use Illuminate\Support\Facades\Gate;

@@ -14,7 +14,7 @@ use App\Models\EmployeeDetail;
 use App\Models\EmployeeReward;
 use App\Models\Guarantor;
 use App\Models\JobTitle;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\User;
 use App\Services\Payroll\PayrollCalculationService;
 use Carbon\Carbon;

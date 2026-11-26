@@ -10,7 +10,7 @@ use App\Models\FinancialDisbursement;
 use App\Models\FinancialDisbursementPayment;
 use App\Models\FinancialReceipt;
 use App\Models\PaymentCollectionItem;
-use App\Models\PayrollPayment;
+use App\Models\Payroll\PayrollPayment;
 use App\Models\TreasuryTransaction;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;

@@ -59,9 +59,24 @@
     <div id="payroll-table-scroll" style="overflow-x: auto;">
         <table class="payroll-table" id="payroll-main-table">
             <thead>
+                @php
+                    $allChecked = ! empty($employeeRows) && collect($employeeRows)->every(fn (array $row): bool => ! empty($checkedEmployees[$row['employee_id']]));
+                @endphp
                 <tr>
                     <th style="text-align: center; width: 45px;">{{ __('finance.payroll_records.sheet.serial') }}</th>
-                    <th style="text-align: right; min-width: 180px;">{{ __('finance.payroll_records.sheet.col_name') }}</th>
+                    <th style="text-align: right; min-width: 180px;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input
+                                type="checkbox"
+                                class="no-print"
+                                wire:click="toggleCheckAll({{ $allChecked ? 'false' : 'true' }})"
+                                @checked($allChecked)
+                                style="width: 1.15rem; height: 1.15rem; border-radius: 0.25rem; accent-color: #16a34a; cursor: pointer; flex-shrink: 0;"
+                                title="{{ $allChecked ? __('finance.payroll_records.sheet.btn_deselect_all') : __('finance.payroll_records.sheet.btn_select_all') }}"
+                            />
+                            <span>{{ __('finance.payroll_records.sheet.col_name') }}</span>
+                        </div>
+                    </th>
                     <th style="text-align: center; width: 110px;">{{ __('finance.payroll_records.sheet.col_identity') }}</th>
                     <th style="text-align: center; min-width: 110px;">{{ __('finance.payroll_records.sheet.col_company') }}</th>
                     <th style="text-align: center; width: 105px;">{{ __('finance.payroll_records.sheet.col_basic') }}</th>

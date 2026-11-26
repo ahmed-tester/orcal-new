@@ -2,13 +2,10 @@
 
 namespace App\Filament\Resources\Departments\Pages;
 
+use App\Filament\Resources\Departments\Actions\DepartmentDeleteAction;
 use App\Filament\Resources\Departments\DepartmentResource;
 use App\Filament\Resources\Departments\Schemas\DepartmentForm;
 use App\Filament\Resources\Departments\Traits\HandlesDepartmentScope;
-use App\Models\Department;
-use App\Services\DepartmentHierarchyService;
-use Filament\Actions\DeleteAction;
-use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Contracts\Support\Htmlable;
 
@@ -33,25 +30,7 @@ class EditDepartment extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make()
-                ->before(function (DeleteAction $action, Department $record): void {
-                    $blockers = DepartmentHierarchyService::deletionBlockers($record);
-
-                    if ($blockers === []) {
-                        return;
-                    }
-
-                    Notification::make()
-                        ->danger()
-                        ->title(__('organization.departments.hierarchy.notifications.delete_blocked', [
-                            'reasons' => collect($blockers)
-                                ->map(fn (string $blocker) => __('organization.departments.hierarchy.delete_blockers.'.$blocker))
-                                ->implode(' '),
-                        ]))
-                        ->send();
-
-                    $action->halt();
-                }),
+            DepartmentDeleteAction::makeSingle(),
         ];
     }
 }

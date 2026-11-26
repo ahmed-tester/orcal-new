@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Services\Payroll\PayrollSheetService;
 use App\Filament\Resources\ServiceTransactions\ServiceTransactionResource;
 use App\Models\Debt;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\TreasuryTransaction;
+use App\Services\Payroll\PayrollSheetService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;

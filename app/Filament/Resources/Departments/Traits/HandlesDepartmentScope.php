@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Departments\Traits;
 
 use App\Enums\DepartmentScope;
-use App\Services\DepartmentHierarchyService;
+use App\Services\Departments\DepartmentHierarchyService;
 use Illuminate\Database\Eloquent\Model;
 
 trait HandlesDepartmentScope

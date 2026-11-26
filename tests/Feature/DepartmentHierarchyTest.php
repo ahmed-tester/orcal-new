@@ -15,8 +15,8 @@ use App\Models\User;
 use App\Services\AI\Tools\CreateDepartmentTool;
 use App\Services\CodeGeneratorService;
 use App\Services\CompanyAccessScopeService;
-use App\Services\DepartmentHierarchyService;
-use App\Services\DepartmentScopeService;
+use App\Services\Departments\DepartmentHierarchyService;
+use App\Services\Departments\DepartmentScopeService;
 use App\Services\Reports\Types\DepartmentsReport;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -62,6 +62,7 @@ class DepartmentHierarchyTest extends TestCase
             $table->string('department_code')->nullable();
             $table->string('status')->default('active');
             $table->unsignedInteger('sort_order')->default(0);
+            $table->softDeletes();
             $table->timestamps();
         });
 
@@ -80,6 +81,7 @@ class DepartmentHierarchyTest extends TestCase
             $table->foreignId('branch_id')->nullable();
             $table->decimal('basic_salary', 10, 2)->default(0);
             $table->string('status')->default('active');
+            $table->softDeletes();
             $table->timestamps();
         });
 
@@ -94,6 +96,7 @@ class DepartmentHierarchyTest extends TestCase
             $table->string('name')->nullable();
             $table->string('user_type')->nullable();
             $table->string('status')->default('active');
+            $table->softDeletes();
             $table->timestamps();
         });
         Schema::create('owners', function (Blueprint $table) {
@@ -105,6 +108,7 @@ class DepartmentHierarchyTest extends TestCase
             $table->id();
             $table->foreignId('department_id')->nullable();
             $table->foreignId('company_id')->nullable();
+            $table->softDeletes();
         });
         (require database_path('migrations/2026_09_17_123833_create_permission_tables.php'))->up();
         app(PermissionRegistrar::class)->forgetCachedPermissions();

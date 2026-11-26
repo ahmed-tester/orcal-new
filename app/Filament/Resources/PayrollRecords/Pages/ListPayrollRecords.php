@@ -15,6 +15,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class ListPayrollRecords extends ListRecords
@@ -138,12 +139,12 @@ class ListPayrollRecords extends ListRecords
 
         if ($requestedCompanyId > 0 && (empty($authorizedCompanyIds) || in_array($requestedCompanyId, $authorizedCompanyIds))) {
             $this->selectedCompanyId = $requestedCompanyId;
-            $this->selectedCompanyIds = [$requestedCompanyId];
+            $this->selectedCompanyIds = [(string) $requestedCompanyId];
         } else {
             $firstCompanyId = ! empty($authorizedCompanyIds) ? reset($authorizedCompanyIds) : Company::value('id');
             if ($firstCompanyId) {
                 $this->selectedCompanyId = $firstCompanyId;
-                $this->selectedCompanyIds = [$firstCompanyId];
+                $this->selectedCompanyIds = [(string) $firstCompanyId];
             }
         }
 
@@ -153,8 +154,10 @@ class ListPayrollRecords extends ListRecords
             $this->selectedGuarantor = $firstGuarantor->name;
         }
 
+        $this->selectedCompanyIds = $this->normalizeSelectedCompanyIds($this->selectedCompanyIds);
+
         $this->form->fill([
-            'selectedCompanyIds' => array_map('intval', (array) $this->selectedCompanyIds),
+            'selectedCompanyIds' => $this->selectedCompanyIds,
         ]);
 
         $this->loadSheet();
@@ -181,8 +184,14 @@ class ListPayrollRecords extends ListRecords
                     ->searchable()
                     ->preload()
                     ->live()
-                    ->afterStateUpdated(function ($state) {
-                        $this->selectedCompanyIds = array_map('intval', (array) $state);
+                    ->afterStateUpdated(function ($state, Select $component) {
+                        $normalized = $this->normalizeSelectedCompanyIds((array) $state);
+                        $this->selectedCompanyIds = $normalized;
+                        if ($normalized !== (array) $state) {
+                            $component->state($normalized);
+                        }
+                        $this->deletedEmployeeIds = [];
+                        $this->sheetPage = 1;
                         $this->loadSheet();
                     }),
             ]);
@@ -276,13 +285,17 @@ class ListPayrollRecords extends ListRecords
 
     public function updatedSelectedCompanyIds(): void
     {
+        $this->selectedCompanyIds = $this->normalizeSelectedCompanyIds($this->selectedCompanyIds);
         $this->deletedEmployeeIds = [];
+        $this->sheetPage = 1;
         $this->loadSheet();
     }
 
     public function selectAllCompanies(): void
     {
-        $this->selectedCompanyIds = $this->companies->pluck('id')->map(fn ($id) => (int) $id)->toArray();
+        $this->selectedCompanyIds = $this->normalizeSelectedCompanyIds(
+            $this->companies->pluck('id')->all()
+        );
         $this->form->fill(['selectedCompanyIds' => $this->selectedCompanyIds]);
         $this->loadSheet();
     }
@@ -296,12 +309,24 @@ class ListPayrollRecords extends ListRecords
 
     public function removeSelectedCompany(int $companyId): void
     {
+        $target = (string) $companyId;
         $this->selectedCompanyIds = array_values(array_filter(
-            array_map('intval', $this->selectedCompanyIds),
-            fn ($id) => $id !== $companyId
+            $this->normalizeSelectedCompanyIds($this->selectedCompanyIds),
+            fn (string $id): bool => $id !== $target
         ));
         $this->form->fill(['selectedCompanyIds' => $this->selectedCompanyIds]);
         $this->loadSheet();
+    }
+
+    /**
+     * Normalize selected company IDs as unique string keys to match Filament Select option values in JS.
+     */
+    private function normalizeSelectedCompanyIds(array $ids): array
+    {
+        return array_values(array_unique(array_filter(
+            array_map('strval', $ids),
+            static fn (string $id): bool => $id !== '' && ctype_digit($id) && (int) $id > 0
+        )));
     }
 
     public function updatedSelectedGuarantorId(): void
@@ -656,14 +681,36 @@ class ListPayrollRecords extends ListRecords
             'منفذ: '.count($result['executed']),
         ];
 
+        if (! empty($result['approval_request'])) {
+            $summaryParts[] = __('financial.approval.submitted_number', ['number' => $result['approval_request']->request_number]);
+        }
         if ($result['already_executed'] !== []) {
             $summaryParts[] = 'سبق تنفيذه: '.count($result['already_executed']);
         }
         if ($result['pending'] !== []) {
             $summaryParts[] = 'معلق للتأكيد: '.count($result['pending']);
         }
+        $failureReasons = collect([...$result['failed'], ...$result['save_failed']])
+            ->map(fn (array $item): string => trim((string) ($item['reason'] ?? $item['error'] ?? '')))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
         if ($result['failed'] !== [] || $result['save_failed'] !== []) {
             $summaryParts[] = 'فشل: '.(count($result['failed']) + count($result['save_failed']));
+            if ($failureReasons !== []) {
+                $summaryParts[] = 'السبب: '.implode(' — ', $failureReasons);
+            }
+
+            Log::warning('Payroll sheet save/submit failure', [
+                'user_id' => auth()->id(),
+                'operation_type' => $this->operationType,
+                'payroll_month' => $this->payrollMonth,
+                'attempt_key' => $this->sheetAttemptKey,
+                'failed' => $result['failed'],
+                'save_failed' => $result['save_failed'],
+            ]);
         } else {
             // Rotate attempt key only after a clean completion so retries reuse the same key.
             $this->sheetAttemptKey = 'sheet:'.Str::uuid()->toString();
@@ -674,7 +721,7 @@ class ListPayrollRecords extends ListRecords
             ->body(implode(' | ', $summaryParts));
 
         if ($result['failed'] !== [] || $result['save_failed'] !== []) {
-            $notification->warning()->send();
+            $notification->warning()->persistent()->send();
         } else {
             $notification->success()->send();
         }

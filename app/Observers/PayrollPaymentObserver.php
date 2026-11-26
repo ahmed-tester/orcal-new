@@ -2,7 +2,7 @@
 
 namespace App\Observers;
 
-use App\Models\PayrollPayment;
+use App\Models\Payroll\PayrollPayment;
 use App\Services\CodeGeneratorService;
 use App\Services\Payroll\PayrollCalculationService;
 use App\Services\Payroll\PayrollRecordFinancialService;

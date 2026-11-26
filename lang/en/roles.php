@@ -14,4 +14,6 @@ return [
     'delete' => 'Delete',
     'services_and_transactions_group' => 'Services & Service Transactions',
     'services_financial_workflow_group' => 'Services Financial Workflow & Operational Control',
+    'treasury_employee_group' => 'Treasury Employee Permissions',
+    'treasury_manager_group' => 'Treasury Group Manager Permissions (Final Approval)',
 ];

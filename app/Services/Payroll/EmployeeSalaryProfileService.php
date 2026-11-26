@@ -2,12 +2,12 @@
 
 namespace App\Services\Payroll;
 
-use App\Services\OperationsAuditService;
 use App\Enums\DeductionBasis;
 use App\Enums\EmploymentType;
 use App\Models\Employee;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\User;
+use App\Services\OperationsAuditService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 

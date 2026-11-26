@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Services\ExportPdfService;
 use Illuminate\Http\Request;
 
@@ -40,7 +40,7 @@ class PayrollRecordPrintController extends Controller
         ]);
 
         $html = view('payroll-records.print', compact('record'))->render();
-        $filename = 'payroll-slip-' . ($record->record_number ?: $record->id) . '.pdf';
+        $filename = 'payroll-slip-'.($record->record_number ?: $record->id).'.pdf';
 
         return ExportPdfService::renderHtml($html, $filename, true, [
             'format' => 'A4',
@@ -52,4 +52,3 @@ class PayrollRecordPrintController extends Controller
         ]);
     }
 }
-

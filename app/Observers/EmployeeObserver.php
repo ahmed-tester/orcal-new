@@ -49,6 +49,13 @@ class EmployeeObserver
 
     public function deleted(Employee $employee): void
     {
+        if ($employee->isForceDeleting()) {
+            PersonCapacityService::cleanupOrphanedUser($employee->user_id, 'employee', $employee->id);
+        }
+    }
+
+    public function forceDeleted(Employee $employee): void
+    {
         PersonCapacityService::cleanupOrphanedUser($employee->user_id, 'employee', $employee->id);
     }
 }

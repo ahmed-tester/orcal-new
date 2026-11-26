@@ -4,12 +4,16 @@ namespace App\Policies;
 
 use App\Models\Department;
 use App\Models\User;
-use App\Services\DepartmentHierarchyService;
+use App\Services\Departments\DepartmentHierarchyService;
 
 class DepartmentPolicy
 {
     public function before(User $user, string $ability): ?bool
     {
+        if (in_array($ability, ['forceDelete', 'forceDeleteAny'], true)) {
+            return false;
+        }
+
         if ($user->isSuperAdmin()) {
             return true;
         }
@@ -42,5 +46,25 @@ class DepartmentPolicy
     {
         return ($user->isOwner() || $user->can('delete_department'))
             && DepartmentHierarchyService::levelOf($model) >= DepartmentHierarchyService::MAX_DEPTH;
+    }
+
+    public function restore(User $user, Department $model): bool
+    {
+        return false;
+    }
+
+    public function restoreAny(User $user): bool
+    {
+        return false;
+    }
+
+    public function forceDelete(User $user, Department $model): bool
+    {
+        return false;
+    }
+
+    public function forceDeleteAny(User $user): bool
+    {
+        return false;
     }
 }

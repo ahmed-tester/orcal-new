@@ -2,16 +2,16 @@
 
 namespace App\Services\Attendance;
 
-use App\Services\Payroll\EmployeeSalaryProfileService;
-use App\Services\Payroll\SaudiCompensationGrantService;
-use App\Services\Payroll\SaudiPayrollPolicyService;
 use App\Enums\AttendanceSource;
 use App\Enums\AttendanceStatus;
 use App\Enums\EmploymentType;
 use App\Models\Attendance;
 use App\Models\Employee;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\User;
+use App\Services\Payroll\EmployeeSalaryProfileService;
+use App\Services\Payroll\SaudiCompensationGrantService;
+use App\Services\Payroll\SaudiPayrollPolicyService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;

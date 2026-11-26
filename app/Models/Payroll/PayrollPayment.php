@@ -1,7 +1,10 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Payroll;
 
+use App\Models\Company;
+use App\Models\Employee;
+use App\Models\TreasuryTransaction;
 use App\Observers\PayrollPaymentObserver;
 use App\Traits\HasHijriDates;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;

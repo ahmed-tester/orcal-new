@@ -38,6 +38,9 @@ class OperationsPermissionService
             'manage_suspense_amounts' => __('permissions.manage_suspense_amounts'),
             'reverse_financial_transaction' => __('permissions.reverse_financial_transaction'),
             'disburse_payroll_salary' => __('permissions.disburse_payroll_salary'),
+            'submit_financial_request' => __('permissions.submit_financial_request'),
+            'approve_financial_request' => __('permissions.approve_financial_request'),
+            'view_financial_request' => __('permissions.view_financial_request'),
         ];
     }
 

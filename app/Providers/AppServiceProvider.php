@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Enums\Payroll\FinancialApprovalItemStatus;
+use App\Enums\Payroll\FinancialApprovalStatus;
 use App\Filament\Navigation\OrderedNavigationManager;
 use App\Interfaces\SmsServiceInterface;
 use App\Models\Attendance;
@@ -39,7 +41,11 @@ use App\Models\Offer;
 use App\Models\OfficialLetter;
 use App\Models\Owner;
 use App\Models\PaymentCollectionItem;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\FinancialApprovalRequest;
+use App\Models\Payroll\FinancialApprovalRequestItem;
+use App\Models\Payroll\FinancialApprovalRequestLog;
+use App\Models\Payroll\PayrollPayment;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\PerformanceEscalation;
 use App\Models\PosDevice;
 use App\Models\SaudiEmployee;
@@ -188,7 +194,7 @@ class AppServiceProvider extends ServiceProvider
             if ($subjectClass === Department::class) {
                 return null;
             }
-            if ($subjectClass === \App\Models\Department::class) {
+            if ($subjectClass === Department::class) {
                 return null;
             }
             if (is_string($subjectClass) && str_starts_with($subjectClass, 'App\\Models\\Mail\\')) {
@@ -239,6 +245,21 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(InstallmentType::class, InstallmentTypePolicy::class);
         Gate::policy(AttendanceDevice::class, AttendanceDevicePolicy::class);
         Gate::policy(PayrollRecord::class, PayrollRecordPolicy::class);
+
+        $legacyPayrollAliases = [
+            'App\\Models\\PayrollRecord' => PayrollRecord::class,
+            'App\\Models\\PayrollPayment' => PayrollPayment::class,
+            'App\\Models\\FinancialApprovalRequest' => FinancialApprovalRequest::class,
+            'App\\Models\\FinancialApprovalRequestItem' => FinancialApprovalRequestItem::class,
+            'App\\Models\\FinancialApprovalRequestLog' => FinancialApprovalRequestLog::class,
+            'App\\Enums\\FinancialApprovalStatus' => FinancialApprovalStatus::class,
+            'App\\Enums\\FinancialApprovalItemStatus' => FinancialApprovalItemStatus::class,
+        ];
+        foreach ($legacyPayrollAliases as $legacyClass => $currentClass) {
+            if (! class_exists($legacyClass, false)) {
+                class_alias($currentClass, $legacyClass);
+            }
+        }
 
         // FAQ Policy
         Gate::policy(Faq::class, FaqPolicy::class);

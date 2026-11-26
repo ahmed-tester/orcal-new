@@ -2,16 +2,18 @@
 
 namespace App\Models;
 
+use App\Enums\GeneralStatus;
 use App\Enums\JobTitleScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class JobTitle extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'company_id',
@@ -48,7 +50,7 @@ class JobTitle extends Model
         return [
             'is_global' => 'boolean',
             'sort_order' => 'integer',
-            'status' => \App\Enums\GeneralStatus::class,
+            'status' => GeneralStatus::class,
         ];
     }
 
@@ -117,7 +119,7 @@ class JobTitle extends Model
 
     public function department(): BelongsTo
     {
-        return $this->belongsTo(Department::class);
+        return $this->belongsTo(Department::class)->withTrashed();
     }
 
     public function parent(): BelongsTo

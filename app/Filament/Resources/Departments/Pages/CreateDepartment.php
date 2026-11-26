@@ -6,7 +6,7 @@ use App\Filament\Resources\Departments\DepartmentResource;
 use App\Filament\Resources\Departments\Schemas\DepartmentForm;
 use App\Filament\Resources\Departments\Traits\HandlesDepartmentScope;
 use App\Models\Department;
-use App\Services\DepartmentHierarchyService;
+use App\Services\Departments\DepartmentHierarchyService;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Contracts\Support\Htmlable;

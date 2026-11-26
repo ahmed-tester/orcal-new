@@ -6,6 +6,7 @@ use App\Enums\FinancialDisbursementStatus;
 use App\Enums\FinancialDisbursementType;
 use App\Enums\FinancialReceiptStatus;
 use App\Enums\OperationWorkflowStatus;
+use App\Enums\Payroll\FinancialApprovalStatus;
 use App\Enums\UserType;
 use App\Models\CashHandover;
 use App\Models\Company;
@@ -24,7 +25,8 @@ use App\Models\Mail\MailAttachment;
 use App\Models\Mail\MailConversation;
 use App\Models\Mail\MailMessage;
 use App\Models\Mail\MailSyncLog;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\FinancialApprovalRequest;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\PerformanceEscalation;
 use App\Models\SaudiEmployee;
 use App\Models\ServiceTransaction;
@@ -36,6 +38,8 @@ use App\Models\Violation;
 use App\Services\CashHandoverService;
 use App\Services\CompanyFormService;
 use App\Services\Mail\MailAccessService;
+use App\Services\Payroll\FinancialApprovalNotificationService;
+use App\Services\Payroll\PayrollApprovalScopeService;
 use App\Services\PerformanceEscalationService;
 use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -169,6 +173,10 @@ class NotificationRecipientService
 
         if (($context['routing_mode'] ?? null) === 'task_assignment_targeted') {
             return static::isEligibleForTaskAssignment($user, $record, $context, $denialReason);
+        }
+
+        if (($context['routing_mode'] ?? null) === 'financial_approval' && $record instanceof FinancialApprovalRequest) {
+            return static::isEligibleForFinancialApproval($user, $record, $context, $denialReason);
         }
 
         if (($context['routing_mode'] ?? null) === 'operations_targeted') {
@@ -415,6 +423,110 @@ class NotificationRecipientService
         }
 
         return null;
+    }
+
+    /**
+     * Evaluate recipient eligibility and deduplication for financial approval workflow notifications.
+     *
+     * @param  array<string, mixed>  $context
+     */
+    private static function isEligibleForFinancialApproval(
+        User $user,
+        FinancialApprovalRequest $request,
+        array $context,
+        ?string &$denialReason = null,
+    ): bool {
+        $dedupKey = (string) ($context['dedup_key'] ?? '');
+        if ($dedupKey !== '' && FinancialApprovalNotificationService::alreadyDelivered((int) $user->id, $dedupKey)) {
+            $denialReason = 'duplicate_notification_prevented';
+
+            return false;
+        }
+
+        $expectedVersion = (int) ($context['approval_version'] ?? 0);
+        if ($expectedVersion > 0 && (int) $request->version !== $expectedVersion) {
+            $denialReason = 'approval_version_changed';
+
+            return false;
+        }
+
+        $stage = (string) ($context['approval_stage'] ?? '');
+        $companyIds = $request->companies()->pluck('companies.id')->all();
+
+        if ($stage === 'treasury') {
+            if ($request->status !== FinancialApprovalStatus::PENDING_TREASURY) {
+                $denialReason = 'approval_stage_changed';
+
+                return false;
+            }
+
+            if (! PayrollApprovalScopeService::coversAllCompanies($user, $companyIds)) {
+                $denialReason = 'treasury_reviewer_ineligible';
+
+                return false;
+            }
+
+            return true;
+        }
+
+        if ($stage === 'manager') {
+            if ($request->status !== FinancialApprovalStatus::PENDING_MANAGER) {
+                $denialReason = 'approval_stage_changed';
+
+                return false;
+            }
+
+            if (! PayrollApprovalScopeService::isAssignedManager($user, $request)) {
+                $denialReason = 'manager_ineligible_or_route_changed';
+
+                return false;
+            }
+
+            return true;
+        }
+
+        if ($stage === 'executed') {
+            if ($request->status !== FinancialApprovalStatus::EXECUTED) {
+                $denialReason = 'approval_not_executed';
+
+                return false;
+            }
+
+            $isTarget = (int) $request->submitted_by === (int) $user->id
+                || (int) $request->treasury_reviewer_id === (int) $user->id;
+
+            if (! $isTarget || ! PayrollApprovalScopeService::canViewRequest($user, $request)) {
+                $denialReason = 'not_in_event_audience';
+
+                return false;
+            }
+
+            return true;
+        }
+
+        if (in_array($stage, ['rejected', 'returned'], true)) {
+            $expectedStatus = $stage === 'rejected'
+                ? FinancialApprovalStatus::REJECTED
+                : FinancialApprovalStatus::RETURNED;
+
+            if ($request->status !== $expectedStatus) {
+                $denialReason = 'approval_stage_changed';
+
+                return false;
+            }
+
+            if (! PayrollApprovalScopeService::canViewRequest($user, $request)) {
+                $denialReason = 'not_in_event_audience';
+
+                return false;
+            }
+
+            return true;
+        }
+
+        $denialReason = 'unknown_approval_stage';
+
+        return false;
     }
 
     /**

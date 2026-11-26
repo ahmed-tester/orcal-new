@@ -2,10 +2,10 @@
 
 namespace App\Services\Payroll;
 
-use App\Services\OperationsAuditService;
 use App\Models\Company;
 use App\Models\Employee;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
+use App\Services\OperationsAuditService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;

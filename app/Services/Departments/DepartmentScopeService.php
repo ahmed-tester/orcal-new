@@ -1,12 +1,14 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Departments;
 
 use App\Enums\DepartmentScope;
 use App\Filament\Resources\Departments\Pages\CreateDepartment;
 use App\Filament\Resources\Departments\Schemas\DepartmentForm;
 use App\Models\Company;
 use App\Models\Department;
+use App\Services\CompanyAccessScopeService;
+use App\Services\CompanyFormService;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;

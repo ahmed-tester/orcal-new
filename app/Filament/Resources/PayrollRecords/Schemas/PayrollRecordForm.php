@@ -4,7 +4,7 @@ namespace App\Filament\Resources\PayrollRecords\Schemas;
 
 use App\Enums\PaymentStatus;
 use App\Filament\Components\OrgSelect;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Services\Payroll\PayrollCalculationService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;

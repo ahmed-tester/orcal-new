@@ -4,7 +4,7 @@ namespace App\Services\AI\Tools;
 
 use App\Models\Company;
 use App\Models\Employee;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Services\AI\Contracts\GeminiToolInterface;
 use App\Services\AI\EmployeeNameMatcher;
 use App\Services\Payroll\PayrollEntitlementService;

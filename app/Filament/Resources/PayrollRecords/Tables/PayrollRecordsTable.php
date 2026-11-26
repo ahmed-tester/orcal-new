@@ -8,7 +8,7 @@ use App\Filament\Components\PayrollFinancialActions;
 use App\Filament\Resources\PayrollRecords\PayrollRecordResource;
 use App\Models\FinancialReceipt;
 use App\Models\Guarantor;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Services\CompanyFormService;
 use App\Services\FinancialReceiptService;
 use App\Services\Payroll\PayrollDisbursementService;
@@ -220,29 +220,19 @@ class PayrollRecordsTable
                             $count = 0;
                             $attemptKey = (string) ($data['request_key'] ?? PayrollDisbursementService::newRequestKey());
                             foreach ($records as $record) {
-                                if ((float) $record->remaining_amount > 0 && $record->payment_status !== PaymentStatus::PAID) {
+                                if ($record->isCollection() && (float) $record->remaining_amount > 0 && $record->payment_status !== PaymentStatus::PAID) {
                                     try {
                                         $rowKey = $attemptKey.':'.$record->operation_type.':'.$record->id;
-                                        if ($record->isCollection()) {
-                                            FinancialReceiptService::recordFor(
-                                                FinancialReceipt::SOURCE_PAYROLL_COLLECTION,
-                                                (int) $record->id,
-                                                [
-                                                    'request_key' => $rowKey,
-                                                    'amount' => (float) $record->remaining_amount,
-                                                    'payment_method' => $data['payment_method'],
-                                                    'notes' => $data['notes'] ?? null,
-                                                ],
-                                            );
-                                        } else {
-                                            PayrollDisbursementService::disburse($record, [
+                                        FinancialReceiptService::recordFor(
+                                            FinancialReceipt::SOURCE_PAYROLL_COLLECTION,
+                                            (int) $record->id,
+                                            [
                                                 'request_key' => $rowKey,
                                                 'amount' => (float) $record->remaining_amount,
-                                                'payment_date' => $data['payment_date'],
                                                 'payment_method' => $data['payment_method'],
                                                 'notes' => $data['notes'] ?? null,
-                                            ]);
-                                        }
+                                            ],
+                                        );
                                         $count++;
                                     } catch (\Throwable $e) {
                                     }
@@ -266,7 +256,7 @@ class PayrollRecordsTable
             ->label(fn (PayrollRecord $record) => $record->operation_type === 'collection' ? __('finance.payroll_records.actions.collect_amount') : __('finance.payroll_records.actions.pay_salary'))
             ->icon(fn (PayrollRecord $record) => $record->operation_type === 'collection' ? 'heroicon-o-arrow-down-tray' : 'heroicon-o-banknotes')
             ->color(fn (PayrollRecord $record) => $record->operation_type === 'collection' ? 'purple' : 'success')
-            ->visible(fn (PayrollRecord $record) => static::availableActionAmount($record) > 0 && $record->payment_status !== PaymentStatus::PAID)
+            ->visible(fn (PayrollRecord $record) => $record->isCollection() && static::availableActionAmount($record) > 0 && $record->payment_status !== PaymentStatus::PAID)
             ->modalHeading(fn (PayrollRecord $record) => $record->operation_type === 'collection'
                 ? __('finance.payroll_records.actions.collect_heading', ['employee' => $record->employee?->user?->name ?? "#{$record->employee_id}"])
                 : __('finance.payroll_records.actions.pay_salary_heading', [

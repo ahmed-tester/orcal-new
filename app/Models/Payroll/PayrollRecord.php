@@ -1,8 +1,12 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Payroll;
 
 use App\Enums\PaymentStatus;
+use App\Models\Company;
+use App\Models\Employee;
+use App\Models\FinancialReceipt;
+use App\Models\User;
 use App\Observers\PayrollRecordObserver;
 use App\Services\Payroll\PayrollCalculationService;
 use App\Traits\HasHijriDates;
@@ -88,7 +92,7 @@ class PayrollRecord extends Model
 
     public function employee(): BelongsTo
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(Employee::class)->withTrashed();
     }
 
     public function creator(): BelongsTo
@@ -124,28 +128,23 @@ class PayrollRecord extends Model
 
     public function isPayroll(): bool
     {
-        return $this->operation_type === 'payroll';
+        return $this->operation_type !== 'collection';
     }
 
     public function hasFinancialImpact(): bool
     {
-        if ((float) $this->paid_amount > 0) {
-            return true;
+        if (! $this->exists) {
+            return false;
         }
 
-        if ($this->exists && $this->payments()->exists()) {
-            return true;
+        if ($this->isCollection()) {
+            return $this->financialReceipts()->exists()
+                || ! empty($this->metadata['linked_payroll_deductions']);
         }
 
-        if ($this->exists && FinancialReceipt::forSource(FinancialReceipt::SOURCE_PAYROLL_COLLECTION, (int) $this->id)->exists()) {
-            return true;
-        }
-
-        $meta = $this->metadata ?? [];
-
-        return ! empty($meta['reversed_at'])
-            || ! empty($meta['salary_deduction_allocations'])
-            || ! empty($meta['linked_collection_deductions'])
-            || ! empty($meta['pending_bank_transfers']);
+        return $this->payments()->exists()
+            || ! empty($this->metadata['linked_collection_deductions'])
+            || ! empty($this->metadata['disbursement_requests'])
+            || ! empty($this->metadata['pending_bank_transfers']);
     }
 }

@@ -4,7 +4,7 @@ namespace App\Filament\Resources\Departments\Pages;
 
 use App\Filament\Resources\Departments\DepartmentResource;
 use App\Models\Department;
-use App\Services\DepartmentHierarchyService;
+use App\Services\Departments\DepartmentHierarchyService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
@@ -84,6 +84,13 @@ class ListDepartments extends ListRecords
                 ->color('gray')
                 ->visible(fn () => $this->resolveCurrentParent() !== null)
                 ->url(fn () => DepartmentResource::getUrl('index', ['parent' => $this->visibleParentId()])),
+
+            Action::make('archives')
+                ->label(__('organization.departments.deletion.archive.title'))
+                ->icon('heroicon-m-archive-box')
+                ->color('gray')
+                ->visible(fn () => ! app()->isProduction() && (auth()->user()?->isSuperAdmin() ?? false) && $this->resolveCurrentParent() === null)
+                ->url(fn () => DepartmentResource::getUrl('archives')),
 
             CreateAction::make()
                 ->label(fn () => $this->createLabel())

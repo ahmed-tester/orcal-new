@@ -2,18 +2,18 @@
 
 namespace App\Services\Payroll;
 
-use App\Services\CompanyAccessScopeService;
-use App\Services\CompanyFormService;
-use App\Services\FilterBarService;
-use App\Services\FinancialReceiptService;
-use App\Services\HijriDateService;
 use App\Enums\FinancialReceiptStatus;
 use App\Enums\PaymentStatus;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Models\FinancialReceipt;
 use App\Models\Guarantor;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
+use App\Services\CompanyAccessScopeService;
+use App\Services\CompanyFormService;
+use App\Services\FilterBarService;
+use App\Services\FinancialReceiptService;
+use App\Services\HijriDateService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -265,6 +265,9 @@ class PayrollSheetService
             $totalPending += (float) ($r['remaining_amount'] ?? 0);
         }
 
+        $visibleEmployeeIds = array_flip(array_map(fn (array $r): int => (int) $r['employee_id'], $rows));
+        $checkedEmployees = array_intersect_key($checkedEmployees, $visibleEmployeeIds);
+
         return [
             'rows' => $rows,
             'checkedEmployees' => $checkedEmployees,
@@ -372,24 +375,142 @@ class PayrollSheetService
             }
         }
 
-        // Phase 2: Execute each checked row in its own independent transaction (no outer lock across the whole sheet).
+        $sheetEmployeeIds = array_flip(array_values(array_filter(array_map(
+            fn (array $row): int => (int) ($row['employee_id'] ?? 0),
+            $employeeRows
+        ))));
+        $scopedCheckedEmployees = array_intersect_key($checkedEmployees, $sheetEmployeeIds);
+
+        // Phase 2: Collection executes immediately per checked row; payroll submits a single approval batch.
+        if ($operationType === 'collection') {
+            foreach ($savedRecords as $empId => $record) {
+                if (! empty($scopedCheckedEmployees[$empId])) {
+                    static::executeCheckedSheetRow(
+                        record: $record,
+                        empId: $empId,
+                        operationType: $operationType,
+                        rowKey: $attemptKey.':'.$operationType.':'.$record->id,
+                        paymentMethod: $paymentMethod,
+                        collectorEmployeeId: $collectorEmployeeId,
+                        result: $result,
+                    );
+                }
+            }
+
+            return $result;
+        }
+
+        static::submitCheckedPayrollSheet($savedRecords, $scopedCheckedEmployees, $payrollMonth, $attemptKey, $paymentMethod, $result);
+
+        return $result;
+    }
+
+    /**
+     * @param  array<int, PayrollRecord>  $savedRecords
+     * @param  array<int, bool>  $checkedEmployees
+     * @param  array<string, mixed>  $result
+     */
+    private static function submitCheckedPayrollSheet(
+        array $savedRecords,
+        array $checkedEmployees,
+        string $payrollMonth,
+        string $attemptKey,
+        string $paymentMethod,
+        array &$result,
+    ): void {
+        $checkedIds = collect($checkedEmployees)
+            ->filter(fn ($checked) => (bool) $checked)
+            ->keys()
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        if ($checkedIds === []) {
+            return;
+        }
+
+        $failedCheckedIds = collect($result['save_failed'] ?? [])
+            ->pluck('employee_id')
+            ->map(fn ($id) => (int) $id)
+            ->intersect($checkedIds)
+            ->values()
+            ->all();
+
+        $missingCheckedIds = array_values(array_diff($checkedIds, array_keys($savedRecords)));
+
+        if ($failedCheckedIds !== [] || $missingCheckedIds !== []) {
+            $result['failed'][] = [
+                'employee_id' => $failedCheckedIds[0] ?? $missingCheckedIds[0] ?? 0,
+                'record_id' => 0,
+                'reason' => __('financial.errors.approval_items_required'),
+            ];
+
+            return;
+        }
+
+        $submitter = auth()->user();
+        if (! $submitter) {
+            $result['failed'][] = ['employee_id' => 0, 'record_id' => 0, 'reason' => __('financial.errors.unauthenticated')];
+
+            return;
+        }
+
+        $batchItems = [];
         foreach ($savedRecords as $empId => $record) {
             if (empty($checkedEmployees[$empId])) {
                 continue;
             }
 
-            static::executeCheckedSheetRow(
-                record: $record,
-                empId: $empId,
-                operationType: $operationType,
-                rowKey: $attemptKey.':'.$operationType.':'.$record->id,
-                paymentMethod: $paymentMethod,
-                collectorEmployeeId: $collectorEmployeeId,
-                result: $result,
-            );
+            $fresh = PayrollRecord::findOrFail($record->id);
+            $remaining = $fresh->isManaged()
+                ? (float) PayrollRecordFinancialService::payrollSummary($fresh)['available_for_disbursement']
+                : (float) $fresh->remaining_amount;
+
+            if ($remaining <= 0) {
+                $reservedKeys = collect($fresh->metadata['linked_collection_deductions'] ?? [])
+                    ->where('status', 'reserved')
+                    ->keys()
+                    ->all();
+
+                if ($reservedKeys !== []) {
+                    PayrollApprovalScopeService::authorizeSubmitterForRecord($submitter, $fresh);
+                    PayrollDeductionSettlementService::confirmBatch($fresh, $reservedKeys, $submitter, true);
+                    $result['executed'][] = ['employee_id' => $empId, 'record_id' => $fresh->id];
+                }
+
+                continue;
+            }
+
+            $batchItems[] = [
+                'payroll_record_id' => $fresh->id,
+                'amount' => $remaining,
+                'payment_method' => $paymentMethod,
+                'notes' => $fresh->notes,
+            ];
         }
 
-        return $result;
+        if ($batchItems === []) {
+            return;
+        }
+
+        try {
+            $approvalRequest = FinancialApprovalService::submitPayrollBatch(
+                items: $batchItems,
+                submitter: $submitter,
+                payrollMonth: $payrollMonth,
+                attemptKey: $attemptKey,
+            );
+            $result['approval_request'] = $approvalRequest;
+            foreach ($approvalRequest->items as $item) {
+                $result['pending'][] = [
+                    'employee_id' => $item->employee_id,
+                    'record_id' => $item->payroll_record_id,
+                    'approval_request_id' => $approvalRequest->id,
+                ];
+            }
+        } catch (\Throwable $e) {
+            $result['failed'][] = ['employee_id' => 0, 'record_id' => 0, 'reason' => $e->getMessage()];
+        }
     }
 
     private static function saveSheetRowEntitlement(

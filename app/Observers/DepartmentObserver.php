@@ -3,7 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Department;
-use App\Services\DepartmentHierarchyService;
+use App\Services\Departments\DepartmentHierarchyService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Validation\ValidationException;
 
@@ -160,6 +160,10 @@ class DepartmentObserver
 
     public function deleting(Department $department): bool
     {
+        if ($department->isForceDeleting()) {
+            return false;
+        }
+
         return DepartmentHierarchyService::deletionBlockers($department) === [];
     }
 

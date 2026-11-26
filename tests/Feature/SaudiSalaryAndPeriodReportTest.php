@@ -8,19 +8,22 @@ use App\Enums\DeductionBasis;
 use App\Enums\EmploymentType;
 use App\Enums\GeneralStatus;
 use App\Enums\UserType;
+use App\Filament\Resources\PayrollRecords\Pages\EditPayrollRecord;
 use App\Jobs\SyncDailyAttendanceToPayrollJob;
 use App\Models\Attendance;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Models\EmployeeDetail;
-use App\Models\PayrollPayment;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollPayment;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\UnifiedAuditLog;
 use App\Models\User;
+use App\Services\Attendance\SaudiAttendancePeriodReportService;
 use App\Services\Payroll\EmployeeCompensationEligibilityService;
 use App\Services\Payroll\EmployeeSalaryProfileService;
 use App\Services\Payroll\PayrollCalculationService;
-use App\Services\Attendance\SaudiAttendancePeriodReportService;
+use App\Services\Payroll\PayrollEntitlementCalculator;
+use App\Services\Payroll\PayrollEntitlementService;
 use App\Services\Payroll\SaudiCompensationGrantService;
 use App\Services\Payroll\SaudiPayrollPolicyService;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -1009,7 +1012,7 @@ class SaudiSalaryAndPeriodReportTest extends TestCase
 
     public function test_payroll_ref_004_once_grant_is_not_double_counted_within_same_month(): void
     {
-        $result = \App\Services\Payroll\PayrollEntitlementCalculator::calculateLateAndCompensation([
+        $result = PayrollEntitlementCalculator::calculateLateAndCompensation([
             'month' => '2026-12',
             'hour_rate' => 10.0,
             'compensation_hourly_rate' => 20.0,
@@ -1087,7 +1090,7 @@ class SaudiSalaryAndPeriodReportTest extends TestCase
         SaudiCompensationGrantService::revokeGrant($admin, $this->saudiEmployee->refresh(), $grant['grant_id'], '2026-12-01', 'Revoked');
 
         // Even if stale additional_amount=10 or deduction_amount=99 is passed, derived totals must come from server calculation
-        $updated = \App\Services\Payroll\PayrollEntitlementService::upsertMonthlyPayroll($this->saudiEmployee->id, '2026-12', [
+        $updated = PayrollEntitlementService::upsertMonthlyPayroll($this->saudiEmployee->id, '2026-12', [
             'skip_if_financially_impacted' => false,
             'overrides' => [
                 'basic_salary' => 2600,
@@ -1100,7 +1103,7 @@ class SaudiSalaryAndPeriodReportTest extends TestCase
         $this->assertSame('2590.00', (string) $updated->net_amount);
 
         // EditPayrollRecord::handleRecordUpdate rejects identity changes (employee_id, payroll_month, operation_type)
-        $editPage = new class extends \App\Filament\Resources\PayrollRecords\Pages\EditPayrollRecord
+        $editPage = new class extends EditPayrollRecord
         {
             public function callHandleRecordUpdate(PayrollRecord $rec, array $data): PayrollRecord
             {

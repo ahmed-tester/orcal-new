@@ -6,22 +6,27 @@ use App\Enums\FinancialCashDirection;
 use App\Enums\FinancialPaymentMethod;
 use App\Enums\PaymentItemCategory;
 use App\Enums\PaymentStatus;
+use App\Enums\Payroll\FinancialApprovalStatus;
 use App\Models\Company;
 use App\Models\Customer;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Models\FinancialReceipt;
-use App\Models\PayrollPayment;
-use App\Models\PayrollRecord;
+use App\Models\Owner;
+use App\Models\Payroll\PayrollPayment;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\User;
 use App\Services\CashHandoverService;
 use App\Services\FinancialReceiptService;
 use App\Services\FinancialTreasuryService;
 use App\Services\InvoiceFinancialService;
+use App\Services\Payroll\FinancialApprovalService;
 use App\Services\Payroll\PayrollCalculationService;
 use App\Services\Payroll\PayrollDisbursementService;
 use App\Services\Payroll\PayrollRecordFinancialService;
 use App\Services\Payroll\PayrollSheetService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
@@ -52,6 +57,8 @@ class PayrollFinancialWorkflowTest extends TestCase
         $_ENV['DB_DATABASE'] = $database;
         $_SERVER['DB_CONNECTION'] = 'sqlite';
         $_SERVER['DB_DATABASE'] = $database;
+        RefreshDatabaseState::$migrated = false;
+        \Illuminate\Foundation\Testing\RefreshDatabaseState::$migrated = false;
 
         return parent::createApplication();
     }
@@ -69,6 +76,10 @@ class PayrollFinancialWorkflowTest extends TestCase
         $this->admin = User::factory()->create([
             'user_type' => 'owner',
             'status' => 'active',
+        ]);
+
+        Owner::create([
+            'user_id' => $this->admin->id,
             'company_id' => $this->company->id,
         ]);
 
@@ -76,6 +87,7 @@ class PayrollFinancialWorkflowTest extends TestCase
             'user_id' => $this->admin->id,
             'company_id' => $this->company->id,
             'basic_salary' => 3000,
+            'daily_work_hours' => 8,
             'status' => 'active',
         ]);
 
@@ -86,6 +98,10 @@ class PayrollFinancialWorkflowTest extends TestCase
             'confirm_cash_handover',
             'reverse_financial_transaction',
             'disburse_payroll_salary',
+            'submit_financial_request',
+            'update_treasury_transaction',
+            'approve_financial_request',
+            'view_financial_request',
         ] as $perm) {
             Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
         }
@@ -97,7 +113,38 @@ class PayrollFinancialWorkflowTest extends TestCase
             'confirm_cash_handover',
             'reverse_financial_transaction',
             'disburse_payroll_salary',
+            'submit_financial_request',
+            'update_treasury_transaction',
+            'approve_financial_request',
+            'view_financial_request',
         ]);
+
+        $superAdmin = User::factory()->create([
+            'user_type' => 'super_admin',
+            'status' => 'active',
+        ]);
+        $this->actingAs($superAdmin);
+
+        $rootDept = Department::create([
+            'name' => 'Finance Root',
+            'is_global' => true,
+            'manager_id' => $this->employee->id,
+            'status' => 'active',
+        ]);
+        $mainDept = Department::create([
+            'name' => 'General Finance Dept',
+            'parent_id' => $rootDept->id,
+            'is_global' => true,
+            'status' => 'active',
+        ]);
+        $subDept = Department::create([
+            'name' => 'Company Sub Dept',
+            'parent_id' => $mainDept->id,
+            'company_id' => $this->company->id,
+            'is_global' => false,
+            'status' => 'active',
+        ]);
+        $this->employee->update(['department_id' => $subDept->id]);
 
         $this->actingAs($this->admin);
     }
@@ -206,63 +253,67 @@ class PayrollFinancialWorkflowTest extends TestCase
             'net_amount' => 3000,
         ]);
 
-        // Cheque is rejected in managed workflow
+        // Direct disbursement is blocked; must go through approval workflow
         try {
             PayrollDisbursementService::disburse($payroll, [
                 'request_key' => PayrollDisbursementService::newRequestKey(),
                 'amount' => 1000,
-                'payment_method' => 'cheque',
+                'payment_method' => 'cash',
             ], $this->admin);
+            $this->fail('Expected ValidationException blocking direct disbursement.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('approval_request', $e->errors());
+        }
+
+        // Cheque is rejected in approval workflow
+        try {
+            FinancialApprovalService::submitPayrollBatch([
+                ['payroll_record_id' => $payroll->id, 'amount' => 1000, 'payment_method' => 'cheque'],
+            ], $this->admin, '2026-11');
             $this->fail('Expected ValidationException for cheque.');
         } catch (ValidationException $e) {
             $this->assertArrayHasKey('payment_method', $e->errors());
         }
 
-        $key1 = PayrollDisbursementService::newRequestKey();
-        $first = PayrollDisbursementService::disburse($payroll, [
-            'request_key' => $key1,
-            'amount' => 1000,
-            'payment_method' => FinancialPaymentMethod::CASH->value,
-        ], $this->admin);
+        $key1 = 'attempt:cash-1000';
+        $req1 = FinancialApprovalService::submitPayrollBatch([
+            ['payroll_record_id' => $payroll->id, 'amount' => 1000, 'payment_method' => FinancialPaymentMethod::CASH->value],
+        ], $this->admin, '2026-11', attemptKey: $key1);
+        $reviewed1 = FinancialApprovalService::approveByTreasury($req1, $this->admin);
+        $executed1 = FinancialApprovalService::approveByManager($reviewed1, $this->admin);
 
-        $this->assertSame('executed', $first['status']);
+        $this->assertSame(FinancialApprovalStatus::EXECUTED, $executed1->status);
         $this->assertSame(4000.0, FinancialTreasuryService::balance($this->company->id));
 
-        // Retry with same key must not disburse again
-        $retry = PayrollDisbursementService::disburse($payroll, [
-            'request_key' => $key1,
-            'amount' => 1000,
-            'payment_method' => FinancialPaymentMethod::CASH->value,
-        ], $this->admin);
-
-        $this->assertTrue($retry['already_executed']);
+        // Retry with same attempt key must not create a new request or disburse again
+        $retryReq = FinancialApprovalService::submitPayrollBatch([
+            ['payroll_record_id' => $payroll->id, 'amount' => 1000, 'payment_method' => FinancialPaymentMethod::CASH->value],
+        ], $this->admin, '2026-11', attemptKey: $key1);
+        $this->assertSame($req1->id, $retryReq->id);
+        FinancialApprovalService::approveByManager($executed1, $this->admin);
         $this->assertSame(4000.0, FinancialTreasuryService::balance($this->company->id));
 
-        // Bank transfer without proof creates pending request without moving treasury
-        $bankKey = PayrollDisbursementService::newRequestKey();
-        $pending = PayrollDisbursementService::disburse($payroll->refresh(), [
-            'request_key' => $bankKey,
+        // Bank transfer via approval workflow disburses immediately upon manager approval
+        $req2 = FinancialApprovalService::submitPayrollBatch([[
+            'payroll_record_id' => $payroll->fresh()->id,
             'amount' => 2000,
             'payment_method' => FinancialPaymentMethod::BANK_TRANSFER->value,
             'destination_reference' => 'EMP-IBAN-1',
-        ], $this->admin);
-
-        $this->assertSame('pending_confirmation', $pending['status']);
-        $this->assertSame(1000.0, (float) $payroll->refresh()->paid_amount);
-        $this->assertSame(4000.0, FinancialTreasuryService::balance($this->company->id));
-
-        $confirmedBank = PayrollDisbursementService::confirmPendingTransfer($payroll, $bankKey, [
             'reference_number' => 'SAL-WIRE-1',
             'proof_path' => 'proofs/sal.pdf',
-        ], $this->admin);
+        ]], $this->admin, '2026-11');
+        $reviewed2 = FinancialApprovalService::approveByTreasury($req2, $this->admin);
+        $executed2 = FinancialApprovalService::approveByManager($reviewed2, $this->admin);
 
-        $this->assertNotNull($confirmedBank->treasury_transaction_id);
+        $bankPayment = PayrollPayment::findOrFail($executed2->items->first()->payroll_payment_id);
+        $this->assertNotNull($bankPayment->treasury_transaction_id);
         $this->assertSame(3000.0, (float) $payroll->refresh()->paid_amount);
         $this->assertSame(PaymentStatus::PAID, $payroll->payment_status);
         $this->assertSame(2000.0, FinancialTreasuryService::balance($this->company->id));
 
         // Reverse cash payment preserving original row
-        PayrollDisbursementService::reverse($first['payment'], 'Correction', $this->admin);
+        $cashPayment = PayrollPayment::findOrFail($executed1->items->first()->payroll_payment_id);
+        PayrollDisbursementService::reverse($cashPayment, 'Correction', $this->admin);
         $payroll->refresh();
         $this->assertSame(2000.0, (float) $payroll->paid_amount);
         $this->assertSame(1000.0, (float) $payroll->remaining_amount);
@@ -350,12 +401,12 @@ class PayrollFinancialWorkflowTest extends TestCase
         $emp2User = User::factory()->create([
             'user_type' => 'saudi_employee',
             'status' => 'active',
-            'company_id' => $this->company->id,
         ]);
         $emp2 = Employee::create([
             'user_id' => $emp2User->id,
             'company_id' => $this->company->id,
             'basic_salary' => 2000,
+            'daily_work_hours' => 8,
             'status' => 'active',
         ]);
 
@@ -371,15 +422,16 @@ class PayrollFinancialWorkflowTest extends TestCase
         $attemptKey = 'sheet:test-retry-1';
         $res1 = PayrollSheetService::saveSheetDetailed($rows, $checked, [], 'payroll', '2026-11', $attemptKey);
 
+        $this->assertSame([], $res1['save_failed']);
         $this->assertSame(2, $res1['saved_count']);
-        $this->assertCount(1, $res1['executed']); // emp1 succeeds with 2000
-        $this->assertCount(1, $res1['failed']);   // emp2 fails due to 500 remaining treasury
+        $this->assertNotEmpty($res1['approval_request']);
+        $this->assertCount(2, $res1['pending']);
+        $this->assertSame(2500.0, FinancialTreasuryService::balance($this->company->id));
 
-        // Retry with same attempt key must NOT re-execute emp1
+        // Retry with same attempt key returns the same pending approval request without duplicating
         $res2 = PayrollSheetService::saveSheetDetailed($rows, $checked, [], 'payroll', '2026-11', $attemptKey);
-        $this->assertCount(1, $res2['already_executed']);
-        $this->assertCount(0, $res2['executed']);
-        $this->assertSame(500.0, FinancialTreasuryService::balance($this->company->id));
+        $this->assertSame($res1['approval_request']->id, $res2['approval_request']->id);
+        $this->assertSame(2500.0, FinancialTreasuryService::balance($this->company->id));
     }
 
     public function test_multiple_deductions_covering_full_salary_and_empty_record_snapshot_update(): void

@@ -2,14 +2,14 @@
 
 namespace App\Services\Payroll;
 
-use App\Services\CompanyFormService;
-use App\Services\OperationsAuditService;
 use App\Enums\DeductionBasis;
 use App\Models\Company;
 use App\Models\Employee;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\CompanyFormService;
+use App\Services\OperationsAuditService;
 use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;

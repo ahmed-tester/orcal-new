@@ -2,7 +2,7 @@
 
 namespace App\Services\Reports\Types;
 
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 
 class PayrollRecordsReport extends AbstractReport
 {
@@ -41,34 +41,34 @@ class PayrollRecordsReport extends AbstractReport
         $this->applyBranchScopeViaRelation($query, $branchId, 'employee');
 
         $stats = $query
-            ->when($dateFrom, fn($q) => $q->whereDate('payroll_month', '>=', $dateFromCarbon))
-            ->when($dateTo, fn($q) => $q->whereDate('payroll_month', '<=', $dateToCarbon))
-            ->selectRaw("
+            ->when($dateFrom, fn ($q) => $q->whereDate('payroll_month', '>=', $dateFromCarbon))
+            ->when($dateTo, fn ($q) => $q->whereDate('payroll_month', '<=', $dateToCarbon))
+            ->selectRaw('
                 COUNT(*) as total_records,
                 COALESCE(SUM(net_amount), 0) as total_net_sum,
                 COALESCE(SUM(paid_amount), 0) as total_paid_sum,
                 COALESCE(SUM(remaining_amount), 0) as total_remaining_sum
-            ")
+            ')
             ->first();
 
         return [
             [
                 'title' => __('reports.stats.total_net_payroll'),
-                'value' => number_format((float) ($stats->total_net_sum ?? 0), 2) . __('reports.values.currency'),
+                'value' => number_format((float) ($stats->total_net_sum ?? 0), 2).__('reports.values.currency'),
                 'subtitle' => __('reports.stats.total_net_payroll_sub'),
                 'icon' => 'heroicon-o-banknotes',
                 'color' => 'blue',
             ],
             [
                 'title' => __('reports.stats.total_paid_payroll'),
-                'value' => number_format((float) ($stats->total_paid_sum ?? 0), 2) . __('reports.values.currency'),
+                'value' => number_format((float) ($stats->total_paid_sum ?? 0), 2).__('reports.values.currency'),
                 'subtitle' => __('reports.stats.total_paid_payroll_sub'),
                 'icon' => 'heroicon-o-check-circle',
                 'color' => 'green',
             ],
             [
                 'title' => __('reports.stats.total_remaining_payroll'),
-                'value' => number_format((float) ($stats->total_remaining_sum ?? 0), 2) . __('reports.values.currency'),
+                'value' => number_format((float) ($stats->total_remaining_sum ?? 0), 2).__('reports.values.currency'),
                 'subtitle' => __('reports.stats.total_remaining_payroll_sub'),
                 'icon' => 'heroicon-o-exclamation-circle',
                 'color' => 'amber',
@@ -88,7 +88,7 @@ class PayrollRecordsReport extends AbstractReport
 
         $this->applySearchFilter($query, $search, function ($sub, $search) {
             $sub->where('record_number', 'like', "%{$search}%")
-                ->orWhereHas('employee.user', fn($uq) => $uq->where('name', 'like', "%{$search}%"));
+                ->orWhereHas('employee.user', fn ($uq) => $uq->where('name', 'like', "%{$search}%"));
         });
 
         return $query->orderByDesc('id');
@@ -128,20 +128,20 @@ class PayrollRecordsReport extends AbstractReport
 
     public function formatRow($item, bool $isCsv = false): array
     {
-        $datePrefix = $isCsv ? "\t" : "";
+        $datePrefix = $isCsv ? "\t" : '';
         $paymentStatusValue = $item->payment_status instanceof \BackedEnum ? $item->payment_status->value : ($item->payment_status ?? 'unpaid');
 
         return [
             'record_number' => $item->record_number ?? '—',
             'employee_name' => $item->employee?->user?->name ?? '—',
             'branch_name' => $item->employee?->branch?->name ?? '—',
-            'payroll_month' => $item->payroll_month ? ($datePrefix . $item->payroll_month->format('Y-m')) : '—',
-            'basic_salary' => number_format((float) ($item->basic_salary ?? 0), 2) . __('reports.values.currency'),
-            'additional_amount' => number_format((float) ($item->additional_amount ?? 0), 2) . __('reports.values.currency'),
-            'deduction_amount' => number_format((float) ($item->deduction_amount ?? 0), 2) . __('reports.values.currency'),
-            'net_amount' => number_format((float) ($item->net_amount ?? 0), 2) . __('reports.values.currency'),
-            'paid_amount' => number_format((float) ($item->paid_amount ?? 0), 2) . __('reports.values.currency'),
-            'remaining_amount' => number_format((float) ($item->remaining_amount ?? 0), 2) . __('reports.values.currency'),
+            'payroll_month' => $item->payroll_month ? ($datePrefix.$item->payroll_month->format('Y-m')) : '—',
+            'basic_salary' => number_format((float) ($item->basic_salary ?? 0), 2).__('reports.values.currency'),
+            'additional_amount' => number_format((float) ($item->additional_amount ?? 0), 2).__('reports.values.currency'),
+            'deduction_amount' => number_format((float) ($item->deduction_amount ?? 0), 2).__('reports.values.currency'),
+            'net_amount' => number_format((float) ($item->net_amount ?? 0), 2).__('reports.values.currency'),
+            'paid_amount' => number_format((float) ($item->paid_amount ?? 0), 2).__('reports.values.currency'),
+            'remaining_amount' => number_format((float) ($item->remaining_amount ?? 0), 2).__('reports.values.currency'),
             'payment_status' => $this->translateStatus($paymentStatusValue),
         ];
     }

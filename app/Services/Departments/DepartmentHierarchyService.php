@@ -1,10 +1,13 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Departments;
 
 use App\Enums\DepartmentScope;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Services\CodeGeneratorService;
+use App\Services\CompanyAccessScopeService;
+use App\Services\CompanyFormService;
 use Closure;
 use DomainException;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -253,7 +256,7 @@ class DepartmentHierarchyService
         }
     }
 
-    protected static function authorizeAssignment(?int $parentId, array $companyIds): void
+    public static function authorizeAssignment(?int $parentId, array $companyIds): void
     {
         $user = auth()->user();
         if (! $user) {
@@ -276,7 +279,7 @@ class DepartmentHierarchyService
         }
     }
 
-    protected static function authorizeUpdates(Collection $records): void
+    public static function authorizeUpdates(Collection $records): void
     {
         $user = auth()->user();
         if (! $user) {
@@ -306,13 +309,13 @@ class DepartmentHierarchyService
         return $ids;
     }
 
-    protected static function companyIds(Department $record): array
+    public static function companyIds(Department $record): array
     {
         return static::normalizedIds($record->getAssignedCompanyIds());
     }
 
     /** Serialize department writes on MySQL, including insertion into an empty sibling group. */
-    protected static function transaction(Closure $callback): mixed
+    public static function transaction(Closure $callback): mixed
     {
         $connection = DB::connection();
         $lock = 'orcal_departments_'.substr(hash('sha256', $connection->getDatabaseName()), 0, 32);
@@ -682,7 +685,10 @@ class DepartmentHierarchyService
             if (! Schema::hasColumn($table, 'company_id')) {
                 continue;
             }
-            $assigned = DB::table($table)->where('department_id', $record->id)->whereNotNull('company_id');
+            $assigned = DB::table($table)
+                ->where('department_id', $record->id)
+                ->whereNotNull('company_id')
+                ->when(Schema::hasColumn($table, 'deleted_at'), fn ($q) => $q->whereNull('deleted_at'));
             if ($assigned->whereNotIn('company_id', $companyIds)->exists()) {
                 static::fail($prefix.'company_id', 'assignments_outside_scope');
             }
@@ -791,7 +797,10 @@ class DepartmentHierarchyService
         if ($department->employees()->exists()) {
             $blockers[] = 'has_employees';
         }
-        if (Schema::hasTable('job_titles') && DB::table('job_titles')->where('department_id', $department->id)->exists()) {
+        if (Schema::hasTable('job_titles') && DB::table('job_titles')
+            ->where('department_id', $department->id)
+            ->when(Schema::hasColumn('job_titles', 'deleted_at'), fn ($q) => $q->whereNull('deleted_at'))
+            ->exists()) {
             $blockers[] = 'has_job_titles';
         }
 

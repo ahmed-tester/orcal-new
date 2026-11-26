@@ -4,8 +4,8 @@ namespace App\Services\Reports\Types;
 
 use App\Enums\DepartmentScope;
 use App\Models\Department;
-use App\Services\DepartmentHierarchyService;
-use App\Services\DepartmentScopeService;
+use App\Services\Departments\DepartmentHierarchyService;
+use App\Services\Departments\DepartmentScopeService;
 
 class DepartmentsReport extends AbstractReport
 {

@@ -6,6 +6,7 @@ use App\Enums\DeductionBasis;
 use App\Enums\EmploymentType;
 use App\Enums\GeneralStatus;
 use App\Enums\UserType;
+use App\Models\Payroll\PayrollRecord;
 use App\Observers\EmployeeObserver;
 use App\Services\CodeGeneratorService;
 use App\Services\EmployeeAgeService;
@@ -19,11 +20,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[ObservedBy([EmployeeObserver::class])]
 class Employee extends Model
 {
-    use HasFactory, HasHijriDates;
+    use HasFactory, HasHijriDates, SoftDeletes;
 
     public function getHijriDateFieldNames(): array
     {
@@ -188,7 +190,7 @@ class Employee extends Model
 
     public function department(): BelongsTo
     {
-        return $this->belongsTo(Department::class);
+        return $this->belongsTo(Department::class)->withTrashed();
     }
 
     public function managedDepartments(): HasMany

@@ -2,8 +2,11 @@
 
 namespace App\Services\Notifications;
 
+use App\Filament\Resources\FinancialApprovalRequests\FinancialApprovalRequestResource;
+use App\Filament\Resources\Invoices\InvoiceResource;
 use App\Filament\Resources\Mail\MailAccounts\MailAccountResource;
 use App\Filament\Resources\Mail\MailMessages\MailMessageResource;
+use App\Filament\Resources\PayrollRecords\PayrollRecordResource;
 use App\Filament\Resources\ServiceTransactions\ServiceTransactionResource;
 use App\Filament\Resources\TreasuryTransactions\TreasuryTransactionResource;
 use App\Models\CashHandover;
@@ -14,7 +17,8 @@ use App\Models\Invoice;
 use App\Models\Leave;
 use App\Models\Mail\MailAccount;
 use App\Models\Mail\MailMessage;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\FinancialApprovalRequest;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\PerformanceEscalation;
 use App\Models\ServiceTransaction;
 use App\Models\Task;
@@ -23,6 +27,7 @@ use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Violation;
 use App\Notifications\BaseSystemNotification;
+use App\Services\Payroll\PayrollApprovalScopeService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Notification;
@@ -108,6 +113,19 @@ class NotificationDispatcher
 
     public static function resolveActionUrlForRecipient(BaseSystemNotification $notification, mixed $notifiable): ?string
     {
+        if (($notification->context['routing_mode'] ?? null) === 'financial_approval' && $notifiable instanceof User) {
+            $request = $notification->recordId ? FinancialApprovalRequest::find($notification->recordId) : null;
+            if (! $request || ! PayrollApprovalScopeService::canViewRequest($notifiable, $request)) {
+                return null;
+            }
+
+            try {
+                return FinancialApprovalRequestResource::getUrl('index');
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
         if (($notification->context['routing_mode'] ?? null) !== 'operations_targeted') {
             return $notification->actionUrl;
         }
@@ -172,11 +190,11 @@ class NotificationDispatcher
             $gate = Gate::forUser($user);
 
             if ($gate->allows('update', $invoice)) {
-                return \App\Filament\Resources\Invoices\InvoiceResource::getUrl('edit', ['record' => $invoice]);
+                return InvoiceResource::getUrl('edit', ['record' => $invoice]);
             }
 
             if ($gate->allows('viewAny', Invoice::class)) {
-                return \App\Filament\Resources\Invoices\InvoiceResource::getUrl('index');
+                return InvoiceResource::getUrl('index');
             }
         } catch (\Throwable) {
             return null;
@@ -191,11 +209,11 @@ class NotificationDispatcher
             $gate = Gate::forUser($user);
 
             if ($gate->allows('update', $payroll)) {
-                return \App\Filament\Resources\PayrollRecords\PayrollRecordResource::getUrl('edit', ['record' => $payroll]);
+                return PayrollRecordResource::getUrl('edit', ['record' => $payroll]);
             }
 
             if ($gate->allows('viewAny', PayrollRecord::class)) {
-                return \App\Filament\Resources\PayrollRecords\PayrollRecordResource::getUrl('index');
+                return PayrollRecordResource::getUrl('index');
             }
         } catch (\Throwable) {
             return null;

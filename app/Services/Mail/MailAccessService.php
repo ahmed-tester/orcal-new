@@ -64,7 +64,8 @@ class MailAccessService
                     ->whereColumn('email_account_employees.company_id', 'email_accounts.company_id')
                     ->whereColumn('employees.company_id', 'email_accounts.company_id')
                     ->where('employees.user_id', $user->id)
-                    ->where('employees.status', 'active');
+                    ->where('employees.status', 'active')
+                    ->whereNull('employees.deleted_at');
             });
     }
 
@@ -96,7 +97,8 @@ class MailAccessService
                     ->whereColumn('email_account_employees.company_id', "{$table}.company_id")
                     ->whereColumn('employees.company_id', "{$table}.company_id")
                     ->where('employees.user_id', $user->id)
-                    ->where('employees.status', 'active');
+                    ->where('employees.status', 'active')
+                    ->whereNull('employees.deleted_at');
             });
     }
 
@@ -118,6 +120,7 @@ class MailAccessService
             ->where('employees.company_id', $companyId)
             ->where('employees.user_id', $user->id)
             ->where('employees.status', 'active')
+            ->whereNull('employees.deleted_at')
             ->exists();
     }
 

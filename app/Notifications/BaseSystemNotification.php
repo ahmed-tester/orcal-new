@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\User;
+use App\Notifications\Channels\DeduplicatedDatabaseChannel;
 use App\Services\Notifications\NotificationDispatcher;
 use App\Services\Notifications\NotificationRecipientService;
 use App\Services\Notifications\OperationsNotificationDiagnostics;
@@ -88,7 +89,13 @@ class BaseSystemNotification extends Notification implements ShouldQueue
             'active' => $notifiable instanceof User && $notifiable->status === 'active',
         ]);
 
-        return $notifiable instanceof User && $notifiable->status === 'active' ? ['database'] : [];
+        if (! ($notifiable instanceof User) || $notifiable->status !== 'active') {
+            return [];
+        }
+
+        return ! empty($this->context['dedup_key'])
+            ? [DeduplicatedDatabaseChannel::class]
+            : ['database'];
     }
 
     public function shouldSend(mixed $notifiable, string $channel): bool
@@ -97,7 +104,8 @@ class BaseSystemNotification extends Notification implements ShouldQueue
             'recipient_id' => $notifiable instanceof User ? $notifiable->id : null,
             'channel' => $channel,
         ]);
-        if ($channel !== 'database' || ! $notifiable instanceof User || $notifiable->status !== 'active'
+        if (! in_array($channel, ['database', DeduplicatedDatabaseChannel::class], true)
+            || ! $notifiable instanceof User || $notifiable->status !== 'active'
             || ! $this->recordType || ! is_subclass_of($this->recordType, Model::class)) {
             OperationsNotificationDiagnostics::notification('delivery_denied', $this, ['reason' => 'invalid_channel_recipient_or_record_type']);
 
@@ -171,6 +179,7 @@ class BaseSystemNotification extends Notification implements ShouldQueue
             'record_id' => $this->recordId,
             'action_url' => $resolvedUrl,
             'placeholders' => $this->placeholders,
+            'dedup_key' => $this->context['dedup_key'] ?? null,
             'created_at' => now()->toIso8601String(),
         ];
     }

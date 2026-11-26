@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\TreasuryTransactions\Pages;
 
 use App\Filament\Components\CashHandoverActions;
+use App\Filament\Resources\FinancialApprovalRequests\FinancialApprovalRequestResource;
 use App\Filament\Resources\TreasuryTransactions\TreasuryTransactionResource;
 use App\Filament\Traits\HasFilterBarState;
 use App\Models\Company;
@@ -29,6 +30,13 @@ class ListTreasuryTransactions extends ListRecords
             // TreasuryCustodyService::receiveCustodyHeaderAction(),
             CashHandoverActions::receiveHeaderAction(),
             CashHandoverActions::rejectHeaderAction(),
+
+            Action::make('approvalRequests')
+                ->label(__('financial.approval.treasury_tab_button'))
+                ->icon('heroicon-o-clipboard-document-check')
+                ->color('warning')
+                ->visible(fn (): bool => auth()->user()?->hasPermissionTo('update_treasury_transaction') ?? false)
+                ->url(fn (): string => FinancialApprovalRequestResource::getUrl('index', ['activeTab' => 'pending_treasury'])),
 
             Action::make('summaryView')
                 ->label(__('finance.treasury_transactions.summary.summary_view'))

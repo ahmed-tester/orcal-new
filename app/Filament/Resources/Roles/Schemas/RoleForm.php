@@ -15,7 +15,38 @@ class RoleForm
      */
     public static function getPermissionGroups(): array
     {
+        $treasuryEmployeeKeys = [
+            'view_any_treasury_transaction' => __('permissions.view_any_treasury_transaction'),
+            'create_treasury_transaction' => __('permissions.create_treasury_transaction'),
+            'update_treasury_transaction' => __('permissions.update_treasury_transaction'),
+            'delete_treasury_transaction' => __('permissions.delete_treasury_transaction'),
+            'confirm_service_receipt' => __('permissions.confirm_service_receipt'),
+            'confirm_cash_handover' => __('permissions.confirm_cash_handover'),
+            'manage_batch_deposits' => __('permissions.manage_batch_deposits'),
+            'manage_suspense_amounts' => __('permissions.manage_suspense_amounts'),
+            'view_financial_request' => __('permissions.view_financial_request'),
+        ];
+
+        $treasuryManagerKeys = [
+            'approve_financial_request' => __('permissions.approve_financial_request'),
+            'reverse_financial_transaction' => __('permissions.reverse_financial_transaction'),
+            'approve_self_paid_disbursement' => __('permissions.approve_self_paid_disbursement'),
+            'pay_employee_reimbursement' => __('permissions.pay_employee_reimbursement'),
+        ];
+
         return [
+            // 0a. Treasury Employee (Dedicated Section)
+            'permissions_treasury_employee' => [
+                'label' => __('roles.treasury_employee_group'),
+                'permissions' => $treasuryEmployeeKeys,
+            ],
+
+            // 0b. Treasury Group Manager (Dedicated Section)
+            'permissions_treasury_manager' => [
+                'label' => __('roles.treasury_manager_group'),
+                'permissions' => $treasuryManagerKeys,
+            ],
+
             // 1. System Administration & Permissions
             'permissions_system' => [
                 'label' => __('navigation.system_group'),
@@ -116,11 +147,6 @@ class RoleForm
             'permissions_finance' => [
                 'label' => __('navigation.finance_group'),
                 'permissions' => [
-                    'view_any_treasury_transaction' => __('permissions.view_any_treasury_transaction'),
-                    'create_treasury_transaction' => __('permissions.create_treasury_transaction'),
-                    'update_treasury_transaction' => __('permissions.update_treasury_transaction'),
-                    'delete_treasury_transaction' => __('permissions.delete_treasury_transaction'),
-
                     'view_any_payment_collection_item' => __('permissions.view_any_payment_collection_item'),
                     'create_payment_collection_item' => __('permissions.create_payment_collection_item'),
                     'update_payment_collection_item' => __('permissions.update_payment_collection_item'),
@@ -223,7 +249,11 @@ class RoleForm
             // 5c. Services Financial Workflow & Operational Control
             'permissions_services_financial_workflow' => [
                 'label' => __('roles.services_financial_workflow_group'),
-                'permissions' => OperationsPermissionService::getPermissions(),
+                'permissions' => array_diff_key(
+                    OperationsPermissionService::getPermissions(),
+                    $treasuryEmployeeKeys,
+                    $treasuryManagerKeys
+                ),
             ],
 
             // 6. Task Management

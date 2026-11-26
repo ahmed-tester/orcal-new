@@ -2,7 +2,6 @@
 
 namespace App\Services\Payroll;
 
-use App\Services\Attendance\AttendancePenaltyService;
 use App\Enums\AttendanceStatus;
 use App\Enums\PaymentItemCategory;
 use App\Enums\PaymentStatus;
@@ -12,9 +11,10 @@ use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\EmployeeReward;
 use App\Models\PaymentCollectionItem;
-use App\Models\PayrollPayment;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollPayment;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\TreasuryTransaction;
+use App\Services\Attendance\AttendancePenaltyService;
 use Carbon\Carbon;
 use Closure;
 use Illuminate\Support\Facades\DB;

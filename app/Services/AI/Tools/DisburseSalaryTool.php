@@ -5,11 +5,10 @@ namespace App\Services\AI\Tools;
 use App\Enums\PaymentStatus;
 use App\Models\Company;
 use App\Models\Employee;
-use App\Models\PayrollPayment;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollPayment;
+use App\Models\Payroll\PayrollRecord;
 use App\Services\AI\Contracts\GeminiToolInterface;
 use App\Services\AI\EmployeeNameMatcher;
-use App\Services\Payroll\PayrollCalculationService;
 use Carbon\Carbon;
 
 class DisburseSalaryTool implements GeminiToolInterface
@@ -23,7 +22,7 @@ class DisburseSalaryTool implements GeminiToolInterface
     {
         return [
             'name' => $this->getName(),
-            'description' => 'صرف وتسليم راتب لموظف (سند صرف وخزينة) مع تحديث حالة مسير الراتب إلى مسدد أو مسدد جزئياً.',
+            'description' => 'التحقق من حالة مسير الراتب؛ صرف الرواتب يتم حصراً عبر إرسال طلب اعتماد الخزنة ثم مدير الإدارة.',
             'parameters' => [
                 'type' => 'OBJECT',
                 'properties' => [
@@ -133,47 +132,9 @@ class DisburseSalaryTool implements GeminiToolInterface
                 ];
             }
 
-            // تنفيذ الصرف الفعلي عبر الخدمة الموحّدة
-            $res = \App\Services\Payroll\PayrollDisbursementService::disburse($record, [
-                'request_key' => 'ai:'.$record->id.':'.$paymentDate.':'.$amount.':'.$paymentMethod,
-                'amount' => $amount,
-                'payment_date' => $paymentDate,
-                'payment_method' => $paymentMethod,
-                'notes' => $notes ?: 'استيراد ذكي — صرف رواتب',
-                'confirm' => $paymentMethod === 'cash',
-            ]);
-            $payment = $res['payment'];
-            $freshRecord = $record->fresh();
-            $employeeName = $employee->user?->name ?? "موظف #{$employee->id}";
-            $monthDisplay = Carbon::parse($freshRecord->payroll_month)->format('Y-m');
-
-            if (! $payment) {
-                return [
-                    'success' => true,
-                    'message' => 'تم تسجيل طلب صرف راتب غير نقدي بمبلغ ('.number_format($amount, 2)." ر.س) للموظف ({$employeeName}) عن شهر ({$monthDisplay}) وبانتظار التأكيد والمرجع البنكي.",
-                    'record_name' => "طلب صرف راتب: {$employeeName}",
-                ];
-            }
-
-            $methodName = match ($paymentMethod) {
-                'bank_transfer' => 'تحويل بنكي',
-                'cash' => 'نقداً',
-                'cheque' => 'شيك',
-                default => $paymentMethod
-            };
-
             return [
-                'success' => true,
-                'message' => 'تم صرف مبلغ ('.number_format($amount, 2)." ر.س) للموظف ({$employeeName}) عن شهر ({$monthDisplay}) بنجاح بسند رقم #{$payment->payment_number} عبر ({$methodName}). المتبقي: ".number_format($freshRecord->remaining_amount, 2).' ر.س',
-                'record_name' => "صرف راتب: {$employeeName}",
-                'details' => [
-                    'المبلغ المصروف' => number_format($amount, 2).' ر.س',
-                    'سند الصرف' => $payment->payment_number,
-                    'تاريخ الصرف' => $paymentDate,
-                    'طريقة الصرف' => $methodName,
-                    'شهر الاستحقاق' => $monthDisplay,
-                    'المتبقي للصرف' => number_format($freshRecord->remaining_amount, 2).' ر.س',
-                ],
+                'success' => false,
+                'message' => __('financial.errors.payroll_requires_approval_workflow'),
             ];
         } catch (\Throwable $e) {
             return [

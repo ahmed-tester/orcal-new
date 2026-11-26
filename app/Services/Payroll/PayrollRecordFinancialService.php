@@ -2,15 +2,14 @@
 
 namespace App\Services\Payroll;
 
-use App\Services\FinancialSummaryService;
-use App\Services\OperationsAuditService;
 use App\Enums\PaymentStatus;
 use App\Models\FinancialReceipt;
-use App\Models\PayrollPayment;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollPayment;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\User;
+use App\Services\FinancialSummaryService;
+use App\Services\OperationsAuditService;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class PayrollRecordFinancialService

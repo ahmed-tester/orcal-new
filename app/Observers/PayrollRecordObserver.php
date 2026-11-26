@@ -3,7 +3,7 @@
 namespace App\Observers;
 
 use App\Enums\PaymentStatus;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Services\CodeGeneratorService;
 use App\Services\Payroll\PayrollCalculationService;
 use App\Services\Payroll\SaudiCompensationGrantService;

@@ -3,21 +3,19 @@
 namespace App\Filament\Resources\Departments\Tables;
 
 use App\Enums\GeneralStatus;
+use App\Filament\Resources\Departments\Actions\DepartmentDeleteAction;
 use App\Filament\Resources\Departments\DepartmentResource;
 use App\Models\Department;
 use App\Services\CompanyAccessScopeService;
-use App\Services\DepartmentHierarchyService;
-use App\Services\DepartmentScopeService;
-use Filament\Actions\BulkAction;
+use App\Services\Departments\DepartmentHierarchyService;
+use App\Services\Departments\DepartmentScopeService;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
-use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 
 class DepartmentsTable
 {
@@ -127,34 +125,7 @@ class DepartmentsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    BulkAction::make('delete')
-                        ->label(__('filament-actions::delete.multiple.label'))
-                        ->icon('heroicon-m-trash')
-                        ->color('danger')
-                        ->requiresConfirmation()
-                        ->authorizeIndividualRecords('delete')
-                        ->visible(fn () => auth()->user()?->can('delete_department') ?? false)
-                        ->action(function (Collection $records): void {
-                            $blocked = 0;
-
-                            foreach ($records as $record) {
-                                if (DepartmentHierarchyService::deletionBlockers($record) !== []) {
-                                    $blocked++;
-
-                                    continue;
-                                }
-
-                                $record->delete();
-                            }
-
-                            if ($blocked > 0) {
-                                Notification::make()
-                                    ->danger()
-                                    ->title(__('organization.departments.hierarchy.notifications.bulk_delete_blocked', ['count' => $blocked]))
-                                    ->send();
-                            }
-                        })
-                        ->deselectRecordsAfterCompletion(),
+                    DepartmentDeleteAction::makeBulk(),
                 ]),
             ]);
     }

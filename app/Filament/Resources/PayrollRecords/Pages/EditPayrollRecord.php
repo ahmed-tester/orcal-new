@@ -4,7 +4,7 @@ namespace App\Filament\Resources\PayrollRecords\Pages;
 
 use App\Filament\Components\PayrollFinancialActions;
 use App\Filament\Resources\PayrollRecords\PayrollRecordResource;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Services\Payroll\PayrollEntitlementService;
 use Carbon\Carbon;
 use Filament\Actions\Action;

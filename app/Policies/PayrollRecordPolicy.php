@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use App\Models\User;
 
 class PayrollRecordPolicy

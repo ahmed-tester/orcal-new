@@ -7,7 +7,7 @@ use App\Models\Department;
 use App\Services\AI\Contracts\GeminiToolInterface;
 use App\Services\CompanyAccessScopeService;
 use App\Services\CompanyFormService;
-use App\Services\DepartmentHierarchyService;
+use App\Services\Departments\DepartmentHierarchyService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Validation\ValidationException;
 

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\InstallmentPaymentSource;
+use App\Models\Payroll\PayrollRecord;
 use App\Services\CodeGeneratorService;
 use App\Traits\HasApprovalStatus;
 use App\Traits\HasHijriDates;

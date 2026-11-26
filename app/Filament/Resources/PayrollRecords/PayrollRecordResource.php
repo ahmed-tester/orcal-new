@@ -8,7 +8,7 @@ use App\Filament\Resources\PayrollRecords\Pages\ListPayrollRecords;
 use App\Filament\Resources\PayrollRecords\Schemas\PayrollRecordForm;
 use App\Filament\Resources\PayrollRecords\Tables\PayrollRecordsTable;
 use App\Filament\Traits\HasCompanyScope;
-use App\Models\PayrollRecord;
+use App\Models\Payroll\PayrollRecord;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -57,9 +57,9 @@ class PayrollRecordResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => ListPayrollRecords::route('/'),
+            'index' => ListPayrollRecords::route('/'),
             'create' => CreatePayrollRecord::route('/create'),
-            'edit'   => EditPayrollRecord::route('/{record}/edit'),
+            'edit' => EditPayrollRecord::route('/{record}/edit'),
         ];
     }
 }

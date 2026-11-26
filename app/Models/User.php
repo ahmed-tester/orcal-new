@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\UserType;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -14,7 +15,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, HasRoles, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -51,7 +52,7 @@ class User extends Authenticatable implements FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'user_type' => \App\Enums\UserType::class,
+            'user_type' => UserType::class,
         ];
     }
 
@@ -60,7 +61,19 @@ class User extends Authenticatable implements FilamentUser
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->status === 'active';
+        if ($this->status !== 'active') {
+            return false;
+        }
+
+        if ($this->isSuperAdmin() || $this->user_type === UserType::ADMIN || $this->isOwner()) {
+            return true;
+        }
+
+        if (! $this->employee()->exists() && $this->employee()->withTrashed()->exists()) {
+            return false;
+        }
+
+        return true;
     }
 
     public function owner()
@@ -95,12 +108,12 @@ class User extends Authenticatable implements FilamentUser
     public function isSuperAdmin(): bool
     {
         return $this->hasRole('Super Admin')
-            || $this->user_type === \App\Enums\UserType::SUPER_ADMIN;
+            || $this->user_type === UserType::SUPER_ADMIN;
     }
 
     public function isOwner(): bool
     {
-        return $this->user_type === \App\Enums\UserType::OWNER
+        return $this->user_type === UserType::OWNER
             || $this->owners()->exists();
     }
 
@@ -132,9 +145,9 @@ class User extends Authenticatable implements FilamentUser
         }
 
         // دمج منشآت القسم العام/المشترك التابع له الموظف
-        if ($this->employee?->department) {
+        if ($this->employee?->department && ! $this->employee->department->trashed()) {
             $departmentCompanyIds = $this->employee->department->getAssignedCompanyIds();
-            if (!empty($departmentCompanyIds)) {
+            if (! empty($departmentCompanyIds)) {
                 $accessibleIds = array_merge($accessibleIds, array_map('intval', $departmentCompanyIds));
             }
         }
@@ -175,6 +188,7 @@ class User extends Authenticatable implements FilamentUser
             }
 
             $accessibleCount = count($this->getAccessibleCompanyIds());
+
             return $accessibleCount >= $totalCount;
         }
 

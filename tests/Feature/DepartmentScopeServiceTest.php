@@ -15,7 +15,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Services\CompanyAccessScopeService;
 use App\Services\CompanyFormService;
-use App\Services\DepartmentScopeService;
+use App\Services\Departments\DepartmentScopeService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
