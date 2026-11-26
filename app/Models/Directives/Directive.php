@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Directives;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -19,6 +20,7 @@ class Directive extends Model
         'target_type',
         'created_by',
         'is_active',
+        'metadata',
     ];
 
     protected function casts(): array
@@ -27,6 +29,7 @@ class Directive extends Model
             'category_id' => 'integer',
             'created_by' => 'integer',
             'is_active' => 'boolean',
+            'metadata' => 'array',
         ];
     }
 

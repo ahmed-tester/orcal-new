@@ -9,7 +9,7 @@ use App\Filament\Resources\Directives\Pages\ViewDirective;
 use App\Filament\Resources\Directives\RelationManagers\RecipientsRelationManager;
 use App\Filament\Resources\Directives\Schemas\DirectiveForm;
 use App\Filament\Resources\Directives\Tables\DirectivesTable;
-use App\Models\Directive;
+use App\Models\Directives\Directive;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;

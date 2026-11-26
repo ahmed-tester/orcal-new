@@ -1,12 +1,13 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Directives;
 
+use App\Observers\DirectiveCategoryObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
+#[ObservedBy([DirectiveCategoryObserver::class])]
 class DirectiveCategory extends Model
 {
     public const ALLOWED_COLORS = [
@@ -25,6 +26,7 @@ class DirectiveCategory extends Model
         'color',
         'is_active',
         'sort_order',
+        'metadata',
     ];
 
     protected function casts(): array
@@ -32,35 +34,8 @@ class DirectiveCategory extends Model
         return [
             'is_active' => 'boolean',
             'sort_order' => 'integer',
+            'metadata' => 'array',
         ];
-    }
-
-    protected static function booted(): void
-    {
-        static::creating(function (self $category): void {
-            if (blank($category->slug)) {
-                $base = Str::slug((string) ($category->name_en ?: $category->name_ar), '_');
-                $base = $base !== '' ? substr($base, 0, 54) : 'category';
-                $slug = $base;
-                $counter = 1;
-
-                while (static::where('slug', $slug)->exists()) {
-                    $slug = substr($base, 0, 50) . '_' . $counter++;
-                }
-
-                $category->slug = $slug;
-            } else {
-                $category->slug = strtolower(trim((string) $category->slug));
-            }
-        });
-
-        static::deleting(function (self $category): void {
-            if ($category->directives()->exists()) {
-                throw ValidationException::withMessages([
-                    'name_ar' => __('directives.validation.category_has_directives'),
-                ]);
-            }
-        });
     }
 
     public function directives(): HasMany

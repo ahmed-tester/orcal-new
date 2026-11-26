@@ -20,13 +20,14 @@ return new class extends Migration
             $table->string('color', 32)->default('info');
             $table->boolean('is_active')->default(true)->index();
             $table->unsignedInteger('sort_order')->default(0);
+            $table->json('metadata')->nullable();
             $table->timestamps();
         });
 
         // 2. Directives.
         Schema::create('directives', function (Blueprint $table) {
             $table->id();
-            $table->string('title', 200);
+            $table->string('title', 255);
             $table->foreignId('category_id')
                 ->constrained('directive_categories')
                 ->restrictOnDelete();
@@ -36,6 +37,7 @@ return new class extends Migration
                 ->constrained('users')
                 ->cascadeOnDelete();
             $table->boolean('is_active')->default(true)->index();
+            $table->json('metadata')->nullable();
             $table->timestamps();
         });
 
@@ -53,6 +55,7 @@ return new class extends Migration
                 ->constrained('employees')
                 ->nullOnDelete();
             $table->timestamp('acknowledged_at')->nullable()->index();
+            $table->json('metadata')->nullable();
             $table->timestamps();
 
             $table->unique(['directive_id', 'user_id']);

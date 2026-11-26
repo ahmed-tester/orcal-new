@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Models\DirectiveCategory;
+use App\Models\Directives\DirectiveCategory;
 use App\Models\User;
 
 class DirectiveCategoryPolicy

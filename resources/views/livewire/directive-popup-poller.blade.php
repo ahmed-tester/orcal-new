@@ -1,4 +1,4 @@
-<div wire:poll.15s="loadPendingDirective">
+<div wire:poll.30s="loadPendingDirective">
     @if($directiveData)
         @php
             $colorMap = [

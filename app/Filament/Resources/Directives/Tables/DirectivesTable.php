@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Directives\Tables;
 
-use App\Models\Directive;
+use App\Models\Directives\Directive;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
@@ -32,9 +32,9 @@ class DirectivesTable
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => __("directives.targets.{$state}"))
                     ->color(fn (string $state): string => match ($state) {
-                        Directive::TARGET_ALL      => 'info',
+                        Directive::TARGET_ALL => 'info',
                         Directive::TARGET_SELECTED => 'warning',
-                        default                    => 'gray',
+                        default => 'gray',
                     }),
 
                 TextColumn::make('acknowledgment_status')
@@ -71,7 +71,7 @@ class DirectivesTable
                 SelectFilter::make('target_type')
                     ->label(__('directives.fields.target_type'))
                     ->options([
-                        Directive::TARGET_ALL      => __('directives.targets.all'),
+                        Directive::TARGET_ALL => __('directives.targets.all'),
                         Directive::TARGET_SELECTED => __('directives.targets.selected'),
                     ]),
             ])

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Directives\Pages;
 
 use App\Filament\Resources\Directives\DirectiveResource;
+use App\Models\Directives\Directive;
 use App\Services\DirectiveService;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
@@ -21,6 +22,20 @@ class EditDirective extends EditRecord
             DeleteAction::make()
                 ->visible(fn (): bool => Gate::allows('delete', $this->getRecord())),
         ];
+    }
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $record = $this->getRecord();
+
+        if ($record->target_type === Directive::TARGET_SELECTED) {
+            $data['selected_employee_ids'] = $record->recipients()
+                ->whereNotNull('employee_id')
+                ->pluck('employee_id')
+                ->all();
+        }
+
+        return $data;
     }
 
     protected function afterSave(): void

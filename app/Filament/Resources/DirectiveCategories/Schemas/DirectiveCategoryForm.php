@@ -2,8 +2,7 @@
 
 namespace App\Filament\Resources\DirectiveCategories\Schemas;
 
-use App\Models\DirectiveCategory;
-use Filament\Forms\Components\ColorPicker;
+use App\Models\Directives\DirectiveCategory;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -25,12 +24,12 @@ class DirectiveCategoryForm
                             ->label(__('directives.fields.name_ar'))
                             ->required()
                             ->maxLength(100)
-                            ->columnSpan(1),
+                            ->columnSpanFull(),
 
                         TextInput::make('name_en')
                             ->label(__('directives.fields.name_en'))
-                            ->required()
                             ->maxLength(100)
+                            ->hidden()
                             ->columnSpan(1),
 
                         Select::make('color')

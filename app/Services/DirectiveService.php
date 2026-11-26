@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Directive;
-use App\Models\DirectiveRecipient;
+use App\Models\Directives\Directive;
+use App\Models\Directives\DirectiveRecipient;
 use App\Models\Employee;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -36,9 +36,10 @@ class DirectiveService
                     if (! $existingPairs->has($emp->user_id)) {
                         DirectiveRecipient::create([
                             'directive_id' => $directive->id,
-                            'user_id'      => $emp->user_id,
-                            'employee_id'  => $emp->id,
+                            'user_id' => $emp->user_id,
+                            'employee_id' => $emp->id,
                         ]);
+                        $existingPairs->put($emp->user_id, true);
                     }
                 }
 
@@ -49,7 +50,7 @@ class DirectiveService
                     ->whereNull('acknowledged_at')
                     ->whereNotIn('user_id', $allUserIds)
                     ->delete();
-            } else { 
+            } else {
                 // TARGET_SELECTED
                 $pairs = static::scopedEmployeesQuery()
                     ->whereIn('id', $selectedEmployeeIds)
@@ -64,9 +65,10 @@ class DirectiveService
                     if (! $existingMap->has($emp->user_id)) {
                         DirectiveRecipient::create([
                             'directive_id' => $directive->id,
-                            'user_id'      => $emp->user_id,
-                            'employee_id'  => $emp->id,
+                            'user_id' => $emp->user_id,
+                            'employee_id' => $emp->id,
                         ]);
+                        $existingMap->put($emp->user_id, true);
                     }
                 }
 
@@ -93,9 +95,9 @@ class DirectiveService
             ->with(['user:id,name', 'company:id,trade_name,trade_name_en'])
             ->get()
             ->mapWithKeys(function (Employee $emp): array {
-                $name    = $emp->user?->name ?? __('directives.labels.employee_fallback', ['id' => $emp->id]);
+                $name = $emp->user?->name ?? __('directives.labels.employee_fallback', ['id' => $emp->id]);
                 $company = $emp->company?->trade_name ?: ($emp->company?->trade_name_en ?: '');
-                $label   = $company ? "{$name} — {$company}" : $name;
+                $label = $company ? "{$name} — {$company}" : $name;
 
                 return [$emp->id => $label];
             })

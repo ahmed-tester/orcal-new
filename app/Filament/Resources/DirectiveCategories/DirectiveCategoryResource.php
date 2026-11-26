@@ -7,7 +7,7 @@ use App\Filament\Resources\DirectiveCategories\Pages\EditDirectiveCategory;
 use App\Filament\Resources\DirectiveCategories\Pages\ListDirectiveCategories;
 use App\Filament\Resources\DirectiveCategories\Schemas\DirectiveCategoryForm;
 use App\Filament\Resources\DirectiveCategories\Tables\DirectiveCategoriesTable;
-use App\Models\DirectiveCategory;
+use App\Models\Directives\DirectiveCategory;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;

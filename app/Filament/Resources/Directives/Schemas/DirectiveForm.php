@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\Directives\Schemas;
 
-use App\Models\Directive;
-use App\Models\DirectiveCategory;
+use App\Models\Directives\Directive;
+use App\Models\Directives\DirectiveCategory;
 use App\Services\DirectiveService;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -59,24 +59,24 @@ class DirectiveForm
                         ToggleButtons::make('target_type')
                             ->label(__('directives.fields.target_type'))
                             ->options([
-                                Directive::TARGET_ALL      => __('directives.targets.all'),
+                                Directive::TARGET_ALL => __('directives.targets.all'),
                                 Directive::TARGET_SELECTED => __('directives.targets.selected'),
                             ])
                             ->icons([
-                                Directive::TARGET_ALL      => 'heroicon-o-user-group',
+                                Directive::TARGET_ALL => 'heroicon-o-user-group',
                                 Directive::TARGET_SELECTED => 'heroicon-o-users',
                             ])
                             ->colors([
-                                Directive::TARGET_ALL      => 'info',
+                                Directive::TARGET_ALL => 'info',
                                 Directive::TARGET_SELECTED => 'warning',
                             ])
                             ->default(Directive::TARGET_ALL)
                             ->required()
                             ->live()
                             ->helperText(fn ($state): string => match ($state) {
-                                Directive::TARGET_ALL      => __('directives.helpers.target_all'),
+                                Directive::TARGET_ALL => __('directives.helpers.target_all'),
                                 Directive::TARGET_SELECTED => __('directives.helpers.target_selected'),
-                                default                    => '',
+                                default => '',
                             }),
 
                         Select::make('selected_employee_ids')

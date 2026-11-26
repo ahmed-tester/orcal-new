@@ -7,28 +7,36 @@
 use App\Filament\Pages\CompanyDepartmentPerformance;
 use App\Filament\Pages\SupervisorPerformance;
 use App\Filament\Resources\PerformanceEscalations\PerformanceEscalationResource;
+use App\Models\User;
+use App\Services\OperationsPermissionService;
 use Database\Seeders\DepartmentPerformanceDemoSeeder;
+use Database\Seeders\OperationsDemoSeeder;
 use Database\Seeders\PerformanceDashboardDemoSeeder;
 use Database\Seeders\PerformanceEscalationDemoSeeder;
+use Database\Seeders\RolesAndPermissionsSeeder;
 use Database\Seeders\SupervisorPerformanceDemoSeeder;
+use Database\Seeders\TicketsDemoSeeder;
 use Filament\Facades\Filament;
+use Filament\Notifications\Notification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 // Operations Demo Seeder Route (for automated browser testing & manual UAT)
 $seedOperationsDemoHandler = function () {
     // 1. Seed all system roles and base permissions
-    (new \Database\Seeders\RolesAndPermissionsSeeder)->run();
+    (new RolesAndPermissionsSeeder)->run();
 
     // 2. Sync all operational workflow permissions (receipt, handover, disbursement, etc.)
-    $opsPermissionsResult = \App\Services\OperationsPermissionService::syncPermissions();
+    $opsPermissionsResult = OperationsPermissionService::syncPermissions();
 
     // 3. Seed demo organization, branch, accounts, supervision shift, customer, and services catalog
-    $seeder = new \Database\Seeders\OperationsDemoSeeder;
+    $seeder = new OperationsDemoSeeder;
     $result = $seeder->run();
 
     // 4. Reset Spatie cached permissions
-    app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+    app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
     return response()->json([
         'status' => 'success',
@@ -191,7 +199,7 @@ Route::match(['get', 'post'], '/system/seed-tickets-demo', function (Request $re
     abort_unless($request->user()->isSuperAdmin(), 403);
 
     return view('system.seed-performance-demo', [
-        'companies' => $request->isMethod('post') ? app(\Database\Seeders\TicketsDemoSeeder::class)->run() : [],
+        'companies' => $request->isMethod('post') ? app(TicketsDemoSeeder::class)->run() : [],
         'dashboardUrl' => CompanyDepartmentPerformance::getUrl(panel: 'admin'),
         'translation' => 'performance.tickets_demo',
         'submitRoute' => 'system.seed-tickets-demo',
@@ -200,7 +208,7 @@ Route::match(['get', 'post'], '/system/seed-tickets-demo', function (Request $re
 
 // Operations Workflow Permissions & Roles Sync Routes
 Route::get('/system/sync-operations-permissions', function () {
-    $result = \App\Services\OperationsPermissionService::syncPermissions();
+    $result = OperationsPermissionService::syncPermissions();
 
     return response()->json([
         'status' => 'success',
@@ -227,8 +235,8 @@ Route::get('/system/sync-operations-permissions', function () {
 // })->name('system.sync-supervise-task-team-permission');
 
 Route::get('/sync-operations-permissions', function () {
-    (new \Database\Seeders\RolesAndPermissionsSeeder)->run();
-    $result = \App\Services\OperationsPermissionService::syncPermissions();
+    (new RolesAndPermissionsSeeder)->run();
+    $result = OperationsPermissionService::syncPermissions();
 
     return response()->json([
         'status' => 'success',
@@ -240,14 +248,14 @@ Route::get('/sync-operations-permissions', function () {
 // Notification Test Route
 Route::get('/test-notification', function () {
     $user = auth()->user()
-        ?? \App\Models\User::where('email', 'finance@orcal.test')->first()
-        ?? \App\Models\User::where('email', 'admin@admin.com')->first();
+        ?? User::where('email', 'finance@orcal.test')->first()
+        ?? User::where('email', 'admin@admin.com')->first();
 
     if (! $user) {
         return response()->json(['status' => 'error', 'message' => 'No user found']);
     }
 
-    \Filament\Notifications\Notification::make()
+    Notification::make()
         ->title(__('services_tracking.notifications.test_title'))
         ->body(__('services_tracking.notifications.test_body'))
         ->icon('heroicon-o-bell-alert')
@@ -260,3 +268,36 @@ Route::get('/test-notification', function () {
         'user_id' => $user->id,
     ]);
 })->name('test-notification');
+
+Route::get('/system/seed-directives-permissions', function () {
+    abort_unless(auth()->user()?->isSuperAdmin(), 403);
+
+    $permissions = [
+        'view_any_directive',
+        'create_directive',
+        'update_directive',
+        'delete_directive',
+        'view_any_directive_category',
+        'create_directive_category',
+        'update_directive_category',
+        'delete_directive_category',
+    ];
+
+    $results = [];
+    foreach ($permissions as $name) {
+        $permission = Permission::firstOrCreate([
+            'name' => $name,
+            'guard_name' => 'web',
+        ]);
+
+        $results[$name] = $permission->wasRecentlyCreated ? 'created' : 'exists';
+    }
+
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Directives permissions synced successfully.',
+        'permissions' => $results,
+    ]);
+})->name('system.seed-directives-permissions');

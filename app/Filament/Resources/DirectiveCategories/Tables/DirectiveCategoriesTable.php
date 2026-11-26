@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\DirectiveCategories\Tables;
 
-use App\Models\DirectiveCategory;
+use App\Models\Directives\DirectiveCategory;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -32,6 +32,7 @@ class DirectiveCategoriesTable
 
                 TextColumn::make('name_en')
                     ->label(__('directives.fields.name_en'))
+                    ->hidden()
                     ->searchable()
                     ->sortable(),
 

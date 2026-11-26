@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Directives\RelationManagers;
 
-use App\Models\DirectiveRecipient;
+use App\Models\Directives\DirectiveRecipient;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;

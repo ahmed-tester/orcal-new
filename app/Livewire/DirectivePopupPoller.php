@@ -2,7 +2,7 @@
 
 namespace App\Livewire;
 
-use App\Models\DirectiveRecipient;
+use App\Models\Directives\DirectiveRecipient;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;

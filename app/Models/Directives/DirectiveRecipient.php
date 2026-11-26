@@ -1,7 +1,9 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Directives;
 
+use App\Models\Employee;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,6 +14,7 @@ class DirectiveRecipient extends Model
         'user_id',
         'employee_id',
         'acknowledged_at',
+        'metadata',
     ];
 
     protected function casts(): array
@@ -21,6 +24,7 @@ class DirectiveRecipient extends Model
             'user_id' => 'integer',
             'employee_id' => 'integer',
             'acknowledged_at' => 'datetime',
+            'metadata' => 'array',
         ];
     }
 
