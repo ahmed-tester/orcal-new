@@ -3,6 +3,7 @@
 namespace App\Filament\Navigation;
 
 use App\Services\NavigationOrderService;
+use App\Services\SidebarBadgeService;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
 use Filament\Navigation\NavigationManager;
@@ -15,6 +16,7 @@ class OrderedNavigationManager extends NavigationManager
     public function get(): array
     {
         $groups = parent::get();
+        SidebarBadgeService::applyToGroups($groups);
         $itemOrder = NavigationOrderService::itemOrder();
         $groupKeys = NavigationOrderService::getOrderedGroupKeys();
 

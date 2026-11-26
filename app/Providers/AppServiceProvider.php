@@ -108,10 +108,12 @@ use App\Policies\WeeklyNotePolicy;
 use App\Services\HijriDateService;
 use App\Services\Notifications\OperationsNotificationDiagnostics;
 use App\Services\Notifications\SmsService;
+use App\Services\SidebarBadgeService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Navigation\NavigationManager;
 use Filament\Tables\Filters\SelectFilter;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -160,6 +162,22 @@ class AppServiceProvider extends ServiceProvider
                     OperationsNotificationDiagnostics::notification('database_saved', $event->notification, [
                         'recipient_id' => $event->notifiable->getKey(),
                     ]);
+                }
+            },
+        );
+
+        Event::listen(
+            [
+                'eloquent.created: *',
+                'eloquent.deleted: *',
+                'eloquent.restored: *',
+                'eloquent.forceDeleted: *',
+            ],
+            static function (string $eventName, array $data): void {
+                $model = $data[0] ?? null;
+
+                if ($model instanceof Model) {
+                    SidebarBadgeService::invalidateForModel($model);
                 }
             },
         );
