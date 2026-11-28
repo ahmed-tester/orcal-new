@@ -105,15 +105,16 @@ class PersonCapacityService
             ->label($isOwner ? __('owners.fields.person_capacity') : __('employees.fields.person_capacity'))
             ->state(function ($record) use ($isOwner) {
                 $ownerRecord = $isOwner || $record instanceof Owner;
-                $key = static::resolveLinkedCapacity($record, $ownerRecord);
-                $options = static::getOptions($ownerRecord ? 'owner' : 'employee');
+                $for = $ownerRecord ? 'owner' : 'employee';
+                $key = static::resolveKey($record, $for);
+                $options = static::getOptions($for);
 
                 return $options[$key];
             })
             ->badge()
             ->color(function ($record) use ($isOwner) {
                 $ownerRecord = $isOwner || $record instanceof Owner;
-                $key = static::resolveLinkedCapacity($record, $ownerRecord);
+                $key = static::resolveKey($record, $ownerRecord ? 'owner' : 'employee');
 
                 if ($key === 'employee_and_owner') {
                     return 'warning';
@@ -123,7 +124,7 @@ class PersonCapacityService
             })
             ->icon(function ($record) use ($isOwner) {
                 $ownerRecord = $isOwner || $record instanceof Owner;
-                $key = static::resolveLinkedCapacity($record, $ownerRecord);
+                $key = static::resolveKey($record, $ownerRecord ? 'owner' : 'employee');
 
                 if ($key === 'employee_and_owner') {
                     return 'heroicon-m-briefcase';
