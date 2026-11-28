@@ -10,5 +10,5 @@ return [
     | are active. Set to true when ready to enable in production.
     |
     */
-    'enabled' => false,
+    'enabled' => true,
 ];
