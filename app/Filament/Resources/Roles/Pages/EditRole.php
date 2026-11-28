@@ -39,7 +39,10 @@ class EditRole extends EditRecord
                 $permissions = array_merge($permissions, (array) $this->data[$groupField]);
             }
         }
-        $permissions = array_filter(array_unique($permissions));
+        $permissions = array_values(array_diff(
+            array_filter(array_unique($permissions)),
+            \App\Services\Tasks\Renewals\RenewalDocumentRegistry::allPermissionKeys(),
+        ));
 
         foreach ($permissions as $permName) {
             Permission::firstOrCreate([

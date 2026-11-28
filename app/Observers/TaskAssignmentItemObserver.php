@@ -6,7 +6,7 @@ use App\Enums\TaskStatus;
 use App\Models\Employee;
 use App\Models\TaskAssignmentItem;
 use App\Services\EmployeePerformanceAccessService;
-use App\Services\TaskAssignmentTransferService;
+use App\Services\Tasks\TaskAssignmentTransferService;
 use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
 
@@ -177,6 +177,12 @@ class TaskAssignmentItemObserver
     {
         if ($item->status !== TaskStatus::TRANSFERRED || ! $item->isDirty('status')) {
             return;
+        }
+
+        if ($item->renewal_request_id !== null) {
+            throw ValidationException::withMessages([
+                'status' => __('document_renewals.errors.use_renewal_reassignment'),
+            ]);
         }
 
         $targetEmployeeId = (int) ($item->metadata['transferred_to_employee_id'] ?? 0);

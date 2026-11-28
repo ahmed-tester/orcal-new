@@ -6,9 +6,13 @@ use App\Enums\DepartmentScope;
 use App\Filament\Resources\Departments\DepartmentResource;
 use App\Filament\Resources\Departments\Pages\CreateDepartment;
 use App\Models\Department;
+use App\Models\Employee;
 use App\Services\CompanyFormService;
 use App\Services\Departments\DepartmentHierarchyService;
 use App\Services\Departments\DepartmentScopeService;
+use App\Services\Tasks\Renewals\DocumentRenewalAccessService;
+use App\Services\Tasks\Renewals\RenewalDocumentRegistry;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -95,9 +99,39 @@ class DepartmentForm
                             ignoreCompanyScope: true,
                         )
                             ->nullable()
+                            ->live()
+                            ->afterStateUpdated(function ($state, $set, ?Department $record): void {
+                                if (! filled($state)) {
+                                    $set('renewal_permissions', []);
+
+                                    return;
+                                }
+
+                                $newUser = Employee::with('user')->find((int) $state)?->user;
+                                $newPerms = $newUser ? DocumentRenewalAccessService::directRenewalPermissions($newUser) : [];
+
+                                if ($record && $record->manager_id !== null && (int) $state !== (int) $record->manager_id) {
+                                    $oldUser = $record->manager?->user;
+                                    $oldPerms = $oldUser ? DocumentRenewalAccessService::directRenewalPermissions($oldUser) : [];
+                                    $newPerms = array_values(array_unique(array_merge($newPerms, $oldPerms)));
+                                }
+
+                                $set('renewal_permissions', $newPerms);
+                            })
                             ->helperText(__('organization.departments.hierarchy.helpers.manager'))
                             ->visible(fn ($get, $livewire, ?Department $record): bool => (auth()->user()?->isSuperAdmin() ?? false)
                                 && static::contextParentId($get, $livewire) === null
+                                && ($record === null || DepartmentScopeService::resolveScope($record) === DepartmentScope::FAWAZ_GROUP)),
+
+                        CheckboxList::make('renewal_permissions')
+                            ->label(__('document_renewals.layer_one.permissions_label'))
+                            ->helperText(__('document_renewals.layer_one.permissions_helper'))
+                            ->options(fn (): array => RenewalDocumentRegistry::permissionOptions())
+                            ->columns(3)
+                            ->columnSpanFull()
+                            ->visible(fn ($get, $livewire, ?Department $record): bool => (auth()->user()?->isSuperAdmin() ?? false)
+                                && static::contextParentId($get, $livewire) === null
+                                && filled($get('manager_id'))
                                 && ($record === null || DepartmentScopeService::resolveScope($record) === DepartmentScope::FAWAZ_GROUP)),
 
                         Select::make('parent_id')

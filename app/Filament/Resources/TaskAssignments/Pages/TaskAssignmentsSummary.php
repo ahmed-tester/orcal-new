@@ -5,7 +5,7 @@ namespace App\Filament\Resources\TaskAssignments\Pages;
 use App\Filament\Resources\TaskAssignments\TaskAssignmentResource;
 use App\Filament\Traits\HasFilterBarState;
 use App\Models\TaskAssignment;
-use App\Services\TaskAssignmentSummaryService;
+use App\Services\Tasks\TaskAssignmentSummaryService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\Page;

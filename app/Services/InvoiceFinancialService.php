@@ -15,9 +15,11 @@ class InvoiceFinancialService
 {
     public static function activate(Invoice $invoice, ?User $actor = null): Invoice
     {
-        if ($invoice->isServiceMirror()) {
+        if ($invoice->isServiceMirror() || $invoice->isRenewalExpense()) {
             throw ValidationException::withMessages([
-                'invoice' => __('invoices.errors.service_mirror_locked'),
+                'invoice' => $invoice->isRenewalExpense()
+                    ? __('document_renewals.errors.renewal_invoice_locked_for_receipt')
+                    : __('invoices.errors.service_mirror_locked'),
             ]);
         }
 
@@ -44,9 +46,11 @@ class InvoiceFinancialService
      */
     public static function ensureManagedForReceipt(Invoice $invoice, ?User $actor = null): Invoice
     {
-        if ($invoice->isServiceMirror()) {
+        if ($invoice->isServiceMirror() || $invoice->isRenewalExpense()) {
             throw ValidationException::withMessages([
-                'invoice' => __('invoices.errors.service_mirror_locked'),
+                'invoice' => $invoice->isRenewalExpense()
+                    ? __('document_renewals.errors.renewal_invoice_locked_for_receipt')
+                    : __('invoices.errors.service_mirror_locked'),
             ]);
         }
 
@@ -250,9 +254,11 @@ class InvoiceFinancialService
      */
     public static function assertEditable(Invoice $invoice, array $newData = []): void
     {
-        if ($invoice->isServiceMirror()) {
+        if ($invoice->isServiceMirror() || $invoice->isRenewalExpense()) {
             throw ValidationException::withMessages([
-                'invoice' => __('invoices.errors.service_mirror_locked'),
+                'invoice' => $invoice->isRenewalExpense()
+                    ? __('document_renewals.errors.renewal_invoice_locked_for_receipt')
+                    : __('invoices.errors.service_mirror_locked'),
             ]);
         }
 
@@ -317,9 +323,11 @@ class InvoiceFinancialService
 
     public static function assertDeletable(Invoice $invoice): void
     {
-        if ($invoice->isServiceMirror()) {
+        if ($invoice->isServiceMirror() || $invoice->isRenewalExpense()) {
             throw ValidationException::withMessages([
-                'invoice' => __('invoices.errors.service_mirror_locked'),
+                'invoice' => $invoice->isRenewalExpense()
+                    ? __('document_renewals.errors.renewal_invoice_locked_for_receipt')
+                    : __('invoices.errors.service_mirror_locked'),
             ]);
         }
 
@@ -337,7 +345,7 @@ class InvoiceFinancialService
      */
     public static function recordCreationReceipt(Invoice $invoice, array $data, ?User $actor = null): ?FinancialReceipt
     {
-        if (empty($data['is_paid_by_applicant']) || $invoice->isServiceMirror()) {
+        if (empty($data['is_paid_by_applicant']) || $invoice->isServiceMirror() || $invoice->isRenewalExpense()) {
             return null;
         }
 

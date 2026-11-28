@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Tasks;
 
 use App\Enums\TaskStatus;
 use App\Enums\UserType;

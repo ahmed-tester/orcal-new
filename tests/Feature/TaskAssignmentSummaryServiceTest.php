@@ -14,7 +14,7 @@ use App\Models\Employee;
 use App\Models\ServiceTransaction;
 use App\Models\User;
 use App\Services\ServicePerformanceSummaryService;
-use App\Services\TaskAssignmentSummaryService;
+use App\Services\Tasks\TaskAssignmentSummaryService;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Schema\Blueprint;

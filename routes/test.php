@@ -301,3 +301,15 @@ Route::get('/system/seed-directives-permissions', function () {
         'permissions' => $results,
     ]);
 })->name('system.seed-directives-permissions');
+
+Route::get('/system/sync-document-renewal-permissions', function () {
+    abort_unless(auth()->user()?->isSuperAdmin(), 403);
+
+    $synced = \App\Services\Tasks\Renewals\RenewalDocumentRegistry::syncPermissionDefinitions();
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Document renewal permission definitions synced successfully (not auto-assigned to roles).',
+        'permissions' => $synced,
+    ]);
+})->name('system.sync-document-renewal-permissions');

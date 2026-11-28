@@ -165,9 +165,9 @@
                 <tbody>
                     @forelse($rows as $index => $row)
                         @php
-                            $completionRate = \App\Services\TaskAssignmentSummaryService::completionRate($row);
-                            $onTimeRate     = \App\Services\TaskAssignmentSummaryService::onTimeRate($row);
-                            $weighted       = \App\Services\TaskAssignmentSummaryService::weightedPercentage($row);
+                            $completionRate = \App\Services\Tasks\TaskAssignmentSummaryService::completionRate($row);
+                            $onTimeRate     = \App\Services\Tasks\TaskAssignmentSummaryService::onTimeRate($row);
+                            $weighted       = \App\Services\Tasks\TaskAssignmentSummaryService::weightedPercentage($row);
                         @endphp
                         <tr>
                             <td style="color:#94a3b8; font-size:11px;">{{ $index + 1 }}</td>

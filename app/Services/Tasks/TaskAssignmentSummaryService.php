@@ -1,14 +1,18 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Tasks;
 
 use App\Enums\TaskStatus;
 use App\Models\Employee;
 use App\Models\TaskAssignment;
 use App\Models\TaskAssignmentItem;
 use App\Models\User;
+use App\Services\CompanyFormService;
+use App\Services\EmployeePerformanceAccessService;
+use App\Services\FilterBarService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -46,12 +50,41 @@ class TaskAssignmentSummaryService
      */
     public static function assignments(array $filters = []): Builder
     {
-        $query = CompanyAccessScopeService::apply(TaskAssignment::query())
-            ->whereIn('employee_id', self::filteredEmployees($filters)->select('employees.id'));
+        $companyIds = array_filter((array) FilterBarService::values($filters['company_id'] ?? null));
+        $employeeFilters = Arr::except($filters, ['company_id']);
+
+        $query = TaskAssignment::query()
+            ->whereIn('employee_id', self::filteredEmployees($employeeFilters)->select('employees.id'));
 
         $user = auth()->user();
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
 
-        if ($user && EmployeePerformanceAccessService::isSupervisor($user)) {
+        if (! $user->isSuperAdmin()) {
+            $authorizedCompanyIds = CompanyFormService::getAuthorizedCompanyIds($user);
+            if ($authorizedCompanyIds === []) {
+                return $query->whereRaw('1 = 0');
+            }
+
+            $query->where(function (Builder $cq) use ($authorizedCompanyIds, $user): void {
+                if ($user->employee) {
+                    $cq->orWhere('task_assignments.employee_id', $user->employee->id);
+                }
+
+                $cq->orWhereHas('employee', fn (Builder $e) => $e->whereIn('employees.company_id', $authorizedCompanyIds))
+                    ->orWhereHas('items', fn (Builder $i) => $i->whereIn('task_assignment_items.company_id', $authorizedCompanyIds));
+            });
+        }
+
+        if ($companyIds !== []) {
+            $query->where(function (Builder $cq) use ($companyIds): void {
+                $cq->whereHas('employee', fn (Builder $e) => $e->whereIn('employees.company_id', $companyIds))
+                    ->orWhereHas('items', fn (Builder $i) => $i->whereIn('task_assignment_items.company_id', $companyIds));
+            });
+        }
+
+        if (EmployeePerformanceAccessService::isSupervisor($user)) {
             $windows = self::teamWindows($user, $filters);
 
             $query->where(function (Builder $team) use ($user, $windows) {
@@ -65,7 +98,7 @@ class TaskAssignmentSummaryService
                     });
                 }
             });
-        } elseif ($user && EmployeePerformanceAccessService::isFormerOrRevokedSupervisor($user)) {
+        } elseif (EmployeePerformanceAccessService::isFormerOrRevokedSupervisor($user)) {
             $query->where('task_assignments.employee_id', $user->employee?->id ?? 0);
         }
 
@@ -80,6 +113,37 @@ class TaskAssignmentSummaryService
     {
         $query = TaskAssignmentItem::query()
             ->whereIn('task_assignment_id', self::assignments($filters)->select('task_assignments.id'));
+
+        $user = auth()->user();
+        if ($user && ! $user->isSuperAdmin()) {
+            $authorizedCompanyIds = CompanyFormService::getAuthorizedCompanyIds($user);
+            if ($authorizedCompanyIds === []) {
+                return $query->whereRaw('1 = 0');
+            }
+
+            $query->where(function (Builder $cq) use ($authorizedCompanyIds, $user): void {
+                if ($user->employee) {
+                    $cq->orWhereHas('taskAssignment', fn (Builder $a) => $a->where('task_assignments.employee_id', $user->employee->id));
+                }
+
+                $cq->orWhereIn('task_assignment_items.company_id', $authorizedCompanyIds)
+                    ->orWhere(function (Builder $fallback) use ($authorizedCompanyIds): void {
+                        $fallback->whereNull('task_assignment_items.company_id')
+                            ->whereHas('taskAssignment.employee', fn (Builder $e) => $e->whereIn('employees.company_id', $authorizedCompanyIds));
+                    });
+            });
+        }
+
+        $companyIds = array_filter((array) FilterBarService::values($filters['company_id'] ?? null));
+        if ($companyIds !== []) {
+            $query->where(function (Builder $cq) use ($companyIds): void {
+                $cq->whereIn('task_assignment_items.company_id', $companyIds)
+                    ->orWhere(function (Builder $fallback) use ($companyIds): void {
+                        $fallback->whereNull('task_assignment_items.company_id')
+                            ->whereHas('taskAssignment.employee', fn (Builder $e) => $e->whereIn('employees.company_id', $companyIds));
+                    });
+            });
+        }
 
         self::applyItemFilters($query, $filters);
 
@@ -116,7 +180,35 @@ class TaskAssignmentSummaryService
 
     private static function filteredEmployees(array $filters): Builder
     {
-        $query = CompanyAccessScopeService::apply(Employee::query()->nonTemporary()->saudi());
+        $query = Employee::query()->nonTemporary()->saudi();
+        $user = auth()->user();
+
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if (! $user->isSuperAdmin()) {
+            $authorizedCompanyIds = CompanyFormService::getAuthorizedCompanyIds($user);
+            if ($authorizedCompanyIds === []) {
+                return $query->whereRaw('1 = 0');
+            }
+
+            if ($user->branch_id && ! $user->canAccessAllBranches() && ! $user->isOwner()) {
+                $query->where('employees.branch_id', (int) $user->branch_id);
+            }
+
+            $query->where(function (Builder $cq) use ($authorizedCompanyIds): void {
+                $cq->whereIn('employees.company_id', $authorizedCompanyIds)
+                    ->orWhereExists(function ($sub) use ($authorizedCompanyIds): void {
+                        $sub->selectRaw('1')
+                            ->from('task_assignment_items')
+                            ->join('task_assignments', 'task_assignments.id', '=', 'task_assignment_items.task_assignment_id')
+                            ->whereColumn('task_assignments.employee_id', 'employees.id')
+                            ->whereIn('task_assignment_items.company_id', $authorizedCompanyIds);
+                    });
+            });
+        }
+
         self::applyEmployeeFilters($query, $filters);
 
         return $query;
@@ -472,7 +564,16 @@ class TaskAssignmentSummaryService
         $companyIds = array_filter((array) FilterBarService::values($filters['company_id'] ?? null));
 
         if ($companyIds !== []) {
-            $query->whereIn('employees.company_id', $companyIds);
+            $query->where(function (Builder $cq) use ($companyIds): void {
+                $cq->whereIn('employees.company_id', $companyIds)
+                    ->orWhereExists(function ($sub) use ($companyIds): void {
+                        $sub->selectRaw('1')
+                            ->from('task_assignment_items')
+                            ->join('task_assignments', 'task_assignments.id', '=', 'task_assignment_items.task_assignment_id')
+                            ->whereColumn('task_assignments.employee_id', 'employees.id')
+                            ->whereIn('task_assignment_items.company_id', $companyIds);
+                    });
+            });
         }
 
         $branchIds = array_filter((array) FilterBarService::values($filters['branch_id'] ?? null));

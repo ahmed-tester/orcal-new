@@ -26,11 +26,19 @@ class InvoicePolicy
 
     public function update(User $user, Invoice $model): bool
     {
+        if ($model->isRenewalExpense()) {
+            return false;
+        }
+
         return $user->can('update_invoice');
     }
 
     public function delete(User $user, Invoice $model): bool
     {
+        if ($model->isRenewalExpense()) {
+            return false;
+        }
+
         return $user->can('delete_invoice');
     }
 }

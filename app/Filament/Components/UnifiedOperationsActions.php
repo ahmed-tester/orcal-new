@@ -44,14 +44,14 @@ class UnifiedOperationsActions
         return Action::make('deficiency_tasks')
             ->label(__('services_tracking.reconciliation.tasks_btn'))
             ->icon('heroicon-o-clipboard-document-list')
-            ->color(fn (Model $record) => (method_exists($record, 'deficiencyTasks') && $record->deficiencyTasks()->open()->count() > 0) ? 'danger' : 'gray')
-            ->badge(fn (Model $record) => (method_exists($record, 'deficiencyTasks') && ($c = $record->deficiencyTasks()->open()->count()) > 0) ? (string) $c : null)
+            ->color(fn (Model $record) => (method_exists($record, 'deficiencyTasks') && $record->deficiencyTasks()->excludingDocumentRenewals()->open()->count() > 0) ? 'danger' : 'gray')
+            ->badge(fn (Model $record) => (method_exists($record, 'deficiencyTasks') && ($c = $record->deficiencyTasks()->excludingDocumentRenewals()->open()->count()) > 0) ? (string) $c : null)
             ->modalHeading(__('services_tracking.reconciliation.tasks_modal_title'))
             ->modalDescription(__('services_tracking.reconciliation.tasks_modal_desc'))
             ->modalWidth('2xl')
             ->modalContent(fn (Model $record) => view('filament.modals.deficiency-tasks-list', [
                 'record' => $record,
-                'tasks' => method_exists($record, 'deficiencyTasks') ? $record->deficiencyTasks()->latest()->get() : collect(),
+                'tasks' => method_exists($record, 'deficiencyTasks') ? $record->deficiencyTasks()->excludingDocumentRenewals()->latest()->get() : collect(),
             ]))
             ->modalSubmitAction(fn ($action) => (auth()->user()?->can('resolve_deficiency_task') || (method_exists(auth()->user(), 'isSuperAdminOrOwner') && auth()->user()->isSuperAdminOrOwner())) ? $action : false)
             ->modalSubmitActionLabel(__('services_tracking.reconciliation.resolve_btn'))
@@ -60,18 +60,18 @@ class UnifiedOperationsActions
                     ->label(__('services_tracking.reconciliation.select_task_to_resolve'))
                     ->options(
                         method_exists($record, 'deficiencyTasks')
-                            ? $record->deficiencyTasks()->open()->pluck('title', 'id')
+                            ? $record->deficiencyTasks()->excludingDocumentRenewals()->open()->pluck('title', 'id')
                             : []
                     )
                     ->visible(fn () => method_exists($record, 'deficiencyTasks')
-                        && $record->deficiencyTasks()->open()->exists()
+                        && $record->deficiencyTasks()->excludingDocumentRenewals()->open()->exists()
                         && (auth()->user()?->can('resolve_deficiency_task') || (method_exists(auth()->user(), 'isSuperAdminOrOwner') && auth()->user()->isSuperAdminOrOwner())))
                     ->required(),
                 Textarea::make('resolution_notes')
                     ->label(__('services_tracking.reconciliation.resolution_notes'))
                     ->rows(2)
                     ->visible(fn () => method_exists($record, 'deficiencyTasks')
-                        && $record->deficiencyTasks()->open()->exists()
+                        && $record->deficiencyTasks()->excludingDocumentRenewals()->open()->exists()
                         && (auth()->user()?->can('resolve_deficiency_task') || (method_exists(auth()->user(), 'isSuperAdminOrOwner') && auth()->user()->isSuperAdminOrOwner()))),
             ])
             ->action(function (Model $record, array $data) {

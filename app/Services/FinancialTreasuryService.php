@@ -9,6 +9,7 @@ use App\Models\CashHandover;
 use App\Models\FinancialDisbursement;
 use App\Models\FinancialDisbursementPayment;
 use App\Models\FinancialReceipt;
+use App\Models\Invoice;
 use App\Models\PaymentCollectionItem;
 use App\Models\Payroll\PayrollPayment;
 use App\Models\TreasuryTransaction;
@@ -131,7 +132,8 @@ class FinancialTreasuryService
             || FinancialDisbursement::where('treasury_transaction_id', $transaction->id)->exists()
             || FinancialDisbursementPayment::where('treasury_transaction_id', $transaction->id)->exists()
             || PayrollPayment::where('treasury_transaction_id', $transaction->id)->exists()
-            || FinancialReceipt::where('metadata->treasury_transaction_id', $transaction->id)->exists();
+            || FinancialReceipt::where('metadata->treasury_transaction_id', $transaction->id)->exists()
+            || Invoice::where('metadata->treasury_transaction_id', $transaction->id)->exists();
     }
 
     /**

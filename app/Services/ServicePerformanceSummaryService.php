@@ -7,6 +7,7 @@ use App\Filament\Resources\ServiceTransactions\ServiceTransactionResource;
 use App\Models\Employee;
 use App\Models\ServiceTransaction;
 use App\Models\UnifiedDeficiencyTask;
+use App\Services\Tasks\TaskAssignmentSummaryService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -183,6 +184,7 @@ class ServicePerformanceSummaryService
     public static function linkedDeficiencies(ServiceTransaction $transaction): Collection
     {
         return UnifiedDeficiencyTask::query()
+            ->excludingDocumentRenewals()
             ->where(function (Builder $query) use ($transaction) {
                 $query->where('service_transaction_id', $transaction->id)
                     ->orWhere(function (Builder $morph) use ($transaction) {

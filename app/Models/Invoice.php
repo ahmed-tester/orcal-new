@@ -6,6 +6,7 @@ namespace App\Models;
 use App\Traits\HasHijriDates;
 use App\Enums\PaymentStatus;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,6 +21,12 @@ class Invoice extends Model
     public const WORKFLOW_VERSION = 1;
 
     public const FLOW_MANAGED = 'managed';
+
+    public const PURPOSE_RENEWAL_EXPENSE = 'renewal_expense';
+
+    public const RENEWAL_FEE_WITH_FEE = 'with_fee';
+
+    public const RENEWAL_FEE_NO_FEE = 'no_fee';
 
     public function getHijriDateFieldNames(): array
     {
@@ -204,6 +211,24 @@ class Invoice extends Model
         }
 
         return ServiceTransaction::where('metadata->auto_invoice_id', $this->id)->first();
+    }
+
+    public function isRenewalExpense(): bool
+    {
+        return ($this->metadata['document_purpose'] ?? null) === self::PURPOSE_RENEWAL_EXPENSE;
+    }
+
+    public function scopeRenewalExpenses(Builder $query): Builder
+    {
+        return $query->where('metadata->document_purpose', self::PURPOSE_RENEWAL_EXPENSE);
+    }
+
+    public function scopeExcludingRenewalExpenses(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q): void {
+            $q->whereNull('metadata->document_purpose')
+                ->orWhere('metadata->document_purpose', '!=', self::PURPOSE_RENEWAL_EXPENSE);
+        });
     }
 
     public function hasFinancialImpact(): bool

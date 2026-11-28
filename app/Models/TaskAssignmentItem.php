@@ -30,6 +30,8 @@ class TaskAssignmentItem extends Model
     protected $fillable = [
         'task_assignment_id',
         'task_id',
+        'renewal_request_id',
+        'company_id',
         'status',
         'requires_review',
         'weight',
@@ -122,6 +124,21 @@ class TaskAssignmentItem extends Model
     public function task(): BelongsTo
     {
         return $this->belongsTo(Task::class);
+    }
+
+    public function renewalRequest(): BelongsTo
+    {
+        return $this->belongsTo(UnifiedDeficiencyTask::class, 'renewal_request_id');
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function isDocumentRenewal(): bool
+    {
+        return $this->renewal_request_id !== null;
     }
 
     public function reviews(): HasMany

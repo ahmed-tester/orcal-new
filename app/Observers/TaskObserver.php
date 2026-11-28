@@ -2,10 +2,13 @@
 
 namespace App\Observers;
 
+use App\Enums\GeneralStatus;
 use App\Models\Company;
 use App\Models\Task;
 use App\Models\User;
+use App\Services\Tasks\Renewals\RenewalDocumentRegistry;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class TaskObserver
 {
@@ -16,6 +19,45 @@ class TaskObserver
     {
         if (empty($task->task_code)) {
             $task->task_code = $this->generateTaskCode();
+        }
+    }
+
+    /**
+     * Protect reserved system document renewal tasks from code changes or deactivation.
+     */
+    public function updating(Task $task): void
+    {
+        $originalCode = (string) ($task->getOriginal('task_code') ?? '');
+
+        if (! RenewalDocumentRegistry::isReservedTaskCode($originalCode)) {
+            return;
+        }
+
+        if ($task->isDirty('task_code') && (string) $task->task_code !== $originalCode) {
+            throw ValidationException::withMessages([
+                'task_code' => __('document_renewals.catalog.errors.cannot_modify_system_task'),
+            ]);
+        }
+
+        $statusValue = $task->status instanceof GeneralStatus ? $task->status->value : (string) $task->status;
+        if ($statusValue !== GeneralStatus::ACTIVE->value) {
+            throw ValidationException::withMessages([
+                'status' => __('document_renewals.catalog.errors.cannot_deactivate_system_task'),
+            ]);
+        }
+    }
+
+    /**
+     * Protect reserved system document renewal tasks from deletion (cascadeOnDelete safety).
+     */
+    public function deleting(Task $task): void
+    {
+        $code = (string) ($task->task_code ?? $task->getOriginal('task_code') ?? '');
+
+        if (RenewalDocumentRegistry::isReservedTaskCode($code)) {
+            throw ValidationException::withMessages([
+                'task_code' => __('document_renewals.catalog.errors.cannot_delete_system_task'),
+            ]);
         }
     }
 
