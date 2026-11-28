@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Enums\UserType;
+use App\Filament\Resources\Owners\Pages\EditOwner;
 use App\Filament\Resources\Owners\Pages\ListOwners;
+use App\Filament\Resources\SaudiEmployees\Pages\EditSaudiEmployee;
 use App\Filament\Resources\SaudiEmployees\Pages\ListSaudiEmployees;
 use App\Models\Employee;
 use App\Models\Owner;
@@ -68,5 +70,31 @@ class PersonCapacityTablesTest extends TestCase
             ->filterTable('person_capacity', 'owner')
             ->assertCanSeeTableRecords([$ownerOnly])
             ->assertCanNotSeeTableRecords([$linkedOwner]);
+    }
+
+    public function test_edit_pages_resolve_person_capacity_from_account_relationships(): void
+    {
+        $this->actingAs(User::factory()->create(['user_type' => UserType::SUPER_ADMIN]));
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+
+        $companyId = DB::table('companies')->insertGetId(['trade_name' => 'Test company']);
+        $linkedUser = User::factory()->create(['user_type' => UserType::SAUDI_EMPLOYEE]);
+
+        $linkedEmployee = Employee::create([
+            'user_id' => $linkedUser->id,
+            'company_id' => $companyId,
+            'metadata' => ['person_capacity' => 'employee'],
+        ]);
+        $linkedOwner = Owner::create([
+            'user_id' => $linkedUser->id,
+            'company_id' => $companyId,
+            'metadata' => ['person_capacity' => 'owner'],
+        ]);
+
+        Livewire::test(EditSaudiEmployee::class, ['record' => $linkedEmployee->id])
+            ->assertFormSet(['person_capacity' => 'employee_and_owner']);
+
+        Livewire::test(EditOwner::class, ['record' => $linkedOwner->id])
+            ->assertFormSet(['person_capacity' => 'employee_and_owner']);
     }
 }

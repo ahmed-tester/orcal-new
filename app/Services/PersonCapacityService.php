@@ -36,16 +36,11 @@ class PersonCapacityService
     }
 
     /**
-     * Resolve the capacity key from stored metadata, falling back to relations.
+     * Resolve the capacity key from the linked user relationships.
      */
     public static function resolveKey(mixed $record, string $for = 'employee'): string
     {
         $isOwner = $for === 'owner' || $record instanceof Owner;
-        $stored = is_array($record?->metadata) ? ($record->metadata['person_capacity'] ?? null) : null;
-
-        if (is_string($stored) && array_key_exists($stored, static::getOptions($isOwner ? 'owner' : 'employee'))) {
-            return $stored;
-        }
 
         return static::resolveLinkedCapacity($record, $isOwner);
     }
