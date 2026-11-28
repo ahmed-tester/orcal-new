@@ -8,11 +8,26 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class UnifiedDeficiencyTask extends Model
 {
     use HasFactory, HasHijriDates;
+
+    public const TYPE_DOCUMENT_RENEWAL = 'document_renewal';
+
+    public const RENEWAL_STATUS_AVAILABLE = 'available';
+
+    public const RENEWAL_STATUS_CLAIMED = 'claimed';
+
+    public const RENEWAL_STATUS_PENDING_TREASURY = 'pending_treasury';
+
+    public const RENEWAL_STATUS_RETURNED = 'returned';
+
+    public const RENEWAL_STATUS_COMPLETED = 'completed';
+
+    public const RENEWAL_STATUS_CANCELLED = 'cancelled';
 
     public function getHijriDateFieldNames(): array
     {
@@ -70,13 +85,25 @@ class UnifiedDeficiencyTask extends Model
             }
 
             if (empty($task->status)) {
-                $task->status = 'open';
+                $task->status = $task->deficiency_type === self::TYPE_DOCUMENT_RENEWAL
+                    ? self::RENEWAL_STATUS_AVAILABLE
+                    : 'open';
             }
 
-            if (empty($task->due_date)) {
+            if (empty($task->due_date) && $task->deficiency_type !== self::TYPE_DOCUMENT_RENEWAL) {
                 $task->due_date = now()->addDays(2)->toDateString();
             }
         });
+    }
+
+    public function isDocumentRenewal(): bool
+    {
+        return $this->deficiency_type === self::TYPE_DOCUMENT_RENEWAL;
+    }
+
+    public function taskAssignmentItem(): HasOne
+    {
+        return $this->hasOne(TaskAssignmentItem::class, 'renewal_request_id');
     }
 
     public function taskable(): MorphTo
@@ -117,5 +144,15 @@ class UnifiedDeficiencyTask extends Model
     public function scopeResolved(Builder $query): Builder
     {
         return $query->where('status', 'resolved');
+    }
+
+    public function scopeDocumentRenewals(Builder $query): Builder
+    {
+        return $query->where('deficiency_type', self::TYPE_DOCUMENT_RENEWAL);
+    }
+
+    public function scopeExcludingDocumentRenewals(Builder $query): Builder
+    {
+        return $query->where('deficiency_type', '!=', self::TYPE_DOCUMENT_RENEWAL);
     }
 }

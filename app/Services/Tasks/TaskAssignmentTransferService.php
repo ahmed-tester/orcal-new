@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Tasks;
 
 use App\Enums\TaskStatus;
 use App\Models\TaskAssignment;
@@ -26,7 +26,7 @@ class TaskAssignmentTransferService
                 ->with('taskAssignment')
                 ->find($item->getKey());
 
-            if (! $locked || $locked->status !== TaskStatus::TRANSFERRED) {
+            if (! $locked || $locked->status !== TaskStatus::TRANSFERRED || $locked->renewal_request_id !== null) {
                 return null;
             }
 

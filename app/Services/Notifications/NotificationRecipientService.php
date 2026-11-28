@@ -33,6 +33,7 @@ use App\Models\ServiceTransaction;
 use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\Ticket;
+use App\Models\UnifiedDeficiencyTask;
 use App\Models\User;
 use App\Models\Violation;
 use App\Services\CashHandoverService;
@@ -41,6 +42,7 @@ use App\Services\Mail\MailAccessService;
 use App\Services\Payroll\FinancialApprovalNotificationService;
 use App\Services\Payroll\PayrollApprovalScopeService;
 use App\Services\PerformanceEscalationService;
+use App\Services\Tasks\Renewals\DocumentRenewalAccessService;
 use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
@@ -179,6 +181,10 @@ class NotificationRecipientService
             return static::isEligibleForFinancialApproval($user, $record, $context, $denialReason);
         }
 
+        if (($context['routing_mode'] ?? null) === 'document_renewal_targeted' && $record instanceof UnifiedDeficiencyTask) {
+            return static::isEligibleForDocumentRenewal($user, $record, $context, $denialReason);
+        }
+
         if (($context['routing_mode'] ?? null) === 'operations_targeted') {
             return static::isUserEligibleForOperationsNotification(
                 $user,
@@ -275,6 +281,56 @@ class NotificationRecipientService
         }
 
         return true;
+    }
+
+    private static function isEligibleForDocumentRenewal(
+        User $user,
+        UnifiedDeficiencyTask $record,
+        array $context,
+        ?string &$denialReason,
+    ): bool {
+        if (! $record->isDocumentRenewal()) {
+            $denialReason = 'not_document_renewal';
+
+            return false;
+        }
+
+        $event = (string) ($context['renewal_event'] ?? '');
+
+        if ($event === 'available') {
+            if (! DocumentRenewalAccessService::canClaim($user, $record)) {
+                $denialReason = 'renewal_claim_not_eligible';
+
+                return false;
+            }
+
+            return true;
+        }
+
+        if ($event === 'pending_treasury') {
+            if (! DocumentRenewalAccessService::canApproveTreasury($user, $record)) {
+                $denialReason = 'renewal_treasury_not_eligible';
+
+                return false;
+            }
+
+            return true;
+        }
+
+        if (in_array($event, ['returned', 'approved'], true)) {
+            $record->loadMissing('responsibleEmployee');
+            if ((int) ($record->responsibleEmployee?->user_id ?? 0) !== (int) $user->id) {
+                $denialReason = 'renewal_assignee_changed';
+
+                return false;
+            }
+
+            return true;
+        }
+
+        $denialReason = 'unknown_renewal_event';
+
+        return false;
     }
 
     /**

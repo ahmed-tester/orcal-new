@@ -6,7 +6,7 @@ use App\Filament\Concerns\HasTaskPerformanceDashboard;
 use App\Filament\Resources\SaudiEmployees\SaudiEmployeeResource;
 use App\Models\Employee;
 use App\Services\EmployeePerformanceAccessService;
-use App\Services\TaskAssignmentSummaryService;
+use App\Services\Tasks\TaskAssignmentSummaryService;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 

@@ -12,6 +12,7 @@ use App\Models\ServiceTransaction;
 use App\Models\TaskAssignmentItem;
 use App\Models\UnifiedDeficiencyTask;
 use App\Models\User;
+use App\Services\Tasks\TaskAssignmentSummaryService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -274,13 +275,13 @@ class CompanyDepartmentPerformanceService
             ->get()
             ->keyBy('company_id');
 
-        // 3. Tasks by employees.company_id
+        // 3. Tasks by COALESCE(task_assignment_items.company_id, employees.company_id)
         $tasksMap = self::selectTaskMetrics(
             self::tasksAggregateQuery($scopedCompanyIds, $branchId, $teamIds)
-                ->selectRaw('employees.company_id'),
+                ->selectRaw('COALESCE(task_assignment_items.company_id, employees.company_id) as company_id'),
             $startDate,
             $endDate,
-        )->groupBy('employees.company_id')
+        )->groupBy(DB::raw('COALESCE(task_assignment_items.company_id, employees.company_id)'))
             ->get()
             ->keyBy('company_id');
 
@@ -531,11 +532,11 @@ class CompanyDepartmentPerformanceService
 
         $taskRates = self::selectTaskMetrics(
             self::tasksAggregateQuery($scopedCompanyIds, $branchId, $teamIds)
-                ->selectRaw('employees.company_id, employees.department_id')
+                ->selectRaw('COALESCE(task_assignment_items.company_id, employees.company_id) as company_id, employees.department_id')
                 ->whereIn('employees.department_id', array_keys($cells)),
             $startDate,
             $endDate,
-        )->groupBy('employees.company_id', 'employees.department_id')->get()->groupBy('department_id');
+        )->groupBy(DB::raw('COALESCE(task_assignment_items.company_id, employees.company_id)'), 'employees.department_id')->get()->groupBy('department_id');
 
         $departments = Department::query()
             ->whereIn('id', array_keys($cells))
@@ -986,6 +987,7 @@ class CompanyDepartmentPerformanceService
         bool $enforcePeriod = true
     ): Builder {
         $query = UnifiedDeficiencyTask::query()
+            ->excludingDocumentRenewals()
             ->whereIn('unified_deficiency_tasks.company_id', $companyIds)
             ->where('unified_deficiency_tasks.status', 'open')
             ->where(function (Builder $morph) {
@@ -1027,7 +1029,7 @@ class CompanyDepartmentPerformanceService
         $query = TaskAssignmentItem::query()
             ->join('task_assignments', 'task_assignment_items.task_assignment_id', '=', 'task_assignments.id')
             ->join('employees', 'task_assignments.employee_id', '=', 'employees.id')
-            ->whereIn('employees.company_id', $companyIds)
+            ->whereIn(DB::raw('COALESCE(task_assignment_items.company_id, employees.company_id)'), $companyIds)
             ->whereIn('task_assignments.employee_id', $saudiIds);
 
         if ($branchId !== null) {

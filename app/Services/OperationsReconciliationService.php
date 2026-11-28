@@ -333,6 +333,12 @@ class OperationsReconciliationService
         ?string $notes = null,
         ?int $userId = null,
     ): void {
+        if ($task->isDocumentRenewal()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'task_id' => __('document_renewals.errors.cannot_resolve_via_reconciliation'),
+            ]);
+        }
+
         DB::transaction(function () use ($task, $notes, $userId) {
             $task->update([
                 'status' => 'resolved',

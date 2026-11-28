@@ -178,14 +178,14 @@
                             <td>{{ (int) $row->completed_in_period }}</td>
                             <td>{{ (int) $row->due_in_period }}</td>
                             <td>
-                                <bdi>{{ (float) ($row->weight_sum ?? 0) > 0 ? number_format(\App\Services\TaskAssignmentSummaryService::weightedPercentage($row), 2).'%' : __('tasks.summary.no_data') }}</bdi>
+                                <bdi>{{ (float) ($row->weight_sum ?? 0) > 0 ? number_format(\App\Services\Tasks\TaskAssignmentSummaryService::weightedPercentage($row), 2).'%' : __('tasks.summary.no_data') }}</bdi>
                             </td>
                             <td>
-                                @php($rate = \App\Services\TaskAssignmentSummaryService::completionRate($row))
+                                @php($rate = \App\Services\Tasks\TaskAssignmentSummaryService::completionRate($row))
                                 <bdi>{{ $rate === null ? __('tasks.summary.no_data') : number_format($rate, 2).'%' }}</bdi>
                             </td>
                             <td>
-                                @php($rate = \App\Services\TaskAssignmentSummaryService::onTimeRate($row))
+                                @php($rate = \App\Services\Tasks\TaskAssignmentSummaryService::onTimeRate($row))
                                 <bdi>{{ $rate === null ? __('tasks.summary.no_data') : number_format($rate, 2).'%' }}</bdi>
                             </td>
                         </tr>

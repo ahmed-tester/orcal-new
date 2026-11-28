@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Employee;
 use App\Models\TaskAssignment;
 use App\Services\CompanyAccessScopeService;
-use App\Services\TaskAssignmentSummaryService;
+use App\Services\Tasks\TaskAssignmentSummaryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 

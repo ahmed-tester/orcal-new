@@ -37,8 +37,9 @@ class InvoicesReport extends AbstractReport
         $dateToCarbon = $this->parseDateTo($dateTo);
 
         $stats = Invoice::query()
-            ->when($dateFrom, fn($q) => $q->whereDate('issue_date', '>=', $dateFromCarbon))
-            ->when($dateTo, fn($q) => $q->whereDate('issue_date', '<=', $dateToCarbon))
+            ->excludingRenewalExpenses()
+            ->when($dateFrom, fn ($q) => $q->whereDate('issue_date', '>=', $dateFromCarbon))
+            ->when($dateTo, fn ($q) => $q->whereDate('issue_date', '<=', $dateToCarbon))
             ->selectRaw("
                 COUNT(*) as total,
                 SUM(CASE WHEN payment_status = 'paid' THEN 1 ELSE 0 END) as paid_count,
@@ -63,7 +64,7 @@ class InvoicesReport extends AbstractReport
             ],
             [
                 'title' => __('reports.stats.total_amount'),
-                'value' => number_format((float) ($stats->total_amount_sum ?? 0), 2) . __('reports.values.currency'),
+                'value' => number_format((float) ($stats->total_amount_sum ?? 0), 2).__('reports.values.currency'),
                 'subtitle' => __('reports.stats.total_amount_sub'),
                 'icon' => 'heroicon-o-banknotes',
                 'color' => 'emerald',
@@ -74,6 +75,7 @@ class InvoicesReport extends AbstractReport
     public function getQuery(?string $dateFrom, ?string $dateTo, ?int $branchId, string $status, ?string $search)
     {
         $query = Invoice::query()
+            ->excludingRenewalExpenses()
             ->with(['customer', 'employee.user']);
 
         // Authorization scoping — Invoice has direct company_id and branch_id
@@ -85,7 +87,7 @@ class InvoicesReport extends AbstractReport
 
         $this->applySearchFilter($query, $search, function ($sub, $search) {
             $sub->where('invoice_number', 'like', "%{$search}%")
-                ->orWhereHas('customer', fn($cq) => $cq->where('name', 'like', "%{$search}%"));
+                ->orWhereHas('customer', fn ($cq) => $cq->where('name', 'like', "%{$search}%"));
         });
 
         return $query->orderByDesc('id');
@@ -119,17 +121,17 @@ class InvoicesReport extends AbstractReport
 
     public function formatRow($item, bool $isCsv = false): array
     {
-        $datePrefix = $isCsv ? "\t" : "";
+        $datePrefix = $isCsv ? "\t" : '';
         $paymentStatusValue = $item->payment_status instanceof \BackedEnum ? $item->payment_status->value : ($item->payment_status ?? 'unpaid');
 
         return [
             'invoice_number' => $item->invoice_number ?? '—',
             'customer_name' => $item->customer?->name ?? '—',
             'employee_name' => $item->employee?->user?->name ?? '—',
-            'issue_date' => $item->issue_date ? ($datePrefix . $item->issue_date->format('Y-m-d')) : '—',
-            'total_amount' => number_format((float) ($item->total_amount ?? 0), 2) . __('reports.values.currency'),
-            'paid_amount' => number_format((float) ($item->paid_amount ?? 0), 2) . __('reports.values.currency'),
-            'remaining_amount' => number_format((float) ($item->remaining_amount ?? 0), 2) . __('reports.values.currency'),
+            'issue_date' => $item->issue_date ? ($datePrefix.$item->issue_date->format('Y-m-d')) : '—',
+            'total_amount' => number_format((float) ($item->total_amount ?? 0), 2).__('reports.values.currency'),
+            'paid_amount' => number_format((float) ($item->paid_amount ?? 0), 2).__('reports.values.currency'),
+            'remaining_amount' => number_format((float) ($item->remaining_amount ?? 0), 2).__('reports.values.currency'),
             'payment_status' => $this->translateStatus($paymentStatusValue),
         ];
     }

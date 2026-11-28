@@ -210,8 +210,8 @@ class PerformanceScoreService
     public static function overdueTasksByScope(array $companyIds, ?int $branchId, ?array $teamIds): Collection
     {
         return self::overdueTaskQuery($companyIds, $branchId, $teamIds)
-            ->selectRaw('employees.company_id, COALESCE(employees.department_id, 0) as department_id, COUNT(*) as count')
-            ->groupBy('employees.company_id', DB::raw('COALESCE(employees.department_id, 0)'))
+            ->selectRaw('COALESCE(task_assignment_items.company_id, employees.company_id) as company_id, COALESCE(employees.department_id, 0) as department_id, COUNT(*) as count')
+            ->groupBy(DB::raw('COALESCE(task_assignment_items.company_id, employees.company_id)'), DB::raw('COALESCE(employees.department_id, 0)'))
             ->get();
     }
 
@@ -260,7 +260,7 @@ class PerformanceScoreService
         $query = TaskAssignmentItem::query()
             ->join('task_assignments', 'task_assignment_items.task_assignment_id', '=', 'task_assignments.id')
             ->join('employees', 'task_assignments.employee_id', '=', 'employees.id')
-            ->whereIn('employees.company_id', $companyIds)
+            ->whereIn(DB::raw('COALESCE(task_assignment_items.company_id, employees.company_id)'), $companyIds)
             ->whereIn('task_assignments.employee_id', Employee::query()->saudi()->select('employees.id'))
             ->whereIn('task_assignment_items.status', TaskStatus::employeeOpenValues())
             ->whereNotNull('task_assignment_items.due_date')
@@ -284,6 +284,7 @@ class PerformanceScoreService
     private static function overdueDeficiencyQuery(array $companyIds, ?int $branchId, ?array $teamIds): Builder
     {
         $query = UnifiedDeficiencyTask::query()
+            ->excludingDocumentRenewals()
             ->whereIn('unified_deficiency_tasks.company_id', $companyIds)
             ->where('unified_deficiency_tasks.status', 'open')
             ->whereNotNull('unified_deficiency_tasks.due_date')

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\Tasks;
 
 use App\Enums\TaskStatus;
 use App\Filament\Pages\MyTasks;
@@ -9,6 +9,8 @@ use App\Models\TaskAssignmentItem;
 use App\Models\TaskAssignmentItemReview;
 use App\Models\User;
 use App\Notifications\BaseSystemNotification;
+use App\Services\CompanyFormService;
+use App\Services\EmployeePerformanceAccessService;
 use App\Services\Notifications\NotificationDispatcher;
 use Carbon\Carbon;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -78,6 +80,10 @@ class TaskAssignmentItemReviewService
 
     public static function canSubmit(User $user, TaskAssignmentItem $item): bool
     {
+        if ($item->isDocumentRenewal()) {
+            return false;
+        }
+
         if (! $item->requires_review) {
             return false;
         }
@@ -91,6 +97,10 @@ class TaskAssignmentItemReviewService
 
     public static function canEscalate(User $user, TaskAssignmentItem $item): bool
     {
+        if ($item->isDocumentRenewal()) {
+            return false;
+        }
+
         if (! $item->status?->isEmployeeOpen()) {
             return false;
         }
@@ -100,6 +110,10 @@ class TaskAssignmentItemReviewService
 
     public static function canReview(User $user, TaskAssignmentItem $item): bool
     {
+        if ($item->isDocumentRenewal()) {
+            return false;
+        }
+
         if (! $item->requires_review || $item->status !== TaskStatus::PENDING_REVIEW) {
             return false;
         }

@@ -7,7 +7,7 @@ use App\Filament\Resources\ForeignEmployees\ForeignEmployeeResource;
 use App\Models\Employee;
 use App\Models\ForeignEmployee;
 use App\Services\EmployeePerformanceAccessService;
-use App\Services\TaskAssignmentSummaryService;
+use App\Services\Tasks\TaskAssignmentSummaryService;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 

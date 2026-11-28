@@ -10,9 +10,11 @@ use App\Services\DatabaseResetService;
 use App\Services\Mail\MailAccessService;
 use App\Services\Mail\MailSettingsService;
 use App\Services\Payroll\SaudiPayrollPolicyService;
+use App\Services\Tasks\Renewals\RenewalDocumentRegistry;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -86,6 +88,11 @@ class ManageSettings extends Page implements HasForms
             $settings = array_replace($settings, MailSettingsService::values());
         }
         $settings['saudi_payroll_default_days'] = SaudiPayrollPolicyService::getGlobalDefaultDays();
+        $settings[RenewalDocumentRegistry::SETTING_LEAD_DAYS] = RenewalDocumentRegistry::leadDays();
+        $settings[RenewalDocumentRegistry::SETTING_DEADLINE_DAYS] = RenewalDocumentRegistry::deadlineDays();
+        $settings[RenewalDocumentRegistry::SETTING_TASK_WEIGHT] = RenewalDocumentRegistry::taskWeight();
+        $settings[RenewalDocumentRegistry::SETTING_LATE_COMPLETION_PERCENTAGE] = RenewalDocumentRegistry::lateCompletionPercentage();
+        $settings[RenewalDocumentRegistry::SETTING_TRACKING_START_DATE] = RenewalDocumentRegistry::trackingStartDate();
         $this->form->fill($settings);
     }
 
@@ -171,6 +178,57 @@ class ManageSettings extends Page implements HasForms
                                             ->numeric()
                                             ->minValue(1)
                                             ->default(30)
+                                            ->disabled(! $canEdit),
+                                    ]),
+
+                                Section::make(__('document_renewals.settings.section_title'))
+                                    ->description(__('document_renewals.settings.section_desc'))
+                                    ->icon('heroicon-o-document-check')
+                                    ->columns(3)
+                                    ->schema([
+                                        TextInput::make(RenewalDocumentRegistry::SETTING_LEAD_DAYS)
+                                            ->label(__('document_renewals.settings.lead_days'))
+                                            ->helperText(__('document_renewals.settings.lead_days_helper'))
+                                            ->numeric()
+                                            ->integer()
+                                            ->minValue(0)
+                                            ->maxValue(365)
+                                            ->default(0)
+                                            ->disabled(! $canEdit),
+
+                                        TextInput::make(RenewalDocumentRegistry::SETTING_DEADLINE_DAYS)
+                                            ->label(__('document_renewals.settings.deadline_days'))
+                                            ->helperText(__('document_renewals.settings.deadline_days_helper'))
+                                            ->numeric()
+                                            ->integer()
+                                            ->minValue(1)
+                                            ->maxValue(180)
+                                            ->default(7)
+                                            ->disabled(! $canEdit),
+
+                                        TextInput::make(RenewalDocumentRegistry::SETTING_TASK_WEIGHT)
+                                            ->label(__('document_renewals.settings.task_weight'))
+                                            ->helperText(__('document_renewals.settings.task_weight_helper'))
+                                            ->numeric()
+                                            ->minValue(0.01)
+                                            ->maxValue(100)
+                                            ->default(10)
+                                            ->disabled(! $canEdit),
+
+                                        TextInput::make(RenewalDocumentRegistry::SETTING_LATE_COMPLETION_PERCENTAGE)
+                                            ->label(__('document_renewals.settings.late_completion_percentage'))
+                                            ->helperText(__('document_renewals.settings.late_completion_percentage_helper'))
+                                            ->numeric()
+                                            ->minValue(0)
+                                            ->maxValue(100)
+                                            ->suffix('%')
+                                            ->default(50)
+                                            ->disabled(! $canEdit),
+
+                                        DatePicker::make(RenewalDocumentRegistry::SETTING_TRACKING_START_DATE)
+                                            ->label(__('document_renewals.settings.tracking_start_date'))
+                                            ->helperText(__('document_renewals.settings.tracking_start_date_helper'))
+                                            ->nullable()
                                             ->disabled(! $canEdit),
                                     ]),
                             ]),

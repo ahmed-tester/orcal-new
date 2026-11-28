@@ -6,6 +6,7 @@ use App\Filament\Resources\Departments\Actions\DepartmentDeleteAction;
 use App\Filament\Resources\Departments\DepartmentResource;
 use App\Filament\Resources\Departments\Schemas\DepartmentForm;
 use App\Filament\Resources\Departments\Traits\HandlesDepartmentScope;
+use App\Services\Tasks\Renewals\DocumentRenewalAccessService;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Contracts\Support\Htmlable;
 
@@ -14,6 +15,19 @@ class EditDepartment extends EditRecord
     use HandlesDepartmentScope;
 
     protected static string $resource = DepartmentResource::class;
+
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $record = $this->getRecord();
+        if ($record->parent_id === null && (auth()->user()?->isSuperAdmin() ?? false)) {
+            $managerUser = $record->manager?->user;
+            $data['renewal_permissions'] = $managerUser
+                ? DocumentRenewalAccessService::directRenewalPermissions($managerUser)
+                : [];
+        }
+
+        return $data;
+    }
 
     public function getTitle(): string|Htmlable
     {
